@@ -1,0 +1,11 @@
+---
+import type { ComponentProps } from "astronaut-cms/config";
+import cmsConfig from "@/cms.config";
+
+type Props = ComponentProps<typeof cmsConfig, "Alert">;
+const { type = "info" } = Astro.props;
+---
+
+<div class:list={["alert", `alert-${type}`]}>
+  <slot />
+</div>

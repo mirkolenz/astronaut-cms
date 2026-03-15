@@ -1,0 +1,12 @@
+---
+import type { ComponentProps } from "astronaut-cms/config";
+import cmsConfig from "@/cms.config";
+
+type Props = ComponentProps<typeof cmsConfig, "Tab">;
+const { label } = Astro.props;
+---
+
+<div class="tab">
+  <h3>{label}</h3>
+  <slot />
+</div>

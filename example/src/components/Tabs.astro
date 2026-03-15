@@ -1,0 +1,10 @@
+---
+import type { ComponentProps } from "astronaut-cms/config";
+import cmsConfig from "@/cms.config";
+
+type Props = ComponentProps<typeof cmsConfig, "Tabs">;
+---
+
+<div class="tabs">
+  <slot />
+</div>
