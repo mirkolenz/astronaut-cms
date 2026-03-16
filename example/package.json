@@ -8,11 +8,11 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/mdx": "^5.0.0",
-    "@astrojs/react": "^5.0.0",
-    "astro": "^6.0.0",
+    "@astrojs/mdx": "^5",
+    "@astrojs/react": "^5",
+    "astro": "^6",
     "astronaut-cms": "file:..",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19",
+    "react-dom": "^19"
   }
 }
