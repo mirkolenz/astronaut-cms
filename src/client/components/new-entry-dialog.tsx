@@ -28,7 +28,8 @@ export function NewEntryDialog({
   const [id, setId] = useState("");
   const allFormats = collectionType === "content" ? CONTENT_FORMAT_OPTIONS : DATA_FORMAT_OPTIONS;
   const formats = useMemo(
-    () => (allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f.value)) : allFormats),
+    () =>
+      allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f.value)) : allFormats,
     [allFormats, allowedFormats],
   );
   const [format, setFormat] = useState<string>(formats[0]?.value ?? allFormats[0].value);

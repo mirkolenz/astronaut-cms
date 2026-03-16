@@ -1,53 +1,17 @@
+import { Octokit } from "@octokit/rest";
 import type { CollectionInfo, EntryMeta, MediaFile } from "@/shared/types";
 import { ALL_FORMATS } from "@/shared/types";
-import { RemoteStorageBase } from "./remote-base";
+import { StorageBase } from "./base";
 import { getToken, getFormat, stripExtension, fileToBase64, stripMediaPrefix } from "./utils";
 import type { PendingChange } from "@/client/stores/changes-store";
 
 interface GitHubConfig {
+  owner: string;
   repo: string;
   branch: string;
 }
 
-interface GitHubTreeItem {
-  path: string;
-  type: "blob" | "tree";
-  sha: string;
-  size?: number;
-}
-
-interface GitHubFileContent {
-  content: string;
-  encoding: string;
-  sha: string;
-  size: number;
-}
-
-interface TreeEntry {
-  path: string;
-  mode: string;
-  type: string;
-  sha: string | null;
-}
-
-async function githubFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const token = getToken();
-  const headers = new Headers(init?.headers);
-  headers.set("Accept", "application/vnd.github+json");
-  headers.set("Authorization", `Bearer ${token}`);
-  headers.set("X-GitHub-Api-Version", "2022-11-28");
-  const res = await fetch(url, {
-    ...init,
-    headers,
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`GitHub API ${res.status}: ${body}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-export class GitHubStorage extends RemoteStorageBase {
+export class GitHubStorage extends StorageBase {
   private config: GitHubConfig;
 
   constructor(
@@ -59,8 +23,8 @@ export class GitHubStorage extends RemoteStorageBase {
     this.config = config;
   }
 
-  private get apiBase(): string {
-    return `https://api.github.com/repos/${this.config.repo}`;
+  private get octokit() {
+    return new Octokit({ auth: getToken() });
   }
 
   async listEntries(collection: string): Promise<EntryMeta[]> {
@@ -68,22 +32,25 @@ export class GitHubStorage extends RemoteStorageBase {
 
     const prefix = `src/content/${collection}/`;
     try {
-      const { tree } = await githubFetch<{ tree: GitHubTreeItem[] }>(
-        `${this.apiBase}/git/trees/${this.config.branch}?recursive=1`,
-      );
-      return tree
+      const { data } = await this.octokit.rest.git.getTree({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        tree_sha: this.config.branch,
+        recursive: "1",
+      });
+      return data.tree
         .filter((item) => {
           if (item.type !== "blob") return false;
-          if (!item.path.startsWith(prefix)) return false;
+          if (!item.path?.startsWith(prefix)) return false;
           const ext = getFormat(item.path);
           return (ALL_FORMATS as readonly string[]).includes(ext);
         })
         .map((item) => {
-          const relativePath = item.path.slice(prefix.length);
+          const relativePath = item.path!.slice(prefix.length);
           return {
             id: stripExtension(relativePath),
             collection,
-            format: getFormat(item.path),
+            format: getFormat(item.path!),
           };
         });
     } catch {
@@ -93,22 +60,31 @@ export class GitHubStorage extends RemoteStorageBase {
 
   protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
     const path = this.getEntryPath(collection, id, ext);
-    const file = await githubFetch<GitHubFileContent>(
-      `${this.apiBase}/contents/${path}?ref=${this.config.branch}`,
-    );
-    return atob(file.content.replace(/\n/g, ""));
+    const { data } = await this.octokit.rest.repos.getContent({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      path,
+      ref: this.config.branch,
+    });
+    if (Array.isArray(data) || data.type !== "file") {
+      throw new Error(`Expected file at ${path}`);
+    }
+    return atob(data.content.replace(/\n/g, ""));
   }
 
   async listMedia(): Promise<MediaFile[]> {
     const prefix = `${this.mediaDirectory}/`;
     try {
-      const { tree } = await githubFetch<{ tree: GitHubTreeItem[] }>(
-        `${this.apiBase}/git/trees/${this.config.branch}?recursive=1`,
-      );
-      return tree
-        .filter((item) => item.type === "blob" && item.path.startsWith(prefix))
+      const { data } = await this.octokit.rest.git.getTree({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        tree_sha: this.config.branch,
+        recursive: "1",
+      });
+      return data.tree
+        .filter((item) => item.type === "blob" && item.path?.startsWith(prefix))
         .map((item) => ({
-          path: item.path,
+          path: item.path!,
           size: item.size ?? 0,
           lastModified: "",
         }));
@@ -121,10 +97,11 @@ export class GitHubStorage extends RemoteStorageBase {
     const repoPath = `${this.mediaDirectory}/${path}`;
     const content = await fileToBase64(file);
 
-    const blob = await githubFetch<{ sha: string }>(`${this.apiBase}/git/blobs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, encoding: "base64" }),
+    const { data: blob } = await this.octokit.rest.git.createBlob({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      content,
+      encoding: "base64",
     });
 
     await this.createCommit(
@@ -140,19 +117,25 @@ export class GitHubStorage extends RemoteStorageBase {
   }
 
   async renameMedia(oldPath: string, newPath: string): Promise<MediaFile> {
-    const oldFile = await githubFetch<GitHubFileContent>(
-      `${this.apiBase}/contents/${oldPath}?ref=${this.config.branch}`,
-    );
+    const { data } = await this.octokit.rest.repos.getContent({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      path: oldPath,
+      ref: this.config.branch,
+    });
+    if (Array.isArray(data) || data.type !== "file") {
+      throw new Error(`Expected file at ${oldPath}`);
+    }
 
     await this.createCommit(
       [
-        { path: newPath, mode: "100644", type: "blob", sha: oldFile.sha },
+        { path: newPath, mode: "100644", type: "blob", sha: data.sha },
         { path: oldPath, mode: "100644", type: "blob", sha: null },
       ],
       `Rename ${oldPath} to ${newPath}`,
     );
 
-    return { path: newPath, size: oldFile.size, lastModified: "" };
+    return { path: newPath, size: data.size, lastModified: "" };
   }
 
   async deleteMedia(path: string): Promise<void> {
@@ -160,7 +143,12 @@ export class GitHubStorage extends RemoteStorageBase {
   }
 
   protected async doPublish(changes: PendingChange[]): Promise<void> {
-    const treeEntries: TreeEntry[] = [];
+    const treeEntries: Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string | null;
+    }> = [];
     const processedMessages: string[] = [];
 
     for (const change of changes) {
@@ -171,10 +159,11 @@ export class GitHubStorage extends RemoteStorageBase {
         treeEntries.push({ path, mode: "100644", type: "blob", sha: null });
         processedMessages.push(change.message);
       } else if (change.content) {
-        const blob = await githubFetch<{ sha: string }>(`${this.apiBase}/git/blobs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: change.content, encoding: "utf-8" }),
+        const { data: blob } = await this.octokit.rest.git.createBlob({
+          owner: this.config.owner,
+          repo: this.config.repo,
+          content: change.content,
+          encoding: "utf-8",
         });
         treeEntries.push({ path, mode: "100644", type: "blob", sha: blob.sha });
         processedMessages.push(change.message);
@@ -186,32 +175,50 @@ export class GitHubStorage extends RemoteStorageBase {
     await this.createCommit(treeEntries, this.buildCommitMessage(processedMessages));
   }
 
-  private async createCommit(treeEntries: TreeEntry[], message: string): Promise<string> {
-    const ref = await githubFetch<{ object: { sha: string } }>(
-      `${this.apiBase}/git/ref/heads/${this.config.branch}`,
-    );
+  private async createCommit(
+    treeEntries: Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string | null;
+    }>,
+    message: string,
+  ): Promise<string> {
+    const api = this.octokit;
+
+    const { data: ref } = await api.rest.git.getRef({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      ref: `heads/${this.config.branch}`,
+    });
     const parentSha = ref.object.sha;
 
-    const parentCommit = await githubFetch<{ tree: { sha: string } }>(
-      `${this.apiBase}/git/commits/${parentSha}`,
-    );
-
-    const tree = await githubFetch<{ sha: string }>(`${this.apiBase}/git/trees`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base_tree: parentCommit.tree.sha, tree: treeEntries }),
+    const { data: parentCommit } = await api.rest.git.getCommit({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      commit_sha: parentSha,
     });
 
-    const commit = await githubFetch<{ sha: string }>(`${this.apiBase}/git/commits`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, tree: tree.sha, parents: [parentSha] }),
+    const { data: tree } = await api.rest.git.createTree({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      base_tree: parentCommit.tree.sha,
+      tree: treeEntries,
     });
 
-    await githubFetch(`${this.apiBase}/git/refs/heads/${this.config.branch}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sha: commit.sha }),
+    const { data: commit } = await api.rest.git.createCommit({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      message,
+      tree: tree.sha,
+      parents: [parentSha],
+    });
+
+    await api.rest.git.updateRef({
+      owner: this.config.owner,
+      repo: this.config.repo,
+      ref: `heads/${this.config.branch}`,
+      sha: commit.sha,
     });
 
     return commit.sha;

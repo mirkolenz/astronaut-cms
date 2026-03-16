@@ -10,6 +10,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export class LocalStorage extends StorageBase {
+  constructor(mediaDirectory: string) {
+    super({}, mediaDirectory);
+  }
+
   async listEntries(collection: string): Promise<EntryMeta[]> {
     return fetchJson(`/__cms/entries/${collection}`);
   }

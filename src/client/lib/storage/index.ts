@@ -15,8 +15,9 @@ export function initializeStorage(schemas: Record<string, CollectionInfo>): Stor
   switch (config.storageType) {
     case "github": {
       if (!config.github) throw new Error("GitHub config missing");
+      const [owner, repo] = config.github.repo.split("/");
       instance = new GitHubStorage(
-        { repo: config.github.repo, branch: config.github.branch ?? "main" },
+        { owner, repo, branch: config.github.branch ?? "main" },
         schemas,
         mediaDirectory,
       );

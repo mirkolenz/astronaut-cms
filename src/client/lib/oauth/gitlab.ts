@@ -1,5 +1,4 @@
-import { generateCodeVerifier, generateCodeChallenge } from "./pkce";
-import config from "virtual:astronaut-cms/config";
+import * as client from "openid-client";
 
 const PKCE_SESSION_KEY = "astronaut-cms:gitlab-pkce";
 
@@ -8,11 +7,7 @@ interface PkceState {
   state: string;
 }
 
-function getRedirectUri(): string {
-  return `${window.location.origin}${config.mountPoint}`;
-}
-
-function savePkceState(state: PkceState) {
+function savePkceState(state: PkceState): void {
   sessionStorage.setItem(PKCE_SESSION_KEY, JSON.stringify(state));
 }
 
@@ -26,59 +21,57 @@ function loadPkceState(): PkceState | null {
   }
 }
 
-function clearPkceState() {
+function clearPkceState(): void {
   sessionStorage.removeItem(PKCE_SESSION_KEY);
 }
 
-export async function startGitLabLogin(): Promise<void> {
-  const gitlab = config.gitlab;
-  if (!gitlab) throw new Error("GitLab config missing");
+async function getConfiguration(
+  instanceUrl: string,
+  clientId: string,
+): Promise<client.Configuration> {
+  return client.discovery(new URL(instanceUrl), clientId, undefined, client.None());
+}
 
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
-  const state = crypto.randomUUID();
+export async function startGitLabLogin(
+  clientId: string,
+  instanceUrl: string,
+  redirectUri: string,
+): Promise<void> {
+  const oidcConfig = await getConfiguration(instanceUrl, clientId);
+
+  const codeVerifier = client.randomPKCECodeVerifier();
+  const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
+  const state = client.randomState();
 
   savePkceState({ codeVerifier, state });
 
-  const params = new URLSearchParams({
-    client_id: gitlab.clientId,
-    redirect_uri: getRedirectUri(),
-    response_type: "code",
-    state,
+  const authUrl = client.buildAuthorizationUrl(oidcConfig, {
+    redirect_uri: redirectUri,
     scope: "api",
+    state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
   });
 
-  window.location.href = `${gitlab.instanceUrl}/oauth/authorize?${params.toString()}`;
+  window.location.href = authUrl.href;
 }
 
-export async function handleGitLabCallback(code: string, state: string): Promise<string> {
-  const gitlab = config.gitlab;
-  if (!gitlab) throw new Error("GitLab config missing");
-
+export async function handleGitLabCallback(
+  clientId: string,
+  instanceUrl: string,
+  callbackUrl: URL,
+): Promise<string> {
   const pkceState = loadPkceState();
   if (!pkceState) throw new Error("No PKCE state found");
-  if (pkceState.state !== state) throw new Error("State mismatch - possible CSRF");
 
-  const res = await fetch(`${gitlab.instanceUrl}/oauth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: gitlab.clientId,
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: getRedirectUri(),
-      code_verifier: pkceState.codeVerifier,
-    }),
+  const oidcConfig = await getConfiguration(instanceUrl, clientId);
+
+  const tokens = await client.authorizationCodeGrant(oidcConfig, callbackUrl, {
+    expectedState: pkceState.state,
+    pkceCodeVerifier: pkceState.codeVerifier,
+    idTokenExpected: false,
   });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`GitLab token exchange failed: ${res.status} ${body}`);
-  }
-
-  const data = (await res.json()) as { access_token: string };
   clearPkceState();
-  return data.access_token;
+  return tokens.access_token;
 }

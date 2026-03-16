@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@/client/stores/auth-store";
-import { requestDeviceCode, pollForToken } from "@/client/lib/oauth/github";
+import { initiateDeviceAuthorization } from "@/client/lib/oauth/github";
 import { startGitLabLogin, handleGitLabCallback } from "@/client/lib/oauth/gitlab";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (config.storageType !== "gitlab") return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const state = params.get("state");
     const errorParam = params.get("error");
 
     if (errorParam) {
@@ -25,10 +24,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!code || !state) return;
+    if (!code) return;
 
     setOauthPending(true);
-    handleGitLabCallback(code, state)
+    handleGitLabCallback(
+      config.gitlab!.clientId,
+      config.gitlab!.instanceUrl,
+      new URL(window.location.href),
+    )
       .then((accessToken) => {
         setToken(accessToken, "gitlab");
         // Clean query params from URL
@@ -61,7 +64,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (config.storageType === "gitlab" && config.gitlab) {
-    return <GitLabLogin oauthError={oauthError} />;
+    return (
+      <GitLabLogin
+        clientId={config.gitlab.clientId}
+        instanceUrl={config.gitlab.instanceUrl}
+        oauthError={oauthError}
+      />
+    );
   }
 
   return (
@@ -90,17 +99,12 @@ function GitHubLogin({ clientId }: { clientId: string }) {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const deviceCode = await requestDeviceCode(clientId);
-      setUserCode(deviceCode.user_code);
-      setVerificationUri(deviceCode.verification_uri);
+      const auth = await initiateDeviceAuthorization(clientId);
+      setUserCode(auth.userCode);
+      setVerificationUri(auth.verificationUri);
       setIsPolling(true);
 
-      const token = await pollForToken(
-        clientId,
-        deviceCode.device_code,
-        deviceCode.interval,
-        controller.signal,
-      );
+      const token = await auth.poll(controller.signal);
       setToken(token, "github");
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -144,13 +148,22 @@ function GitHubLogin({ clientId }: { clientId: string }) {
   );
 }
 
-function GitLabLogin({ oauthError }: { oauthError: string | null }) {
+function GitLabLogin({
+  clientId,
+  instanceUrl,
+  oauthError,
+}: {
+  clientId: string;
+  instanceUrl: string;
+  oauthError: string | null;
+}) {
   const [error, setError] = useState<string | null>(oauthError);
 
   const handleLogin = useCallback(async () => {
     setError(null);
     try {
-      await startGitLabLogin();
+      const redirectUri = `${window.location.origin}${config.mountPoint}`;
+      await startGitLabLogin(clientId, instanceUrl, redirectUri);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
