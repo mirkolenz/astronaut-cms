@@ -1,6 +1,8 @@
 import type { Plugin } from "vite";
 import type { CmsConfig } from "./types.ts";
 
+const ASTRO_IMPORT_RE = /from\s+["'](?:astro:content|astro\/loaders|astro\/zod)["']/;
+
 export function cmsVitePlugin(
   config: CmsConfig,
   userConfigPath: string | null,
@@ -35,20 +37,38 @@ export function cmsVitePlugin(
     "virtual:astronaut-cms/collections": () => generateCollectionsModule(contentConfigPath),
   };
 
+  const configFiles = new Set(
+    [contentConfigPath, userConfigPath].filter((p): p is string => p != null),
+  );
+
   return {
     name: "astronaut-cms:virtual-modules",
     resolveId(id) {
       if (id in modules) return "\0" + id;
       if (id === "astro/loaders" || id === "astro:content")
         return this.resolve("astronaut-cms/stubs");
+      if (id === "astro/zod") return this.resolve("zod/v4");
     },
     load(id) {
       if (!id.startsWith("\0")) return;
       const virtualId = id.slice(1);
       if (virtualId in modules) return modules[virtualId]();
     },
+    // In client builds, Astro's content plugin blocks astro:content imports
+    // with a "server-only module" error. Replace these imports with CMS stubs
+    // at the source level so they never reach Astro's resolveId/load hooks.
+    // The environment guard is needed so the SSR build keeps using real Astro modules.
+    transform(code, id) {
+      if (!configFiles.has(id)) return;
+      if (this.environment?.name !== "client") return;
+      if (!ASTRO_IMPORT_RE.test(code)) return;
+
+      return code
+        .replace(/from\s+["']astro:content["']/g, 'from "astronaut-cms/stubs"')
+        .replace(/from\s+["']astro\/loaders["']/g, 'from "astronaut-cms/stubs"')
+        .replace(/from\s+["']astro\/zod["']/g, 'from "zod/v4"');
+    },
     configureServer(server) {
-      // Serve an empty sourcemap for Astro's dev toolbar to suppress 404 logs
       server.middlewares.use((req, res, next) => {
         if (req.url?.includes("dev-toolbar") && req.url.endsWith(".map")) {
           res.setHeader("Content-Type", "application/json");

@@ -9,7 +9,13 @@ import {
   type MediaFile,
   type SaveEntryRequest,
 } from "@/shared/types.ts";
-import { parseContent, serializeContent } from "@/shared/content-parser.ts";
+import {
+  parseContent,
+  serializeContent,
+  parseMultiEntryFile,
+  serializeMultiEntryFile,
+  getFileExtension,
+} from "@/shared/content-parser.ts";
 import { validateSegment, validatePath, validateFormat } from "@/shared/validation.ts";
 
 type NextFn = () => void;
@@ -19,6 +25,15 @@ export interface DevMiddlewareOptions {
   mediaDir: string;
   mediaPrefix: string;
   allowedMediaExtensions: string[];
+  rootDir: string;
+  collections?: Record<
+    string,
+    {
+      loaderType: "glob" | "file";
+      loaderFileName?: string | null;
+      loaderBase?: string | null;
+    }
+  >;
 }
 
 function assertWithinBase(filePath: string, baseDir: string): void {
@@ -76,7 +91,9 @@ async function walkDir(
   return results;
 }
 
-async function listEntries(contentDir: string, collection: string): Promise<EntryMeta[]> {
+// --- Glob collection helpers (one entry = one file) ---
+
+async function listGlobEntries(contentDir: string, collection: string): Promise<EntryMeta[]> {
   const collectionDir = join(contentDir, collection);
   assertWithinBase(collectionDir, contentDir);
   const files = await walkDir(collectionDir, ALL_FORMATS);
@@ -105,7 +122,7 @@ async function findEntryFile(
   return null;
 }
 
-async function getEntry(
+async function getGlobEntry(
   contentDir: string,
   collection: string,
   id: string,
@@ -117,7 +134,7 @@ async function getEntry(
   return { id, data, body, format: found.format };
 }
 
-async function saveEntry(
+async function saveGlobEntry(
   contentDir: string,
   collection: string,
   id: string,
@@ -130,11 +147,115 @@ async function saveEntry(
   await writeFile(filePath, content, "utf-8");
 }
 
-async function deleteEntry(contentDir: string, collection: string, id: string): Promise<void> {
+async function deleteGlobEntry(
+  contentDir: string,
+  collection: string,
+  id: string,
+): Promise<void> {
   const found = await findEntryFile(contentDir, collection, id);
   if (!found) throw new Error(`Entry ${collection}/${id} not found`);
   await unlink(found.filePath);
 }
+
+// --- File collection helpers (all entries in a single file) ---
+
+function resolveFilePath(rootDir: string, loaderFileName: string): string {
+  const filePath = join(rootDir, loaderFileName);
+  assertWithinBase(filePath, rootDir);
+  return filePath;
+}
+
+function getFileFormat(loaderFileName: string): string {
+  return getFileExtension(loaderFileName);
+}
+
+async function readFileCollection(filePath: string, format: string) {
+  try {
+    const raw = await readFile(filePath, "utf-8");
+    return parseMultiEntryFile(raw, format);
+  } catch {
+    return { entries: {} as Record<string, Record<string, unknown>>, layout: "object" as const };
+  }
+}
+
+async function listFileEntries(
+  rootDir: string,
+  collection: string,
+  loaderFileName: string,
+): Promise<EntryMeta[]> {
+  const filePath = resolveFilePath(rootDir, loaderFileName);
+  const format = getFileFormat(loaderFileName);
+  const { entries } = await readFileCollection(filePath, format);
+  return Object.keys(entries).map((id) => ({
+    id,
+    collection,
+    format,
+  }));
+}
+
+async function getFileEntry(
+  rootDir: string,
+  id: string,
+  loaderFileName: string,
+): Promise<EntryContent | null> {
+  const filePath = resolveFilePath(rootDir, loaderFileName);
+  const format = getFileFormat(loaderFileName);
+  const { entries } = await readFileCollection(filePath, format);
+  const entry = entries[id];
+  if (!entry) return null;
+  return { id, data: entry, body: "", format };
+}
+
+async function saveFileEntry(
+  rootDir: string,
+  id: string,
+  data: Record<string, unknown>,
+  loaderFileName: string,
+): Promise<void> {
+  const filePath = resolveFilePath(rootDir, loaderFileName);
+  const format = getFileFormat(loaderFileName);
+  const { entries, layout } = await readFileCollection(filePath, format);
+  entries[id] = data;
+  const content = serializeMultiEntryFile(entries, format, layout);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, content, "utf-8");
+}
+
+async function deleteFileEntry(
+  rootDir: string,
+  id: string,
+  loaderFileName: string,
+): Promise<void> {
+  const filePath = resolveFilePath(rootDir, loaderFileName);
+  const format = getFileFormat(loaderFileName);
+  const { entries, layout } = await readFileCollection(filePath, format);
+  if (!(id in entries)) throw new Error(`Entry ${id} not found in ${loaderFileName}`);
+  delete entries[id];
+  const content = serializeMultiEntryFile(entries, format, layout);
+  await writeFile(filePath, content, "utf-8");
+}
+
+async function reorderFileEntries(
+  rootDir: string,
+  ids: string[],
+  loaderFileName: string,
+): Promise<void> {
+  const filePath = resolveFilePath(rootDir, loaderFileName);
+  const format = getFileFormat(loaderFileName);
+  const { entries, layout } = await readFileCollection(filePath, format);
+  const reordered: Record<string, Record<string, unknown>> = {};
+  for (const id of ids) {
+    if (id in entries) reordered[id] = entries[id];
+  }
+  // Append any entries not in the provided order (safety net)
+  for (const id of Object.keys(entries)) {
+    if (!(id in reordered)) reordered[id] = entries[id];
+  }
+  const content = serializeMultiEntryFile(reordered, format, layout);
+  await writeFile(filePath, content, "utf-8");
+}
+
+// --- Media helpers ---
 
 async function listMedia(mediaDir: string, extensions: string[]): Promise<MediaFile[]> {
   const formats = extensions.map((e) => e.replace(/^\./, ""));
@@ -193,11 +314,22 @@ async function deleteMedia(mediaDir: string, filePath: string): Promise<void> {
   await unlink(fullPath);
 }
 
+// --- Middleware ---
+
 export function createDevMiddleware(
   server: ViteDevServer,
   options: DevMiddlewareOptions,
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
-  const { contentDir, mediaDir, mediaPrefix, allowedMediaExtensions } = options;
+  const { contentDir, mediaDir, mediaPrefix, allowedMediaExtensions, rootDir, collections } =
+    options;
+
+  function isFileCollection(collection: string): boolean {
+    return collections?.[collection]?.loaderType === "file";
+  }
+
+  function getLoaderFileName(collection: string): string | null {
+    return collections?.[collection]?.loaderFileName ?? null;
+  }
 
   return async (req, res, next) => {
     const url = req.url ?? "";
@@ -226,14 +358,35 @@ export function createDevMiddleware(
         const collection = slashIndex === -1 ? rest : rest.slice(0, slashIndex);
         const entryId = slashIndex === -1 ? "" : rest.slice(slashIndex + 1);
 
+        const isFile = isFileCollection(collection);
+        const loaderFileName = getLoaderFileName(collection);
+
         if (req.method === "GET" && !entryId) {
-          const entries = await listEntries(contentDir, collection);
-          sendJson(res, entries);
+          if (isFile && loaderFileName) {
+            const entries = await listFileEntries(rootDir, collection, loaderFileName);
+            sendJson(res, entries);
+          } else {
+            const entries = await listGlobEntries(contentDir, collection);
+            sendJson(res, entries);
+          }
+          return;
+        }
+
+        if (req.method === "GET" && entryId === "_layout" && isFile && loaderFileName) {
+          const filePath = resolveFilePath(rootDir, loaderFileName);
+          const fmt = getFileFormat(loaderFileName);
+          const { layout } = await readFileCollection(filePath, fmt);
+          sendJson(res, { layout });
           return;
         }
 
         if (req.method === "GET" && entryId) {
-          const entry = await getEntry(contentDir, collection, entryId);
+          let entry: EntryContent | null;
+          if (isFile && loaderFileName) {
+            entry = await getFileEntry(rootDir, entryId, loaderFileName);
+          } else {
+            entry = await getGlobEntry(contentDir, collection, entryId);
+          }
           if (!entry) {
             sendError(res, `Entry ${collection}/${entryId} not found`, 404);
             return;
@@ -242,15 +395,30 @@ export function createDevMiddleware(
           return;
         }
 
+        if (req.method === "PATCH" && entryId === "_reorder" && isFile && loaderFileName) {
+          const body = await readJsonBody<{ ids: string[] }>(req);
+          await reorderFileEntries(rootDir, body.ids, loaderFileName);
+          sendJson(res, { ok: true });
+          return;
+        }
+
         if (req.method === "PUT" && entryId) {
           const body = await readJsonBody<SaveEntryRequest>(req);
-          await saveEntry(contentDir, collection, entryId, body);
+          if (isFile && loaderFileName) {
+            await saveFileEntry(rootDir, entryId, body.data, loaderFileName);
+          } else {
+            await saveGlobEntry(contentDir, collection, entryId, body);
+          }
           sendJson(res, { ok: true });
           return;
         }
 
         if (req.method === "DELETE" && entryId) {
-          await deleteEntry(contentDir, collection, entryId);
+          if (isFile && loaderFileName) {
+            await deleteFileEntry(rootDir, entryId, loaderFileName);
+          } else {
+            await deleteGlobEntry(contentDir, collection, entryId);
+          }
           sendJson(res, { ok: true });
           return;
         }
@@ -273,25 +441,62 @@ export function createDevMiddleware(
         server.watcher.unwatch(contentDir);
 
         try {
+          // Group file collection changes by collection to batch writes
+          const fileCollectionChanges: Record<
+            string,
+            Array<(typeof body.changes)[number]>
+          > = {};
+
           for (const change of body.changes) {
             validateSegment(change.collection, "collection");
             validatePath(change.entryId, "entryId");
             validateFormat(change.format);
 
-            if (change.action === "delete") {
-              await deleteEntry(contentDir, change.collection, change.entryId);
+            const loaderFileName = getLoaderFileName(change.collection);
+
+            if (isFileCollection(change.collection) && loaderFileName) {
+              if (!fileCollectionChanges[change.collection]) {
+                fileCollectionChanges[change.collection] = [];
+              }
+              fileCollectionChanges[change.collection].push(change);
             } else {
-              const filePath = join(
-                contentDir,
-                change.collection,
-                `${change.entryId}.${change.format}`,
-              );
-              assertWithinBase(filePath, contentDir);
-              await mkdir(join(contentDir, change.collection), {
-                recursive: true,
-              });
-              await writeFile(filePath, change.content ?? "", "utf-8");
+              // Glob collection: per-file writes
+              if (change.action === "delete") {
+                await deleteGlobEntry(contentDir, change.collection, change.entryId);
+              } else {
+                const filePath = join(
+                  contentDir,
+                  change.collection,
+                  `${change.entryId}.${change.format}`,
+                );
+                assertWithinBase(filePath, contentDir);
+                await mkdir(join(contentDir, change.collection), {
+                  recursive: true,
+                });
+                await writeFile(filePath, change.content ?? "", "utf-8");
+              }
             }
+          }
+
+          // Apply batched file collection changes
+          for (const [collection, changes] of Object.entries(fileCollectionChanges)) {
+            const loaderFileName = getLoaderFileName(collection)!;
+            const filePath = resolveFilePath(rootDir, loaderFileName);
+            const format = getFileFormat(loaderFileName);
+            const { entries, layout } = await readFileCollection(filePath, format);
+
+            for (const change of changes) {
+              if (change.action === "delete") {
+                delete entries[change.entryId];
+              } else if (change.content) {
+                const { data } = parseContent(change.content, change.format);
+                entries[change.entryId] = data;
+              }
+            }
+
+            const content = serializeMultiEntryFile(entries, format, layout);
+            await mkdir(dirname(filePath), { recursive: true });
+            await writeFile(filePath, content, "utf-8");
           }
         } finally {
           // Resume watching after writes have settled

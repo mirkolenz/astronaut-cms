@@ -139,7 +139,7 @@ function MediaLibrary() {
   }
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Media Library</h1>
         <label className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700">

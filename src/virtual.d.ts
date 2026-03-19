@@ -30,6 +30,7 @@ declare module "virtual:astronaut-cms/collections" {
       loaderPattern: string | string[] | null;
       loaderBase: string | null;
       loaderFileName: string | null;
+      loaderType: "glob" | "file";
     }
   >;
   export default collections;

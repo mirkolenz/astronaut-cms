@@ -41,7 +41,7 @@ export function useEntries(collection: string) {
   });
 }
 
-export function useEntry(collection: string, id: string) {
+export function useEntry(collection: string, id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["cms", "entry", collection, id],
     queryFn: async () => {
@@ -58,7 +58,7 @@ export function useEntry(collection: string, id: string) {
 
       return getStorage().getEntry(collection, id);
     },
-    enabled: !!collection && !!id,
+    enabled: (options?.enabled ?? true) && !!collection && !!id,
   });
 }
 
@@ -87,6 +87,37 @@ export function useCreateEntry(collection: string) {
 export function useDeleteEntry(collection: string) {
   return useMutation({
     mutationFn: (id: string) => getStorage().deleteEntry(collection, id),
+  });
+}
+
+export function useFileLayout(collection: string) {
+  return useQuery({
+    queryKey: ["cms", "file-layout", collection],
+    queryFn: async () => {
+      const res = await fetch(`/__cms/entries/${collection}/_layout`);
+      if (!res.ok) return "object" as const;
+      const data = (await res.json()) as { layout: "array" | "object" };
+      return data.layout;
+    },
+    staleTime: Infinity,
+    enabled: !!collection,
+  });
+}
+
+export function useReorderFileEntries(collection: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await fetch(`/__cms/entries/${collection}/_reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error(`Reorder failed: ${res.status}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["cms", "entries", collection] });
+    },
   });
 }
 

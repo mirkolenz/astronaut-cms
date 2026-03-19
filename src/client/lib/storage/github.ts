@@ -30,6 +30,10 @@ export class GitHubStorage extends StorageBase {
   async listEntries(collection: string): Promise<EntryMeta[]> {
     if (!this.schemas[collection]) return [];
 
+    if (this.isFileCollection(collection)) {
+      return this.listFileCollectionEntries(collection);
+    }
+
     const prefix = `src/content/${collection}/`;
     try {
       const { data } = await this.octokit.rest.git.getTree({
@@ -60,6 +64,10 @@ export class GitHubStorage extends StorageBase {
 
   protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
     const path = this.getEntryPath(collection, id, ext);
+    return this.fetchFileContent(path);
+  }
+
+  protected async fetchFileContent(path: string): Promise<string> {
     const { data } = await this.octokit.rest.repos.getContent({
       owner: this.config.owner,
       repo: this.config.repo,
@@ -151,8 +159,10 @@ export class GitHubStorage extends StorageBase {
     }> = [];
     const processedMessages: string[] = [];
 
-    for (const change of changes) {
-      if (!this.schemas[change.collection]) continue;
+    const { globChanges, fileCollections } = this.groupChangesForPublish(changes);
+
+    // Glob collection changes: one tree entry per file
+    for (const change of globChanges) {
       const path = this.getEntryPath(change.collection, change.entryId, change.format);
 
       if (change.action === "delete") {
@@ -168,6 +178,19 @@ export class GitHubStorage extends StorageBase {
         treeEntries.push({ path, mode: "100644", type: "blob", sha: blob.sha });
         processedMessages.push(change.message);
       }
+    }
+
+    // File collection changes: merge into single file per collection
+    for (const [collection, colChanges] of Object.entries(fileCollections)) {
+      const result = await this.mergeFileCollectionChanges(collection, colChanges);
+      const { data: blob } = await this.octokit.rest.git.createBlob({
+        owner: this.config.owner,
+        repo: this.config.repo,
+        content: result.content,
+        encoding: "utf-8",
+      });
+      treeEntries.push({ path: result.path, mode: "100644", type: "blob", sha: blob.sha });
+      processedMessages.push(...result.messages);
     }
 
     if (treeEntries.length === 0) return;

@@ -33,6 +33,10 @@ export class GitLabStorage extends StorageBase {
   async listEntries(collection: string): Promise<EntryMeta[]> {
     if (!this.schemas[collection]) return [];
 
+    if (this.isFileCollection(collection)) {
+      return this.listFileCollectionEntries(collection);
+    }
+
     const prefix = `src/content/${collection}/`;
     try {
       const items = await this.api.Repositories.allRepositoryTrees(this.config.project, {
@@ -61,6 +65,10 @@ export class GitLabStorage extends StorageBase {
 
   protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
     const filePath = this.getEntryPath(collection, id, ext);
+    return this.fetchFileContent(filePath);
+  }
+
+  protected async fetchFileContent(filePath: string): Promise<string> {
     const result = await this.api.RepositoryFiles.showRaw(
       this.config.project,
       filePath,
@@ -149,22 +157,45 @@ export class GitLabStorage extends StorageBase {
   }
 
   protected async doPublish(changes: PendingChange[]): Promise<void> {
-    const actions = changes.map((change) => {
+    const actions: Array<{
+      action: "create" | "update" | "delete";
+      filePath: string;
+      content?: string;
+    }> = [];
+    const messages: string[] = [];
+
+    const { globChanges, fileCollections } = this.groupChangesForPublish(changes);
+
+    // Glob collection changes: one action per file
+    for (const change of globChanges) {
       const filePath = this.getEntryPath(change.collection, change.entryId, change.format);
 
       if (change.action === "delete") {
-        return { action: "delete" as const, filePath };
+        actions.push({ action: "delete", filePath });
+      } else {
+        actions.push({
+          action: change.action === "create" ? "create" : "update",
+          filePath,
+          content: change.content ?? "",
+        });
       }
+      messages.push(change.message);
+    }
 
-      return {
-        action: change.action === "create" ? ("create" as const) : ("update" as const),
-        filePath,
-        content: change.content ?? "",
-      };
-    });
+    // File collection changes: merge into single file per collection
+    for (const [collection, colChanges] of Object.entries(fileCollections)) {
+      const result = await this.mergeFileCollectionChanges(collection, colChanges);
+      actions.push({
+        action: result.fileExists ? "update" : "create",
+        filePath: result.path,
+        content: result.content,
+      });
+      messages.push(...result.messages);
+    }
 
-    const commitMessage = this.buildCommitMessage(changes.map((c) => c.message));
+    if (actions.length === 0) return;
 
+    const commitMessage = this.buildCommitMessage(messages);
     await this.api.Commits.create(this.config.project, this.config.branch, commitMessage, actions);
   }
 }

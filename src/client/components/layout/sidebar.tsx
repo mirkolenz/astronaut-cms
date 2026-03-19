@@ -35,7 +35,11 @@ export function Sidebar() {
               className={navLinkClasses}
             >
               <span className="text-xs text-gray-400">
-                {col.type === "content" ? "\u{1F4DD}" : "\u{1F4CA}"}
+                {col.loaderType === "file"
+                  ? "\u{1F4C4}"
+                  : col.type === "content"
+                    ? "\u{1F4DD}"
+                    : "\u{1F4CA}"}
               </span>
               {toLabel(name)}
             </Link>

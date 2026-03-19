@@ -46,8 +46,8 @@ function MdxPreview({ body }: { body: string }) {
   return (
     <PreviewShell>
       <div className="space-y-4 p-4">
-        {blocks.map((block) => (
-          <BlockPreview key={block.id} block={block} />
+        {blocks.map((block, index) => (
+          <BlockPreview key={index} block={block} />
         ))}
         {blocks.length === 0 && <p className="text-sm text-gray-400">No content to preview.</p>}
       </div>
@@ -63,7 +63,7 @@ function PreviewShell({
   isRendering?: boolean;
 }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-md border border-gray-300 dark:border-gray-600">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-gray-300 dark:border-gray-600">
       <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800">
         <span className="text-xs font-medium text-gray-500">Preview</span>
         {isRendering && <div className="h-0.5 w-12 animate-pulse rounded bg-blue-400" />}
@@ -111,8 +111,8 @@ function ComponentPreview({ block }: { block: ComponentBlock }) {
       {childrenMode === "components" && (
         <div className="p-2.5">
           <div className="space-y-2">
-            {significant.map((child) => (
-              <BlockPreview key={child.id} block={child} />
+            {significant.map((child, index) => (
+              <BlockPreview key={index} block={child} />
             ))}
           </div>
         </div>

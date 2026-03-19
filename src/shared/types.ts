@@ -1,5 +1,5 @@
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
-export const DATA_FORMATS = ["json", "yaml", "yml"] as const;
+export const DATA_FORMATS = ["json", "yaml", "yml", "toml"] as const;
 export const ALL_FORMATS = [...CONTENT_FORMATS, ...DATA_FORMATS] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
 export type DataFormat = (typeof DATA_FORMATS)[number];
@@ -7,10 +7,13 @@ export type EntryFormat = (typeof ALL_FORMATS)[number];
 
 export type CollectionType = "content" | "data";
 export type StorageType = "local" | "github" | "gitlab";
+export type FileEntryLayout = "array" | "object";
 
 export interface CollectionInfo {
   name: string;
   type: CollectionType;
+  loaderType?: "glob" | "file";
+  loaderFileName?: string | null;
 }
 
 export interface EntryMeta {

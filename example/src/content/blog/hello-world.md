@@ -2,6 +2,7 @@
 title: Hello World
 description: A first blog post
 date: 2024-01-01
+author: alice
 ---
 
 # Hello World

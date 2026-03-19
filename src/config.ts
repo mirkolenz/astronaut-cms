@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { PluggableList } from "unified";
-import { type z, z as zod } from "zod/v4";
+import { type z, z as zod } from "astro/zod";
 
 export type ChildrenConfig = "markdown" | Record<string, ComponentDefinition>;
 

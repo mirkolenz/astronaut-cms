@@ -70,8 +70,18 @@ function flattenAssetFields(defs: Record<string, LoadedComponentDef>, result: As
   }
 }
 
+function createCmsJiti(rootDir: string) {
+  return createJiti(rootDir, {
+    alias: {
+      "astro:content": "astronaut-cms/stubs",
+      "astro/loaders": "astronaut-cms/stubs",
+      "astro/zod": "zod/v4",
+    },
+  });
+}
+
 function extractAssetFields(userConfigPath: string, rootDir: string): AssetFieldsMap {
-  const jiti = createJiti(rootDir);
+  const jiti = createCmsJiti(rootDir);
   const userConfig = (
     jiti(userConfigPath) as {
       default: {
@@ -85,10 +95,50 @@ function extractAssetFields(userConfigPath: string, rootDir: string): AssetField
   return result;
 }
 
+interface LoadedCollectionMeta {
+  loaderType: "glob" | "file";
+  loaderFileName?: string | null;
+  loaderBase?: string | null;
+}
+
+function extractCollectionMeta(
+  contentConfigPath: string,
+  rootDir: string,
+): Record<string, LoadedCollectionMeta> | null {
+  try {
+    const jiti = createCmsJiti(rootDir);
+    const mod = jiti(contentConfigPath) as {
+      collections?: Record<
+        string,
+        {
+          loader?: {
+            __cmsFileName?: string | null;
+            __cmsBase?: string | null;
+          };
+        }
+      >;
+    };
+    const collections = mod.collections ?? {};
+    const result: Record<string, LoadedCollectionMeta> = {};
+    for (const [name, col] of Object.entries(collections)) {
+      result[name] = {
+        loaderType: col.loader?.__cmsFileName != null ? "file" : "glob",
+        loaderFileName: col.loader?.__cmsFileName ?? null,
+        loaderBase: col.loader?.__cmsBase ?? null,
+      };
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   const mountPoint = config.mountPoint ?? "/admin";
   let contentDir = "";
   let mediaDir = "";
+  let rootDir = "";
+  let collectionsMeta: Record<string, LoadedCollectionMeta> | null = null;
 
   return {
     name: "astronaut-cms",
@@ -100,7 +150,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         updateConfig,
         logger,
       }) => {
-        const rootDir = fileURLToPath(astroConfig.root);
+        rootDir = fileURLToPath(astroConfig.root);
         contentDir = join(rootDir, "src/content");
         mediaDir = join(rootDir, config.media?.directory ?? "src/assets");
 
@@ -143,6 +193,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const contentConfigPath = findConfig(rootDir, "src/content.config");
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
+          collectionsMeta = extractCollectionMeta(contentConfigPath, rootDir);
         } else {
           logger.warn("No content.config found — collections will be empty");
         }
@@ -193,6 +244,8 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             mediaDir,
             mediaPrefix: config.media?.directory ?? "src/assets",
             allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
+            rootDir,
+            collections: collectionsMeta ?? undefined,
           }),
         );
       },

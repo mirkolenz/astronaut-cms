@@ -152,8 +152,8 @@ function EntryEditor() {
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
-      <div>
-        <div className="mb-4 flex items-center justify-between">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-semibold">
             {entryId}
             <span className="ml-2 text-sm font-normal text-gray-400">.{entry.format}</span>
@@ -197,9 +197,13 @@ function EntryEditor() {
         {/* onChangeCapture catches user interaction with any input/textarea/select */}
         <div
           onChangeCapture={() => setIsDirty(true)}
-          className={showPreview && isContentFormat ? "grid grid-cols-2 gap-4" : ""}
+          className={
+            showPreview && isContentFormat
+              ? "grid min-h-0 flex-1 grid-cols-2 gap-4"
+              : "min-h-0 flex-1 overflow-y-auto"
+          }
         >
-          <div>
+          <div className={showPreview && isContentFormat ? "min-h-0 overflow-y-auto" : ""}>
             {showRaw ? (
               <div className="space-y-4">
                 <div>

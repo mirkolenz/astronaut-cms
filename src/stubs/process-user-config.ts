@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { PluggableList } from "unified";
-import type { z } from "zod/v4";
+import type { z } from "astro/zod";
 
 interface RawComponentDef {
   props?: z.ZodType;

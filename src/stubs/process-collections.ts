@@ -1,4 +1,4 @@
-import { z } from "zod/v4";
+import { z } from "astro/zod";
 
 interface RawCollection {
   schema?: unknown;
@@ -18,6 +18,7 @@ export function processCollections(rawCollections: Record<string, RawCollection>
       schema = schema({
         image: () => z.string().meta({ "x-cms-image": true }),
         file: () => z.string().meta({ "x-cms-file": true }),
+        reference: (collection: string) => z.string().meta({ "x-cms-reference": collection }),
       });
     }
     result[name] = {
@@ -27,6 +28,7 @@ export function processCollections(rawCollections: Record<string, RawCollection>
       loaderPattern: col.loader?.__cmsPattern ?? null,
       loaderBase: col.loader?.__cmsBase ?? null,
       loaderFileName: col.loader?.__cmsFileName ?? null,
+      loaderType: col.loader?.__cmsFileName != null ? "file" : "glob",
     };
   }
   return result;

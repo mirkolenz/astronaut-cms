@@ -7,6 +7,8 @@ import { ErrorBanner } from "@/client/components/error-banner";
 import { toast } from "@/client/components/toast";
 import { toLabel } from "@/client/lib/to-label";
 import { extractFormatsFromLoader } from "@/shared/types";
+import { FileCollectionEditor } from "@/client/components/file-collection-editor";
+import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({
   component: CollectionPage,
@@ -14,10 +16,26 @@ export const Route = createFileRoute("/collections/$collection/")({
 
 function CollectionPage() {
   const { collection } = Route.useParams();
-  const navigate = useNavigate();
-  const { data: entries, isLoading, error } = useEntries(collection);
   const { data: collections } = useCollections();
   const collectionInfo = collections?.[collection];
+  const meta = collectionMeta[collection];
+
+  if (meta?.loaderType === "file") {
+    return <FileCollectionEditor collection={collection} />;
+  }
+
+  return <GlobCollectionPage collection={collection} collectionInfo={collectionInfo} />;
+}
+
+function GlobCollectionPage({
+  collection,
+  collectionInfo,
+}: {
+  collection: string;
+  collectionInfo?: (typeof collectionMeta)[string];
+}) {
+  const navigate = useNavigate();
+  const { data: entries, isLoading, error } = useEntries(collection);
   const createMutation = useCreateEntry(collection);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const allowedFormats = useMemo(
@@ -70,7 +88,7 @@ function CollectionPage() {
   }
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>

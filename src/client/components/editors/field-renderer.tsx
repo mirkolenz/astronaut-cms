@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { getAssetType } from "@/shared/schema-utils";
+import { useState, useMemo } from "react";
+import { getAssetType, getReferenceCollection } from "@/shared/schema-utils";
 import { useEntryContext } from "@/client/lib/entry-context";
 import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@/client/lib/asset-utils";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { useEntries } from "@/client/queries/use-entries";
 
 /**
  * Runtime interface for Zod schemas as provided by astro/zod.
@@ -120,6 +121,19 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
   if (assetType === "file") {
     return (
       <FileField name={name} value={asString(value)} onChange={onChange} required={required} />
+    );
+  }
+
+  const refCollection = getReferenceCollection(schema);
+  if (refCollection) {
+    return (
+      <ReferenceField
+        name={name}
+        value={asString(value)}
+        onChange={onChange}
+        required={required}
+        collection={refCollection}
+      />
     );
   }
 
@@ -526,6 +540,95 @@ function FileField({
 }) {
   return (
     <AssetField name={name} value={value} onChange={onChange} required={required} label="file" />
+  );
+}
+
+function ReferenceField({
+  name,
+  value,
+  onChange,
+  required,
+  collection,
+}: {
+  name: string;
+  value: string;
+  onChange: (v: unknown) => void;
+  required?: boolean;
+  collection: string;
+}) {
+  const { data: entries, isLoading } = useEntries(collection);
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!entries) return [];
+    if (!query) return entries;
+    const lower = query.toLowerCase();
+    return entries.filter((e) => e.id.toLowerCase().includes(lower));
+  }, [entries, query]);
+
+  const handleSelect = (id: string) => {
+    onChange(id);
+    setQuery("");
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <label className={labelClass}>
+        {name}
+        {required && <span className="text-red-500"> *</span>}
+        <span className="ml-1 text-xs text-gray-400">(ref: {collection})</span>
+      </label>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={isOpen ? query : value ?? ""}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!isOpen) setIsOpen(true);
+            }}
+            onFocus={() => {
+              setQuery(value ?? "");
+              setIsOpen(true);
+            }}
+            onBlur={() => {
+              // Delay to allow click on dropdown item
+              setTimeout(() => setIsOpen(false), 200);
+            }}
+            placeholder={isLoading ? "Loading..." : `Select from ${collection}`}
+            className={inputClass}
+          />
+          {isOpen && filtered.length > 0 && (
+            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-900">
+              {filtered.map((entry) => (
+                <li
+                  key={entry.id}
+                  onMouseDown={() => handleSelect(entry.id)}
+                  className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-950 ${
+                    entry.id === value
+                      ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+                      : "text-gray-900 dark:text-gray-100"
+                  }`}
+                >
+                  {entry.id}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {value && !required && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-400 hover:text-red-600 dark:border-gray-600"
+          >
+            &times;
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

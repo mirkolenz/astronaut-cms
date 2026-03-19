@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@source "../client/";
+@source "../../src/client/";
 
 dialog[open] {
   margin: auto;
