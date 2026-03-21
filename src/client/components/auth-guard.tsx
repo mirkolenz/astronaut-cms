@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@/client/stores/auth-store";
 import { initiateDeviceAuthorization } from "@/client/lib/oauth/github";
 import { startGitLabLogin, handleGitLabCallback } from "@/client/lib/oauth/gitlab";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const token = useAuthStore((s) => s.token);
   const setToken = useAuthStore((s) => s.setToken);
   const [oauthError, setOauthError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (oauthPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-gray-500">Completing authentication...</p>
+        <p className="text-sm text-gray-500">{t($ => $.auth.completingAuth)}</p>
       </div>
     );
   }
@@ -75,12 +77,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-gray-500">Unsupported storage type: {config.storageType}</p>
+      <p className="text-gray-500">{t($ => $.auth.unsupportedStorage, { type: config.storageType })}</p>
     </div>
   );
 }
 
 function GitHubLogin({ clientId }: { clientId: string }) {
+  const { t } = useTranslation();
   const setToken = useAuthStore((s) => s.setToken);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
@@ -114,11 +117,11 @@ function GitHubLogin({ clientId }: { clientId: string }) {
   }, [clientId, setToken]);
 
   return (
-    <LoginShell title="Sign in with GitHub" error={error}>
+    <LoginShell title={t($ => $.auth.signInGitHub)} error={error}>
       {userCode && verificationUri ? (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Enter this code at{" "}
+            {t($ => $.auth.enterCodeAt)}{" "}
             <a
               href={verificationUri}
               target="_blank"
@@ -132,7 +135,7 @@ function GitHubLogin({ clientId }: { clientId: string }) {
             {userCode}
           </div>
           {isPolling && (
-            <p className="text-center text-xs text-gray-400">Waiting for authorization...</p>
+            <p className="text-center text-xs text-gray-400">{t($ => $.auth.waitingAuth)}</p>
           )}
         </div>
       ) : (
@@ -141,7 +144,7 @@ function GitHubLogin({ clientId }: { clientId: string }) {
           disabled={isPolling}
           className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
         >
-          Sign in with GitHub
+          {t($ => $.auth.signInGitHub)}
         </button>
       )}
     </LoginShell>
@@ -157,6 +160,7 @@ function GitLabLogin({
   instanceUrl: string;
   oauthError: string | null;
 }) {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(oauthError);
 
   const handleLogin = useCallback(async () => {
@@ -170,12 +174,12 @@ function GitLabLogin({
   }, []);
 
   return (
-    <LoginShell title="Sign in with GitLab" error={error}>
+    <LoginShell title={t($ => $.auth.signInGitLab)} error={error}>
       <button
         onClick={() => void handleLogin()}
         className="w-full rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
       >
-        Sign in with GitLab
+        {t($ => $.auth.signInGitLab)}
       </button>
     </LoginShell>
   );
@@ -190,10 +194,11 @@ function LoginShell({
   error: string | null;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <h1 className="mb-1 text-lg font-semibold">Astronaut CMS</h1>
+        <h1 className="mb-1 text-lg font-semibold">{t($ => $.layout.appName)}</h1>
         <p className="mb-4 text-sm text-gray-500">{title}</p>
 
         {error && (

@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useCollections } from "@/client/queries/use-collections";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { toLabel } from "@/client/lib/to-label";
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const { t } = useTranslation();
   const { data: collections, isLoading, error } = useCollections();
 
   if (isLoading) {
@@ -24,21 +26,21 @@ function Dashboard() {
   }
 
   if (error) {
-    return <ErrorBanner>Failed to load collections: {error.message}</ErrorBanner>;
+    return <ErrorBanner>{t($ => $.dashboard.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   if (!collections || Object.keys(collections).length === 0) {
     return (
       <div className="text-center text-gray-500">
-        <p className="text-lg">No collections found</p>
-        <p className="mt-1 text-sm">Define collections in your content.config.ts</p>
+        <p className="text-lg">{t($ => $.dashboard.noCollections)}</p>
+        <p className="mt-1 text-sm">{t($ => $.dashboard.defineCollections)}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <h1 className="mb-4 text-xl font-semibold">Collections</h1>
+      <h1 className="mb-4 text-xl font-semibold">{t($ => $.layout.collections)}</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(collections).map(([name, col]) => (
           <Link
@@ -54,10 +56,10 @@ function Dashboard() {
               </h2>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              {col.type === "content" ? "Content" : "Data"} collection
+              {col.type === "content" ? t($ => $.dashboard.contentCollection) : t($ => $.dashboard.dataCollection)}
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              {Object.keys(col.schema.shape ?? {}).length} fields
+              {t($ => $.dashboard.fields, { count: Object.keys(col.schema.shape ?? {}).length })}
             </p>
           </Link>
         ))}

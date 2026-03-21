@@ -14,6 +14,7 @@ export function cmsVitePlugin(
     mountPoint: config.mountPoint ?? "/admin",
     storageType: storage.type,
     mediaDirectory: config.media?.directory ?? "src/assets",
+    locale: config.locale ?? "en",
   };
 
   if (storage.type === "github") {

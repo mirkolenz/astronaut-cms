@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useDialog } from "@/client/lib/use-dialog";
 
 interface ConfirmDialogProps {
@@ -14,12 +15,14 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Confirm",
+  confirmLabel,
   variant = "default",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const dialogRef = useDialog(open);
+  const resolvedConfirmLabel = confirmLabel ?? t($ => $.common.confirm);
 
   if (!open) return null;
 
@@ -37,7 +40,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Cancel
+            {t($ => $.common.cancel)}
           </button>
           <button
             onClick={onConfirm}
@@ -45,7 +48,7 @@ export function ConfirmDialog({
               variant === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

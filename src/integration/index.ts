@@ -10,7 +10,7 @@ import { createJiti } from "jiti";
 import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
 import { getAssetType } from "@/shared/schema-utils.ts";
 
-export type { CmsConfig, StorageConfig, MediaConfig } from "./types.ts";
+export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export { defineConfig, defineComponent, image, file } from "@/config.ts";
 export type {
   CmsUserConfig,

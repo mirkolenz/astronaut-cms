@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 
 interface BlockFrameProps {
@@ -20,6 +21,7 @@ export function BlockFrame({
   onMoveDown,
   children,
 }: BlockFrameProps) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -37,7 +39,7 @@ export function BlockFrame({
               type="button"
               onClick={onMoveUp}
               className="rounded px-1 py-0.5 text-xs text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-              title="Move up"
+              title={t($ => $.editors.moveUp)}
             >
               &uarr;
             </button>
@@ -47,7 +49,7 @@ export function BlockFrame({
               type="button"
               onClick={onMoveDown}
               className="rounded px-1 py-0.5 text-xs text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-              title="Move down"
+              title={t($ => $.editors.moveDown)}
             >
               &darr;
             </button>
@@ -57,23 +59,23 @@ export function BlockFrame({
             onClick={() => setCollapsed(!collapsed)}
             className="rounded px-1 py-0.5 text-xs text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
           >
-            {collapsed ? "Expand" : "Collapse"}
+            {collapsed ? t($ => $.editors.expand) : t($ => $.editors.collapse)}
           </button>
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
             className="rounded px-1 py-0.5 text-xs text-red-500 hover:bg-red-100 dark:hover:bg-red-950"
           >
-            Delete
+            {t($ => $.common.delete)}
           </button>
         </div>
       </div>
       {!collapsed && children}
       <ConfirmDialog
         open={showDeleteConfirm}
-        title="Delete block"
-        message={`Are you sure you want to delete this ${label} block?`}
-        confirmLabel="Delete"
+        title={t($ => $.editors.deleteBlock)}
+        message={t($ => $.editors.deleteBlockMessage, { label })}
+        confirmLabel={t($ => $.common.delete)}
         variant="danger"
         onConfirm={() => {
           setShowDeleteConfirm(false);

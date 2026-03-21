@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import type { Block } from "@/client/lib/block-model";
 
@@ -13,6 +14,7 @@ export function AddBlockButton({
   availableComponents,
   showTextOption = true,
 }: AddBlockButtonProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -36,7 +38,7 @@ export function AddBlockButton({
         onClick={() => setOpen(!open)}
         className="rounded-full border border-dashed border-gray-300 px-3 py-0.5 text-xs text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:hover:border-blue-500"
       >
-        + Add block
+        {t($ => $.editors.addBlock)}
       </button>
       {open && (
         <div className="z-10 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
@@ -54,7 +56,7 @@ export function AddBlockButton({
               }}
             >
               <span className="text-xs text-gray-400">T</span>
-              Text
+              {t($ => $.editors.text)}
             </button>
           )}
           {entries.map(([name, def]) => (
@@ -78,7 +80,7 @@ export function AddBlockButton({
             </button>
           ))}
           {!showTextOption && entries.length === 0 && (
-            <span className="block px-3 py-1.5 text-xs text-gray-400">No components available</span>
+            <span className="block px-3 py-1.5 text-xs text-gray-400">{t($ => $.editors.noComponents)}</span>
           )}
         </div>
       )}

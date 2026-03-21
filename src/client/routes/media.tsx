@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
 import config from "virtual:astronaut-cms/config";
 import {
@@ -28,6 +29,7 @@ function formatSize(bytes: number): string {
 }
 
 function MediaLibrary() {
+  const { t } = useTranslation();
   const { data: files, isLoading, error } = useMedia();
   const deleteMutation = useDeleteMedia();
   const uploadMutation = useUploadMedia();
@@ -135,15 +137,15 @@ function MediaLibrary() {
   }
 
   if (error) {
-    return <ErrorBanner>Failed to load media: {error.message}</ErrorBanner>;
+    return <ErrorBanner>{t($ => $.media.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Media Library</h1>
+        <h1 className="text-xl font-semibold">{t($ => $.media.title)}</h1>
         <label className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-          {optimizing ? "Optimizing..." : uploadMutation.isPending ? "Uploading..." : "Upload"}
+          {optimizing ? t($ => $.common.optimizing) : uploadMutation.isPending ? t($ => $.common.uploading) : t($ => $.common.upload)}
           <input
             type="file"
             onChange={handleUpload}
@@ -188,7 +190,7 @@ function MediaLibrary() {
 
       {sortedSubdirs.length === 0 && currentFiles.length === 0 && (
         <div className="text-center text-gray-500">
-          <p>No media files</p>
+          <p>{t($ => $.media.noFiles)}</p>
         </div>
       )}
 
@@ -246,9 +248,9 @@ function MediaLibrary() {
                     setRenameValue(getFileName(file.path));
                   }}
                   className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-blue-600"
-                  title="Rename"
+                  title={t($ => $.common.rename)}
                 >
-                  Rename
+                  {t($ => $.common.rename)}
                 </button>
                 <button
                   type="button"
@@ -257,17 +259,17 @@ function MediaLibrary() {
                     replaceInputRef.current?.click();
                   }}
                   className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-blue-600"
-                  title="Replace file contents"
+                  title={t($ => $.common.replace)}
                 >
-                  Replace
+                  {t($ => $.common.replace)}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(file.path)}
                   className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-red-600"
-                  title="Delete"
+                  title={t($ => $.common.delete)}
                 >
-                  Delete
+                  {t($ => $.common.delete)}
                 </button>
               </div>
               <div className="border-t border-gray-200 px-3 py-2 dark:border-gray-700">
@@ -296,9 +298,9 @@ function MediaLibrary() {
       {/* Delete confirmation */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Delete file"
-        message="Are you sure you want to delete this file? It may be referenced by content entries."
-        confirmLabel="Delete"
+        title={t($ => $.media.deleteFile)}
+        message={t($ => $.media.deleteFileMessage)}
+        confirmLabel={t($ => $.common.delete)}
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -307,9 +309,9 @@ function MediaLibrary() {
       {/* Overwrite confirmation */}
       <ConfirmDialog
         open={duplicateFile !== null}
-        title="File already exists"
-        message={`A file named "${duplicateFile ? getFileName(duplicateFile.path) : ""}" already exists. Overwrite it?`}
-        confirmLabel="Overwrite"
+        title={t($ => $.media.fileExists)}
+        message={t($ => $.media.fileExistsMessage, { name: duplicateFile ? getFileName(duplicateFile.path) : "" })}
+        confirmLabel={t($ => $.common.overwrite)}
         variant="danger"
         onConfirm={handleOverwrite}
         onCancel={() => setDuplicateFile(null)}
@@ -354,6 +356,7 @@ function RenameDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const dialogRef = useDialog(true);
 
   return (
@@ -363,8 +366,8 @@ function RenameDialog({
       className="rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
     >
       <div className="w-80 p-5">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Rename file</h2>
-        <p className="mt-1 text-xs text-gray-500">Current: {currentName}</p>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t($ => $.media.renameFile)}</h2>
+        <p className="mt-1 text-xs text-gray-500">{t($ => $.media.current, { name: currentName })}</p>
         <input
           type="text"
           value={value}
@@ -381,7 +384,7 @@ function RenameDialog({
             onClick={onCancel}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Cancel
+            {t($ => $.common.cancel)}
           </button>
           <button
             type="button"
@@ -389,7 +392,7 @@ function RenameDialog({
             disabled={isPending || !value.trim() || value === currentName}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
-            {isPending ? "Renaming..." : "Rename"}
+            {isPending ? t($ => $.media.renaming) : t($ => $.common.rename)}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { getAssetType, getReferenceCollection } from "@/shared/schema-utils";
 import { useEntryContext } from "@/client/lib/entry-context";
 import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@/client/lib/asset-utils";
@@ -433,16 +434,18 @@ function AssetField({
   value,
   onChange,
   required,
-  label,
+  assetType,
   children,
 }: {
   name: string;
   value: string;
   onChange: (v: unknown) => void;
   required?: boolean;
-  label: string;
+  assetType: "image" | "file";
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
+  const label = assetType === "image" ? t($ => $.editors.image) : t($ => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
   const ctx = useEntryContext();
 
@@ -464,7 +467,7 @@ function AssetField({
           type="text"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={`Path to ${label}`}
+          placeholder={label}
           className={`${inputClass} flex-1`}
         />
         <button
@@ -472,7 +475,7 @@ function AssetField({
           onClick={() => setShowPicker(true)}
           className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
         >
-          Browse
+          {t($ => $.editors.browse)}
         </button>
         {value && (
           <button
@@ -510,7 +513,7 @@ function ImageField({
     value && ctx ? toPreviewUrl(resolveAssetPath(ctx.contentFilePath, value)) : undefined;
 
   return (
-    <AssetField name={name} value={value} onChange={onChange} required={required} label="image">
+    <AssetField name={name} value={value} onChange={onChange} required={required} assetType="image">
       {previewSrc && (
         <div className="mt-2 h-24 w-24 overflow-hidden rounded border border-gray-200 dark:border-gray-700">
           <img
@@ -539,7 +542,7 @@ function FileField({
   required?: boolean;
 }) {
   return (
-    <AssetField name={name} value={value} onChange={onChange} required={required} label="file" />
+    <AssetField name={name} value={value} onChange={onChange} required={required} assetType="file" />
   );
 }
 
@@ -556,6 +559,7 @@ function ReferenceField({
   required?: boolean;
   collection: string;
 }) {
+  const { t } = useTranslation();
   const { data: entries, isLoading } = useEntries(collection);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -578,7 +582,7 @@ function ReferenceField({
       <label className={labelClass}>
         {name}
         {required && <span className="text-red-500"> *</span>}
-        <span className="ml-1 text-xs text-gray-400">(ref: {collection})</span>
+        <span className="ml-1 text-xs text-gray-400">({t($ => $.editors.ref, { collection })})</span>
       </label>
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -597,7 +601,7 @@ function ReferenceField({
               // Delay to allow click on dropdown item
               setTimeout(() => setIsOpen(false), 200);
             }}
-            placeholder={isLoading ? "Loading..." : `Select from ${collection}`}
+            placeholder={isLoading ? t($ => $.editors.loading) : t($ => $.editors.selectFrom, { collection })}
             className={inputClass}
           />
           {isOpen && filtered.length > 0 && (
@@ -653,6 +657,7 @@ function ArrayField({
   value: unknown[];
   onChange: (v: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const items = Array.isArray(value) ? value : [];
   const itemSchema = schema.element;
   const needsConfirm = isComplexSchema(itemSchema);
@@ -695,7 +700,7 @@ function ArrayField({
               onClick={() => (needsConfirm ? setConfirmRemoveIndex(i) : removeItem(i))}
               className="mt-6 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
             >
-              Remove
+              {t($ => $.common.remove)}
             </button>
           </div>
         ))}
@@ -704,14 +709,14 @@ function ArrayField({
           onClick={addItem}
           className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
         >
-          + Add item
+          {t($ => $.editors.addItem)}
         </button>
       </div>
       <ConfirmDialog
         open={confirmRemoveIndex !== null}
-        title="Remove item"
-        message={`Are you sure you want to remove item ${confirmRemoveIndex !== null ? confirmRemoveIndex + 1 : ""}? This will discard all nested data.`}
-        confirmLabel="Remove"
+        title={t($ => $.editors.removeItem)}
+        message={t($ => $.editors.removeItemMessage, { index: confirmRemoveIndex !== null ? String(confirmRemoveIndex + 1) : "" })}
+        confirmLabel={t($ => $.common.remove)}
         variant="danger"
         onConfirm={() => {
           if (confirmRemoveIndex !== null) removeItem(confirmRemoveIndex);
@@ -771,6 +776,7 @@ function RecordField({
   value: Record<string, unknown>;
   onChange: (v: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const obj = asRecord(value);
   const valueSchema = schema.valueType;
   const needsConfirm = isComplexSchema(valueSchema);
@@ -817,7 +823,7 @@ function RecordField({
               onClick={() => (needsConfirm ? setConfirmRemoveKey(key) : removeField(key))}
               className="mt-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
             >
-              Remove
+              {t($ => $.common.remove)}
             </button>
           </div>
         ))}
@@ -827,7 +833,7 @@ function RecordField({
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addField()}
-            placeholder="New key"
+            placeholder={t($ => $.editors.newKey)}
             className={`${inputClass} max-w-48`}
           />
           <button
@@ -835,15 +841,15 @@ function RecordField({
             onClick={addField}
             className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
           >
-            + Add
+            {t($ => $.editors.add)}
           </button>
         </div>
       </div>
       <ConfirmDialog
         open={confirmRemoveKey !== null}
-        title="Remove field"
-        message={`Are you sure you want to remove "${confirmRemoveKey}"? This will discard all nested data.`}
-        confirmLabel="Remove"
+        title={t($ => $.editors.removeField)}
+        message={t($ => $.editors.removeFieldMessage, { key: confirmRemoveKey ?? "" })}
+        confirmLabel={t($ => $.common.remove)}
         variant="danger"
         onConfirm={() => {
           if (confirmRemoveKey !== null) removeField(confirmRemoveKey);
@@ -868,6 +874,7 @@ function UnionField({
   onChange: (v: unknown) => void;
   discriminator: string;
 }) {
+  const { t } = useTranslation();
   const variants = schema.def.options ?? [];
   const currentDiscValue = value[discriminator];
 
@@ -896,7 +903,7 @@ function UnionField({
       <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{name}</legend>
       <div className="space-y-3">
         <div>
-          <label className={labelClass}>Variant</label>
+          <label className={labelClass}>{t($ => $.editors.variant)}</label>
           <select
             value={selectedIndex >= 0 ? selectedIndex : ""}
             onChange={(e) => handleVariantChange(Number(e.target.value))}
@@ -926,6 +933,7 @@ function UnionField({
 }
 
 function NullableToggle({ name, onEnable }: { name: string; onEnable: () => void }) {
+  const { t } = useTranslation();
   return (
     <div>
       <label className={labelClass}>{name}</label>
@@ -934,7 +942,7 @@ function NullableToggle({ name, onEnable }: { name: string; onEnable: () => void
         onClick={onEnable}
         className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
       >
-        Set value
+        {t($ => $.editors.setValue)}
       </button>
     </div>
   );
@@ -949,6 +957,7 @@ function NullableWrapper({
   onClear: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
@@ -958,7 +967,7 @@ function NullableWrapper({
           onClick={onClear}
           className="rounded px-1.5 py-0.5 text-xs text-gray-400 hover:text-red-600"
         >
-          Clear
+          {t($ => $.editors.clear)}
         </button>
       </div>
       {children}
@@ -975,6 +984,7 @@ function FallbackField({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const [text, setText] = useState(() =>
     typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? ""),
   );
@@ -982,7 +992,7 @@ function FallbackField({
   return (
     <div>
       <label className={labelClass}>
-        {name} <span className="text-xs text-gray-400">(raw)</span>
+        {name} <span className="text-xs text-gray-400">{t($ => $.editors.raw)}</span>
       </label>
       <textarea
         value={text}

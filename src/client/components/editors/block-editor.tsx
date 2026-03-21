@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { components } from "virtual:astronaut-cms/user-config";
 import { useBlockEditor } from "@/client/lib/use-block-editor";
 import { AddBlockButton } from "./add-block-button";
@@ -11,6 +12,7 @@ interface BlockEditorProps {
 }
 
 export function BlockEditor({ value, onChange }: BlockEditorProps) {
+  const { t } = useTranslation();
   const { blocks, updateBlock, addBlock, removeBlock, moveBlock, serialize } =
     useBlockEditor(value);
 
@@ -75,7 +77,7 @@ export function BlockEditor({ value, onChange }: BlockEditorProps) {
 
       {blocks.length === 0 && (
         <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center text-sm text-gray-400 dark:border-gray-600">
-          No content yet. Click "Add block" to get started.
+          {t($ => $.editors.noContent)}
         </div>
       )}
     </div>

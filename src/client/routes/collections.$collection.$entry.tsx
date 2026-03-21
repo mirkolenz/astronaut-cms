@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useDebouncedValue } from "@/client/lib/use-debounced-value";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useEntry, useSaveEntry, useDeleteEntry } from "@/client/queries/use-entries";
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/collections/$collection/$entry")({
 });
 
 function EntryEditor() {
+  const { t } = useTranslation();
   const { collection, entry: entryId } = Route.useParams();
   const navigate = useNavigate();
   const { data: entry, isLoading, error } = useEntry(collection, entryId);
@@ -84,7 +86,7 @@ function EntryEditor() {
       try {
         data = JSON.parse(rawJson) as Record<string, unknown>;
       } catch {
-        toast("Invalid JSON in raw editor", "error");
+        toast(t($ => $.entry.invalidJson), "error");
         return;
       }
     }
@@ -93,7 +95,7 @@ function EntryEditor() {
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast("Changes staged", "success");
+          toast(t($ => $.entry.changesStaged), "success");
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -105,7 +107,7 @@ function EntryEditor() {
   const handleDelete = () => {
     deleteMutation.mutate(entryId, {
       onSuccess: () => {
-        toast("Delete staged", "success");
+        toast(t($ => $.collection.deleteStaged), "success");
         void navigate({
           to: "/collections/$collection",
           params: { collection },
@@ -138,7 +140,7 @@ function EntryEditor() {
   }
 
   if (error) {
-    return <ErrorBanner>Failed to load entry: {error.message}</ErrorBanner>;
+    return <ErrorBanner>{t($ => $.entry.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   if (!entry) return null;
@@ -163,7 +165,7 @@ function EntryEditor() {
               onClick={() => setShowRaw(!showRaw)}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              {showRaw ? "Form" : "Raw"}
+              {showRaw ? t($ => $.entry.form) : t($ => $.entry.raw)}
             </button>
             {isContentFormat && (
               <button
@@ -174,7 +176,7 @@ function EntryEditor() {
                     : "border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                 }`}
               >
-                Preview
+                {t($ => $.entry.preview)}
               </button>
             )}
             <button
@@ -182,14 +184,14 @@ function EntryEditor() {
               disabled={saveMutation.isPending || !isDirty}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
-              {saveMutation.isPending ? "Saving..." : "Save"}
+              {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteMutation.isPending}
               className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >
-              Delete
+              {t($ => $.common.delete)}
             </button>
           </div>
         </div>
@@ -208,7 +210,7 @@ function EntryEditor() {
               <div className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Data (JSON)
+                    {t($ => $.entry.dataJson)}
                   </label>
                   <textarea
                     value={rawJson}
@@ -221,7 +223,7 @@ function EntryEditor() {
                 {isContentFormat && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Body
+                      {t($ => $.entry.body)}
                     </label>
                     <textarea
                       value={editBody}
@@ -242,7 +244,7 @@ function EntryEditor() {
                 {isContentFormat && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Body
+                      {t($ => $.entry.body)}
                     </label>
                     {entry.format === "mdx" ? (
                       <BlockEditor value={editBody} onChange={setEditBody} />
@@ -262,9 +264,9 @@ function EntryEditor() {
 
         <ConfirmDialog
           open={showDeleteConfirm}
-          title="Delete entry"
-          message={`Are you sure you want to delete "${entryId}"? This cannot be undone.`}
-          confirmLabel="Delete"
+          title={t($ => $.entry.deleteEntry)}
+          message={t($ => $.entry.deleteEntryMessage, { id: entryId })}
+          confirmLabel={t($ => $.common.delete)}
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
@@ -272,9 +274,9 @@ function EntryEditor() {
 
         <ConfirmDialog
           open={blocker.status === "blocked"}
-          title="Unsaved changes"
-          message="You have unsaved changes. Do you want to discard them and leave?"
-          confirmLabel="Discard"
+          title={t($ => $.entry.unsavedChanges)}
+          message={t($ => $.entry.unsavedChangesMessage)}
+          confirmLabel={t($ => $.common.discard)}
           variant="danger"
           onConfirm={() => blocker.status === "blocked" && blocker.proceed()}
           onCancel={() => blocker.status === "blocked" && blocker.reset()}
@@ -293,11 +295,12 @@ function FieldsSection({
   formData: Record<string, unknown>;
   onFieldChange: (key: string, value: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const shape = schema?.shape ?? {};
 
   return (
     <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Fields</h2>
+      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{t($ => $.entry.fields)}</h2>
       {Object.entries(shape).map(([key, fieldSchema]) => (
         <FieldRenderer
           key={key}
@@ -309,7 +312,7 @@ function FieldsSection({
         />
       ))}
       {Object.keys(shape).length === 0 && (
-        <p className="text-sm text-gray-400">No schema available. Use Raw mode to edit.</p>
+        <p className="text-sm text-gray-400">{t($ => $.entry.noSchema)}</p>
       )}
     </div>
   );

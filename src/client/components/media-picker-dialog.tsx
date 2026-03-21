@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMedia } from "@/client/queries/use-media";
 import { getStorage } from "@/client/lib/storage";
@@ -14,6 +15,7 @@ interface MediaPickerDialogProps {
 }
 
 export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialogProps) {
+  const { t } = useTranslation();
   const dialogRef = useDialog(open);
   const { data: files, isLoading } = useMedia();
   const queryClient = useQueryClient();
@@ -68,18 +70,18 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
     >
       {open && (
         <div className="w-[48rem] max-w-[90vw] p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Select Media</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t($ => $.media.selectMedia)}</h2>
 
           <div className="mt-3 flex items-center gap-2">
             <input
               type="text"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter files..."
+              placeholder={t($ => $.media.filterPlaceholder)}
               className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <label className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-              {uploading ? "Uploading..." : "Upload"}
+              {uploading ? t($ => $.common.uploading) : t($ => $.common.upload)}
               <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
             </label>
           </div>
@@ -130,7 +132,7 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
             })}
             {filtered?.length === 0 && !isLoading && (
               <p className="col-span-full py-8 text-center text-sm text-gray-400">
-                No media files found.
+                {t($ => $.media.noFilesFound)}
               </p>
             )}
           </div>
@@ -140,15 +142,15 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
               onClick={onCancel}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              Cancel
+              {t($ => $.common.cancel)}
             </button>
           </div>
 
           <ConfirmDialog
             open={duplicateFile !== null}
-            title="File already exists"
-            message={`A file named "${duplicateFile?.name ?? ""}" already exists. Overwrite it?`}
-            confirmLabel="Overwrite"
+            title={t($ => $.media.fileExists)}
+            message={t($ => $.media.fileExistsMessage, { name: duplicateFile?.name ?? "" })}
+            confirmLabel={t($ => $.common.overwrite)}
             variant="danger"
             onConfirm={handleOverwrite}
             onCancel={() => setDuplicateFile(null)}

@@ -1,9 +1,10 @@
 ---
 import "./styles.css";
 import AdminApp from "../client";
+import config from "virtual:astronaut-cms/config";
 ---
 
-<html lang="en">
+<html lang={config.locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

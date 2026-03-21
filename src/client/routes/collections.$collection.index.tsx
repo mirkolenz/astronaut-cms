@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries, useCreateEntry } from "@/client/queries/use-entries";
 import { useCollections } from "@/client/queries/use-collections";
@@ -34,6 +35,7 @@ function GlobCollectionPage({
   collection: string;
   collectionInfo?: (typeof collectionMeta)[string];
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: entries, isLoading, error } = useEntries(collection);
   const createMutation = useCreateEntry(collection);
@@ -57,7 +59,7 @@ function GlobCollectionPage({
       {
         onSuccess: () => {
           setShowNewDialog(false);
-          toast("Create staged", "success");
+          toast(t($ => $.collection.createStaged), "success");
           void navigate({
             to: "/collections/$collection/$entry",
             params: { collection, entry: id },
@@ -84,7 +86,7 @@ function GlobCollectionPage({
   }
 
   if (error) {
-    return <ErrorBanner>Failed to load entries: {error.message}</ErrorBanner>;
+    return <ErrorBanner>{t($ => $.collection.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   return (
@@ -94,8 +96,8 @@ function GlobCollectionPage({
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
           {collectionInfo && (
             <p className="mt-0.5 text-sm text-gray-500">
-              {collectionInfo.type === "content" ? "Content" : "Data"} collection &middot;{" "}
-              {filteredEntries?.length ?? 0} entries
+              {collectionInfo.type === "content" ? t($ => $.collection.contentCollection) : t($ => $.collection.dataCollection)} &middot;{" "}
+              {t($ => $.collection.entries, { count: filteredEntries?.length ?? 0 })}
             </p>
           )}
         </div>
@@ -103,13 +105,13 @@ function GlobCollectionPage({
           onClick={() => setShowNewDialog(true)}
           className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
-          New Entry
+          {t($ => $.collection.newEntry)}
         </button>
       </div>
 
       {(!filteredEntries || filteredEntries.length === 0) && (
         <div className="text-center text-gray-500">
-          <p>No entries yet</p>
+          <p>{t($ => $.collection.noEntries)}</p>
         </div>
       )}
 

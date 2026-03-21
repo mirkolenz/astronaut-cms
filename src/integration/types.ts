@@ -7,7 +7,11 @@ export interface CmsConfig {
   storage?: StorageConfig;
   /** Media file configuration */
   media?: MediaConfig;
+  /** Admin panel language (default: "en") */
+  locale?: SupportedLocale;
 }
+
+export type SupportedLocale = "en" | "de";
 
 export type StorageConfig =
   | { type: "local" }

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useEntries,
   useEntry,
@@ -22,6 +23,7 @@ const moveButtonClass =
   "px-1.5 py-2 text-sm text-gray-400 hover:text-gray-700 disabled:invisible dark:hover:text-gray-200";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
+  const { t } = useTranslation();
   const { data: entries, isLoading, error } = useEntries(collection);
   const { data: collections } = useCollections();
   const schema = collections?.[collection]?.schema as ZodFieldSchema | undefined;
@@ -65,7 +67,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget, {
       onSuccess: () => {
-        toast("Delete staged", "success");
+        toast(t($ => $.collection.deleteStaged), "success");
         setDeleteTarget(null);
       },
       onError: (err) => toast(err.message, "error"),
@@ -86,7 +88,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   }
 
   if (error) {
-    return <ErrorBanner>Failed to load entries: {error.message}</ErrorBanner>;
+    return <ErrorBanner>{t($ => $.collection.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   return (
@@ -95,20 +97,20 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         <div>
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            File collection &middot; {sortedEntries?.length ?? 0} entries
+            {t($ => $.collection.fileCollection)} &middot; {t($ => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
           </p>
         </div>
         <button
           onClick={() => setShowAddDialog(true)}
           className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
-          Add Entry
+          {t($ => $.collection.addEntry)}
         </button>
       </div>
 
       {(!sortedEntries || sortedEntries.length === 0) && (
         <div className="text-center text-gray-500">
-          <p>No entries yet</p>
+          <p>{t($ => $.collection.noEntries)}</p>
         </div>
       )}
 
@@ -140,7 +142,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
             {
               onSuccess: () => {
                 setShowAddDialog(false);
-                toast("Entry added", "success");
+                toast(t($ => $.entry.entryAdded), "success");
               },
               onError: (err) => toast(err.message, "error"),
             },
@@ -151,9 +153,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Remove entry"
-        message={`Are you sure you want to remove "${deleteTarget}"? This will be applied on publish.`}
-        confirmLabel="Remove"
+        title={t($ => $.editors.removeEntry)}
+        message={t($ => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
+        confirmLabel={t($ => $.common.remove)}
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -183,6 +185,7 @@ function FileEntryCard({
   onMoveUp?: () => void;
   onMoveDown?: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: entry, isLoading } = useEntry(collection, entryId, { enabled: expanded });
   const saveMutation = useSaveEntry(collection, entryId);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
@@ -207,7 +210,7 @@ function FileEntryCard({
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast("Changes staged", "success");
+          toast(t($ => $.entry.changesStaged), "success");
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -228,7 +231,7 @@ function FileEntryCard({
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{entryId}</span>
           {isDirty && (
             <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-              modified
+              {t($ => $.entry.modified)}
             </span>
           )}
         </button>
@@ -247,7 +250,7 @@ function FileEntryCard({
             type="button"
             onClick={onDelete}
             className="px-3 py-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-            title="Delete entry"
+            title={t($ => $.entry.deleteEntry)}
           >
             {"\uD83D\uDDD1"}
           </button>
@@ -271,7 +274,7 @@ function FileEntryCard({
                 />
               ))}
               {Object.keys(shape).length === 0 && (
-                <p className="text-sm text-gray-400">No schema available.</p>
+                <p className="text-sm text-gray-400">{t($ => $.entry.noSchemaShort)}</p>
               )}
             </div>
           )}
@@ -282,7 +285,7 @@ function FileEntryCard({
               disabled={saveMutation.isPending || !isDirty}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
-              {saveMutation.isPending ? "Saving..." : "Save"}
+              {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
             </button>
           </div>
         </div>

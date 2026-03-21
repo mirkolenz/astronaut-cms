@@ -1,11 +1,13 @@
 import { Link, useParams } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toLabel } from "@/client/lib/to-label";
 
 export function Header() {
+  const { t } = useTranslation();
   const params = useParams({ strict: false });
 
   const segments: { label: string; to?: string; params?: Record<string, string> }[] = [
-    { label: "CMS", to: "/" },
+    { label: t($ => $.layout.breadcrumbRoot), to: "/" },
   ];
   if (params?.collection) {
     segments.push({

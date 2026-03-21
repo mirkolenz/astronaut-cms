@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useCollections } from "@/client/queries/use-collections";
 import { toLabel } from "@/client/lib/to-label";
 
@@ -6,18 +7,19 @@ const navLinkClasses =
   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-800 [&.active]:bg-gray-200 [&.active]:font-medium dark:[&.active]:bg-gray-800";
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const { data: collections, isLoading } = useCollections();
 
   return (
     <aside className="w-56 shrink-0 border-r border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
       <div className="p-4">
         <Link to="/" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Astronaut CMS
+          {t($ => $.layout.appName)}
         </Link>
       </div>
       <nav className="px-2 pb-4">
         <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wider text-gray-500">
-          Collections
+          {t($ => $.layout.collections)}
         </p>
         {isLoading && (
           <div className="space-y-1 px-2">
@@ -45,11 +47,11 @@ export function Sidebar() {
             </Link>
           ))}
         <p className="mt-4 px-2 pb-1 text-xs font-medium uppercase tracking-wider text-gray-500">
-          Assets
+          {t($ => $.layout.assets)}
         </p>
         <Link to="/media" className={navLinkClasses}>
           <span className="text-xs text-gray-400">{"\u{1F5BC}"}</span>
-          Media
+          {t($ => $.layout.media)}
         </Link>
       </nav>
     </aside>
