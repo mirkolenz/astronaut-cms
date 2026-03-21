@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { FileText, NotebookPen, BarChart3, Image } from "lucide-react";
 import { useCollections } from "@/client/queries/use-collections";
 import { toLabel } from "@/client/lib/to-label";
 
@@ -36,13 +37,11 @@ export function Sidebar() {
               params={{ collection: name }}
               className={navLinkClasses}
             >
-              <span className="text-xs text-gray-400">
-                {col.loaderType === "file"
-                  ? "\u{1F4C4}"
-                  : col.type === "content"
-                    ? "\u{1F4DD}"
-                    : "\u{1F4CA}"}
-              </span>
+              {col.loaderType === "file"
+                ? <FileText className="size-4 text-gray-400" />
+                : col.type === "content"
+                  ? <NotebookPen className="size-4 text-gray-400" />
+                  : <BarChart3 className="size-4 text-gray-400" />}
               {toLabel(name)}
             </Link>
           ))}
@@ -50,7 +49,7 @@ export function Sidebar() {
           {t($ => $.layout.assets)}
         </p>
         <Link to="/media" className={navLinkClasses}>
-          <span className="text-xs text-gray-400">{"\u{1F5BC}"}</span>
+          <Image className="size-4 text-gray-400" />
           {t($ => $.layout.media)}
         </Link>
       </nav>

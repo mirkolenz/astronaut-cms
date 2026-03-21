@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { NotebookPen, BarChart3 } from "lucide-react";
 import { useCollections } from "@/client/queries/use-collections";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { toLabel } from "@/client/lib/to-label";
@@ -50,7 +51,7 @@ function Dashboard() {
             className="group rounded-lg border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-700 dark:hover:bg-blue-950"
           >
             <div className="flex items-center gap-2">
-              <span className="text-lg">{col.type === "content" ? "\u{1F4DD}" : "\u{1F4CA}"}</span>
+              {col.type === "content" ? <NotebookPen className="size-5" /> : <BarChart3 className="size-5" />}
               <h2 className="font-medium text-gray-900 group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">
                 {toLabel(name)}
               </h2>

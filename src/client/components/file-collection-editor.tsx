@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronRight, ChevronUp, Trash2 } from "lucide-react";
 import {
   useEntries,
   useEntry,
@@ -17,10 +18,9 @@ import { ErrorBanner } from "@/client/components/error-banner";
 import { toast } from "@/client/components/toast";
 import { toLabel } from "@/client/lib/to-label";
 import { getFileExtension } from "@/shared/content-parser";
+import { Button } from "@/client/components/ui/button";
+import { Badge } from "@/client/components/ui/badge";
 import collectionMeta from "virtual:astronaut-cms/collections";
-
-const moveButtonClass =
-  "px-1.5 py-2 text-sm text-gray-400 hover:text-gray-700 disabled:invisible dark:hover:text-gray-200";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
@@ -100,12 +100,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
             {t($ => $.collection.fileCollection)} &middot; {t($ => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddDialog(true)}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
+        <Button onClick={() => setShowAddDialog(true)}>
           {t($ => $.collection.addEntry)}
-        </button>
+        </Button>
       </div>
 
       {(!sortedEntries || sortedEntries.length === 0) && (
@@ -222,38 +219,40 @@ function FileEntryCard({
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex items-center">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onToggle}
-          className="flex flex-1 items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
+          className="flex flex-1 items-center justify-start gap-2 rounded-none px-4 py-3 text-left"
         >
-          <span className="text-xs text-gray-400">{expanded ? "\u25BC" : "\u25B6"}</span>
+          {expanded ? <ChevronDown className="size-3.5 text-gray-400" /> : <ChevronRight className="size-3.5 text-gray-400" />}
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{entryId}</span>
           {isDirty && (
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+            <Badge variant="outline">
               {t($ => $.entry.modified)}
-            </span>
+            </Badge>
           )}
-        </button>
+        </Button>
         <div className="flex items-center border-l border-gray-200 dark:border-gray-700">
           {orderable && (
             <>
-              <button type="button" onClick={onMoveDown} disabled={!onMoveDown} className={moveButtonClass}>
-                {"\u25BC"}
-              </button>
-              <button type="button" onClick={onMoveUp} disabled={!onMoveUp} className={moveButtonClass}>
-                {"\u25B2"}
-              </button>
+              <Button type="button" variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={!onMoveDown}>
+                <ChevronDown className="size-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={!onMoveUp}>
+                <ChevronUp className="size-4" />
+              </Button>
             </>
           )}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-destructive"
             onClick={onDelete}
-            className="px-3 py-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-            title={t($ => $.entry.deleteEntry)}
           >
-            {"\uD83D\uDDD1"}
-          </button>
+            <Trash2 className="size-4" />
+          </Button>
         </div>
       </div>
 
@@ -279,14 +278,13 @@ function FileEntryCard({
             </div>
           )}
           <div className="mt-3 flex justify-end">
-            <button
+            <Button
               type="button"
               onClick={handleSave}
               disabled={saveMutation.isPending || !isDirty}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
               {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
-            </button>
+            </Button>
           </div>
         </div>
       )}

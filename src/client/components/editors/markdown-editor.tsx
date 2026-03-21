@@ -3,6 +3,9 @@ import { type ToolbarAction, toolbarActions } from "./markdown-toolbar";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { useEntryContext } from "@/client/lib/entry-context";
 import { toRelativeAssetPath } from "@/client/lib/asset-utils";
+import { Button } from "@/client/components/ui/button";
+import { Textarea } from "@/client/components/ui/textarea";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/client/components/ui/tooltip";
 
 interface MarkdownEditorProps {
   value: string;
@@ -80,23 +83,27 @@ export function MarkdownEditor({
     >
       <div className="flex flex-wrap gap-0.5 border-b border-gray-200 bg-gray-50 px-2 py-1 dark:border-gray-700 dark:bg-gray-800">
         {toolbarActions.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            title={action.label}
-            onClick={() => handleAction(action)}
-            className="rounded px-1.5 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
-          >
-            {action.icon}
-          </button>
+          <Tooltip key={action.label}>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => handleAction(action)}
+              >
+                <action.icon className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{action.label}</TooltipContent>
+          </Tooltip>
         ))}
       </div>
-      <textarea
+      <Textarea
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="w-full resize-y border-0 bg-white p-3 font-mono text-sm leading-relaxed focus:outline-none dark:bg-gray-900"
+        className="resize-y rounded-none border-0 font-mono leading-relaxed shadow-none focus-visible:ring-0"
         rows={rows}
       />
       <MediaPickerDialog

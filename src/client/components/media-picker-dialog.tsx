@@ -6,7 +6,15 @@ import { getStorage } from "@/client/lib/storage";
 import { isImagePath, toPreviewUrl, getFileName } from "@/client/lib/asset-utils";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { useDialog } from "@/client/lib/use-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/client/components/ui/dialog";
+import { Button } from "@/client/components/ui/button";
+import { Input } from "@/client/components/ui/input";
 
 interface MediaPickerDialogProps {
   open: boolean;
@@ -16,7 +24,6 @@ interface MediaPickerDialogProps {
 
 export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialogProps) {
   const { t } = useTranslation();
-  const dialogRef = useDialog(open);
   const { data: files, isLoading } = useMedia();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("");
@@ -63,100 +70,95 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onCancel}
-      className="rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-    >
-      {open && (
-        <div className="w-[48rem] max-w-[90vw] p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t($ => $.media.selectMedia)}</h2>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{t($ => $.media.selectMedia)}</DialogTitle>
+        </DialogHeader>
 
-          <div className="mt-3 flex items-center gap-2">
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t($ => $.media.filterPlaceholder)}
-              className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <label className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700">
+        <div className="flex items-center gap-2">
+          <Input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t($ => $.media.filterPlaceholder)}
+            className="flex-1"
+          />
+          <Button asChild>
+            <label className="cursor-pointer">
               {uploading ? t($ => $.common.uploading) : t($ => $.common.upload)}
               <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
             </label>
-          </div>
-
-          <div className="mt-3 grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-            {isLoading &&
-              [1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="h-24 animate-pulse rounded-md bg-gray-100 dark:bg-gray-800"
-                />
-              ))}
-            {filtered?.map((file) => {
-              const isImage = isImagePath(file.path);
-              return (
-                <button
-                  key={file.path}
-                  type="button"
-                  onClick={() => onSelect(file.path)}
-                  className="group flex flex-col overflow-hidden rounded-md border border-gray-200 transition-colors hover:border-blue-400 dark:border-gray-700 dark:hover:border-blue-600"
-                >
-                  <div className="flex h-20 items-center justify-center bg-gray-50 dark:bg-gray-800">
-                    {isImage ? (
-                      <img
-                        src={toPreviewUrl(file.path)}
-                        alt=""
-                        className="h-full w-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <span className="text-lg font-medium text-gray-400">
-                        {file.path.split(".").pop()?.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="border-t border-gray-200 px-2 py-1 dark:border-gray-700">
-                    <p
-                      className="truncate text-xs text-gray-600 dark:text-gray-400"
-                      title={file.path}
-                    >
-                      {getFileName(file.path)}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-            {filtered?.length === 0 && !isLoading && (
-              <p className="col-span-full py-8 text-center text-sm text-gray-400">
-                {t($ => $.media.noFilesFound)}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={onCancel}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              {t($ => $.common.cancel)}
-            </button>
-          </div>
-
-          <ConfirmDialog
-            open={duplicateFile !== null}
-            title={t($ => $.media.fileExists)}
-            message={t($ => $.media.fileExistsMessage, { name: duplicateFile?.name ?? "" })}
-            confirmLabel={t($ => $.common.overwrite)}
-            variant="danger"
-            onConfirm={handleOverwrite}
-            onCancel={() => setDuplicateFile(null)}
-          />
+          </Button>
         </div>
-      )}
-    </dialog>
+
+        <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+          {isLoading &&
+            [1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-md bg-muted"
+              />
+            ))}
+          {filtered?.map((file) => {
+            const isImage = isImagePath(file.path);
+            return (
+              <button
+                key={file.path}
+                type="button"
+                onClick={() => onSelect(file.path)}
+                className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
+              >
+                <div className="flex h-20 items-center justify-center bg-muted">
+                  {isImage ? (
+                    <img
+                      src={toPreviewUrl(file.path)}
+                      alt=""
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span className="text-lg font-medium text-muted-foreground">
+                      {file.path.split(".").pop()?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="border-t border-border px-2 py-1">
+                  <p
+                    className="truncate text-xs text-muted-foreground"
+                    title={file.path}
+                  >
+                    {getFileName(file.path)}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+          {filtered?.length === 0 && !isLoading && (
+            <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+              {t($ => $.media.noFilesFound)}
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            {t($ => $.common.cancel)}
+          </Button>
+        </DialogFooter>
+
+        <ConfirmDialog
+          open={duplicateFile !== null}
+          title={t($ => $.media.fileExists)}
+          message={t($ => $.media.fileExistsMessage, { name: duplicateFile?.name ?? "" })}
+          confirmLabel={t($ => $.common.overwrite)}
+          variant="danger"
+          onConfirm={handleOverwrite}
+          onCancel={() => setDuplicateFile(null)}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

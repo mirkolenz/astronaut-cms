@@ -1,5 +1,6 @@
 import { defineConfig, defineComponent, image, file } from "astronaut-cms/config";
 import { z } from "astro/zod";
+import { TriangleAlert, Pin, FolderOpen, Image, Paperclip } from "lucide-react";
 
 export default defineConfig({
   components: {
@@ -9,7 +10,7 @@ export default defineConfig({
       }),
       children: "markdown",
       label: "Alert",
-      icon: "\u26A0\uFE0F",
+      icon: TriangleAlert,
     }),
     Callout: defineComponent({
       props: z.object({
@@ -17,7 +18,7 @@ export default defineConfig({
       }),
       children: "markdown",
       label: "Callout",
-      icon: "\u{1F4CC}",
+      icon: Pin,
     }),
     Tabs: defineComponent({
       props: z.object({}),
@@ -29,7 +30,7 @@ export default defineConfig({
         }),
       },
       label: "Tabs",
-      icon: "\u{1F4C1}",
+      icon: FolderOpen,
     }),
     Hero: defineComponent({
       props: z.object({
@@ -38,7 +39,7 @@ export default defineConfig({
       }),
       children: "markdown",
       label: "Hero",
-      icon: "\u{1F5BC}\uFE0F",
+      icon: Image,
     }),
     Download: defineComponent({
       props: z.object({
@@ -46,7 +47,7 @@ export default defineConfig({
         label: z.string(),
       }),
       label: "Download",
-      icon: "\u{1F4CE}",
+      icon: Paperclip,
     }),
   },
 });

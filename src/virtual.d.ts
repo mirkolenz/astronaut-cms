@@ -40,6 +40,7 @@ declare module "virtual:astronaut-cms/collections" {
 
 declare module "virtual:astronaut-cms/user-config" {
   import type { ComponentType, ReactNode } from "react";
+  import type { LucideIcon } from "lucide-react";
   import type { PluggableList } from "unified";
   import type { ZodFieldSchema } from "./client/components/editors/field-renderer";
 
@@ -48,7 +49,7 @@ declare module "virtual:astronaut-cms/user-config" {
     props: ZodFieldSchema | null;
     children?: "markdown" | Record<string, ClientComponentDef>;
     label: string;
-    icon: string | null;
+    icon: LucideIcon | null;
     wrapper: ComponentType<{ children: ReactNode }> | null;
   }
 

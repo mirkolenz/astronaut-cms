@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import type { PluggableList } from "unified";
 import { type z, z as zod } from "astro/zod";
 
@@ -8,7 +9,7 @@ export interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   props: T;
   children?: ChildrenConfig;
   label?: string;
-  icon?: string;
+  icon?: LucideIcon;
   wrapper?: ComponentType<{ children: ReactNode }>;
 }
 

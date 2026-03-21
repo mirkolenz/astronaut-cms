@@ -1,7 +1,22 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Bold,
+  Italic,
+  Code,
+  Link,
+  Image,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Quote,
+  SquareCode,
+} from "lucide-react";
+
 export interface ToolbarAction {
   id?: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   action: (textarea: HTMLTextAreaElement) => { value: string; selStart: number; selEnd: number };
 }
 
@@ -45,58 +60,58 @@ export function prefixLines(
 export const toolbarActions: ToolbarAction[] = [
   {
     label: "Bold",
-    icon: "B",
+    icon: Bold,
     action: (ta) => wrapSelection(ta, "**", "**"),
   },
   {
     label: "Italic",
-    icon: "I",
+    icon: Italic,
     action: (ta) => wrapSelection(ta, "_", "_"),
   },
   {
     label: "Code",
-    icon: "<>",
+    icon: Code,
     action: (ta) => wrapSelection(ta, "`", "`"),
   },
   {
     label: "Link",
-    icon: "\u{1F517}",
+    icon: Link,
     action: (ta) => wrapSelection(ta, "[", "](url)"),
   },
   {
     id: "image",
     label: "Image",
-    icon: "\u{1F5BC}",
+    icon: Image,
     action: (ta) => wrapSelection(ta, "![alt](", ")"),
   },
   {
     label: "H2",
-    icon: "H2",
+    icon: Heading2,
     action: (ta) => prefixLines(ta, "## "),
   },
   {
     label: "H3",
-    icon: "H3",
+    icon: Heading3,
     action: (ta) => prefixLines(ta, "### "),
   },
   {
     label: "List",
-    icon: "\u{2022}",
+    icon: List,
     action: (ta) => prefixLines(ta, "- "),
   },
   {
     label: "Ordered",
-    icon: "1.",
+    icon: ListOrdered,
     action: (ta) => prefixLines(ta, "1. "),
   },
   {
     label: "Quote",
-    icon: ">",
+    icon: Quote,
     action: (ta) => prefixLines(ta, "> "),
   },
   {
     label: "Code Block",
-    icon: "```",
+    icon: SquareCode,
     action: (ta) => wrapSelection(ta, "```\n", "\n```"),
   },
 ];

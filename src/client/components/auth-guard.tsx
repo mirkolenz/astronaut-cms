@@ -4,6 +4,8 @@ import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@/client/stores/auth-store";
 import { initiateDeviceAuthorization } from "@/client/lib/oauth/github";
 import { startGitLabLogin, handleGitLabCallback } from "@/client/lib/oauth/gitlab";
+import { Button } from "@/client/components/ui/button";
+import { Alert, AlertDescription } from "@/client/components/ui/alert";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -139,13 +141,13 @@ function GitHubLogin({ clientId }: { clientId: string }) {
           )}
         </div>
       ) : (
-        <button
+        <Button
+          className="w-full"
           onClick={() => void startLogin()}
           disabled={isPolling}
-          className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
         >
           {t($ => $.auth.signInGitHub)}
-        </button>
+        </Button>
       )}
     </LoginShell>
   );
@@ -175,12 +177,12 @@ function GitLabLogin({
 
   return (
     <LoginShell title={t($ => $.auth.signInGitLab)} error={error}>
-      <button
+      <Button
+        className="w-full"
         onClick={() => void handleLogin()}
-        className="w-full rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
       >
         {t($ => $.auth.signInGitLab)}
-      </button>
+      </Button>
     </LoginShell>
   );
 }
@@ -202,9 +204,9 @@ function LoginShell({
         <p className="mb-4 text-sm text-gray-500">{title}</p>
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-400">
-            {error}
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {children}

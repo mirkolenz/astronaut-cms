@@ -5,7 +5,9 @@ import { Sidebar } from "@/client/components/layout/sidebar";
 import { Header } from "@/client/components/layout/header";
 import { AuthGuard } from "@/client/components/auth-guard";
 import { PublishBar } from "@/client/components/publish-bar";
-import { ToastContainer } from "@/client/components/toast";
+import { Toaster } from "@/client/components/toast";
+import { Button } from "@/client/components/ui/button";
+import { TooltipProvider } from "@/client/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -46,12 +48,9 @@ function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           {error.message}
         </p>
-        <button
-          onClick={onReset}
-          className="mt-4 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
+        <Button className="mt-4" onClick={onReset}>
           {t($ => $.errors.tryAgain)}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -61,20 +60,22 @@ function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthGuard>
-        <div
-          data-astronaut-cms
-          className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-        >
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Header />
-            <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
-              <Outlet />
-            </main>
-            <PublishBar />
+        <TooltipProvider>
+          <div
+            data-astronaut-cms
+            className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+          >
+            <Sidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Header />
+              <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
+                <Outlet />
+              </main>
+              <PublishBar />
+            </div>
           </div>
-        </div>
-        <ToastContainer />
+          <Toaster />
+        </TooltipProvider>
       </AuthGuard>
     </ErrorBoundary>
   );

@@ -89,7 +89,7 @@ function BlockPreview({ block }: { block: Block }) {
 function ComponentPreview({ block }: { block: ComponentBlock }) {
   const def = findComponent(block.name, components);
   const label = def?.label ?? block.name;
-  const icon = def?.icon;
+  const Icon = def?.icon;
   const Wrapper = def?.wrapper;
   const childrenConfig = def?.children;
   const childrenMode = inferChildrenMode(childrenConfig, block.children);
@@ -99,7 +99,7 @@ function ComponentPreview({ block }: { block: ComponentBlock }) {
     <div className="rounded-md border border-blue-200 dark:border-blue-800">
       {/* Component header */}
       <div className="flex items-center gap-1.5 border-b border-blue-100 bg-blue-50 px-2.5 py-1 dark:border-blue-900 dark:bg-blue-950">
-        {icon && <span className="text-xs">{icon}</span>}
+        {Icon && <Icon className="size-3.5" />}
         <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{label}</span>
         {/* Show prop values inline */}
         {Object.keys(block.props).length > 0 && (

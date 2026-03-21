@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import type { PluggableList } from "unified";
 import type { z } from "astro/zod";
 
@@ -6,7 +7,7 @@ interface RawComponentDef {
   props?: z.ZodType;
   children?: "markdown" | Record<string, RawComponentDef>;
   label?: string;
-  icon?: string | null;
+  icon?: LucideIcon;
   wrapper?: ComponentType<{ children: ReactNode }> | null;
 }
 
@@ -20,7 +21,7 @@ interface ProcessedComponentDef {
   props: z.ZodType | null;
   children?: "markdown" | Record<string, ProcessedComponentDef>;
   label: string;
-  icon: string | null;
+  icon: LucideIcon | null;
   wrapper: ComponentType<{ children: ReactNode }> | null;
 }
 

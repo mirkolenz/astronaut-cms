@@ -15,7 +15,16 @@ import { ImageLightbox } from "@/client/components/image-lightbox";
 import { isImagePath, toPreviewUrl, getFileName } from "@/client/lib/asset-utils";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { stripMediaPrefix } from "@/client/lib/storage/utils";
-import { useDialog } from "@/client/lib/use-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/client/components/ui/dialog";
+import { Button } from "@/client/components/ui/button";
+import { Input } from "@/client/components/ui/input";
 
 export const Route = createFileRoute("/media")({
   component: MediaLibrary,
@@ -144,27 +153,30 @@ function MediaLibrary() {
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t($ => $.media.title)}</h1>
-        <label className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700">
-          {optimizing ? t($ => $.common.optimizing) : uploadMutation.isPending ? t($ => $.common.uploading) : t($ => $.common.upload)}
-          <input
-            type="file"
-            onChange={handleUpload}
-            className="hidden"
-            disabled={uploadMutation.isPending}
-          />
-        </label>
+        <Button asChild>
+          <label className="cursor-pointer">
+            {optimizing ? t($ => $.common.optimizing) : uploadMutation.isPending ? t($ => $.common.uploading) : t($ => $.common.upload)}
+            <input
+              type="file"
+              onChange={handleUpload}
+              className="hidden"
+              disabled={uploadMutation.isPending}
+            />
+          </label>
+        </Button>
       </div>
 
       {/* Breadcrumb navigation */}
       {breadcrumbs.length > 0 && (
         <nav className="mb-3 flex items-center gap-1 text-sm text-gray-500">
-          <button
+          <Button
             type="button"
+            variant="link"
+            size="xs"
             onClick={() => setCurrentDir("")}
-            className="hover:text-blue-600 hover:underline"
           >
             {config.mediaDirectory}
-          </button>
+          </Button>
           {breadcrumbs.map((segment, i) => {
             const path = breadcrumbs.slice(0, i + 1).join("/");
             const isLast = i === breadcrumbs.length - 1;
@@ -174,13 +186,14 @@ function MediaLibrary() {
                 {isLast ? (
                   <span className="font-medium text-gray-700 dark:text-gray-300">{segment}</span>
                 ) : (
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="xs"
                     onClick={() => setCurrentDir(path)}
-                    className="hover:text-blue-600 hover:underline"
                   >
                     {segment}
-                  </button>
+                  </Button>
                 )}
               </span>
             );
@@ -197,15 +210,16 @@ function MediaLibrary() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Folder cards */}
         {sortedSubdirs.map((dir) => (
-          <button
+          <Button
             key={dir}
             type="button"
+            variant="outline"
             onClick={() => setCurrentDir(currentDir ? `${currentDir}/${dir}` : dir)}
-            className="flex h-28 flex-col items-center justify-center gap-2 rounded-lg border border-gray-200 transition-colors hover:border-blue-400 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-950"
+            className="flex h-28 flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:border-blue-600 dark:hover:bg-blue-950"
           >
             <span className="text-3xl text-gray-400">&#128193;</span>
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{dir}</span>
-          </button>
+          </Button>
         ))}
 
         {/* File cards */}
@@ -217,10 +231,11 @@ function MediaLibrary() {
               className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
             >
               {isImage ? (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setLightboxSrc(toPreviewUrl(file.path))}
-                  className="flex h-28 w-full items-center justify-center bg-gray-50 dark:bg-gray-900 cursor-pointer"
+                  className="flex h-28 w-full items-center justify-center rounded-none bg-gray-50 dark:bg-gray-900 cursor-pointer"
                   aria-label={`Preview ${getFileName(file.path)}`}
                 >
                   <img
@@ -231,7 +246,7 @@ function MediaLibrary() {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
-                </button>
+                </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-gray-50 dark:bg-gray-900">
                   <span className="text-2xl text-gray-400">
@@ -241,36 +256,39 @@ function MediaLibrary() {
               )}
               {/* Hover action buttons */}
               <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="bg-black/50 text-white hover:bg-blue-600 hover:text-white"
                   onClick={() => {
                     setRenameTarget(file.path);
                     setRenameValue(getFileName(file.path));
                   }}
-                  className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-blue-600"
-                  title={t($ => $.common.rename)}
                 >
                   {t($ => $.common.rename)}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="bg-black/50 text-white hover:bg-blue-600 hover:text-white"
                   onClick={() => {
                     setReplaceTarget(file.path);
                     replaceInputRef.current?.click();
                   }}
-                  className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-blue-600"
-                  title={t($ => $.common.replace)}
                 >
                   {t($ => $.common.replace)}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="bg-black/50 text-white hover:bg-red-600 hover:text-white"
                   onClick={() => setDeleteTarget(file.path)}
-                  className="rounded bg-black/50 px-1.5 py-0.5 text-xs text-white transition-colors hover:bg-red-600"
-                  title={t($ => $.common.delete)}
                 >
                   {t($ => $.common.delete)}
-                </button>
+                </Button>
               </div>
               <div className="border-t border-gray-200 px-3 py-2 dark:border-gray-700">
                 <p
@@ -357,45 +375,35 @@ function RenameDialog({
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
-  const dialogRef = useDialog(true);
 
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onCancel}
-      className="rounded-lg border border-gray-200 bg-white p-0 text-gray-900 shadow-xl backdrop:bg-black/40 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-    >
-      <div className="w-80 p-5">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t($ => $.media.renameFile)}</h2>
-        <p className="mt-1 text-xs text-gray-500">{t($ => $.media.current, { name: currentName })}</p>
-        <input
+    <Dialog open onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+      <DialogContent showCloseButton={false} className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t($ => $.media.renameFile)}</DialogTitle>
+          <DialogDescription>{t($ => $.media.current, { name: currentName })}</DialogDescription>
+        </DialogHeader>
+        <Input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") onConfirm();
           }}
-          className="mt-3 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           autoFocus
         />
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
             {t($ => $.common.cancel)}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             onClick={onConfirm}
             disabled={isPending || !value.trim() || value === currentName}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             {isPending ? t($ => $.media.renaming) : t($ => $.common.rename)}
-          </button>
-        </div>
-      </div>
-    </dialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

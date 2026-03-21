@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { NotebookPen } from "lucide-react";
 import { MarkdownEditor } from "./markdown-editor";
 import { BlockFrame } from "./block-frame";
 
@@ -23,7 +24,7 @@ export function TextBlockEditor({
 
   return (
     <BlockFrame
-      icon="&#x1F4DD;"
+      icon={NotebookPen}
       label={t($ => $.editors.text)}
       onRemove={onRemove}
       onMoveUp={onMoveUp}

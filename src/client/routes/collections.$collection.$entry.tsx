@@ -14,6 +14,9 @@ import { ErrorBanner } from "@/client/components/error-banner";
 import { DATA_FORMATS } from "@/shared/types";
 import { EntryContextProvider } from "@/client/lib/entry-context";
 import { getContentFilePath } from "@/client/lib/asset-utils";
+import { Button } from "@/client/components/ui/button";
+import { Label } from "@/client/components/ui/label";
+import { Textarea } from "@/client/components/ui/textarea";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
@@ -161,38 +164,33 @@ function EntryEditor() {
             <span className="ml-2 text-sm font-normal text-gray-400">.{entry.format}</span>
           </h1>
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setShowRaw(!showRaw)}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               {showRaw ? t($ => $.entry.form) : t($ => $.entry.raw)}
-            </button>
+            </Button>
             {isContentFormat && (
-              <button
+              <Button
+                variant={showPreview ? "secondary" : "outline"}
                 onClick={() => setShowPreview(!showPreview)}
-                className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                  showPreview
-                    ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-400"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
               >
                 {t($ => $.entry.preview)}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               onClick={handleSave}
               disabled={saveMutation.isPending || !isDirty}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
               {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="destructive"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteMutation.isPending}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >
               {t($ => $.common.delete)}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -209,26 +207,22 @@ function EntryEditor() {
             {showRaw ? (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t($ => $.entry.dataJson)}
-                  </label>
-                  <textarea
+                  <Label>{t($ => $.entry.dataJson)}</Label>
+                  <Textarea
                     value={rawJson}
                     onChange={(e) => setRawJson(e.target.value)}
                     onBlur={syncRawToForm}
-                    className="w-full rounded-md border border-gray-300 bg-white p-3 font-mono text-sm dark:border-gray-600 dark:bg-gray-900"
+                    className="font-mono"
                     rows={12}
                   />
                 </div>
                 {isContentFormat && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t($ => $.entry.body)}
-                    </label>
-                    <textarea
+                    <Label>{t($ => $.entry.body)}</Label>
+                    <Textarea
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 bg-white p-3 font-mono text-sm dark:border-gray-600 dark:bg-gray-900"
+                      className="font-mono"
                       rows={16}
                     />
                   </div>
@@ -243,9 +237,7 @@ function EntryEditor() {
                 />
                 {isContentFormat && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t($ => $.entry.body)}
-                    </label>
+                    <Label>{t($ => $.entry.body)}</Label>
                     {entry.format === "mdx" ? (
                       <BlockEditor value={editBody} onChange={setEditBody} />
                     ) : (

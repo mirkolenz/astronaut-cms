@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronRight } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries, useCreateEntry } from "@/client/queries/use-entries";
 import { useCollections } from "@/client/queries/use-collections";
@@ -9,6 +10,7 @@ import { toast } from "@/client/components/toast";
 import { toLabel } from "@/client/lib/to-label";
 import { extractFormatsFromLoader } from "@/shared/types";
 import { FileCollectionEditor } from "@/client/components/file-collection-editor";
+import { Button } from "@/client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({
@@ -101,12 +103,9 @@ function GlobCollectionPage({
             </p>
           )}
         </div>
-        <button
-          onClick={() => setShowNewDialog(true)}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
+        <Button onClick={() => setShowNewDialog(true)}>
           {t($ => $.collection.newEntry)}
-        </button>
+        </Button>
       </div>
 
       {(!filteredEntries || filteredEntries.length === 0) && (
@@ -130,7 +129,7 @@ function GlobCollectionPage({
                 </span>
                 <span className="ml-2 text-xs text-gray-400">.{entry.format}</span>
               </div>
-              <span className="text-gray-400">&rarr;</span>
+              <ChevronRight className="size-4 text-gray-400" />
             </Link>
           ))}
         </div>

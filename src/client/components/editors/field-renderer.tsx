@@ -1,11 +1,24 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
 import { getAssetType, getReferenceCollection } from "@/shared/schema-utils";
 import { useEntryContext } from "@/client/lib/entry-context";
 import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@/client/lib/asset-utils";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { useEntries } from "@/client/queries/use-entries";
+import { Input } from "@/client/components/ui/input";
+import { Textarea } from "@/client/components/ui/textarea";
+import { Switch } from "@/client/components/ui/switch";
+import { Label } from "@/client/components/ui/label";
+import { Button } from "@/client/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/client/components/ui/select";
 
 /**
  * Runtime interface for Zod schemas as provided by astro/zod.
@@ -243,10 +256,6 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
   }
 }
 
-const labelClass = "mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300";
-const inputClass =
-  "w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
-
 function StringField({
   name,
   value,
@@ -263,15 +272,14 @@ function StringField({
   const type = format === "uri" || format === "url" ? "url" : format === "email" ? "email" : "text";
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <input
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Input
         type={type}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className={inputClass}
       />
     </div>
   );
@@ -290,15 +298,14 @@ function TextareaField({
 }) {
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <textarea
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Textarea
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
-        className={inputClass}
       />
     </div>
   );
@@ -319,11 +326,11 @@ function NumberField({
 }) {
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <input
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Input
         type="number"
         value={value ?? ""}
         onChange={(e) => {
@@ -331,7 +338,6 @@ function NumberField({
           onChange(v === "" ? undefined : integer ? parseInt(v, 10) : parseFloat(v));
         }}
         step={integer ? 1 : "any"}
-        className={inputClass}
       />
     </div>
   );
@@ -348,22 +354,8 @@ function BooleanField({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={!!value}
-        onClick={() => onChange(!value)}
-        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          value ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
-        }`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-            value ? "translate-x-4" : "translate-x-0"
-          }`}
-        />
-      </button>
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{name}</label>
+      <Switch checked={!!value} onCheckedChange={(checked) => onChange(checked)} />
+      <Label>{name}</Label>
     </div>
   );
 }
@@ -383,15 +375,14 @@ function DateField({
 
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <input
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Input
         type="datetime-local"
         value={dateStr}
         onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : "")}
-        className={inputClass}
       />
     </div>
   );
@@ -413,18 +404,22 @@ function EnumField({
   const options = (schema.options ?? []).map(String);
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-        {!required && <option value="">--</option>}
-        {options.map((opt) => (
-          <option key={String(opt)} value={String(opt)}>
-            {String(opt)}
-          </option>
-        ))}
-      </select>
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Select value={value || undefined} onValueChange={(val) => onChange(val)}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="--" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={String(opt)} value={String(opt)}>
+              {String(opt)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -457,34 +452,35 @@ function AssetField({
 
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-        <span className="ml-1 text-xs text-gray-400">({label})</span>
-      </label>
+        {required && <span className="text-destructive"> *</span>}
+        <span className="ml-1 text-xs text-muted-foreground">({label})</span>
+      </Label>
       <div className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={label}
-          className={`${inputClass} flex-1`}
+          className="flex-1"
         />
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => setShowPicker(true)}
-          className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
         >
           {t($ => $.editors.browse)}
-        </button>
+        </Button>
         {value && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onChange("")}
-            className="shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-400 hover:text-red-600 dark:border-gray-600"
           >
-            &times;
-          </button>
+            <X className="size-4" />
+          </Button>
         )}
       </div>
       {children}
@@ -579,14 +575,14 @@ function ReferenceField({
 
   return (
     <div className="relative">
-      <label className={labelClass}>
+      <Label>
         {name}
-        {required && <span className="text-red-500"> *</span>}
-        <span className="ml-1 text-xs text-gray-400">({t($ => $.editors.ref, { collection })})</span>
-      </label>
+        {required && <span className="text-destructive"> *</span>}
+        <span className="ml-1 text-xs text-muted-foreground">({t($ => $.editors.ref, { collection })})</span>
+      </Label>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <input
+          <Input
             type="text"
             value={isOpen ? query : value ?? ""}
             onChange={(e) => {
@@ -602,7 +598,6 @@ function ReferenceField({
               setTimeout(() => setIsOpen(false), 200);
             }}
             placeholder={isLoading ? t($ => $.editors.loading) : t($ => $.editors.selectFrom, { collection })}
-            className={inputClass}
           />
           {isOpen && filtered.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-900">
@@ -623,13 +618,14 @@ function ReferenceField({
           )}
         </div>
         {value && !required && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onChange("")}
-            className="shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-400 hover:text-red-600 dark:border-gray-600"
           >
-            &times;
-          </button>
+            <X className="size-4" />
+          </Button>
         )}
       </div>
     </div>
@@ -679,7 +675,7 @@ function ArrayField({
 
   return (
     <div>
-      <label className={labelClass}>{name}</label>
+      <Label>{name}</Label>
       <div className="space-y-2 rounded-md border border-gray-200 p-3 dark:border-gray-700">
         {items.map((item, i) => (
           <div key={i} className="flex items-start gap-2">
@@ -695,22 +691,25 @@ function ArrayField({
                 <FallbackField name={`${i}`} value={item} onChange={(v) => updateItem(i, v)} />
               )}
             </div>
-            <button
+            <Button
               type="button"
+              variant="destructive"
+              size="xs"
+              className="mt-6"
               onClick={() => (needsConfirm ? setConfirmRemoveIndex(i) : removeItem(i))}
-              className="mt-6 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
             >
               {t($ => $.common.remove)}
-            </button>
+            </Button>
           </div>
         ))}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="xs"
           onClick={addItem}
-          className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
         >
           {t($ => $.editors.addItem)}
-        </button>
+        </Button>
       </div>
       <ConfirmDialog
         open={confirmRemoveIndex !== null}
@@ -818,31 +817,34 @@ function RecordField({
                 <FallbackField name={key} value={val} onChange={(v) => updateField(key, v)} />
               )}
             </div>
-            <button
+            <Button
               type="button"
+              variant="destructive"
+              size="xs"
+              className="mt-1"
               onClick={() => (needsConfirm ? setConfirmRemoveKey(key) : removeField(key))}
-              className="mt-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
             >
               {t($ => $.common.remove)}
-            </button>
+            </Button>
           </div>
         ))}
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="text"
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addField()}
             placeholder={t($ => $.editors.newKey)}
-            className={`${inputClass} max-w-48`}
+            className="max-w-48"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="xs"
             onClick={addField}
-            className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
           >
             {t($ => $.editors.add)}
-          </button>
+          </Button>
         </div>
       </div>
       <ConfirmDialog
@@ -903,26 +905,29 @@ function UnionField({
       <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{name}</legend>
       <div className="space-y-3">
         <div>
-          <label className={labelClass}>{t($ => $.editors.variant)}</label>
-          <select
-            value={selectedIndex >= 0 ? selectedIndex : ""}
-            onChange={(e) => handleVariantChange(Number(e.target.value))}
-            className={inputClass}
+          <Label>{t($ => $.editors.variant)}</Label>
+          <Select
+            value={selectedIndex >= 0 ? String(selectedIndex) : undefined}
+            onValueChange={(val) => handleVariantChange(Number(val))}
           >
-            {selectedIndex < 0 && <option value="">--</option>}
-            {variants.map((v, i) => {
-              const discField = v.shape?.[discriminator];
-              const label =
-                discField?.def.type === "literal" && discField.def.value != null
-                  ? `${discField.def.value as string | number}`
-                  : String(i);
-              return (
-                <option key={i} value={i}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="--" />
+            </SelectTrigger>
+            <SelectContent>
+              {variants.map((v, i) => {
+                const discField = v.shape?.[discriminator];
+                const label =
+                  discField?.def.type === "literal" && discField.def.value != null
+                    ? `${discField.def.value as string | number}`
+                    : String(i);
+                return (
+                  <SelectItem key={i} value={String(i)}>
+                    {label}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
         </div>
         {selectedVariant && (
           <ObjectField schema={selectedVariant} name="" value={value ?? {}} onChange={onChange} />
@@ -936,14 +941,15 @@ function NullableToggle({ name, onEnable }: { name: string; onEnable: () => void
   const { t } = useTranslation();
   return (
     <div>
-      <label className={labelClass}>{name}</label>
-      <button
+      <Label>{name}</Label>
+      <Button
         type="button"
+        variant="outline"
+        size="xs"
         onClick={onEnable}
-        className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-gray-400 hover:text-gray-800 dark:border-gray-600 dark:text-gray-400"
       >
         {t($ => $.editors.setValue)}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -962,13 +968,14 @@ function NullableWrapper({
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{name}</span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
           onClick={onClear}
-          className="rounded px-1.5 py-0.5 text-xs text-gray-400 hover:text-red-600"
         >
           {t($ => $.editors.clear)}
-        </button>
+        </Button>
       </div>
       {children}
     </div>
@@ -991,10 +998,10 @@ function FallbackField({
 
   return (
     <div>
-      <label className={labelClass}>
+      <Label>
         {name} <span className="text-xs text-gray-400">{t($ => $.editors.raw)}</span>
-      </label>
-      <textarea
+      </Label>
+      <Textarea
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -1005,7 +1012,7 @@ function FallbackField({
           }
         }}
         rows={3}
-        className={`${inputClass} font-mono`}
+        className="font-mono"
       />
     </div>
   );

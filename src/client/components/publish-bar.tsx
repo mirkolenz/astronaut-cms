@@ -6,6 +6,7 @@ import { useChangesStore } from "@/client/stores/changes-store";
 import { useAuthStore } from "@/client/stores/auth-store";
 import { usePublish } from "@/client/queries/use-entries";
 import { ConfirmDialog } from "./confirm-dialog";
+import { Button } from "@/client/components/ui/button";
 
 export function PublishBar() {
   const { t } = useTranslation();
@@ -39,27 +40,29 @@ export function PublishBar() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowDiscardConfirm(true)}
             disabled={isPublishing || changes.length === 0}
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
           >
             {t($ => $.common.discard)}
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             onClick={handlePublish}
             disabled={isPublishing || changes.length === 0}
-            className="rounded-md bg-green-600 px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
           >
             {isPublishing ? t($ => $.publish.publishing) : t($ => $.publish.publish)}
-          </button>
+          </Button>
           {config.storageType !== "local" && (
-            <button
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={clearToken}
-              className="rounded-md px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             >
               {t($ => $.common.signOut)}
-            </button>
+            </Button>
           )}
         </div>
       </div>
