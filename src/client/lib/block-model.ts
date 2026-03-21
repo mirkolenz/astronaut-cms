@@ -227,13 +227,12 @@ export function serializeBlocksToMdx(blocks: Block[]): string {
   return blocks.map(serializeBlock).join("\n\n") + "\n";
 }
 
-/** Extract markdown content string from children blocks. */
+/** Extract markdown content string from children blocks, serializing any component blocks back to MDX. */
 export function getMarkdownContent(children: Block[]): string {
   return (
     children
-      .filter((c): c is TextBlock => c.type === "text")
-      .map((c) => c.content)
-      .join("\n") || ""
+      .map((c) => (c.type === "text" ? c.content : serializeBlock(c)))
+      .join("\n\n") || ""
   );
 }
 

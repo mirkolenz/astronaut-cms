@@ -25,4 +25,4 @@ dist-ssr
 *.sw?
 
 .direnv/
-/example/src/assets/
+/docs/src/assets/

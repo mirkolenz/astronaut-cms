@@ -1,0 +1,154 @@
+---
+title: Config Helpers
+description: API reference for defineConfig, defineComponent, image, file, and ComponentProps.
+---
+
+These functions and types are exported from `astronaut-cms/config`.
+
+## `defineConfig()`
+
+A type-safe wrapper for the CMS config object.
+Returns the config as-is, providing TypeScript inference.
+
+```ts
+function defineConfig<const T extends CmsUserConfig>(config: T): T;
+```
+
+### Usage
+
+```ts title="src/cms.config.ts"
+import { defineConfig } from "astronaut-cms/config";
+
+export default defineConfig({
+  components: {
+    // ...
+  },
+});
+```
+
+## `defineComponent()`
+
+A type-safe wrapper for component definitions.
+Returns the definition as-is, providing TypeScript inference.
+
+```ts
+function defineComponent<T extends z.ZodType>(
+  def: ComponentDefinition<T>,
+): ComponentDefinition<T>;
+```
+
+### Usage
+
+```ts
+import { defineComponent } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+const Alert = defineComponent({
+  props: z.object({
+    type: z.enum(["info", "warning", "error"]),
+  }),
+  children: "markdown",
+  label: "Alert",
+});
+```
+
+## `image()`
+
+Creates a Zod string schema tagged with `x-cms-image` metadata.
+Use this in CMS component props to create image picker fields.
+
+```ts
+function image(): z.ZodString;
+```
+
+### Usage
+
+```ts
+import { defineComponent, image } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+const Hero = defineComponent({
+  props: z.object({
+    cover: image(),
+  }),
+  children: "markdown",
+});
+```
+
+## `file()`
+
+Creates a Zod string schema tagged with `x-cms-file` metadata.
+Use this in CMS component props to create file picker fields.
+
+```ts
+function file(): z.ZodString;
+```
+
+### Usage
+
+```ts
+import { defineComponent, file } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+const Download = defineComponent({
+  props: z.object({
+    document: file(),
+    label: z.string(),
+  }),
+});
+```
+
+## `ComponentProps`
+
+A utility type that extracts inferred prop types from the CMS config.
+Use this in Astro components to type-check props against the CMS schema.
+
+```ts
+type ComponentProps<
+  Config extends CmsUserConfig,
+  Name extends string & keyof NonNullable<Config["components"]>,
+> = z.infer<NonNullable<Config["components"]>[Name]["props"]>;
+```
+
+### Usage
+
+```astro title="src/components/Alert.astro"
+---
+import type { ComponentProps } from "astronaut-cms/config";
+import type cmsConfig from "@/cms.config";
+
+type Props = ComponentProps<typeof cmsConfig, "Alert">;
+
+const { type } = Astro.props;
+---
+
+<div class={`alert alert-${type}`}>
+  <slot />
+</div>
+```
+
+## `CmsUserConfig`
+
+The interface for the CMS config object.
+
+```ts
+interface CmsUserConfig {
+  remarkPlugins?: PluggableList;
+  rehypePlugins?: PluggableList;
+  components?: Record<string, ComponentDefinition>;
+}
+```
+
+## `ComponentDefinition`
+
+The interface for a single component definition.
+
+```ts
+interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
+  props: T;
+  children?: "markdown" | Record<string, ComponentDefinition>;
+  label?: string;
+  icon?: LucideIcon;
+  wrapper?: ComponentType<{ children: ReactNode }>;
+}
+```

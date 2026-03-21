@@ -1,5 +1,5 @@
 {
-  "name": "astronaut-cms-example",
+  "name": "astronaut-cms-docs",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,10 +8,11 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/mdx": "^5",
     "@astrojs/react": "^5",
+    "@astrojs/starlight": "^0.38",
     "astro": "^6",
     "astronaut-cms": "file:..",
+    "lucide-react": "^0.577.0",
     "react": "^19",
     "react-dom": "^19"
   }

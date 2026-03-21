@@ -1,0 +1,179 @@
+---
+title: CMS Configuration
+description: Define custom MDX block components for the CMS editor.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The CMS config file (`src/cms.config.ts`) defines custom MDX block components that can be used in the admin panel's content editor.
+
+## Basic Setup
+
+```ts title="src/cms.config.ts"
+import { defineConfig, defineComponent } from "astronaut-cms/config";
+import { z } from "astro/zod";
+import { TriangleAlert } from "lucide-react";
+
+export default defineConfig({
+  components: {
+    Alert: defineComponent({
+      props: z.object({
+        type: z.enum(["info", "warning", "error"]).default("info"),
+      }),
+      children: "markdown",
+      label: "Alert",
+      icon: TriangleAlert,
+    }),
+  },
+});
+```
+
+## Component Definition
+
+Each component is defined using `defineComponent()` with the following options:
+
+### `props`
+
+- **Type:** `z.ZodType`
+
+A Zod schema defining the component's props.
+The admin panel generates a form from this schema.
+
+### `children`
+
+- **Type:** `"markdown" | Record<string, ComponentDefinition>`
+- **Default:** `undefined`
+
+Defines what the component accepts as children.
+Set to `"markdown"` for components that wrap markdown content.
+Set to an object for components that contain named child components (e.g., tabs with tab items).
+
+### `label`
+
+- **Type:** `string`
+- **Default:** the component key name
+
+A human-readable label shown in the admin panel.
+
+### `icon`
+
+- **Type:** `LucideIcon`
+- **Default:** `undefined`
+
+A [Lucide React](https://lucide.dev) icon shown in the admin panel.
+
+### `wrapper`
+
+- **Type:** `React.ComponentType<{ children: ReactNode }>`
+- **Default:** `undefined`
+
+A React component that wraps the component preview in the admin panel.
+
+## Nested Components
+
+Components can contain named child components.
+This is useful for container patterns like tabs:
+
+```ts title="src/cms.config.ts"
+import { defineConfig, defineComponent } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+export default defineConfig({
+  components: {
+    Tabs: defineComponent({
+      props: z.object({}),
+      children: {
+        Tab: defineComponent({
+          props: z.object({
+            label: z.string(),
+          }),
+          children: "markdown",
+          label: "Tab",
+        }),
+      },
+      label: "Tabs",
+    }),
+  },
+});
+```
+
+In MDX content, this renders as:
+
+```mdx
+<Tabs>
+  <Tab label="First">
+    Content for the first tab.
+  </Tab>
+  <Tab label="Second">
+    Content for the second tab.
+  </Tab>
+</Tabs>
+```
+
+## Asset Fields
+
+Use `image()` and `file()` from `astronaut-cms/config` to define props that reference media files.
+The admin panel renders these as asset pickers connected to the media library.
+
+```ts title="src/cms.config.ts"
+import { defineConfig, defineComponent, image, file } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+export default defineConfig({
+  components: {
+    Hero: defineComponent({
+      props: z.object({
+        cover: image(),
+        caption: z.string().optional(),
+      }),
+      children: "markdown",
+      label: "Hero",
+    }),
+    Download: defineComponent({
+      props: z.object({
+        document: file(),
+        label: z.string(),
+      }),
+      label: "Download",
+    }),
+  },
+});
+```
+
+## Matching Astro Components
+
+Each component defined in `cms.config.ts` must have a corresponding Astro component that renders the HTML.
+Place these in `src/components/` and import them in your MDX content or configure MDX component mapping.
+
+```astro title="src/components/Alert.astro"
+---
+import type { ComponentProps } from "astronaut-cms/config";
+import type cmsConfig from "@/cms.config";
+
+type Props = ComponentProps<typeof cmsConfig, "Alert">;
+
+const { type = "info" } = Astro.props;
+---
+
+<div class={`alert alert-${type}`}>
+  <slot />
+</div>
+```
+
+The `ComponentProps` utility type extracts the inferred prop types from the CMS config, ensuring type safety between the CMS schema and the rendering component.
+
+## Remark and Rehype Plugins
+
+The CMS config also accepts custom remark and rehype plugins that are used by the admin panel's markdown preview:
+
+```ts title="src/cms.config.ts"
+import { defineConfig } from "astronaut-cms/config";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+
+export default defineConfig({
+  remarkPlugins: [remarkMath],
+  rehypePlugins: [rehypeKatex],
+  components: {},
+});
+```

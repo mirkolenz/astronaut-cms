@@ -7,6 +7,7 @@ import type { CmsConfig } from "./types.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { createDevMiddleware } from "./dev-middleware.ts";
 import { createJiti } from "jiti";
+import { CLIENT_REDIRECTS } from "./client-redirects.ts";
 import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
 import { getAssetType } from "@/shared/schema-utils.ts";
 
@@ -71,13 +72,7 @@ function flattenAssetFields(defs: Record<string, LoadedComponentDef>, result: As
 }
 
 function createCmsJiti(rootDir: string) {
-  return createJiti(rootDir, {
-    alias: {
-      "astro:content": "astronaut-cms/stubs",
-      "astro/loaders": "astronaut-cms/stubs",
-      "astro/zod": "zod/v4",
-    },
-  });
+  return createJiti(rootDir, { alias: CLIENT_REDIRECTS });
 }
 
 function extractAssetFields(userConfigPath: string, rootDir: string): AssetFieldsMap {

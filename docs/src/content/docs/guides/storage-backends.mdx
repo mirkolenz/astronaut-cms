@@ -1,0 +1,103 @@
+---
+title: Storage Backends
+description: Configure local, GitHub, or GitLab storage for your content.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+Astronaut CMS supports three storage backends.
+During development you use local storage, and in production you connect to GitHub or GitLab.
+
+## Local Storage
+
+Local storage is the default.
+It reads and writes files directly on disk through the dev server.
+
+```ts title="astro.config.ts"
+cms({
+  storage: { type: "local" },
+})
+```
+
+<Aside type="note">
+  Local storage only works during development (`astro dev`).
+  For production deployments, use the GitHub or GitLab backend.
+</Aside>
+
+## GitHub Storage
+
+The GitHub backend uses the GitHub API to read and write content in your repository.
+It supports both direct commits to a branch and pull request workflows.
+
+```ts title="astro.config.ts"
+cms({
+  storage: {
+    type: "github",
+    repo: "owner/repo",
+    branch: "main",
+    clientId: "your-github-oauth-app-client-id",
+    publishMode: "pull-request",
+  },
+})
+```
+
+### Configuration
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `repo` | `string` | required | GitHub repository in `owner/repo` format |
+| `branch` | `string` | `"main"` | Target branch for reading and writing |
+| `clientId` | `string` | required | GitHub OAuth App client ID |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published |
+
+### Setting Up GitHub OAuth
+
+1. Go to **Settings > Developer Settings > OAuth Apps** in your GitHub account.
+2. Create a new OAuth App with the callback URL set to your site's `/admin` path.
+3. Copy the **Client ID** and pass it to the `clientId` option.
+
+<Aside type="tip">
+  Use `publishMode: "pull-request"` for editorial workflows where changes should be reviewed before merging.
+</Aside>
+
+## GitLab Storage
+
+The GitLab backend uses the GitLab API.
+It supports self-hosted GitLab instances.
+
+```ts title="astro.config.ts"
+cms({
+  storage: {
+    type: "gitlab",
+    project: "group/project",
+    branch: "main",
+    clientId: "your-gitlab-oauth-app-id",
+    instanceUrl: "https://gitlab.com",
+    publishMode: "merge-request",
+  },
+})
+```
+
+### Configuration
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `project` | `string` | required | GitLab project in `group/project` format |
+| `branch` | `string` | `"main"` | Target branch |
+| `clientId` | `string` | required | GitLab OAuth application ID |
+| `instanceUrl` | `string` | `"https://gitlab.com"` | GitLab instance URL for self-hosted instances |
+| `publishMode` | `"direct" \| "merge-request"` | `"direct"` | How changes are published |
+
+### Setting Up GitLab OAuth
+
+1. Go to **User Settings > Applications** (or **Admin > Applications** for instance-wide).
+2. Create a new application with the `api` scope.
+3. Set the callback URL to your site's `/admin` path.
+4. Copy the **Application ID** and pass it to the `clientId` option.
+
+## Publish Modes
+
+Both GitHub and GitLab backends support two publish modes:
+
+- **`"direct"`** — Changes are committed directly to the configured branch.
+- **`"pull-request"` / `"merge-request"`** — Changes are committed to a new branch and a pull/merge request is created for review.

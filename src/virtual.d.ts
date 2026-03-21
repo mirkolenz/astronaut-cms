@@ -1,22 +1,5 @@
 declare module "virtual:astronaut-cms/config" {
-  import type { SupportedLocale } from "./integration/types";
-  interface CmsClientConfig {
-    mountPoint: string;
-    storageType: "local" | "github" | "gitlab";
-    mediaDirectory: string;
-    locale: SupportedLocale;
-    github?: {
-      repo: string;
-      branch: string;
-      clientId: string;
-    };
-    gitlab?: {
-      project: string;
-      branch: string;
-      clientId: string;
-      instanceUrl: string;
-    };
-  }
+  import type { CmsClientConfig } from "./integration/types";
   const config: CmsClientConfig;
   export default config;
 }

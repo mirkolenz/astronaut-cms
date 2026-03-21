@@ -3,7 +3,8 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "astronaut-cms": ["../src/integration/index.ts"]
+      "astronaut-cms": ["../src/integration/index.ts"],
+      "astronaut-cms/config": ["../src/config.ts"]
     }
   }
 }

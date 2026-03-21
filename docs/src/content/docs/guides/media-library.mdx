@@ -1,0 +1,82 @@
+---
+title: Media Library
+description: Manage images and files in the CMS admin panel.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The admin panel includes a media library for uploading, renaming, replacing, and deleting media files.
+
+## Configuration
+
+Configure the media library in your `astro.config.ts`:
+
+```ts title="astro.config.ts"
+cms({
+  media: {
+    directory: "src/assets",
+    allowedExtensions: [".jpg", ".jpeg", ".png", ".webp", ".svg", ".pdf"],
+    maxFileSize: 10_000_000,
+  },
+})
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `directory` | `string` | `"src/assets"` | Directory where media files are stored, relative to the project root |
+| `allowedExtensions` | `string[]` | See below | List of allowed file extensions |
+| `maxFileSize` | `number` | unlimited | Maximum file size in bytes |
+
+### Default Allowed Extensions
+
+If `allowedExtensions` is not set, the following extensions are allowed by default:
+
+`.jpg`, `.jpeg`, `.png`, `.webp`, `.avif`, `.svg`, `.gif`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.csv`
+
+## Using Media in Content
+
+### In Content Collection Schemas
+
+Use the `image()` helper from the schema function parameter to reference images in frontmatter:
+
+```ts title="src/content.config.ts"
+const blog = defineCollection({
+  loader: glob({ pattern: "**/*.mdx", base: "src/content/blog" }),
+  schema: ({ image }) =>
+    z.object({
+      cover: image().optional(),
+    }),
+});
+```
+
+### In CMS Component Props
+
+Use the `image()` and `file()` helpers from `astronaut-cms/config` to reference assets in component props:
+
+```ts title="src/cms.config.ts"
+import { defineComponent, image, file } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+defineComponent({
+  props: z.object({
+    photo: image(),
+    attachment: file(),
+  }),
+});
+```
+
+<Aside type="note">
+  The `image()` and `file()` helpers from `astronaut-cms/config` are different from the `image()` provided by Astro's schema function.
+  Use `astronaut-cms/config` helpers for CMS component props, and use Astro's `image()` for content collection schemas.
+</Aside>
+
+## Operations
+
+The media library supports the following operations through the admin panel:
+
+- **Upload** — Drag and drop or click to upload files to the media directory.
+- **Rename** — Change the file name while preserving the extension.
+- **Replace** — Upload a new file to replace an existing one at the same path.
+- **Delete** — Remove a file from the media directory.

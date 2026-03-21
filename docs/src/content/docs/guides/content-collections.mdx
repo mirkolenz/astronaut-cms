@@ -1,0 +1,124 @@
+---
+title: Content Collections
+description: Define and manage content collections with Astronaut CMS.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Astronaut CMS works with Astro's standard content collection API.
+Define your collections in `src/content.config.ts` and the CMS admin panel will automatically generate editor forms from your Zod schemas.
+
+## Glob Collections
+
+Glob collections store one entry per file.
+Use the `glob()` loader to match files by pattern.
+
+```ts title="src/content.config.ts"
+import { defineCollection } from "astro:content";
+import { glob } from "astro/loaders";
+import { z } from "astro/zod";
+
+const blog = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "src/content/blog" }),
+  schema: ({ image }) =>
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      date: z.coerce.date(),
+      cover: image().optional(),
+    }),
+});
+
+export const collections = { blog };
+```
+
+The admin panel will display a form with fields for `title`, `description`, `date`, and an image picker for `cover`.
+
+## File Collections
+
+File collections store multiple entries in a single file.
+Use the `file()` loader for JSON, YAML, or TOML data files.
+
+```ts title="src/content.config.ts"
+import { defineCollection } from "astro:content";
+import { file } from "astro/loaders";
+import { z } from "astro/zod";
+
+const authors = defineCollection({
+  loader: file("src/data/authors.json"),
+  schema: z.object({
+    name: z.string(),
+    email: z.string().email().optional(),
+    bio: z.string().optional(),
+  }),
+});
+
+export const collections = { authors };
+```
+
+File collections support both array and object layouts.
+The admin panel detects the layout automatically and allows reordering entries in array-layout files.
+
+## References
+
+Use `reference()` to create relationships between collections.
+
+```ts title="src/content.config.ts"
+import { defineCollection, reference } from "astro:content";
+import { glob, file } from "astro/loaders";
+import { z } from "astro/zod";
+
+const authors = defineCollection({
+  loader: file("src/data/authors.json"),
+  schema: z.object({
+    name: z.string(),
+  }),
+});
+
+const blog = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "src/content/blog" }),
+  schema: z.object({
+    title: z.string(),
+    author: reference("authors").optional(),
+  }),
+});
+
+export const collections = { authors, blog };
+```
+
+The admin panel renders reference fields as dropdown selectors populated with entries from the referenced collection.
+
+## Schema Field Types
+
+The CMS admin panel generates appropriate form controls based on the Zod schema type:
+
+| Zod Type | Admin Panel Control |
+|---|---|
+| `z.string()` | Text input |
+| `z.string().email()` | Email input |
+| `z.number()` | Number input |
+| `z.boolean()` | Toggle switch |
+| `z.coerce.date()` | Date picker |
+| `z.enum([...])` | Dropdown select |
+| `image()` | Image picker (from media library) |
+| `file()` | File picker (from media library) |
+| `reference("collection")` | Reference dropdown |
+
+<Aside type="tip">
+  Use `image()` and `file()` from `astronaut-cms/config` when defining CMS component props.
+  In content collection schemas, use the `image()` helper provided by the schema function parameter instead.
+</Aside>
+
+## Supported Content Formats
+
+Glob collections support the following file formats:
+
+- **Markdown** (`.md`) — YAML frontmatter + body
+- **MDX** (`.mdx`) — YAML frontmatter + body with JSX components
+- **Markdoc** (`.mdoc`) — YAML frontmatter + body
+
+File collections support:
+
+- **JSON** (`.json`) — arrays or objects with `id` fields
+- **YAML** (`.yaml`, `.yml`) — objects with `id` keys
+- **TOML** (`.toml`) — objects

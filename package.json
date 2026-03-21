@@ -2,7 +2,7 @@
   "name": "astronaut-cms",
   "version": "0.0.0",
   "workspaces": [
-    "example"
+    "docs"
   ],
   "files": [
     "dist"
@@ -42,6 +42,7 @@
     "@tanstack/react-router": "^1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "es-module-lexer": "^2",
     "i18next": "^25.9.0",
     "jiti": "^2",
     "lucide-react": "^0.577.0",

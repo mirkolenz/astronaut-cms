@@ -1,0 +1,97 @@
+---
+title: Configuration Reference
+description: Complete API reference for the CMS integration configuration types.
+---
+
+## `CmsConfig`
+
+Options passed to the `cms()` integration function in `astro.config.ts`.
+
+```ts
+interface CmsConfig {
+  config?: string;
+  mountPoint?: string;
+  storage?: StorageConfig;
+  media?: MediaConfig;
+  locale?: "en" | "de";
+}
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `config` | `string` | auto-discovered | Path to the CMS config file relative to the project root |
+| `mountPoint` | `string` | `"/admin"` | URL path for the admin panel |
+| `storage` | `StorageConfig` | `{ type: "local" }` | Storage backend configuration |
+| `media` | `MediaConfig` | `{}` | Media library configuration |
+| `locale` | `"en" \| "de"` | `"en"` | Admin panel UI language |
+
+## `StorageConfig`
+
+A discriminated union defining the storage backend.
+
+### Local Storage
+
+```ts
+{ type: "local" }
+```
+
+Reads and writes files on disk via the dev server.
+Only available during development.
+
+### GitHub Storage
+
+```ts
+{
+  type: "github";
+  repo: string;
+  branch?: string;
+  clientId: string;
+  publishMode?: "direct" | "pull-request";
+}
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `repo` | `string` | required | Repository in `owner/repo` format |
+| `branch` | `string` | `"main"` | Target branch |
+| `clientId` | `string` | required | GitHub OAuth App client ID |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | Commit strategy |
+
+### GitLab Storage
+
+```ts
+{
+  type: "gitlab";
+  project: string;
+  branch?: string;
+  clientId: string;
+  instanceUrl?: string;
+  publishMode?: "direct" | "merge-request";
+}
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `project` | `string` | required | Project in `group/project` format |
+| `branch` | `string` | `"main"` | Target branch |
+| `clientId` | `string` | required | GitLab OAuth application ID |
+| `instanceUrl` | `string` | `"https://gitlab.com"` | GitLab instance URL |
+| `publishMode` | `"direct" \| "merge-request"` | `"direct"` | Commit strategy |
+
+## `MediaConfig`
+
+Options for the media library.
+
+```ts
+interface MediaConfig {
+  directory?: string;
+  allowedExtensions?: string[];
+  maxFileSize?: number;
+}
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `directory` | `string` | `"src/assets"` | Media storage directory relative to project root |
+| `allowedExtensions` | `string[]` | common image/document types | Allowed file extensions (with leading dot) |
+| `maxFileSize` | `number` | unlimited | Maximum file size in bytes |

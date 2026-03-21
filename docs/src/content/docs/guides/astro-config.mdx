@@ -1,0 +1,80 @@
+---
+title: Astro Configuration
+description: Configure the Astronaut CMS integration in your astro.config.ts.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+The CMS integration is added to your `astro.config.ts` file.
+It accepts an optional configuration object to customize its behavior.
+
+## Basic Setup
+
+```ts title="astro.config.ts"
+import { defineConfig } from "astro/config";
+import mdx from "@astrojs/mdx";
+import react from "@astrojs/react";
+import cms from "astronaut-cms";
+
+export default defineConfig({
+  integrations: [mdx(), react(), cms()],
+});
+```
+
+<Aside type="caution">
+  The `react()` integration must be included for the admin panel to work.
+  The `mdx()` integration is needed if you use MDX block components.
+</Aside>
+
+## Configuration Options
+
+Pass options to `cms()` to customize the integration:
+
+```ts title="astro.config.ts"
+cms({
+  mountPoint: "/admin",
+  locale: "en",
+  storage: { type: "local" },
+  media: {
+    directory: "src/assets",
+    maxFileSize: 10_000_000,
+  },
+})
+```
+
+### `mountPoint`
+
+- **Type:** `string`
+- **Default:** `"/admin"`
+
+The URL path where the admin panel is served.
+
+### `config`
+
+- **Type:** `string`
+- **Default:** auto-discovered from `src/cms.config.{ts,mts,js,mjs}`
+
+Path to the CMS config file, relative to the project root.
+
+### `locale`
+
+- **Type:** `"en" | "de"`
+- **Default:** `"en"`
+
+Language for the admin panel UI.
+
+### `storage`
+
+- **Type:** `StorageConfig`
+- **Default:** `{ type: "local" }`
+
+Storage backend configuration.
+See the [Storage Backends](../storage-backends/) guide for details.
+
+### `media`
+
+- **Type:** `MediaConfig`
+- **Default:** `{ directory: "src/assets" }`
+
+Media library configuration.
+See the [Media Library](../media-library/) guide for details.
