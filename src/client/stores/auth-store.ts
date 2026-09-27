@@ -1,40 +1,52 @@
 import { create } from "zustand";
 
+export type Provider = "github" | "gitlab";
+
+export interface AuthSession {
+  provider: Provider;
+  accessToken: string;
+  /** Epoch milliseconds when the access token expires, or null if it never does. */
+  expiresAt: number | null;
+}
+
 interface AuthState {
-  token: string | null;
-  provider: "github" | "gitlab" | null;
-  setToken: (token: string, provider: "github" | "gitlab") => void;
-  clearToken: () => void;
+  session: AuthSession | null;
+  setSession: (session: AuthSession) => void;
+  clearSession: () => void;
 }
 
 const SESSION_KEY = "astronaut-cms:auth";
 
-function loadFromSession(): { token: string; provider: "github" | "gitlab" } | null {
+function loadFromSession(): AuthSession | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { token: string; provider: string };
-    if (parsed.token && (parsed.provider === "github" || parsed.provider === "gitlab")) {
-      return { token: parsed.token, provider: parsed.provider };
+    const parsed = JSON.parse(raw) as Partial<AuthSession>;
+    if (
+      typeof parsed.accessToken === "string"
+      && (parsed.provider === "github" || parsed.provider === "gitlab")
+    ) {
+      return {
+        provider: parsed.provider,
+        accessToken: parsed.accessToken,
+        expiresAt: parsed.expiresAt ?? null,
+      };
     }
   } catch {
     // ignore
   }
+
   return null;
 }
 
-export const useAuthStore = create<AuthState>((set) => {
-  const saved = loadFromSession();
-  return {
-    token: saved?.token ?? null,
-    provider: saved?.provider ?? null,
-    setToken: (token, provider) => {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, provider }));
-      set({ token, provider });
-    },
-    clearToken: () => {
-      sessionStorage.removeItem(SESSION_KEY);
-      set({ token: null, provider: null });
-    },
-  };
-});
+export const useAuthStore = create<AuthState>((set) => ({
+  session: loadFromSession(),
+  setSession: (session) => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    set({ session });
+  },
+  clearSession: () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    set({ session: null });
+  },
+}));

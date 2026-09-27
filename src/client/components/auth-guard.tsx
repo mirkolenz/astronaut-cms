@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
+import { toSession, isExpired } from "@client/lib/oauth/session";
 import { initiateDeviceAuthorization, verifyRepoWriteAccess } from "@client/lib/oauth/github";
 import {
   startGitLabLogin,
@@ -13,10 +14,27 @@ import { Alert, AlertDescription } from "@client/components/ui/alert";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
-  const token = useAuthStore((s) => s.token);
-  const setToken = useAuthStore((s) => s.setToken);
+  const session = useAuthStore((s) => s.session);
+  const setSession = useAuthStore((s) => s.setSession);
+  const clearSession = useAuthStore((s) => s.clearSession);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthPending, setOauthPending] = useState(false);
+
+  // Sign out when the access token lapses so a stale token doesn't linger in
+  // an open tab (otherwise every action would just fail with a 401).
+  useEffect(() => {
+    if (session?.expiresAt == null) return;
+
+    const delay = session.expiresAt - Date.now();
+    if (delay <= 0) {
+      clearSession();
+      return;
+    }
+
+    const timer = setTimeout(clearSession, delay);
+
+    return () => clearTimeout(timer);
+  }, [session, clearSession]);
 
   useEffect(() => {
     if (config.storageType !== "gitlab") return;
@@ -40,22 +58,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       config.gitlab!.instanceUrl,
       new URL(window.location.href),
     )
-      .then(async (accessToken) => {
+      .then(async (tokens) => {
         await verifyProjectWriteAccess(
-          accessToken,
+          tokens.access_token,
           config.gitlab!.project,
           config.gitlab!.instanceUrl,
         );
-        setToken(accessToken, "gitlab");
+        setSession(toSession("gitlab", tokens));
         cleanUrl();
       })
       .catch((err) => {
         setOauthError(err instanceof Error ? err.message : "Authentication failed");
       })
       .finally(() => setOauthPending(false));
-  }, [setToken]);
+  }, [setSession]);
 
-  if (config.storageType === "local") {
+  const hasValidSession = session != null && !isExpired(session);
+
+  if (config.storageType === "local" || hasValidSession) {
     return children;
   }
 
@@ -67,12 +87,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (token !== null) {
-    return children;
-  }
-
   if (config.storageType === "github" && config.github) {
-    return <GitHubLogin clientId={config.github.clientId} repo={config.github.repo} />;
+    return (
+      <GitHubLogin
+        clientId={config.github.clientId}
+        repo={config.github.repo}
+        // GitHub Apps derive permissions from the installation and ignore scopes.
+        scopes={config.github.authMode === "github-app" ? undefined : config.github.scopes}
+      />
+    );
   }
 
   if (config.storageType === "gitlab" && config.gitlab) {
@@ -80,6 +103,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       <GitLabLogin
         clientId={config.gitlab.clientId}
         instanceUrl={config.gitlab.instanceUrl}
+        scopes={config.gitlab.scopes}
         oauthError={oauthError}
       />
     );
@@ -92,9 +116,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GitHubLogin({ clientId, repo }: { clientId: string; repo: string }) {
+function GitHubLogin({
+  clientId,
+  repo,
+  scopes,
+}: {
+  clientId: string;
+  repo: string;
+  scopes?: string[];
+}) {
   const { t } = useTranslation();
-  const setToken = useAuthStore((s) => s.setToken);
+  const setSession = useAuthStore((s) => s.setSession);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -112,20 +144,20 @@ function GitHubLogin({ clientId, repo }: { clientId: string; repo: string }) {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const auth = await initiateDeviceAuthorization(clientId);
+      const auth = await initiateDeviceAuthorization(clientId, scopes);
       setUserCode(auth.userCode);
       setVerificationUri(auth.verificationUri);
       setIsPolling(true);
 
-      const token = await auth.poll(controller.signal);
-      await verifyRepoWriteAccess(token, repo);
-      setToken(token, "github");
+      const tokens = await auth.poll(controller.signal);
+      await verifyRepoWriteAccess(tokens.access_token, repo);
+      setSession(toSession("github", tokens));
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Authentication failed");
       setIsPolling(false);
     }
-  }, [clientId, repo, setToken]);
+  }, [clientId, repo, scopes, setSession]);
 
   return (
     <LoginShell title={t($ => $.auth.signInGitHub)} error={error}>
@@ -165,10 +197,12 @@ function GitHubLogin({ clientId, repo }: { clientId: string; repo: string }) {
 function GitLabLogin({
   clientId,
   instanceUrl,
+  scopes,
   oauthError,
 }: {
   clientId: string;
   instanceUrl: string;
+  scopes: string[];
   oauthError: string | null;
 }) {
   const { t } = useTranslation();
@@ -178,11 +212,11 @@ function GitLabLogin({
     setError(null);
     try {
       const redirectUri = `${window.location.origin}${config.mountPoint}`;
-      await startGitLabLogin(clientId, instanceUrl, redirectUri);
+      await startGitLabLogin(clientId, instanceUrl, redirectUri, scopes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
-  }, []);
+  }, [clientId, instanceUrl, scopes]);
 
   return (
     <LoginShell title={t($ => $.auth.signInGitLab)} error={error}>

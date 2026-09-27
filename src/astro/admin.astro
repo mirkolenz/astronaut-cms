@@ -1,25 +1,47 @@
 ---
 import "astronaut-cms/styles.css";
-import AdminApp from "astronaut-cms/client";
 import config from "virtual:astronaut-cms/config";
+
+// Restrict where the admin (which holds a Git provider token in the browser) may
+// load code from and connect to, so an injected script cannot exfiltrate it.
+// `connect-src` is limited to the configured provider's API origins. Emitted
+// only in production builds — the dev server is local-storage only and needs
+// looser connections for HMR.
+function providerConnectSrc(): string {
+  if (config.storageType === "github") return "https://github.com https://api.github.com";
+  if (config.storageType === "gitlab") return new URL(config.gitlab!.instanceUrl).origin;
+  return "";
+}
+
+const csp = [
+  "default-src 'none'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${providerConnectSrc()}`,
+  "worker-src 'self' blob:",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+].join("; ");
 ---
 
 <html lang={config.locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={csp} />}
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />
-    <script is:inline>
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      function applyTheme(dark) {
-        document.documentElement.classList.toggle("dark", dark);
-      }
-      applyTheme(mq.matches);
-      mq.addEventListener("change", (e) => applyTheme(e.matches));
-    </script>
   </head>
   <body>
-    <AdminApp client:only="react" />
+    <div id="astronaut-cms-root"></div>
+    <script>
+      import { mount } from "astronaut-cms/client";
+
+      const root = document.getElementById("astronaut-cms-root");
+      if (root) mount(root);
+    </script>
   </body>
 </html>

@@ -28,6 +28,17 @@ export type SupportedLocale = "en" | "de";
 
 export type PublishMode = "direct" | "pull-request";
 
+/**
+ * GitHub authentication strategy.
+ *
+ * - `oauth-app`: classic OAuth App. Tokens carry coarse scopes (see `scopes`)
+ *   and cannot be limited to a single repository.
+ * - `github-app`: GitHub App. Tokens are limited to the repositories the app is
+ *   installed on and the permissions it declares (use Contents + Pull requests),
+ *   and can be configured to expire. Strongly recommended for least privilege.
+ */
+export type GitHubAuthMode = "oauth-app" | "github-app";
+
 export type StorageConfig =
   | { type: "local" }
   | {
@@ -35,6 +46,14 @@ export type StorageConfig =
       repo: string;
       branch?: string;
       clientId: string;
+      /** Authentication strategy (default: "oauth-app"). */
+      authMode?: GitHubAuthMode;
+      /**
+       * OAuth scopes for `oauth-app` mode (default: `["repo"]`). Use
+       * `["public_repo"]` for public-only repositories. Ignored for
+       * `github-app` mode, where permissions come from the app itself.
+       */
+      scopes?: string[];
       publishMode?: PublishMode;
     }
   | {
@@ -43,6 +62,12 @@ export type StorageConfig =
       branch?: string;
       clientId: string;
       instanceUrl?: string;
+      /**
+       * OAuth scopes (default: `["api"]`). Note that GitLab's API-based writes
+       * (commits, merge requests) require `api`; the narrower `write_repository`
+       * scope only covers Git-over-HTTP and is insufficient here.
+       */
+      scopes?: string[];
       publishMode?: PublishMode;
     };
 
@@ -62,6 +87,8 @@ export interface CmsClientConfig {
     repo: string;
     branch: string;
     clientId: string;
+    authMode: GitHubAuthMode;
+    scopes: string[];
     publishMode: PublishMode;
   };
   gitlab?: {
@@ -69,6 +96,7 @@ export interface CmsClientConfig {
     branch: string;
     clientId: string;
     instanceUrl: string;
+    scopes: string[];
     publishMode: PublishMode;
   };
 }

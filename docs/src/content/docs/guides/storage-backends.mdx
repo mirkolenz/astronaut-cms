@@ -47,10 +47,46 @@ cms({
 |---|---|---|---|
 | `repo` | `string` | required | GitHub repository in `owner/repo` format |
 | `branch` | `string` | `"main"` | Target branch for reading and writing |
-| `clientId` | `string` | required | GitHub OAuth App client ID |
+| `clientId` | `string` | required | GitHub OAuth App or GitHub App client ID |
+| `authMode` | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy (see below) |
+| `scopes` | `string[]` | `["repo"]` | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
 | `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published |
 
-### Setting Up GitHub OAuth
+### Authentication and least privilege
+
+The signed-in editor's token lives in the browser, so it should grant as little
+as possible. There are two strategies:
+
+- **`oauth-app`** (default) — a classic OAuth App. Its tokens cannot be limited
+  to a single repository. Use `scopes: ["public_repo"]` for public-only
+  repositories; private repositories require the broad `["repo"]` scope.
+- **`github-app`** (recommended) — a GitHub App. Its tokens are limited to the
+  repositories the app is installed on and the permissions it declares, and can
+  be set to expire. This is the tightest option and is strongly preferred.
+
+```ts title="astro.config.ts"
+cms({
+  storage: {
+    type: "github",
+    repo: "owner/repo",
+    clientId: "your-github-app-client-id",
+    authMode: "github-app",
+  },
+})
+```
+
+### Setting up a GitHub App (recommended)
+
+1. Go to **Settings > Developer Settings > GitHub Apps** and create a new app.
+2. Under **Permissions**, grant **Repository permissions → Contents: Read and
+   write** and **Pull requests: Read and write**. Nothing else is needed.
+3. Enable the **Device Flow**. Leave user authorization tokens non-expiring —
+   the token is already limited to a single repository — or enable expiry and
+   accept that editors re-authenticate when a token lapses.
+4. Install the app on the content repository.
+5. Copy the **Client ID** and pass it to `clientId` with `authMode: "github-app"`.
+
+### Setting up an OAuth App
 
 1. Go to **Settings > Developer Settings > OAuth Apps** in your GitHub account.
 2. Create a new OAuth App with the callback URL set to your site's `/admin` path.
@@ -73,7 +109,7 @@ cms({
     branch: "main",
     clientId: "your-gitlab-oauth-app-id",
     instanceUrl: "https://gitlab.com",
-    publishMode: "merge-request",
+    publishMode: "pull-request",
   },
 })
 ```
@@ -86,14 +122,23 @@ cms({
 | `branch` | `string` | `"main"` | Target branch |
 | `clientId` | `string` | required | GitLab OAuth application ID |
 | `instanceUrl` | `string` | `"https://gitlab.com"` | GitLab instance URL for self-hosted instances |
-| `publishMode` | `"direct" \| "merge-request"` | `"direct"` | How changes are published |
+| `scopes` | `string[]` | `["api"]` | OAuth scopes |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published |
 
 ### Setting Up GitLab OAuth
 
 1. Go to **User Settings > Applications** (or **Admin > Applications** for instance-wide).
-2. Create a new application with the `api` scope.
+2. Create a new application with the `api` scope and enable PKCE.
 3. Set the callback URL to your site's `/admin` path.
 4. Copy the **Application ID** and pass it to the `clientId` option.
+
+<Aside type="note">
+  GitLab's API-based writes (commits and merge requests) require the `api`
+  scope. The narrower `write_repository` scope only covers Git-over-HTTP and is
+  insufficient here, so `scopes` cannot be tightened further. GitLab issues
+  short-lived access tokens by default, which bounds exposure; editors sign in
+  again when a token expires.
+</Aside>
 
 ## Publish Modes
 

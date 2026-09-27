@@ -46,6 +46,8 @@ Only available during development.
   repo: string;
   branch?: string;
   clientId: string;
+  authMode?: "oauth-app" | "github-app";
+  scopes?: string[];
   publishMode?: "direct" | "pull-request";
 }
 ```
@@ -54,7 +56,9 @@ Only available during development.
 |---|---|---|---|
 | `repo` | `string` | required | Repository in `owner/repo` format |
 | `branch` | `string` | `"main"` | Target branch |
-| `clientId` | `string` | required | GitHub OAuth App client ID |
+| `clientId` | `string` | required | GitHub OAuth App or GitHub App client ID |
+| `authMode` | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy; `github-app` allows single-repo, least-privilege tokens |
+| `scopes` | `string[]` | `["repo"]` | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
 | `publishMode` | `"direct" \| "pull-request"` | `"direct"` | Commit strategy |
 
 ### GitLab Storage
@@ -66,7 +70,8 @@ Only available during development.
   branch?: string;
   clientId: string;
   instanceUrl?: string;
-  publishMode?: "direct" | "merge-request";
+  scopes?: string[];
+  publishMode?: "direct" | "pull-request";
 }
 ```
 
@@ -76,7 +81,8 @@ Only available during development.
 | `branch` | `string` | `"main"` | Target branch |
 | `clientId` | `string` | required | GitLab OAuth application ID |
 | `instanceUrl` | `string` | `"https://gitlab.com"` | GitLab instance URL |
-| `publishMode` | `"direct" \| "merge-request"` | `"direct"` | Commit strategy |
+| `scopes` | `string[]` | `["api"]` | OAuth scopes (`api` is required for API writes) |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | Commit strategy |
 
 ## `MediaConfig`
 

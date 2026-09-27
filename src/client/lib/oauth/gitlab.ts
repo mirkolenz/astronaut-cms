@@ -29,19 +29,31 @@ function clearPkceState(): void {
   sessionStorage.removeItem(PKCE_SESSION_KEY);
 }
 
-async function getConfiguration(
+// instanceUrl and clientId are fixed per app, so OIDC discovery (a network
+// round-trip) only needs to run once; cache the result and retry on failure.
+let configCache: Promise<client.Configuration> | null = null;
+
+export function getGitLabConfiguration(
   instanceUrl: string,
   clientId: string,
 ): Promise<client.Configuration> {
-  return client.discovery(new URL(instanceUrl), clientId, undefined, client.None());
+  configCache ??= client
+    .discovery(new URL(instanceUrl), clientId, undefined, client.None())
+    .catch((err: unknown) => {
+      configCache = null;
+      throw err;
+    });
+
+  return configCache;
 }
 
 export async function startGitLabLogin(
   clientId: string,
   instanceUrl: string,
   redirectUri: string,
+  scopes: string[],
 ): Promise<void> {
-  const oidcConfig = await getConfiguration(instanceUrl, clientId);
+  const oidcConfig = await getGitLabConfiguration(instanceUrl, clientId);
 
   const codeVerifier = client.randomPKCECodeVerifier();
   const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
@@ -51,7 +63,7 @@ export async function startGitLabLogin(
 
   const authUrl = client.buildAuthorizationUrl(oidcConfig, {
     redirect_uri: redirectUri,
-    scope: "api",
+    scope: scopes.join(" "),
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
@@ -78,11 +90,11 @@ export async function handleGitLabCallback(
   clientId: string,
   instanceUrl: string,
   callbackUrl: URL,
-): Promise<string> {
+): Promise<client.TokenEndpointResponse> {
   const pkceState = loadPkceState();
   if (!pkceState) throw new Error("No PKCE state found");
 
-  const oidcConfig = await getConfiguration(instanceUrl, clientId);
+  const oidcConfig = await getGitLabConfiguration(instanceUrl, clientId);
 
   const tokens = await client.authorizationCodeGrant(oidcConfig, callbackUrl, {
     expectedState: pkceState.state,
@@ -91,5 +103,5 @@ export async function handleGitLabCallback(
   });
 
   clearPkceState();
-  return tokens.access_token;
+  return tokens;
 }

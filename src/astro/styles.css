@@ -141,6 +141,18 @@
   }
 }
 
+/* Pre-hydration background so dark-mode users don't see a light flash before the
+   app applies the .dark class. Mirrors the .dark --background token. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body {
+    background-color: oklch(0.145 0 0);
+  }
+}
+
 /* MDX Editor — remap to shadcn theme variables */
 .mdxeditor {
   --basePageBg: var(--popover);

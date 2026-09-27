@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
+import { revokeSession } from "@client/lib/oauth/session";
 import {
   useBranchStatus,
   usePublish,
@@ -16,7 +17,8 @@ import { toast } from "@client/components/toast";
 
 export function PublishBar() {
   const { t } = useTranslation();
-  const clearToken = useAuthStore((s) => s.clearToken);
+  const session = useAuthStore((s) => s.session);
+  const clearSession = useAuthStore((s) => s.clearSession);
   const status = useBranchStatus();
   const publish = usePublish();
   const update = useUpdate();
@@ -69,6 +71,12 @@ export function PublishBar() {
       onSuccess: () => toast(t($ => $.publish.discarded), "success"),
       onError: reportError,
     });
+  };
+
+  const handleSignOut = () => {
+    const current = session;
+    clearSession();
+    if (current) void revokeSession(current).catch(() => {});
   };
 
   return (
@@ -125,7 +133,7 @@ export function PublishBar() {
           >
             {publish.isPending ? t($ => $.publish.publishing) : t($ => $.publish.publish)}
           </Button>
-          <Button variant="ghost" size="xs" onClick={clearToken}>
+          <Button variant="ghost" size="xs" onClick={handleSignOut}>
             {t($ => $.common.signOut)}
           </Button>
         </div>
