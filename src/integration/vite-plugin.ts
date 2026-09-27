@@ -140,7 +140,7 @@ export const fileOrder = ${JSON.stringify(fileOrder)};`;
 function generateUserConfigModule(configPath: string | null): string {
   if (!configPath) return "export const components = {};";
   return `\
-import { components as rawComponents } from ${JSON.stringify(configPath)};
+import * as config from ${JSON.stringify(configPath)};
 import { processUserConfig } from "astronaut-cms/internal";
-export const components = processUserConfig(rawComponents);`;
+export const components = processUserConfig(config.components);`;
 }

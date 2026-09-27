@@ -75,10 +75,18 @@ export function resolveContentI18n(
   if (config.i18n === false) return null;
 
   const locales = config.i18n?.locales ?? astroI18n?.locales.map(localeSegment);
-  const code = config.i18n?.defaultLocale ?? astroI18n?.defaultLocale;
-  const defaultLocale = code ? localePath(code, astroI18n) : locales?.[0];
 
-  if (!locales?.length || !defaultLocale) return null;
+  if (!locales?.length) return null;
+
+  const inherited = astroI18n?.defaultLocale && localePath(astroI18n.defaultLocale, astroI18n);
+  const defaultLocale = config.i18n?.defaultLocale ??
+    (inherited && locales.includes(inherited) ? inherited : locales[0]);
+
+  if (!defaultLocale) return null;
+
+  if (!locales.includes(defaultLocale)) {
+    throw new Error(`Content default locale "${defaultLocale}" is not in the configured locales.`);
+  }
 
   return { locales, defaultLocale };
 }

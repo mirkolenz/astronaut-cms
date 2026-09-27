@@ -34,6 +34,7 @@ export interface LoaderMarker {
   __cmsPattern?: string | string[] | null;
   __cmsBase?: string | URL | null;
   __cmsFileName?: string | null;
+  __cmsCustomParser?: true;
 }
 
 export function defineCollection<T>(config: T): T {
@@ -47,9 +48,13 @@ export function glob(options: Pick<AstroGlobOptions, "pattern" | "base">): Loade
   };
 }
 
-export function file(fileName: Parameters<typeof AstroLoaders.file>[0]): LoaderMarker {
+export function file(
+  fileName: Parameters<typeof AstroLoaders.file>[0],
+  options?: Parameters<typeof AstroLoaders.file>[1],
+): LoaderMarker {
   return {
     __cmsFileName: fileName ?? null,
+    ...(options?.parser && { __cmsCustomParser: true }),
   };
 }
 

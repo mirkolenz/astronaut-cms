@@ -1,9 +1,10 @@
-import { existsSync } from "node:fs";
-import { join } from "pathe";
+import { statSync } from "node:fs";
+import { extname, join } from "pathe";
 import { validateAgainstSchema } from "../shared/collection-schema.ts";
 import { formatDiagnostic } from "../shared/diagnostics.ts";
-import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
+import { isLibraryFile, mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
+import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import type { ContentEntry } from "./content-files.ts";
 
 /**
@@ -24,6 +25,14 @@ export function checkContent(
     ...(entry.body?.diagnostics ?? []).map((d) => `${entry.file}: ${formatDiagnostic(d)}`),
     ...assetProblems(entry, rootDir, media),
   ]);
+}
+
+function isRegularFile(path: string): boolean {
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -48,8 +57,18 @@ function assetProblems(
 
     if (location?.library === "s3") return repoOnly ? [`${file} (${where}): ${repoOnlyRefusal(value)}`] : [];
 
-    return location && existsSync(join(rootDir, media.repo.directory, location.path))
+    const key = location?.path;
+    const path = key && join(rootDir, media.repo.directory, key);
+    const resolvable =
+      key &&
+      key === join("/", key).slice(1) &&
+      isLibraryFile(key, media.repo.extensions) &&
+      path &&
+      isRegularFile(path) &&
+      (kind !== "image" || ASTRO_IMAGE_FORMATS.some((format) => format === extname(path).slice(1)));
+
+    return resolvable
       ? []
-      : [`${file} (${where}): "${value}" is not a file in the media directory ("${media.repo.directory}").`];
+      : [`${file} (${where}): "${value}" cannot be resolved as a ${kind} in the media directory ("${media.repo.directory}").`];
   });
 }

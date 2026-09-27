@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { relative, resolve } from "pathe";
+import { extname, relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { repoImageMarker } from "../shared/cms-markers.ts";
@@ -7,11 +7,12 @@ import { processUserConfig, type ComponentManifest } from "../internal/user-conf
 import type { CollectionOptions, ComponentDefinition } from "../config.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { SchemaContext } from "astro/content/config";
-import type {
-  AssertNever,
-  CollectionManifest,
-  CollectionManifestEntry,
-} from "../shared/types.ts";
+import {
+  DATA_FORMATS,
+  type AssertNever,
+  type CollectionManifest,
+  type CollectionManifestEntry,
+} from "@/shared/types";
 import { errorMessage } from "../shared/errors.ts";
 
 /**
@@ -131,6 +132,16 @@ async function loadCollections(
         ? (collection.schema as (helpers: typeof SCHEMA_HELPERS) => unknown)(SCHEMA_HELPERS)
         : collection.schema;
     const loader = collection.loader;
+
+    if (loader?.__cmsFileName != null) {
+      const format = extname(loader.__cmsFileName).slice(1);
+
+      if (loader.__cmsCustomParser || !DATA_FORMATS.some((supported) => supported === format)) {
+        throw new Error(
+          `Collection "${name}" uses file("${loader.__cmsFileName}") with a custom parser or unsupported format. The CMS can edit only JSON, YAML, and TOML file collections without a custom parser.`,
+        );
+      }
+    }
 
     manifest[name] = {
       name,

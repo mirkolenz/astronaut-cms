@@ -1,4 +1,4 @@
-import { globSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { join, relative } from "pathe";
 import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { validateBody, type BodyValidation } from "../shared/body-validation.ts";
@@ -44,15 +44,18 @@ export function contentEntries(
   const entries: ContentEntry[] = [];
 
   for (const collection of Object.values(collections)) {
-    // A file collection names one literal path, which is a glob pattern matching
-    // itself, or nothing when the file is absent.
+    // A file collection names a literal path, which may contain glob characters.
     const isFile = collection.loaderType === "file";
-    const cwd = isFile ? rootDir : join(rootDir, collectionBase(collection.name, collection));
-    const patterns = isFile
-      ? (collection.loaderFileName ?? [])
-      : (collection.loaderPattern ?? "**/*");
+    const files = isFile
+      ? collection.loaderFileName ? [join(rootDir, collection.loaderFileName)] : []
+      : globFiles(
+          join(rootDir, collectionBase(collection.name, collection)),
+          collection.loaderPattern ?? "**/*",
+        );
 
-    for (const path of globFiles(cwd, patterns)) {
+    for (const path of files) {
+      if (isFile && !existsSync(path)) continue;
+
       const file = relative(rootDir, path);
       const raw = readFileSync(path, "utf-8");
       const format = getFileExtension(file);

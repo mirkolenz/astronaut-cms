@@ -5,9 +5,12 @@
  * Astro config, where the CMS's virtual modules do not exist yet.
  */
 export function parseRepo(repo: string): { owner: string; repo: string } {
-  const [owner, name] = repo.split("/");
+  const parts = repo.split("/");
+  const [owner, name] = parts;
 
-  if (!owner || !name) throw new Error(`Invalid GitHub repo: ${repo}`);
+  if (parts.length !== 2 || !owner || !name) {
+    throw new Error(`Invalid GitHub repo: ${repo}`);
+  }
 
   return { owner, repo: name };
 }
