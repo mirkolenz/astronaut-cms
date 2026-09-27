@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEventHandler, ClipboardEventHandler } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
 import { Brain, FileText, Library, Paperclip, SquarePen, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import {
@@ -33,7 +32,6 @@ import {
 } from "@client/lib/ai/attachments";
 import { REASONING_EFFORTS, type ReasoningEffort } from "@client/lib/ai/reasoning";
 import { clearChat } from "@client/lib/ai/chat";
-import { MEDIA_KEY } from "@client/queries/use-media";
 import { toast } from "@client/components/toast";
 import type { CmsChat } from "@client/components/ai/chat-view";
 import type { TFunction } from "i18next";
@@ -123,7 +121,6 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   const setModel = useAiSettingsStore((state) => state.setModel);
   const effort = useAiSettingsStore((state) => state.effort);
   const setEffort = useAiSettingsStore((state) => state.setEffort);
-  const queryClient = useQueryClient();
 
   const { sendMessage, status, stop, messages } = chat;
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
@@ -176,10 +173,6 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
       throw error;
     } finally {
       setPreparing(false);
-    }
-
-    if (prepared.savedPaths.length > 0) {
-      void queryClient.invalidateQueries({ queryKey: MEDIA_KEY });
     }
 
     setAttachments([]);

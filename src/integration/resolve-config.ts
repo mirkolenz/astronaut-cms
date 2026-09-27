@@ -134,6 +134,9 @@ export function resolveClientConfig(
             isAddressable(config.ai.gateway) && { byok: gatewayEndpoint(config.ai.gateway) }),
         },
       }),
+    ...(config.webmcp?.enabled && {
+      webmcp: { originTrialToken: config.webmcp.originTrialToken },
+    }),
   };
 }
 

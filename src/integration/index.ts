@@ -6,16 +6,13 @@ import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
-import {
-  API_PATTERN,
-  GITHUB_CLIENT_SECRET_ENV,
-  GITLAB_CLIENT_SECRET_ENV,
-} from "../shared/auth.ts";
+import { API_PATTERN, GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-config.ts";
+import { unexposable } from "../shared/tools/exposable.ts";
 import {
   isByok,
   resolveAlwaysInclude,
@@ -258,6 +255,23 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
+        // Only worth saying where something would read it. The tools a
+        // collection gets are named after it, and both an AI gateway and
+        // `registerTool` refuse a name outside their alphabet — a gateway by
+        // rejecting the whole request, so one bad collection would otherwise
+        // take the assistant down with a message nobody can act on.
+        if (effectiveConfig.ai?.enabled || effectiveConfig.webmcp?.enabled) {
+          for (const [name, col] of Object.entries(collections)) {
+            const reason = unexposable(name, col);
+
+            if (reason) {
+              logger.warn(
+                `Collection "${name}" cannot be edited by the assistant or a browser agent, and is left out of their tools (reading it still works): ${reason}`,
+              );
+            }
+          }
+        }
+
         const serverConfig = resolveServerConfig(effectiveConfig, rootDir, mediaServer);
 
         // A private library is signed at build time, so what astro has to trust
@@ -269,7 +283,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // Only where a signed URL can actually reach a visitor: a dev run serving
         // the library from the working tree signs nothing, and a site that
         // prerenders by default has already satisfied this.
-        if (remoteMedia && !remoteMedia.publicUrl && !remoteMedia.local && astroConfig.output === "server") {
+        if (
+          remoteMedia &&
+          !remoteMedia.publicUrl &&
+          !remoteMedia.local &&
+          astroConfig.output === "server"
+        ) {
           logger.warn(
             "Media library is private (no 'publicUrl') and this site renders on demand by default: every page showing library media must set 'export const prerender = true', since its URLs are signed while building and expire.",
           );

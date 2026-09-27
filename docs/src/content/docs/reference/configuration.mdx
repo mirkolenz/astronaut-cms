@@ -17,6 +17,9 @@ interface CmsConfig {
   media?: MediaConfig;
   locale?: "en" | "de";
   i18n?: { locales?: string[]; defaultLocale?: string } | false;
+  previewUrl?: string;
+  ai?: AiConfig;
+  webmcp?: WebmcpConfig;
 }
 ```
 
@@ -30,6 +33,9 @@ interface CmsConfig {
 | `media`      | `MediaConfig`          | `{}`                    | Media library configuration                              |
 | `locale`     | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                          |
 | `i18n`       | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                        |
+| `previewUrl` | `string`               | —                       | URL pattern for branch previews from your host           |
+| `ai`         | `AiConfig`             | disabled                | Built-in assistant, see [AI Assistant](/astronaut-cms/guides/ai-agent/) |
+| `webmcp`     | `WebmcpConfig`         | disabled                | Expose the CMS tools to agents in the editor's browser, see [Browser Agents](/astronaut-cms/guides/browser-agents/) |
 
 ### `i18n`
 

@@ -6,12 +6,11 @@ import {
   type ToolUIPart,
 } from "ai";
 import { DEFAULT_AI_MAX_STEPS } from "@shared/ai";
-import { queryClient } from "@client/lib/query-client";
 import { useAiSettingsStore } from "@client/stores/ai-settings-store";
 import { aiConfig } from "./config";
 import { aiProvider } from "./provider";
 import { SYSTEM_PROMPT } from "./system-prompt";
-import { cmsTools, readOnlyTools } from "./tools";
+import { cmsTools } from "./tools";
 
 // Read from the panel store on every call (via `prepareCall`) so one agent
 // outlives model and effort switches instead of being recreated. The effort goes
@@ -41,19 +40,15 @@ export const cmsAgent = new ToolLoopAgent({
   tools: cmsTools,
   stopWhen: isStepCount(aiConfig?.maxSteps ?? DEFAULT_AI_MAX_STEPS),
   prepareCall: (settings) => ({ ...settings, ...callSettings() }),
-  // Tools write through the storage layer directly, bypassing the mutation hooks
-  // in `queries/` that normally invalidate. Doing it here rather than per tool
-  // keeps new tools covered automatically, while skipping the reads keeps a long
-  // agent run from refetching every mounted query on each step.
-  onToolExecutionEnd: ({ toolCall }) => {
-    if (readOnlyTools.has(toolCall.toolName)) return;
-
-    void queryClient.invalidateQueries({ queryKey: ["cms"] });
-  },
 });
 
-/** Chat message type of this agent, with its tool inputs and outputs typed. */
+/** Chat message type of this agent. */
 export type CmsUIMessage = InferAgentUIMessage<typeof cmsAgent>;
 
-/** A single tool call within a `CmsUIMessage`, narrowed to the CMS tool set. */
+/**
+ * A single tool call within a `CmsUIMessage`. The catalog is projected into the
+ * SDK's shape at runtime, so the tool set is erased here and the inputs arrive
+ * as `unknown`; `tool-summary.ts` reads them by name, which is the only thing
+ * the UI ever wanted from them.
+ */
 export type CmsToolUIPart = ToolUIPart<InferUITools<typeof cmsTools>>;

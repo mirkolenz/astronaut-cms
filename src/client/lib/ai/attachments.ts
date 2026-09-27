@@ -34,7 +34,6 @@ export interface ComposerAttachment {
 export interface PreparedMessage {
   text: string;
   files: FileUIPart[];
-  savedPaths: string[];
 }
 
 export function isImageAttachment(file: File): boolean {
@@ -137,5 +136,5 @@ export async function prepareMessage(
     sections.push(`Attached documents:\n\n${documents.join("\n\n")}`);
   }
 
-  return { text: sections.filter(Boolean).join("\n\n"), files, savedPaths };
+  return { text: sections.filter(Boolean).join("\n\n"), files };
 }

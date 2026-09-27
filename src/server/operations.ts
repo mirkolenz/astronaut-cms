@@ -15,6 +15,7 @@
  */
 import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
+import { collectionEnum } from "../shared/collection-schema.ts";
 import { ALL_FORMATS } from "../shared/types.ts";
 import { ContentValidationError, diagnostic, type Diagnostic } from "../shared/diagnostics.ts";
 import { describeReference, referencesFor, type ReferenceIndex } from "../shared/references.ts";
@@ -67,15 +68,7 @@ const ok = { ok: true } as const;
 
 const none = z.object({});
 
-/**
- * The collection set is fixed at build time, so an unknown name is refused here
- * rather than reaching a backend — where it used to resolve to the conventional
- * directory for that name and quietly read somebody else's files.
- */
-const collectionNames = Object.keys(collections);
-const collection = collectionNames.length
-  ? z.enum(collectionNames as [string, ...string[]])
-  : z.string();
+const collection = collectionEnum(collections);
 
 const entryRef = z.object({ collection, id: z.string() });
 
@@ -333,6 +326,17 @@ export type Operations = typeof operations;
 export type OperationName = keyof Operations;
 export type OperationInput<K extends OperationName> = NonNullable<Operations[K]["input"]>;
 export type OperationOutput<K extends OperationName> = Awaited<ReturnType<Operations[K]["run"]>>;
+
+/**
+ * One operation, as whoever is hosting a projection of this registry performs
+ * it: the admin's batched RPC client in the browser, a `dispatch` bound to a
+ * request context on the server. Declared here beside the input and output
+ * types, so a projection needs this module's types and nothing else.
+ */
+export type CmsCall = <K extends OperationName>(
+  op: K,
+  input: OperationInput<K>,
+) => Promise<OperationOutput<K>>;
 
 /**
  * Runs one named operation. The name is checked against the registry's own keys

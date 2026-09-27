@@ -65,6 +65,10 @@ const csp = [
 for (const [name, value] of Object.entries({
   ...HARDENING_HEADERS,
   "content-security-policy": csp,
+  // Admits `document.modelContext` while WebMCP is an origin trial. It is a
+  // public, origin-bound token, and the API it unlocks exposes nothing the
+  // editor could not already do in this tab.
+  ...(config.webmcp?.originTrialToken && { "origin-trial": config.webmcp.originTrialToken }),
   // For the handful of agents that still read only this one.
   "x-frame-options": "DENY",
   // The page is the same for everyone, but it carries a per-response nonce in

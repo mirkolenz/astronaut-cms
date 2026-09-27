@@ -187,6 +187,14 @@ The first model is the default, and the relay rejects any model not in the list.
 | `maxSteps`    | `number`                | `24`       | Maximum model/tool round-trips per turn                                 |
 | `limits`      | `AiLimits`              | see below  | Request and output ceilings the relay applies                           |
 
+### Collection names
+
+Each collection gets its own `writeEntry_<collection>` and `editEntry_<collection>` tool, so its name has to be one a tool can be named after: letters, digits, `_` and `-`, with the whole tool name at most 64 characters.
+
+A collection named otherwise (`"blog posts"`, `"news.de"`) is left out of the agent's tools and reported when you build.
+It stays fully editable by hand, and the agent can still read it through `listEntries` and `getEntry` — it just cannot write to it.
+Renaming the collection is the fix.
+
 ## Reviewing what the agent did
 
 The agent never asks for approval before a tool call, and it cannot publish or discard.

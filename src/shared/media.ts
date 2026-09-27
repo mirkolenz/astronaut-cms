@@ -41,7 +41,7 @@ export type ClientMediaBackend =
       local?: boolean;
     };
 
-interface MediaRefConfig {
+export interface MediaRefConfig {
   mediaBackend: ClientMediaBackend;
   /** Project-relative media directory. Only meaningful for the `repo` backend. */
   mediaDirectory: string;

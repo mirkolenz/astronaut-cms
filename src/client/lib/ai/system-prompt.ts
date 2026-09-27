@@ -1,24 +1,12 @@
-import collections from "virtual:astronaut-cms/collections";
-import { extractFormatsFromLoader } from "@shared/types";
+import { contentModel } from "@shared/tools/content-model";
 import config from "@client/lib/config";
 
 // Compact view of the content model: which collections exist, their kind, and the
 // file formats they accept. Each collection's field schema is not repeated here,
-// because its dedicated `saveEntry_<collection>` tool already exposes it as JSON
-// Schema.
-const collectionsOverview = JSON.stringify(
-  Object.fromEntries(
-    Object.entries(collections).map(([name, col]) => [
-      name,
-      {
-        type: col.type,
-        formats: extractFormatsFromLoader(col.loaderPattern, col.loaderFileName),
-      },
-    ]),
-  ),
-  null,
-  2,
-);
+// because its dedicated `writeEntry_<collection>` tool already exposes it as JSON
+// Schema. The same description is what `getContentModel` answers with, for an
+// agent that arrives without this prompt.
+const collectionsOverview = JSON.stringify(contentModel(config).collections, null, 2);
 
 // Multilingual sites store each entry under a leading locale segment, so the
 // assistant needs the language list to read the ids it sees and to place a new

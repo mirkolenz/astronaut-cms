@@ -19,6 +19,7 @@ import config from "@client/lib/config";
 import { API_MEDIA, API_UPLOAD } from "@shared/auth";
 import { assertWithinSizeLimit, encodeKeyPath, remoteMediaUrl } from "@shared/media";
 import { call, unwrap } from "@client/lib/api";
+import { invalidateMedia } from "@client/lib/query-keys";
 import { apiFetch, apiUrl } from "@client/lib/routes";
 
 /**
@@ -55,26 +56,24 @@ export async function uploadMedia(path: string, file: File, overwrite = false): 
 
   const ticket = await call("beginUpload", { path, size: file.size, overwrite });
 
-  if (!ticket.direct) {
-    const query = new URLSearchParams({ path, ...(overwrite && { overwrite: "true" }) });
+  if (ticket.direct) await putDirect(ticket, path, file);
+  else await putThroughServer(path, file, overwrite);
 
-    // Through `unwrap` like every other CMS call: the route answers in the same
-    // envelope, so a lapsed session and a refused destination read the same way
-    // here as they do everywhere else.
-    await unwrap(
-      await apiFetch(apiUrl(`${API_UPLOAD}?${query}`), { method: "PUT", body: file }),
-    );
+  // One exit, so no route can be added that forgets to age the library. The
+  // ticket alone does not: the bytes only land here.
+  invalidateMedia();
+}
 
-    return;
-  }
-
-  // Sent verbatim: they are signed into the URL, so changing or dropping one
-  // makes the store reject the request rather than accept different terms.
-  const stored = await fetch(ticket.url, {
-    method: "PUT",
-    headers: ticket.headers,
-    body: file,
-  });
+/**
+ * Sent verbatim: the terms are signed into the URL, so changing or dropping one
+ * makes the store reject the request rather than accept different terms.
+ */
+async function putDirect(
+  ticket: { url: string; headers: Record<string, string> },
+  path: string,
+  file: File,
+): Promise<void> {
+  const stored = await fetch(ticket.url, { method: "PUT", headers: ticket.headers, body: file });
 
   // The precondition the server signed into the URL, refused by the store. This
   // is the only report of an occupied destination on the direct path: nothing
@@ -86,5 +85,16 @@ export async function uploadMedia(path: string, file: File, overwrite = false): 
   }
 
   if (!stored.ok) throw new Error(`Upload failed (${stored.status}).`);
+}
+
+/**
+ * Through `unwrap` like every other CMS call: the route answers in the same
+ * envelope, so a lapsed session and a refused destination read the same way here
+ * as they do everywhere else.
+ */
+async function putThroughServer(path: string, file: File, overwrite: boolean): Promise<void> {
+  const query = new URLSearchParams({ path, ...(overwrite && { overwrite: "true" }) });
+
+  await unwrap(await apiFetch(apiUrl(`${API_UPLOAD}?${query}`), { method: "PUT", body: file }));
 }
 

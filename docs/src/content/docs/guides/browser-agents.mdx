@@ -1,0 +1,66 @@
+---
+title: Browser Agents (WebMCP)
+description: Expose the CMS to an AI agent running in the editor's own browser through document.modelContext.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+[WebMCP](https://webmachinelearning.github.io/webmcp/) lets a page hand an AI agent callable tools instead of a page to scrape.
+With it enabled, the admin registers the CMS's own tools on `document.modelContext`, and an agent running in the editor's browser — the browser's built-in assistant, or an extension they installed — can list collections, read and write entries, manage media, and see what is pending in the changeset.
+
+It is the same tool catalog the [built-in assistant](/astronaut-cms/guides/ai-agent/) uses, projected onto a second protocol.
+Adding a tool adds it to both.
+
+## How it differs from the assistant
+
+The agent is the editor's, not the deployment's.
+It runs in their browser, spends their own provider account, and never touches the relay — so none of the gateway, model list, or cost controls in `ai` apply, and the assistant does not need to be enabled at all.
+
+What it reaches is bounded exactly as the assistant is, because it goes through the same operations:
+
+- Every tool is one CMS API call, authenticated by the editor's existing session cookie.
+- Writes land in the draft branch and the pending changeset, for a human to review.
+- `renameMedia` and `deleteMedia` are refused while content still references the file.
+- Publishing and discarding are not offered.
+
+See [what the agent may reach](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach) for the reasoning, which applies unchanged.
+
+The one genuine difference is that the agent is not one this project wrote, and it arrives without the assistant's system prompt.
+It is told only what the tool list says, so the descriptions carry that weight, and a `getContentModel` tool describes your collections, formats, media reference style and content languages on request.
+
+<Aside type="caution">
+Tools are registered only while a signed-in editor has the admin open, and only for the admin's own origin.
+Nothing is exposed on your site's public pages.
+</Aside>
+
+## Enable it
+
+```ts title="astro.config.ts"
+cms({
+  storage: { type: "github", repo: "owner/repo", clientId: "..." },
+  webmcp: {
+    enabled: true,
+    originTrialToken: "A1b2C3...",
+  },
+});
+```
+
+| Property           | Type      | Default | Description                                                   |
+| ------------------ | --------- | ------- | ------------------------------------------------------------- |
+| `enabled`          | `boolean` | `false` | Register the CMS tools on `document.modelContext`             |
+| `originTrialToken` | `string`  | —       | Chrome origin trial token, served as the `Origin-Trial` header |
+
+## Browser support
+
+WebMCP is an origin trial through Chrome 156, and Edge ships the same platform support.
+Without a token the API is simply absent and nothing is registered, so enabling it on an origin you have not registered is harmless but does nothing.
+
+Register your deployment's origin at [developer.chrome.com/origintrials](https://developer.chrome.com/origintrials) and put the token in `originTrialToken`.
+Once WebMCP ships unflagged you can drop it.
+
+For local development, enable `chrome://flags/#enable-webmcp-testing` instead, which makes the API available on any origin.
+
+<Aside>
+If you add a `Permissions-Policy` header in front of the admin, it has to allow `tools=(self)`.
+WebMCP is gated by that feature, and a policy that omits it makes every registration fail.
+</Aside>

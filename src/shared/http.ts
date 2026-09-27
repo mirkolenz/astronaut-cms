@@ -8,6 +8,11 @@
  * body from being interpreted as something other than the type it declares, and
  * `no-referrer` keeps repository, entry and media paths out of the `Referer` of
  * everything the admin reaches.
+ *
+ * Deliberately no `Permissions-Policy`: WebMCP is gated by the `tools` feature,
+ * which is allowed for a document's own origin only while nothing says
+ * otherwise. Adding a policy here has to name `tools=(self)`, or the admin's
+ * tool registration starts failing with `NotAllowedError`.
  */
 export const HARDENING_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",

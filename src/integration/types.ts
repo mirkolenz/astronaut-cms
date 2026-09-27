@@ -52,6 +52,37 @@ export interface CmsConfig {
   previewUrl?: string;
   /** Agentic AI assistant configuration */
   ai?: AiConfig;
+  /** Expose the CMS to agents running in the editor's browser. See {@link WebmcpConfig}. */
+  webmcp?: WebmcpConfig;
+}
+
+/**
+ * WebMCP: the admin hands an agent running in the editor's own browser the same
+ * tools the built-in assistant uses, through `document.modelContext`, instead of
+ * a page to scrape. The agent is the editor's — the browser's own, or one they
+ * installed — so it spends no credential of this deployment's and reaches the
+ * CMS through the editor's session and nothing else.
+ *
+ * Everything that bounds the built-in assistant bounds it too: each tool is one
+ * operation on the CMS server, nothing publishes, a write joins the pending
+ * changeset for a human to review, and the server refuses to remove or move a
+ * file content still references. What is genuinely new is that the agent is not
+ * one this project wrote, which is why it is off unless you turn it on.
+ */
+export interface WebmcpConfig {
+  /** Expose the tools to agents in the browser (default: false). */
+  enabled?: boolean;
+  /**
+   * Chrome origin trial token for this deployment's origin, served as the
+   * `Origin-Trial` header on the admin page.
+   *
+   * WebMCP is an origin trial through Chrome 156, so without a token the API is
+   * simply absent and nothing is exposed. Register the origin at
+   * https://developer.chrome.com/origintrials; for local development enable
+   * `chrome://flags/#enable-webmcp-testing` instead. Drop this once the API
+   * ships unflagged.
+   */
+  originTrialToken?: string;
 }
 
 /**
@@ -399,4 +430,6 @@ export interface CmsClientConfig {
   };
   /** What the changeset UI may offer, decided by the backend rather than the UI. */
   capabilities: { publish: boolean; update: boolean };
+  /** Present exactly when the tools are exposed to agents in the browser. */
+  webmcp?: { originTrialToken?: string };
 }

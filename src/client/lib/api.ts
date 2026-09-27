@@ -23,6 +23,7 @@ import { API_LOGOUT, API_RPC, MAX_BATCH_OPS } from "@shared/auth";
 import { ContentValidationError, type Diagnostic } from "@shared/diagnostics";
 import { WRITE_HEADER } from "@shared/http";
 import { isWriteOperation } from "@shared/operations";
+import { invalidate, keysFor } from "@client/lib/query-keys";
 import { apiFetch, apiUrl } from "@client/lib/routes";
 
 /** A refusal from the CMS server, keeping the status the UI reacts to. */
@@ -104,7 +105,7 @@ export async function unwrap<T>(response: Response): Promise<T> {
 
 /** One call waiting for the batch it will travel in. */
 interface Queued {
-  op: string;
+  op: OperationName;
   input: unknown;
   resolve: (data: unknown) => void;
   reject: (error: unknown) => void;
@@ -154,6 +155,11 @@ async function send(batch: Queued[]): Promise<void> {
     }
 
     const results = (await response.json()) as OperationResult[];
+    // Collected across the batch rather than applied per call, so twenty writes
+    // to one collection age its keys once. Here rather than at the call sites,
+    // so a write ages what it changed whoever made it: a mutation hook, the
+    // assistant, or an agent reaching the same tools over WebMCP.
+    const aged: (readonly unknown[])[] = [];
 
     batch.forEach((call, index) => {
       const result = results[index];
@@ -162,10 +168,13 @@ async function send(batch: Queued[]): Promise<void> {
         call.reject(new CmsError("The server answered with fewer results than operations.", 500));
       } else if (result.ok) {
         call.resolve(result.data);
+        aged.push(...keysFor(call.op, call.input));
       } else {
         call.reject(toError(result.error.status, result.error.message, result.error.validation));
       }
     });
+
+    invalidate(aged);
   } catch (err) {
     for (const call of batch) call.reject(err);
   }

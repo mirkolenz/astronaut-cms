@@ -42,6 +42,12 @@ Browse, upload, replace, rename, and delete assets with folder navigation.
 An inline asset picker integrates directly into image and file fields.
 Files live in the repository by default, or in any S3-compatible object store (AWS S3, Cloudflare R2, MinIO) when the library outgrows Git — uploads then go straight from the browser to the bucket through a presigned URL, and the site serves them from your CDN.
 
+### Agent-Ready
+
+The admin exposes its content operations to AI agents through two protocols at once.
+A built-in assistant edits content from a chat panel inside the CMS, and [WebMCP](https://webmachinelearning.github.io/webmcp/) hands the same tools to an agent running in the editor's own browser.
+Both go through the same server operations, so an agent reaches exactly what the interface reaches and every change still lands in the changeset for a human to review.
+
 ### GitHub and GitLab Backends
 
 Ships with OAuth-based storage backends for both GitHub and GitLab, plus a local backend for development.

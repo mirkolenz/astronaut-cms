@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import config from "@client/lib/config";
 import { mediaPath } from "@shared/media";
 import type { ReferenceIndex } from "@shared/references";
 import { call } from "@client/lib/api";
+import { cmsKeys } from "@client/lib/query-keys";
 import { mediaUrl, uploadMedia } from "@client/lib/media";
 import { useEntryContext } from "@client/lib/entry-context";
-
-export const MEDIA_KEY = ["cms", "media"];
-export const TRASH_KEY = ["cms", "trash"];
 
 /**
  * The reference scan. Derived from entries, not from the library, so it
@@ -16,31 +14,18 @@ export const TRASH_KEY = ["cms", "trash"];
  * invalidates — and it reads every entry, so nothing fetches it eagerly.
  */
 export const REFERENCES_QUERY = {
-  queryKey: ["cms", "references"],
+  queryKey: cmsKeys.references,
   queryFn: () => call("getReferences", {}),
   staleTime: 5 * 60 * 1000,
 };
 
 export function useMedia() {
-  return useQuery({ queryKey: MEDIA_KEY, queryFn: () => call("listMedia", {}) });
+  return useQuery({ queryKey: cmsKeys.media, queryFn: () => call("listMedia", {}) });
 }
 
-/**
- * Every media write moves a file between the library and the trash, so the two
- * lists go stale together. The reference index deliberately stays out of it (see
- * `REFERENCES_QUERY`), since it is derived from entries and costs a full scan.
- */
-function useMediaMutation<T>(mutationFn: (variables: T) => Promise<unknown>) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: MEDIA_KEY });
-      await queryClient.invalidateQueries({ queryKey: TRASH_KEY });
-    },
-  });
-}
+// What a library write ages is stated once per operation in `lib/query-keys.ts`
+// and applied by `call`; the upload is the one write that does not finish inside
+// an operation, so `uploadMedia` invalidates for itself.
 
 /**
  * `force` is how a human says they have seen what references the file. The
@@ -48,15 +33,24 @@ function useMediaMutation<T>(mutationFn: (variables: T) => Promise<unknown>) {
  * has *not* seen them — the assistant above all — from deleting one.
  */
 export function useDeleteMedia() {
-  return useMediaMutation(({ path, force }: { path: string; force?: boolean }) =>
-    call("deleteMedia", { path, force }),
-  );
+  return useMutation({
+    mutationFn: ({ path, force }: { path: string; force?: boolean }) =>
+      call("deleteMedia", { path, force }),
+  });
 }
 
 export function useRenameMedia() {
-  return useMediaMutation(({ oldPath, newPath, force }: { oldPath: string; newPath: string; force?: boolean }) =>
-    call("renameMedia", { from: oldPath, to: newPath, force }),
-  );
+  return useMutation({
+    mutationFn: ({
+      oldPath,
+      newPath,
+      force,
+    }: {
+      oldPath: string;
+      newPath: string;
+      force?: boolean;
+    }) => call("renameMedia", { from: oldPath, to: newPath, force }),
+  });
 }
 
 /**
@@ -65,22 +59,23 @@ export function useRenameMedia() {
  * it is talking to.
  */
 export function useTrash() {
-  return useQuery({ queryKey: TRASH_KEY, queryFn: () => call("listTrash", {}) });
+  return useQuery({ queryKey: cmsKeys.trash, queryFn: () => call("listTrash", {}) });
 }
 
 export function useRestoreMedia() {
-  return useMediaMutation(({ id }: { id: string }) => call("restoreMedia", { id }));
+  return useMutation({ mutationFn: ({ id }: { id: string }) => call("restoreMedia", { id }) });
 }
 
 export function usePurgeTrash() {
-  return useMediaMutation(({ id }: { id: string }) => call("purgeTrash", { id }));
+  return useMutation({ mutationFn: ({ id }: { id: string }) => call("purgeTrash", { id }) });
 }
 
 /** Uploads a file. `overwrite` is what allows it to replace one already at `path`. */
 export function useUploadMedia() {
-  return useMediaMutation(({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
-    uploadMedia(path, file, overwrite),
-  );
+  return useMutation({
+    mutationFn: ({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
+      uploadMedia(path, file, overwrite),
+  });
 }
 
 const SETTLE_DELAY = 400;

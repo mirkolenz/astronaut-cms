@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type { CmsToolUIPart } from "@client/lib/ai/agent";
+import { isRefusal } from "@shared/tools/types";
 import type en from "@client/i18n/locales/en";
 
 export interface ToolSummary {
@@ -30,9 +31,7 @@ const ENTRY_WRITES: Array<[prefix: string, message: Message]> = [
  * them should read as a change in the conversation.
  */
 export function describeToolCall(part: CmsToolUIPart, t: TFunction): ToolSummary | null {
-  const output = part.output as { error?: string } | undefined;
-
-  if (part.state !== "output-available" || output?.error !== undefined) return null;
+  if (part.state !== "output-available" || isRefusal(part.output)) return null;
 
   const name = part.type.slice("tool-".length);
   const input = (part.input ?? {}) as Record<string, unknown>;

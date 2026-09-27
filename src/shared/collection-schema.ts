@@ -4,6 +4,7 @@ import {
   DATA_FORMATS,
   asEntryFormat,
   extractFormatsFromLoader,
+  type CollectionManifest,
   type CollectionManifestEntry,
   type EntryFormat,
 } from "@shared/types";
@@ -16,6 +17,22 @@ import { fieldSchemaToZod } from "@shared/field-to-zod";
  * one for a patch, and the small helpers the editor and the agent tools need
  * around them.
  */
+
+/**
+ * The names a collection may be called, as a schema. The set is fixed at build
+ * time, so an unknown name is refused wherever one is accepted — at the server's
+ * operation boundary, where it used to resolve to the conventional directory for
+ * that name and quietly read somebody else's files, and in the tools an agent
+ * sees, where it is also the list of what exists.
+ *
+ * Takes the manifest rather than importing it, because this module is reached
+ * from the integration, which runs before the virtual module exists.
+ */
+export function collectionEnum(manifest: CollectionManifest): z.ZodType<string, string> {
+  const names = Object.keys(manifest);
+
+  return names.length ? z.enum(names as [string, ...string[]]) : z.string();
+}
 
 // In a patch every field is optional (omitted = unchanged) and nullable (null =
 // remove); its default is dropped so an omitted field is never silently auto-filled.
