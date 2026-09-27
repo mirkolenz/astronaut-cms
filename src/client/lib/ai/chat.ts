@@ -1,5 +1,5 @@
 import { Chat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
+import { lastAssistantMessageIsCompleteWithApprovalResponses, type UIMessage } from "ai";
 import { useAiPanelStore } from "@client/stores/ai-panel-store";
 import { LocalAgentTransport } from "@client/lib/ai/transport";
 
@@ -36,6 +36,9 @@ export function getChat(): Chat<UIMessage> {
   instance ??= new Chat({
     messages: loadMessages(),
     transport: new LocalAgentTransport(() => useAiPanelStore.getState().model),
+    // Once the user has approved or denied every pending tool call, resume the
+    // run automatically so the agent loop continues without a manual resend.
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
   return instance;

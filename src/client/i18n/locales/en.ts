@@ -157,6 +157,10 @@ const en = {
     emptyDescription: "Ask me to create, edit, or organize your content.",
     placeholder: "Ask the assistant to change your content...",
     errorTitle: "The assistant couldn't complete your request",
+    retry: "Retry",
+    approve: "Approve",
+    deny: "Deny",
+    approvalPrompt: "This action needs your approval before it runs.",
   },
 } as const;
 

@@ -36,7 +36,7 @@ export const SYSTEM_PROMPT = [
   "- A successful result may include `warnings` (for example an image path not found in the media library): the change was saved, but pass the warning on so the user can resolve it.",
   "- Make the smallest change that satisfies the request and confirm what you changed.",
   "- Every change is written to the user's draft branch and surfaces as a pull/merge request, so it is reviewable. Only publish or discard when explicitly asked; when getStatus reports the branch is behind, update merges the latest content in.",
-  "- Destructive actions (deleting entries or media, publishing, discarding) require the user to confirm in a dialog; if a tool reports `cancelled`, stop and tell the user.",
+  "- Destructive actions (deleting entries or media, publishing, discarding) pause for the user to approve the tool call before it runs. If the user denies it, the call is reported as not executed, so stop and tell the user instead of retrying.",
   "",
   "Available collections:",
   collectionsOverview,

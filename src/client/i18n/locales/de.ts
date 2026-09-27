@@ -163,6 +163,10 @@ const de: TranslationShape<typeof en> = {
     emptyDescription: "Bitte mich, Inhalte zu erstellen, zu bearbeiten oder zu ordnen.",
     placeholder: "Bitte den Assistenten, deine Inhalte zu ändern...",
     errorTitle: "Der Assistent konnte deine Anfrage nicht abschließen",
+    retry: "Erneut versuchen",
+    approve: "Genehmigen",
+    deny: "Ablehnen",
+    approvalPrompt: "Diese Aktion erfordert deine Genehmigung, bevor sie ausgeführt wird.",
   },
 } as const;
 

@@ -7,7 +7,6 @@ import { AuthGuard } from "@client/components/auth-guard";
 import { PublishBar } from "@client/components/publish-bar";
 import { Toaster } from "@client/components/toast";
 import { ChatPanel } from "@client/components/ai/chat-panel";
-import { AiConfirmationHost } from "@client/components/ai/confirmation-host";
 import { Button } from "@client/components/ui/button";
 import { TooltipProvider } from "@client/components/ui/tooltip";
 
@@ -77,7 +76,6 @@ function RootLayout() {
             </div>
             <ChatPanel />
           </div>
-          <AiConfirmationHost />
           <Toaster />
         </TooltipProvider>
       </AuthGuard>

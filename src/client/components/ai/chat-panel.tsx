@@ -22,13 +22,7 @@ import {
   PromptInputTextarea,
   type PromptInputMessage,
 } from "@client/components/ai-elements/prompt-input";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@client/components/ai-elements/tool";
+import { ToolCall } from "@client/components/ai/tool-call";
 import {
   Select,
   SelectContent,
@@ -50,7 +44,8 @@ export function ChatPanel() {
 
   // A single shared Chat whose messages survive the dev-server reloads that
   // content edits trigger (see getChat); mirror every change to storage.
-  const { messages, sendMessage, status, stop, error } = useChat({ chat: getChat() });
+  const { messages, sendMessage, status, stop, error, regenerate, addToolApprovalResponse } =
+    useChat({ chat: getChat() });
 
   useEffect(() => {
     saveMessages(messages);
@@ -97,19 +92,12 @@ export function ChatPanel() {
                     }
 
                     if (part.type.startsWith("tool-")) {
-                      const toolPart = part as ToolUIPart;
-
                       return (
-                        <Tool key={i}>
-                          <ToolHeader type={toolPart.type} state={toolPart.state} />
-                          <ToolContent>
-                            <ToolInput input={toolPart.input} />
-                            <ToolOutput
-                              output={toolPart.output}
-                              errorText={toolPart.errorText}
-                            />
-                          </ToolContent>
-                        </Tool>
+                        <ToolCall
+                          key={i}
+                          part={part as ToolUIPart}
+                          onApprovalResponse={addToolApprovalResponse}
+                        />
                       );
                     }
 
@@ -135,6 +123,14 @@ export function ChatPanel() {
           {error.message && (
             <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => void regenerate()}
+          >
+            {t($ => $.ai.retry)}
+          </Button>
         </div>
       )}
 

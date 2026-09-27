@@ -11,20 +11,6 @@ import {
   commitWithDiagnostics,
   toErrorResult,
 } from "@client/lib/validation";
-import { requestConfirmation, type ConfirmRequest } from "./confirm";
-
-// Runs a destructive action behind a user confirmation, owning the shared
-// cancelled/ok envelope the system prompt relies on.
-async function confirmed(
-  request: ConfirmRequest,
-  action: () => Promise<void>,
-): Promise<{ ok: true } | { cancelled: true }> {
-  if (!(await requestConfirmation(request))) return { cancelled: true };
-
-  await action();
-
-  return { ok: true };
-}
 
 // The collection set is statically known, so every tool that names a collection
 // constrains it to this enum rather than an open string.
@@ -215,7 +201,8 @@ const entryTools: Record<string, Tool> = Object.fromEntries(
 // Tools execute in the browser against the same storage backend the UI uses, so
 // the agent inherits exactly the user's permissions and the draft-branch + PR
 // review flow. Writes go through the per-collection `writeEntry_<collection>` /
-// `editEntry_<collection>` tools; destructive operations gate on confirmation.
+// `editEntry_<collection>` tools; destructive operations set `needsApproval` so
+// the SDK pauses for the user to approve or deny the call before it executes.
 export const cmsTools = {
   listEntries: tool({
     description: "List the ids of all entries in a collection.",
@@ -230,13 +217,14 @@ export const cmsTools = {
   }),
 
   deleteEntry: tool({
-    description: "Delete an entry. Asks the user to confirm first.",
+    description: "Delete an entry. Requires user approval before it runs.",
     inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
-    execute: ({ collection, id }) =>
-      confirmed(
-        { title: "Delete entry", message: `Delete "${collection}/${id}"?`, variant: "danger" },
-        () => getStorage().deleteEntry(collection, id),
-      ),
+    needsApproval: true,
+    execute: async ({ collection, id }) => {
+      await getStorage().deleteEntry(collection, id);
+
+      return { ok: true };
+    },
   }),
 
   reorderEntries: tool({
@@ -299,17 +287,17 @@ export const cmsTools = {
   }),
 
   deleteMedia: tool({
-    description: "Delete a media file. Asks the user to confirm first.",
+    description: "Delete a media file. Requires user approval before it runs.",
     inputSchema: z.object({ path: z.string() }),
+    needsApproval: true,
     execute: async ({ path }) => {
       const invalid = toErrorResult(await validateMediaExists(path));
 
       if (invalid) return invalid;
 
-      return confirmed(
-        { title: "Delete media", message: `Delete "${path}"?`, variant: "danger" },
-        () => getStorage().deleteMedia(path),
-      );
+      await getStorage().deleteMedia(path);
+
+      return { ok: true };
     },
   }),
 
@@ -321,26 +309,25 @@ export const cmsTools = {
 
   publish: tool({
     description:
-      "Publish all pending draft changes (merge the draft branch or open a pull request). Asks the user to confirm first.",
+      "Publish all pending draft changes (merge the draft branch or open a pull request). Requires user approval before it runs.",
     inputSchema: z.object({}),
-    execute: () =>
-      confirmed({ title: "Publish changes", message: "Publish all pending changes?" }, () =>
-        getStorage().publish(),
-      ),
+    needsApproval: true,
+    execute: async () => {
+      await getStorage().publish();
+
+      return { ok: true };
+    },
   }),
 
   discard: tool({
-    description: "Discard all pending draft changes. Asks the user to confirm first.",
+    description: "Discard all pending draft changes. Requires user approval before it runs.",
     inputSchema: z.object({}),
-    execute: () =>
-      confirmed(
-        {
-          title: "Discard changes",
-          message: "Discard all pending changes? This cannot be undone.",
-          variant: "danger",
-        },
-        () => getStorage().discard(),
-      ),
+    needsApproval: true,
+    execute: async () => {
+      await getStorage().discard();
+
+      return { ok: true };
+    },
   }),
 
   ...entryTools,
