@@ -2,7 +2,7 @@ import { cpSync } from "node:fs";
 import { resolve } from "node:path";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
-import dts from "vite-plugin-dts";
+import dts from "unplugin-dts/vite";
 import { externalizeDeps } from "vite-plugin-externalize-deps";
 
 export default defineConfig({
@@ -24,7 +24,7 @@ export default defineConfig({
       semicolons: true,
       quoteStyle: "double",
     }),
-    dts({ rollupTypes: true, exclude: ["src/client/**"] }),
+    dts({ entryRoot: "src", exclude: ["src/client/**"] }),
     externalizeDeps({ include: [/^virtual:/] }),
     {
       name: "copy-astro-files",

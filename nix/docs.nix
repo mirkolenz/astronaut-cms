@@ -11,7 +11,8 @@ buildNpmPackage (finalAttrs: {
   src = ../.;
 
   npmBuildFlags = [
-    "--workspaces"
+    "--workspace"
+    "docs"
     "--include-workspace-root"
   ];
 
