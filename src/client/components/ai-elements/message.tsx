@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/client/components/ui/tooltip";
-import { cn } from "@/client/lib/utils";
+import { cn } from "cn";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import type { UIMessage } from "ai";

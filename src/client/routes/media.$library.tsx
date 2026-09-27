@@ -39,6 +39,13 @@ import type { MediaFile } from "@/shared/types";
 import { isTransactionalMedia, mediaKind, parseMediaLibrary, type MediaLibraryId } from "@/shared/media";
 import { libraryLabel } from "@/client/lib/media";
 import { Button } from "@/client/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
+import { Card, CardContent } from "@/client/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import { Toggle } from "@/client/components/ui/toggle";
+import { ArrowRight, ChevronRight, FileWarning, ImageOff } from "lucide-react";
+import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/media/$library")({
   params: {
@@ -161,7 +168,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-32 animate-pulse rounded-lg border border-border bg-muted" />
+          <Skeleton key={i} className="h-32 rounded-lg" />
         ))}
       </div>
     );
@@ -191,14 +198,9 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   total: usage.size,
                 })}
               </span>
-              <Button
-                type="button"
-                variant={unusedOnly ? "default" : "outline"}
-                size="sm"
-                onClick={() => setUnusedOnly(!unusedOnly)}
-              >
-                {unusedOnly ? t(($) => $.media.allFiles) : t(($) => $.media.unusedOnly)}
-              </Button>
+              <Toggle variant="outline" size="sm" pressed={unusedOnly} onPressedChange={setUnusedOnly}>
+                {t(($) => $.media.unusedOnly)}
+              </Toggle>
             </>
           ) : (
             <Button type="button" variant="outline" size="sm" disabled={scanning} onClick={scan}>
@@ -217,19 +219,20 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
       </div>
 
       {stale.length > 0 && (
-        <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-          <p className="text-sm font-medium">
-            {t(($) => $.media.staleTitle, { count: stale.length })}
-          </p>
-          <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
-            {stale.map((reference, i: number) => (
-              <li key={i}>
-                {reference.collection} / {reference.entryId} ({reference.where}) &rarr;{" "}
-                <code>{reference.path}</code>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Alert variant="destructive" className="mb-3">
+          <FileWarning />
+          <AlertTitle>{t(($) => $.media.staleTitle, { count: stale.length })}</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-5 text-xs">
+              {stale.map((reference, i: number) => (
+                <li key={i}>
+                  {describeReference(reference)}{" "}
+                  <ArrowRight className="inline size-3" aria-hidden="true" /> <code>{reference.path}</code>
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
       )}
 
       {scanError && (
@@ -242,9 +245,14 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
       {writeError && <ErrorBanner>{writeError.message}</ErrorBanner>}
 
       {folders.length === 0 && currentFiles.length === 0 && !scanning && (
-        <div className="text-center text-muted-foreground">
-          <p>{unusedOnly ? t(($) => $.media.noUnused) : t(($) => $.media.noFiles)}</p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ImageOff />
+            </EmptyMedia>
+            <EmptyTitle>{unusedOnly ? t(($) => $.media.noUnused) : t(($) => $.media.noFiles)}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -261,10 +269,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
         {/* File cards */}
         {currentFiles.map((file) => {
           return (
-            <div
-              key={file.path}
-              className="group relative overflow-hidden rounded-lg border border-border"
-            >
+            <Card key={file.path} className="group relative gap-0 py-0">
               {mediaKind(file.path) !== "file" ? (
                 <Button
                   type="button"
@@ -313,7 +318,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   {t(($) => $.common.delete)}
                 </Button>
               </div>
-              <div className="border-t border-border px-3 py-2">
+              <CardContent className="border-t px-3 py-2">
                 <p className="truncate text-xs font-medium text-foreground" title={file.path}>
                   {basename(file.path)}
                 </p>
@@ -321,8 +326,8 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   {formatSize(file.size)}
                   {usage && ` · ${usageLabel(file.path)}`}
                 </p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           );
         })}
       </div>
@@ -397,7 +402,6 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
   const { data: trashed } = useTrash(library);
   const restore = useRestoreMedia();
   const purge = usePurgeTrash();
-  const [open, setOpen] = useState(false);
   const [purgeTarget, setPurgeTarget] = useState<string | null>(null);
 
   if (!trashed?.length) return null;
@@ -405,19 +409,16 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
   const target = trashed.find((file) => file.id === purgeTarget);
 
   return (
-    <div className="mt-6 rounded-md border border-border">
-      <Button
-        type="button"
-        variant="ghost"
-        className="w-full justify-between"
-        onClick={() => setOpen(!open)}
-      >
-        <span>{t(($) => $.media.trashCount, { count: trashed.length })}</span>
-        <span aria-hidden="true">{open ? "▾" : "▸"}</span>
-      </Button>
+    <Card className="mt-6 gap-0 py-0">
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" className="w-full justify-between">
+            <span>{t(($) => $.media.trashCount, { count: trashed.length })}</span>
+            <ChevronRight className="transition-transform group-data-[state=open]/button:rotate-90" />
+          </Button>
+        </CollapsibleTrigger>
 
-      {open && (
-        <div className="border-t border-border p-3">
+        <CollapsibleContent className="border-t p-3">
           <p className="mb-3 text-xs text-muted-foreground">{t(($) => $.media.trashHint)}</p>
 
           <ul className="grid gap-2">
@@ -458,8 +459,8 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
           {/* A restore refused because the name was taken again has nowhere else to go. */}
           {restore.error && <ErrorBanner>{restore.error.message}</ErrorBanner>}
           {purge.error && <ErrorBanner>{purge.error.message}</ErrorBanner>}
-        </div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
 
       <ConfirmDialog
         open={target !== undefined}
@@ -474,7 +475,7 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
         }}
         onCancel={() => setPurgeTarget(null)}
       />
-    </div>
+    </Card>
   );
 }
 

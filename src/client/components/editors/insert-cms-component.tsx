@@ -3,6 +3,8 @@ import type { ClientComponentDef } from "@/internal/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { objectShape } from "@/shared/field-schema";
 import { getDefaultValue } from "./field-renderer";
+import { Plus } from "lucide-react";
+import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,12 +40,10 @@ export function InsertCmsComponent() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded px-2 py-1 text-xs font-medium hover:bg-accent"
-        >
-          + Component
-        </button>
+        <Button type="button" variant="ghost" size="xs">
+          <Plus />
+          Component
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         {Object.entries(components).map(([name, def]) => {

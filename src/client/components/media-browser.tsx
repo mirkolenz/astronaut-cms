@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { Folder } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { basename, join } from "pathe";
 import { useUploadMedia } from "@/client/queries/use-media";
@@ -6,11 +7,19 @@ import config from "@/client/lib/config";
 import { dirSegments } from "@/client/lib/entry-tree";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { libraryLabel } from "@/client/lib/media";
-import { cn } from "@/client/lib/utils";
+import { cn } from "cn";
 import { validateMediaPath } from "@/shared/validation";
 import { mediaLibrary, type MediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
 import { Button } from "@/client/components/ui/button";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/client/components/ui/breadcrumb";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { PathDialog, refusal } from "@/client/components/path-dialog";
 
@@ -33,23 +42,33 @@ export function MediaBreadcrumbs({
   if (segments.length === 0) return null;
 
   return (
-    <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-      <Button type="button" variant="link" size="xs" onClick={() => onNavigate("")}>
-        {libraryLabel(library)}
-      </Button>
-      {segments.map(({ name, path }, i) => (
-        <span key={path} className="flex items-center gap-1">
-          <span>/</span>
-          {i === segments.length - 1 ? (
-            <span className="font-medium text-foreground">{name}</span>
-          ) : (
-            <Button type="button" variant="link" size="xs" onClick={() => onNavigate(path)}>
-              {name}
-            </Button>
-          )}
-        </span>
-      ))}
-    </nav>
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <button type="button" onClick={() => onNavigate("")}>
+              {libraryLabel(library)}
+            </button>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        {segments.map(({ name, path }, i) => (
+          <Fragment key={path}>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              {i === segments.length - 1 ? (
+                <BreadcrumbPage>{name}</BreadcrumbPage>
+              ) : (
+                <BreadcrumbLink asChild>
+                  <button type="button" onClick={() => onNavigate(path)}>
+                    {name}
+                  </button>
+                </BreadcrumbLink>
+              )}
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }
 
@@ -72,7 +91,7 @@ export function FolderCard({
         className,
       )}
     >
-      <span className="text-3xl text-muted-foreground">&#128193;</span>
+      <Folder className="size-8 text-muted-foreground" />
       <span className="truncate text-sm font-medium text-foreground">{name}</span>
     </Button>
   );

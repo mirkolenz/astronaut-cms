@@ -8,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
 import { MessageResponse } from "@/client/components/ai-elements/message";
-import { cn } from "@/client/lib/utils";
+import { cn } from "cn";
 import type { TFunction } from "i18next";
 
 // Long enough to notice the thought finished, short enough not to shove the

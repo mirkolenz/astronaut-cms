@@ -13,9 +13,9 @@ import { Message, MessageContent, MessageResponse } from "@/client/components/ai
 import { ReasoningTrace } from "@/client/components/ai/reasoning-trace";
 import { ToolCall } from "@/client/components/ai/tool-call";
 import { Button } from "@/client/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
 import { Spinner } from "@/client/components/ui/spinner";
 import { getChat } from "@/client/lib/ai/chat";
-import { cn } from "@/client/lib/utils";
 
 /**
  * Subscribes to the shared Chat, so every view that renders it stays in sync.
@@ -108,23 +108,15 @@ export function ChatError({ chat, className }: { chat: CmsChat; className?: stri
   if (!error) return null;
 
   return (
-    <div
-      role="alert"
-      className={cn(
-        "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-        <AlertTriangle className="size-4 shrink-0" />
-        {t(($) => $.ai.errorTitle)}
-      </div>
-      {error.message && (
-        <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
-      )}
-      <Button variant="outline" size="sm" className="mt-2" onClick={() => void regenerate()}>
-        {t(($) => $.ai.retry)}
-      </Button>
-    </div>
+    <Alert variant="destructive" className={className}>
+      <AlertTriangle />
+      <AlertTitle>{t(($) => $.ai.errorTitle)}</AlertTitle>
+      <AlertDescription>
+        {error.message && <p className="break-words">{error.message}</p>}
+        <Button variant="outline" size="sm" className="mt-2" onClick={() => void regenerate()}>
+          {t(($) => $.ai.retry)}
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }

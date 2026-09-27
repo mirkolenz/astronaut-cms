@@ -4,6 +4,7 @@ import type { TranslationShape } from "../types";
 const de: TranslationShape<typeof en> = {
   common: {
     cancel: "Abbrechen",
+    close: "Schließen",
     confirm: "Bestätigen",
     delete: "Löschen",
     save: "Speichern",
@@ -95,7 +96,6 @@ const de: TranslationShape<typeof en> = {
     uses: "Verwendungen: {{count}}",
     unusedCount: "Unbenutzt: {{count}} / {{total}}",
     staleTitle: "Referenzen auf fehlende Dateien: {{count}}",
-    allFiles: "Alle Dateien",
     scanningReferences: "Prüfe, worauf Inhalte verweisen...",
     noUnused: "Jede Datei wird von Inhalten referenziert.",
     usedBy: "Die folgenden Einträge verweisen darauf.",

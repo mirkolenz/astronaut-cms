@@ -31,7 +31,11 @@ import {
 } from "@/client/components/ui/dialog";
 import { Button } from "@/client/components/ui/button";
 import { ButtonGroup } from "@/client/components/ui/button-group";
+import { Toggle } from "@/client/components/ui/toggle";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import { ImageOff } from "lucide-react";
 import { Input } from "@/client/components/ui/input";
+import { Skeleton } from "@/client/components/ui/skeleton";
 
 interface MediaPickerDialogProps {
   open: boolean;
@@ -88,20 +92,18 @@ export function MediaPickerDialog({
         {libraries.length > 1 && (
           <ButtonGroup>
             {libraries.map((id) => (
-              <Button
+              <Toggle
                 key={id}
-                type="button"
                 variant="outline"
                 size="sm"
-                aria-pressed={id === library}
-                className="aria-pressed:bg-muted aria-pressed:text-foreground"
-                onClick={() => {
+                pressed={id === library}
+                onPressedChange={() => {
                   setLibrary(id);
                   setDir("");
                 }}
               >
                 {libraryLabel(id)}
-              </Button>
+              </Toggle>
             ))}
           </ButtonGroup>
         )}
@@ -125,7 +127,7 @@ export function MediaPickerDialog({
         <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
           {isLoading &&
             [1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-md bg-muted" />
+              <Skeleton key={i} className="h-24" />
             ))}
           {folders.map(({ name, path }) => (
             <FolderCard key={path} name={name} onOpen={() => setDir(path)} className="h-full" />
@@ -148,9 +150,14 @@ export function MediaPickerDialog({
             </button>
           ))}
           {folders.length === 0 && files.length === 0 && !isLoading && (
-            <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-              {t(($) => $.media.noFilesFound)}
-            </p>
+            <Empty className="col-span-full">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ImageOff />
+                </EmptyMedia>
+                <EmptyTitle>{t(($) => $.media.noFilesFound)}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           )}
         </div>
 

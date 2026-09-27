@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
-import { cn } from "@/client/lib/utils";
+import { cn } from "cn";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import {
   CheckCircleIcon,

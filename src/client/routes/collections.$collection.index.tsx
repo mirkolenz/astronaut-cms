@@ -21,6 +21,9 @@ import { FileCollectionEditor } from "@/client/components/file-collection-editor
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
 import config from "@/client/lib/config";
+import { Card } from "@/client/components/ui/card";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/collections/$collection/")({
   component: CollectionPage,
@@ -96,7 +99,7 @@ function GlobCollectionPage({
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-12 animate-pulse rounded-lg border border-border bg-muted" />
+          <Skeleton key={i} className="h-12 rounded-lg" />
         ))}
       </div>
     );
@@ -136,15 +139,20 @@ function GlobCollectionPage({
       </div>
 
       {isEmpty ? (
-        <div className="text-center text-muted-foreground">
-          <p>
-            {activeLocale
-              ? t(($) => $.i18n.noEntriesInLanguage, { language: localeLabel(activeLocale) })
-              : t(($) => $.collection.noEntries)}
-          </p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <File />
+            </EmptyMedia>
+            <EmptyTitle>
+              {activeLocale
+                ? t(($) => $.i18n.noEntriesInLanguage, { language: localeLabel(activeLocale) })
+                : t(($) => $.collection.noEntries)}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <div className="divide-y divide-border rounded-lg border border-border">
+        <Card className="gap-0 divide-y py-0">
           {folders.map((folder) => (
             <Link
               key={folder.path}
@@ -180,7 +188,7 @@ function GlobCollectionPage({
               </div>
             </Link>
           ))}
-        </div>
+        </Card>
       )}
 
       <NewEntryDialog

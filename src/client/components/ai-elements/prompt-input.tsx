@@ -31,7 +31,7 @@ import {
 } from "@/client/components/ui/select";
 import { Spinner } from "@/client/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
-import { cn } from "@/client/lib/utils";
+import { cn } from "cn";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { CornerDownLeftIcon, ImageIcon, Monitor, PlusIcon, SquareIcon, XIcon } from "lucide-react";
 import { nanoid } from "nanoid";

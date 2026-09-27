@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
   ChevronRight,
   CircleCheck,
   FilePlus2,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ChangeKind, FileChange } from "@/shared/types";
 import { describeChange } from "@/client/lib/changes";
+import { Card } from "@/client/components/ui/card";
 import { CodeBlock } from "@/client/components/ai-elements/code-block";
 import {
   Collapsible,
@@ -50,15 +52,17 @@ function ChangeRow({ change }: { change: FileChange }) {
   }, [open, change]);
 
   return (
-    <Collapsible className="rounded-md border border-border" open={open} onOpenChange={setOpen}>
+    <Card size="sm" className="gap-0 py-0">
+    <Collapsible open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-2 px-3 py-2">
         <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
           <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
           <Icon className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate font-medium">{described.label}</span>
           {described.previousPath && (
-            <span className="truncate text-xs text-muted-foreground">
-              ← {described.previousPath}
+            <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+              <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{described.previousPath}</span>
             </span>
           )}
         </CollapsibleTrigger>
@@ -82,6 +86,7 @@ function ChangeRow({ change }: { change: FileChange }) {
         )}
       </CollapsibleContent>
     </Collapsible>
+    </Card>
   );
 }
 

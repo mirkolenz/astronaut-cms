@@ -26,8 +26,10 @@ import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { TranslationSwitcher } from "@/client/components/translation-switcher";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
 import config from "@/client/lib/config";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
+import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
   component: EntryEditor,
@@ -214,8 +216,8 @@ function EntryEditor() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-        <div className="h-64 animate-pulse rounded-lg bg-muted" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 rounded-lg" />
       </div>
     );
   }
@@ -381,19 +383,13 @@ function CollapsibleSection({
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none"
-      >
-        <ChevronRight className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
+    <Collapsible defaultOpen={defaultOpen}>
+      <CollapsibleTrigger className="group flex w-full items-center gap-1 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none">
+        <ChevronRight className="size-4 transition-transform group-data-[state=open]:rotate-90" />
         {title}
-      </button>
-      {open && <div className="pt-2">{children}</div>}
-    </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }

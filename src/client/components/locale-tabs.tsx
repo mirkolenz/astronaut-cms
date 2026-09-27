@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { joinLocale, localeLabel } from "@/shared/i18n";
 import { Button } from "@/client/components/ui/button";
+import { ButtonGroup } from "@/client/components/ui/button-group";
 
 interface LocaleTabsProps {
   collection: string;
@@ -16,10 +17,17 @@ interface LocaleTabsProps {
  */
 export function LocaleTabs({ collection, locales, active, subDir }: LocaleTabsProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border p-1">
+    <ButtonGroup>
       {locales.map((locale) => (
-        <Button key={locale} asChild variant={locale === active ? "secondary" : "ghost"} size="sm">
+        <Button
+          key={locale}
+          asChild
+          variant="outline"
+          size="sm"
+          className="aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+        >
           <Link
+            aria-current={locale === active ? "page" : undefined}
             to="/collections/$collection"
             params={{ collection }}
             search={{ dir: joinLocale(locale, subDir) }}
@@ -28,6 +36,6 @@ export function LocaleTabs({ collection, locales, active, subDir }: LocaleTabsPr
           </Link>
         </Button>
       ))}
-    </div>
+    </ButtonGroup>
   );
 }

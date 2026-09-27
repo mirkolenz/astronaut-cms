@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
+import { Button } from "@/client/components/ui/button";
 import { Dialog, DialogContent } from "@/client/components/ui/dialog";
 import { mediaUrl } from "@/client/lib/media";
 import { mediaKind, type MediaLibraryId } from "@/shared/media";
@@ -12,6 +14,8 @@ interface MediaLightboxProps {
 
 /** A library image, video or audio file at full size, playable where it plays. */
 export function MediaLightbox({ library, file, onClose }: MediaLightboxProps) {
+  const { t } = useTranslation();
+
   return (
     <Dialog
       open={file !== null}
@@ -24,13 +28,15 @@ export function MediaLightbox({ library, file, onClose }: MediaLightboxProps) {
         className="border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]"
       >
         <div className="relative">
-          <button
+          <Button
             type="button"
+            size="icon"
             onClick={onClose}
-            className="absolute -right-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+            aria-label={t(($) => $.common.close)}
+            className="absolute -right-2 -top-2 z-10 rounded-full bg-black/60 text-white hover:bg-black/80"
           >
-            <X className="size-4" />
-          </button>
+            <X />
+          </Button>
           {file && <Preview library={library} file={file} />}
         </div>
       </DialogContent>

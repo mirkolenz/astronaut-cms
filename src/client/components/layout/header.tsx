@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { toLabel } from "@/client/lib/to-label";
@@ -6,6 +7,14 @@ import { joinLocale, splitLocale } from "@/shared/i18n";
 import { useEntries } from "@/client/queries/use-entries";
 import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { UiLocaleMenu } from "@/client/components/layout/ui-locale-menu";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/client/components/ui/breadcrumb";
 
 interface BreadcrumbSegment {
   label: string;
@@ -49,28 +58,26 @@ export function Header() {
 
   return (
     <header className="flex h-12 items-center border-b border-border px-6">
-      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        {segments.map((seg, i) => (
-          <span
-            key={`${seg.to ?? ""}-${seg.search?.dir ?? ""}-${seg.label}`}
-            className="flex items-center gap-1.5"
-          >
-            {i > 0 && <span className="text-muted-foreground/50">/</span>}
-            {i < segments.length - 1 && seg.to ? (
-              <Link
-                to={seg.to}
-                params={seg.params ?? {}}
-                search={seg.search ?? {}}
-                className="hover:text-foreground"
-              >
-                {seg.label}
-              </Link>
-            ) : (
-              <span className="font-medium text-foreground">{seg.label}</span>
-            )}
-          </span>
-        ))}
-      </nav>
+      <Breadcrumb>
+        <BreadcrumbList>
+          {segments.map((seg, i) => (
+            <Fragment key={`${seg.to ?? ""}-${seg.search?.dir ?? ""}-${seg.label}`}>
+              {i > 0 && <BreadcrumbSeparator />}
+              <BreadcrumbItem>
+                {i < segments.length - 1 && seg.to ? (
+                  <BreadcrumbLink asChild>
+                    <Link to={seg.to} params={seg.params ?? {}} search={seg.search ?? {}}>
+                      {seg.label}
+                    </Link>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage>{seg.label}</BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="ml-auto">
         <UiLocaleMenu />
       </div>

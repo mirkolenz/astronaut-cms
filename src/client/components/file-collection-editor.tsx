@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, FileText, Trash2 } from "lucide-react";
+import { Card } from "@/client/components/ui/card";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
 import {
   useEntries,
   useEntry,
@@ -24,6 +26,7 @@ import { getFileExtension } from "@/shared/content-parser";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
 import config from "@/client/lib/config";
+import { Skeleton } from "@/client/components/ui/skeleton";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
@@ -101,7 +104,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-lg border border-border bg-muted" />
+          <Skeleton key={i} className="h-16 rounded-lg" />
         ))}
       </div>
     );
@@ -128,9 +131,14 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         </div>
 
         {(!sortedEntries || sortedEntries.length === 0) && (
-          <div className="text-center text-muted-foreground">
-            <p>{t(($) => $.collection.noEntries)}</p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileText />
+              </EmptyMedia>
+              <EmptyTitle>{t(($) => $.collection.noEntries)}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
 
         <div className="space-y-2">
@@ -273,7 +281,7 @@ function FileEntryCard({
   const shape = objectShape(schema) ?? {};
 
   return (
-    <div className="rounded-lg border border-border">
+    <Card className="gap-0 py-0">
       <div className="flex items-center">
         <Button
           type="button"
@@ -327,7 +335,7 @@ function FileEntryCard({
       {expanded && (
         <div className="border-t border-border px-4 py-3">
           {isLoading ? (
-            <div className="h-24 animate-pulse rounded bg-muted" />
+            <Skeleton className="h-24" />
           ) : (
             <div className="space-y-3">
               {Object.entries(shape).map(([key, fieldSchema]) => (
@@ -356,6 +364,6 @@ function FileEntryCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

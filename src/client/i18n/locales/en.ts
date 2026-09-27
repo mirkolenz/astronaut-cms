@@ -1,6 +1,7 @@
 const en = {
   common: {
     cancel: "Cancel",
+    close: "Close",
     confirm: "Confirm",
     delete: "Delete",
     save: "Save",
@@ -90,7 +91,6 @@ const en = {
     uses: "Uses: {{count}}",
     unusedCount: "Unused: {{count}} / {{total}}",
     staleTitle: "References to missing files: {{count}}",
-    allFiles: "All files",
     scanningReferences: "Checking what content references...",
     noUnused: "Every file is referenced by content.",
     usedBy: "It is referenced by the entries below.",
