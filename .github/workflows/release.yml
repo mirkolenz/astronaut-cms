@@ -15,7 +15,7 @@ jobs:
       id-token: write
     environment:
       name: release
-      url: https://github.com/mirkolenz/astronaut-cms/releases/tag/${{ steps.release.outputs.git-tag }}
+      url: https://github.com/mirkolenz/astronaut-cms/releases/tag/${{ steps.semanticrelease.outputs.git-tag }}
     outputs:
       version: ${{ steps.semanticrelease.outputs.version }}
       released: ${{ steps.semanticrelease.outputs.released }}
@@ -32,6 +32,7 @@ jobs:
           authToken: ${{ secrets.CACHIX_TOKEN }}
       - run: nix profile install .#release-env
       - uses: cihelper/action-semanticrelease-npm@v1
+        id: semanticrelease
         with:
           npm-install: true
   build-docs:
