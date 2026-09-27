@@ -9,6 +9,7 @@ import { createDevMiddleware } from "./dev-middleware.ts";
 import { createJiti } from "jiti";
 import { CLIENT_REDIRECTS } from "./client-redirects.ts";
 import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
+import { unified, isUnifiedProcessor } from "@astrojs/markdown-remark";
 import { getAssetType } from "../shared/schema-utils.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
@@ -218,10 +219,27 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           }
         }
 
+        // Astro 6.4+ sources Markdown/MDX plugins from `markdown.processor`; the
+        // top-level `markdown.remarkPlugins` option is deprecated and is ignored by
+        // @astrojs/mdx v6. Attach to the unified processor (creating it if unset).
+        // Sätteri and other non-unified processors don't run remark plugins, and
+        // their plugin API can't inject the module-level imports this plugin relies
+        // on, so asset auto-import is only available under unified().
+        const processor = astroConfig.markdown.processor;
+        if (processor && !isUnifiedProcessor(processor)) {
+          logger.warn(
+            `Markdown processor "${processor.name}" does not run remark plugins, so CMS asset `
+              + `auto-import (component image()/file() props and relative asset links) is disabled. `
+              + `Markdown images still resolve via the processor's built-in handling. `
+              + `Set markdown.processor: unified({...}) to enable full CMS asset handling.`,
+          );
+        } else {
+          const target = processor ?? unified();
+          target.options.remarkPlugins.push([remarkCmsAssets, assetFieldsMap]);
+          updateConfig({ markdown: { processor: target } });
+        }
+
         updateConfig({
-          markdown: {
-            remarkPlugins: [[remarkCmsAssets, assetFieldsMap]],
-          },
           vite: {
             plugins: [
               tailwindcss(),
