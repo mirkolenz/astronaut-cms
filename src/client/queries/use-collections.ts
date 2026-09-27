@@ -11,6 +11,7 @@ for (const [name, col] of Object.entries(collectionData)) {
     name,
     type: col.type,
     loaderType: col.loaderType,
+    loaderBase: col.loaderBase,
     loaderFileName: col.loaderFileName,
   };
 }

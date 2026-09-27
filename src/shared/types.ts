@@ -16,6 +16,8 @@ export interface CollectionInfo {
   name: string;
   type: CollectionType;
   loaderType?: LoaderType;
+  /** Glob loader base directory (from `content.config.ts`), e.g. "src/content/blog". */
+  loaderBase?: string | null;
   loaderFileName?: string | null;
 }
 

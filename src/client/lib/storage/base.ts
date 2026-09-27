@@ -207,8 +207,11 @@ export abstract class StorageBase implements StorageBackend {
 
   // --- Glob collection helpers ---
 
+  // Glob collections live at their loader's configured `base` (from
+  // content.config.ts), not necessarily a directory named after the collection.
+  // Fall back to the conventional location when no base was captured.
   protected getCollectionPath(collection: string): string {
-    return `src/content/${collection}`;
+    return this.schemas[collection]?.loaderBase ?? `src/content/${collection}`;
   }
 
   protected getEntryPath(collection: string, entryId: string, format: string): string {

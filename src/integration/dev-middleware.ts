@@ -97,11 +97,13 @@ async function walkDir(
 }
 
 // --- Glob collection helpers (one entry = one file) ---
+//
+// `baseDir` is the loader's configured base directory (resolved absolute), so a
+// collection keyed differently from its folder still resolves. Asserting each
+// entry path within `baseDir` keeps a crafted entry id from escaping it.
 
-async function listGlobEntries(contentDir: string, collection: string): Promise<EntryMeta[]> {
-  const collectionDir = join(contentDir, collection);
-  assertWithinBase(collectionDir, contentDir);
-  const files = await walkDir(collectionDir, ALL_FORMATS);
+async function listGlobEntries(baseDir: string, collection: string): Promise<EntryMeta[]> {
+  const files = await walkDir(baseDir, ALL_FORMATS);
   return files.map((f) => ({
     id: f.path.slice(0, -(f.format.length + 1)),
     collection,
@@ -110,13 +112,12 @@ async function listGlobEntries(contentDir: string, collection: string): Promise<
 }
 
 async function findEntryFile(
-  contentDir: string,
-  collection: string,
+  baseDir: string,
   id: string,
 ): Promise<{ filePath: string; format: string; content: string } | null> {
   for (const format of ALL_FORMATS) {
-    const filePath = join(contentDir, collection, `${id}.${format}`);
-    assertWithinBase(filePath, contentDir);
+    const filePath = join(baseDir, `${id}.${format}`);
+    assertWithinBase(filePath, baseDir);
     try {
       const content = await readFile(filePath, "utf-8");
       return { filePath, format, content };
@@ -127,12 +128,8 @@ async function findEntryFile(
   return null;
 }
 
-async function getGlobEntry(
-  contentDir: string,
-  collection: string,
-  id: string,
-): Promise<EntryContent | null> {
-  const found = await findEntryFile(contentDir, collection, id);
+async function getGlobEntry(baseDir: string, id: string): Promise<EntryContent | null> {
+  const found = await findEntryFile(baseDir, id);
   if (!found) return null;
 
   const { data, body } = parseContent(found.content, found.format);
@@ -140,24 +137,19 @@ async function getGlobEntry(
 }
 
 async function saveGlobEntry(
-  contentDir: string,
-  collection: string,
+  baseDir: string,
   id: string,
   request: SaveEntryRequest,
 ): Promise<void> {
-  const filePath = join(contentDir, collection, `${id}.${request.format}`);
-  assertWithinBase(filePath, contentDir);
+  const filePath = join(baseDir, `${id}.${request.format}`);
+  assertWithinBase(filePath, baseDir);
   const content = serializeContent(request.data, request.body, request.format);
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf-8");
 }
 
-async function deleteGlobEntry(
-  contentDir: string,
-  collection: string,
-  id: string,
-): Promise<void> {
-  const found = await findEntryFile(contentDir, collection, id);
+async function deleteGlobEntry(baseDir: string, collection: string, id: string): Promise<void> {
+  const found = await findEntryFile(baseDir, id);
   if (!found) throw new Error(`Entry ${collection}/${id} not found`);
   await unlink(found.filePath);
 }
@@ -346,6 +338,19 @@ function createDevMiddleware(
     return collections?.[collection]?.loaderFileName ?? null;
   }
 
+  // Resolve a known glob collection to its loader's configured base directory,
+  // falling back to the conventional `src/content/<name>` only when no base was
+  // captured. Requiring the collection to be in the manifest rejects a crafted
+  // name before it can form a path; the assert bounds legitimate bases to the
+  // project root as defense in depth.
+  function getGlobBaseDir(collection: string): string {
+    const meta = collections?.[collection];
+    if (!meta) throw new Error(`Unknown collection: ${collection}`);
+    const dir = meta.loaderBase ? join(rootDir, meta.loaderBase) : join(contentDir, collection);
+    assertWithinBase(dir, rootDir);
+    return dir;
+  }
+
   return async (req, res, next) => {
     const url = req.url ?? "";
     if (!url.startsWith(`${apiPrefix}/`)) {
@@ -389,7 +394,7 @@ function createDevMiddleware(
             const entries = await listFileEntries(rootDir, collection, loaderFileName);
             sendJson(res, entries);
           } else {
-            const entries = await listGlobEntries(contentDir, collection);
+            const entries = await listGlobEntries(getGlobBaseDir(collection), collection);
             sendJson(res, entries);
           }
           return;
@@ -408,7 +413,7 @@ function createDevMiddleware(
           if (isFile && loaderFileName) {
             entry = await getFileEntry(rootDir, entryId, loaderFileName);
           } else {
-            entry = await getGlobEntry(contentDir, collection, entryId);
+            entry = await getGlobEntry(getGlobBaseDir(collection), entryId);
           }
           if (!entry) {
             sendError(res, `Entry ${collection}/${entryId} not found`, 404);
@@ -430,7 +435,7 @@ function createDevMiddleware(
           if (isFile && loaderFileName) {
             await saveFileEntry(rootDir, entryId, body.data, loaderFileName);
           } else {
-            await saveGlobEntry(contentDir, collection, entryId, body);
+            await saveGlobEntry(getGlobBaseDir(collection), entryId, body);
           }
           sendJson(res, { ok: true });
           return;
@@ -440,7 +445,7 @@ function createDevMiddleware(
           if (isFile && loaderFileName) {
             await deleteFileEntry(rootDir, entryId, loaderFileName);
           } else {
-            await deleteGlobEntry(contentDir, collection, entryId);
+            await deleteGlobEntry(getGlobBaseDir(collection), collection, entryId);
           }
           sendJson(res, { ok: true });
           return;
