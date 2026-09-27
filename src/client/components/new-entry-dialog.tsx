@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { validatePath, validateSegment } from "@shared/validation";
+import { localeLabel } from "@shared/i18n";
 import { CONTENT_FORMATS, DATA_FORMATS } from "@shared/types";
 import {
   Dialog,
@@ -24,8 +25,12 @@ interface NewEntryDialogProps {
   open: boolean;
   collection: string;
   collectionType: "content" | "data";
-  /** Folder the entry is created in; the typed id is appended to it. */
+  /** Folder the entry is created in, below any locale; the typed id is appended to it. */
   basePath?: string;
+  /** Content languages, when the collection is organized by locale. */
+  locales?: string[];
+  /** Language preselected in that case, i.e. the one being browsed. */
+  locale?: string | null;
   /** Allow slash-separated ids that create nested folders (glob collections). */
   nested?: boolean;
   allowedFormats?: string[] | null;
@@ -41,6 +46,8 @@ export function NewEntryDialog({
   collection,
   collectionType,
   basePath,
+  locales,
+  locale,
   nested,
   allowedFormats,
   onSubmit,
@@ -49,6 +56,8 @@ export function NewEntryDialog({
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [id, setId] = useState("");
+  const initialLocale = locale ?? "";
+  const [entryLocale, setEntryLocale] = useState(initialLocale);
   const allFormats = collectionType === "content" ? CONTENT_FORMAT_OPTIONS : DATA_FORMAT_OPTIONS;
   const formats = useMemo(
     () =>
@@ -61,15 +70,20 @@ export function NewEntryDialog({
     if (open) {
       setId("");
       setFormat(formats[0].value);
+      setEntryLocale(initialLocale);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open, formats]);
+  }, [open, formats, initialLocale]);
+
+  // The stored id is `<locale>/<folder>/<name>`, so picking a language here is
+  // what puts the file in the right content directory.
+  const prefix = [entryLocale, basePath].filter(Boolean).join("/");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = id.trim();
     if (!trimmed) return;
-    const fullId = basePath ? `${basePath}/${trimmed}` : trimmed;
+    const fullId = [prefix, trimmed].filter(Boolean).join("/");
     try {
       if (nested) validatePath(fullId, "entry ID");
       else validateSegment(fullId, "entry ID");
@@ -92,11 +106,28 @@ export function NewEntryDialog({
             <DialogTitle>{t(($) => $.newEntryDialog.title, { collection })}</DialogTitle>
           </DialogHeader>
           <div className="mt-3 space-y-3">
+            {locales && locales.length > 1 && (
+              <div>
+                <Label>{t(($) => $.i18n.language)}</Label>
+                <Select value={entryLocale} onValueChange={setEntryLocale}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locales.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {localeLabel(l)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label>{t(($) => $.newEntryDialog.entryId)}</Label>
               <div className="flex items-center gap-1">
-                {basePath && (
-                  <span className="shrink-0 text-sm text-muted-foreground">{basePath}/</span>
+                {prefix && (
+                  <span className="shrink-0 text-sm text-muted-foreground">{prefix}/</span>
                 )}
                 <Input
                   ref={inputRef}

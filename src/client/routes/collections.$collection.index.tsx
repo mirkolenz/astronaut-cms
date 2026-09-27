@@ -8,6 +8,10 @@ import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
 import { toLabel } from "@client/lib/to-label";
 import { baseName, listDirectory } from "@client/lib/entry-tree";
+import { localeLabel, splitLocale } from "@shared/i18n";
+import { browseLocation, countIn, useCollectionI18n } from "@client/lib/content-i18n";
+import { LocaleTabs } from "@client/components/locale-tabs";
+import { TranslationStatus } from "@client/components/translation-status";
 import { extractFormatsFromLoader } from "@shared/types";
 import { FileCollectionEditor } from "@client/components/file-collection-editor";
 import { Button } from "@client/components/ui/button";
@@ -59,11 +63,20 @@ function GlobCollectionPage({
     if (!entries || !allowedFormats) return entries;
     return entries.filter((e) => allowedFormats.includes(e.format));
   }, [entries, allowedFormats]);
+  const i18n = useCollectionI18n(filteredEntries);
+  const locales = i18n?.locales ?? [];
+  const { activeLocale, subDir, browseDir } = browseLocation(i18n, dir);
+
   const { folders, files } = useMemo(
-    () => listDirectory(filteredEntries ?? [], dir),
-    [filteredEntries, dir],
+    () => listDirectory(filteredEntries ?? [], browseDir),
+    [filteredEntries, browseDir],
   );
   const isEmpty = folders.length === 0 && files.length === 0;
+
+  // The header counts what the active language actually holds, so a half-translated
+  // collection never reports one inflated total across all of them.
+  const localeCount =
+    i18n && activeLocale ? countIn(i18n, activeLocale) : (filteredEntries?.length ?? 0);
 
   // Nothing is written yet: the editor holds the new entry until its first save,
   // so an abandoned one leaves no invalid file behind.
@@ -102,16 +115,30 @@ function GlobCollectionPage({
               {collectionInfo.type === "content"
                 ? t(($) => $.collection.contentCollection)
                 : t(($) => $.collection.dataCollection)}{" "}
-              &middot; {t(($) => $.collection.entries, { count: filteredEntries?.length ?? 0 })}
+              &middot; {t(($) => $.collection.entries, { count: localeCount })}
             </p>
           )}
         </div>
-        <Button onClick={() => setShowNewDialog(true)}>{t(($) => $.collection.newEntry)}</Button>
+        <div className="flex items-center gap-2">
+          {activeLocale && (
+            <LocaleTabs
+              collection={collection}
+              locales={locales}
+              active={activeLocale}
+              subDir={subDir}
+            />
+          )}
+          <Button onClick={() => setShowNewDialog(true)}>{t(($) => $.collection.newEntry)}</Button>
+        </div>
       </div>
 
       {isEmpty ? (
         <div className="text-center text-muted-foreground">
-          <p>{t(($) => $.collection.noEntries)}</p>
+          <p>
+            {activeLocale
+              ? t(($) => $.i18n.noEntriesInLanguage, { language: localeLabel(activeLocale) })
+              : t(($) => $.collection.noEntries)}
+          </p>
         </div>
       ) : (
         <div className="divide-y divide-border rounded-lg border border-border">
@@ -142,7 +169,12 @@ function GlobCollectionPage({
                 <span className="text-sm font-medium text-foreground">{baseName(entry.id)}</span>
                 <Badge variant="outline">{entry.format}</Badge>
               </div>
-              <ChevronRight className="size-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                {i18n && (
+                  <TranslationStatus i18n={i18n} slug={splitLocale(entry.id, locales).slug} />
+                )}
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </div>
             </Link>
           ))}
         </div>
@@ -152,7 +184,9 @@ function GlobCollectionPage({
         open={showNewDialog}
         collection={collection}
         collectionType={collectionInfo?.type ?? "content"}
-        basePath={dir}
+        basePath={subDir}
+        locales={i18n?.locales}
+        locale={activeLocale}
         nested
         allowedFormats={allowedFormats}
         onSubmit={handleCreate}

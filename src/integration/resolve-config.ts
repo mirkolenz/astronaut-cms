@@ -5,7 +5,9 @@
  * at a second site. Fields are non-optional here by design: the client may rely on
  * them being present rather than re-defaulting.
  */
+import type { AstroConfig } from "astro";
 import type { AiGateway, CmsClientConfig, CmsConfig } from "./types.ts";
+import type { ContentI18n } from "../shared/i18n.ts";
 import { DEFAULT_AI_MAX_STEPS } from "../shared/ai.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
@@ -30,9 +32,33 @@ const DEFAULT_MEDIA_EXTENSIONS = [
   ".csv",
 ];
 
+/**
+ * Content languages, taken from the site's own `astro.config` `i18n` block so a
+ * multilingual site needs no second declaration. A locale entry may be a bare
+ * code or a `{ path, codes }` pair; the `path` is the URL (and therefore the
+ * content directory) segment, which is what entry ids are built from.
+ */
+type AstroI18n = Pick<NonNullable<AstroConfig["i18n"]>, "locales" | "defaultLocale">;
+
+export function resolveContentI18n(
+  config: CmsConfig,
+  astroI18n: AstroI18n | undefined,
+): ContentI18n | null {
+  if (config.i18n === false) return null;
+
+  const locales =
+    config.i18n?.locales ?? astroI18n?.locales.map((l) => (typeof l === "string" ? l : l.path));
+  const defaultLocale = config.i18n?.defaultLocale ?? astroI18n?.defaultLocale ?? locales?.[0];
+
+  if (!locales?.length || !defaultLocale) return null;
+
+  return { locales, defaultLocale };
+}
+
 export function resolveClientConfig(
   config: CmsConfig,
   trailingSlash: "always" | "never" | "ignore",
+  astroI18n: AstroI18n | undefined,
 ): CmsClientConfig {
   const storage = config.storage ?? { type: "local" as const };
 
@@ -43,6 +69,7 @@ export function resolveClientConfig(
     mediaDirectory: config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY,
     mediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
     locale: config.locale ?? "en",
+    contentI18n: resolveContentI18n(config, astroI18n),
     previewUrl: config.previewUrl,
     ...(config.ai?.enabled &&
       config.ai.models?.length && {

@@ -61,7 +61,17 @@ Path to the CMS config file, relative to the project root.
 - **Type:** `"en" | "de"`
 - **Default:** `"en"`
 
-Language for the admin panel UI.
+Default language for the admin panel UI.
+Editors can change it from the header, and their choice is remembered.
+
+### `i18n`
+
+- **Type:** `{ locales?: string[]; defaultLocale?: string } | false`
+- **Default:** inherited from the site's own `i18n` in `astro.config.ts`
+
+Content languages.
+Set it to override the site's languages, or to `false` to keep the admin language-agnostic.
+See the [Multilingual Content](../multilingual-content/) guide for details.
 
 ### `storage`
 

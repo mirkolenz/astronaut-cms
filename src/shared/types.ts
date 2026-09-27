@@ -44,7 +44,6 @@ export function collectionBase(
 export interface EntryMeta {
   id: string;
   collection: string;
-  slug?: string;
   format: string;
 }
 

@@ -116,6 +116,14 @@ const en = {
       "Discard all {{count}} pending changes? They are not published anywhere and cannot be recovered.",
     discarded: "Pending changes discarded",
   },
+  i18n: {
+    language: "Language",
+    translated: "Translated into {{language}}",
+    missingTranslation: "Not translated into {{language}}",
+    createTranslation: "Create the {{language}} translation from this entry",
+    noEntriesInLanguage: "Nothing in {{language}} yet",
+    translationCreated: "Translation created from this entry",
+  },
   newEntryDialog: {
     title: "New Entry in {{collection}}",
     entryId: "Entry ID",

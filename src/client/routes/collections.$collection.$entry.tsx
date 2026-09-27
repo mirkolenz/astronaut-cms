@@ -21,6 +21,9 @@ import { DATA_FORMATS } from "@shared/types";
 import { EntryContextProvider } from "@client/lib/entry-context";
 import { getContentFilePath } from "@client/lib/asset-utils";
 import { baseName } from "@client/lib/entry-tree";
+import { splitLocale } from "@shared/i18n";
+import { useCollectionI18n } from "@client/lib/content-i18n";
+import { TranslationSwitcher } from "@client/components/translation-switcher";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
@@ -58,6 +61,8 @@ function EntryEditor() {
 
   const entryIds = (entries ?? []).map((e) => e.id);
   const otherIds = entryIds.filter((id) => id !== entryId);
+  const i18n = useCollectionI18n(entries);
+  const { locale: entryLocale, slug } = splitLocale(entryId, i18n?.locales ?? []);
 
   // A draft has nothing saved yet, so it starts dirty: Save is what creates it.
   const [isDirty, setIsDirty] = useState(isNew);
@@ -162,15 +167,11 @@ function EntryEditor() {
     );
   };
 
-  const handleDuplicate = (newId: string) => {
+  // Seeding a translation is the same move as a duplicate, only the target id is
+  // the sibling locale rather than a name the user types.
+  const duplicateTo = (newId: string, message: string) => {
     setShowDuplicate(false);
-    duplicateMutation.mutate(
-      { sourceId: entryId, newId },
-      onMoved(
-        newId,
-        t(($) => $.entry.entryDuplicated),
-      ),
-    );
+    duplicateMutation.mutate({ sourceId: entryId, newId }, onMoved(newId, message));
   };
 
   const handleBodyChange = useCallback((value: string) => {
@@ -215,10 +216,29 @@ function EntryEditor() {
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-3 flex shrink-0 items-center justify-between">
-          <h1 className="text-xl font-semibold">
-            {baseName(entryId)}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">.{format}</span>
-          </h1>
+          <div>
+            <h1 className="text-xl font-semibold">
+              {baseName(entryId)}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">.{format}</span>
+            </h1>
+            {i18n && entryLocale && (
+              <div className="mt-1.5">
+                <TranslationSwitcher
+                  collection={collection}
+                  i18n={i18n}
+                  slug={slug}
+                  active={entryLocale}
+                  canCreate={!isNew && !isDirty && !duplicateMutation.isPending}
+                  onCreate={(id) =>
+                    duplicateTo(
+                      id,
+                      t(($) => $.i18n.translationCreated),
+                    )
+                  }
+                />
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleCancel} disabled={!isDirty}>
               {t(($) => $.common.cancel)}
@@ -311,7 +331,12 @@ function EntryEditor() {
           confirmLabel={t(($) => $.entry.duplicate)}
           initialId={`${entryId}-copy`}
           existingIds={entryIds}
-          onSubmit={handleDuplicate}
+          onSubmit={(newId) =>
+            duplicateTo(
+              newId,
+              t(($) => $.entry.entryDuplicated),
+            )
+          }
           onCancel={() => setShowDuplicate(false)}
         />
 

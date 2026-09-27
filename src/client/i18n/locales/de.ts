@@ -121,6 +121,14 @@ const de: TranslationShape<typeof en> = {
       "Alle {{count}} ausstehenden Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
     discarded: "Ausstehende Änderungen verworfen",
   },
+  i18n: {
+    language: "Sprache",
+    translated: "Übersetzt nach {{language}}",
+    missingTranslation: "Nicht übersetzt nach {{language}}",
+    createTranslation: "Übersetzung nach {{language}} aus diesem Eintrag erstellen",
+    noEntriesInLanguage: "Noch nichts auf {{language}}",
+    translationCreated: "Übersetzung aus diesem Eintrag erstellt",
+  },
   newEntryDialog: {
     title: "Neuer Eintrag in {{collection}}",
     entryId: "Eintrags-ID",

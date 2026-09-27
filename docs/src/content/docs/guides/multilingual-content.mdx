@@ -1,0 +1,73 @@
+---
+title: Multilingual Content
+description: Edit content in several languages, and see which translations are missing.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Astronaut CMS reads the languages your site already declares in `astro.config.ts` and edits localized collections language by language.
+There is nothing to configure.
+
+## Setup
+
+Declare your languages the way Astro's [internationalization guide](https://docs.astro.build/en/guides/internationalization/) describes:
+
+```ts title="astro.config.ts"
+export default defineConfig({
+  i18n: {
+    defaultLocale: "en",
+    locales: ["en", "de"],
+  },
+  integrations: [mdx(), react(), cms()],
+});
+```
+
+Then organize each localized collection into one directory per language, as [Astro's i18n recipe](https://docs.astro.build/en/recipes/i18n/) recommends:
+
+```
+src/content/posts/
+├── en/
+│   ├── hello-world.mdx
+│   └── release-notes.mdx
+└── de/
+    └── hello-world.mdx
+```
+
+Entry ids become `en/hello-world` and `de/hello-world`.
+The part after the language is the same across translations, and that is how the CMS pairs them up.
+
+## In the admin panel
+
+A collection organized this way is edited one language at a time:
+
+- **Language tabs** replace the locale directories in the collection listing, and switching keeps the folder you were browsing (`en/guides` lands on `de/guides`).
+- **Translation badges** on every entry show which languages it exists in. A dashed, faded badge means that translation is missing — useful when your site silently falls back to the default language, where a missing translation is otherwise invisible.
+- **A language switcher** in the entry editor jumps between an entry's translations. Languages it does not have yet appear with a `+`: choosing one creates the translation as a copy of the entry on screen, so you translate real text and keep its frontmatter, components and media instead of starting from an empty form.
+- **New entries** get a language dropdown, so the CMS writes the file into the right directory for you.
+- **The AI assistant** is told your languages and the id convention, so you can ask it to translate an entry and it will write the counterpart under the target language.
+
+## Which collections are localized
+
+The CMS decides per collection, from the entries themselves: a collection is localized when every one of its entries sits inside a language directory.
+So a localized `posts` collection and a language-neutral `publications` collection can live side by side without any per-collection configuration.
+
+A single entry outside a language directory switches the collection back to the plain folder view, so no entry is ever hidden behind a language tab.
+An empty collection counts as localized, which lets you create its first entry straight into a language.
+
+<Aside>
+  File collections (a single JSON, YAML, or TOML file) are never split by language, since their entries are not stored as separate files. Add a language field to their schema instead.
+</Aside>
+
+## Overriding the languages
+
+Pass `i18n` to `cms()` to use a different set of languages than the site routes with, or `false` to turn the feature off and treat language directories as ordinary folders:
+
+```ts title="astro.config.ts"
+cms({
+  i18n: { locales: ["en", "de", "fr"], defaultLocale: "en" },
+});
+```
+
+<Aside type="note">
+  `i18n` is about your **content**. The separate `locale` option sets the language of the **admin panel itself**, which editors can also change from the header.
+</Aside>

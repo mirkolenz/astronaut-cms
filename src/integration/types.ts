@@ -1,3 +1,5 @@
+import type { ContentI18n } from "../shared/i18n.ts";
+
 export interface CmsConfig {
   /** Path to the CMS config file, relative to the project root (default: auto-discovered from src/cms.config.{ts,mts,js,mjs}) */
   config?: string;
@@ -9,8 +11,20 @@ export interface CmsConfig {
   localStorageInDev?: boolean;
   /** Media file configuration */
   media?: MediaConfig;
-  /** Admin panel language (default: "en") */
+  /** Admin panel language, and the default for its language switcher (default: "en") */
   locale?: SupportedLocale;
+  /**
+   * Multilingual content. Defaults to the site's own `i18n` setting in
+   * `astro.config`, so a site that already declares `locales` and `defaultLocale`
+   * needs nothing here.
+   *
+   * With it in effect, a collection whose entries all sit in locale directories
+   * (`src/content/posts/en/…`, `src/content/posts/de/…` — the layout Astro's i18n
+   * recipe recommends) is edited language by language, with missing translations
+   * surfaced in the listing. Pass `false` to keep the admin locale-agnostic and
+   * treat those directories as ordinary folders.
+   */
+  i18n?: { locales?: string[]; defaultLocale?: string } | false;
   /**
    * URL pattern for branch previews from your hosting provider. Supports two
    * placeholders: `{branch}` (raw branch, e.g. `cms/alice`) and `{slug}`
@@ -128,7 +142,10 @@ export interface CmsClientConfig {
   mediaDirectory: string;
   /** File extensions the media library lists, e.g. [".png", ".pdf"]. */
   mediaExtensions: string[];
+  /** Default admin panel UI language. Distinct from `contentI18n`, which is about the site's content. */
   locale: SupportedLocale;
+  /** The site's content languages, or null when it is single-language. */
+  contentI18n: ContentI18n | null;
   previewUrl?: string;
   ai?: {
     models: string[];

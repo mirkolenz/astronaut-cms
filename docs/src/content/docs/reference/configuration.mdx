@@ -14,16 +14,32 @@ interface CmsConfig {
   storage?: StorageConfig;
   media?: MediaConfig;
   locale?: "en" | "de";
+  i18n?: { locales?: string[]; defaultLocale?: string } | false;
 }
 ```
 
-| Property     | Type            | Default             | Description                                              |
-| ------------ | --------------- | ------------------- | -------------------------------------------------------- |
-| `config`     | `string`        | auto-discovered     | Path to the CMS config file relative to the project root |
-| `mountPoint` | `string`        | `"/admin"`          | URL path for the admin panel                             |
-| `storage`    | `StorageConfig` | `{ type: "local" }` | Storage backend configuration                            |
-| `media`      | `MediaConfig`   | `{}`                | Media library configuration                              |
-| `locale`     | `"en" \| "de"`  | `"en"`              | Admin panel UI language                                  |
+| Property     | Type                    | Default                  | Description                                              |
+| ------------ | ----------------------- | ------------------------ | -------------------------------------------------------- |
+| `config`     | `string`                | auto-discovered          | Path to the CMS config file relative to the project root |
+| `mountPoint` | `string`                | `"/admin"`               | URL path for the admin panel                             |
+| `storage`    | `StorageConfig`         | `{ type: "local" }`      | Storage backend configuration                            |
+| `media`      | `MediaConfig`           | `{}`                     | Media library configuration                              |
+| `locale`     | `"en" \| "de"`          | `"en"`                   | Default admin panel UI language                          |
+| `i18n`       | `ContentI18n \| false`  | the site's `astro` i18n  | Content languages                                        |
+
+### `i18n`
+
+Content languages, inherited from the site's own `i18n` in `astro.config.ts`.
+Set it to override them, or to `false` to disable multilingual editing.
+
+```ts
+{
+  locales?: string[];
+  defaultLocale?: string;
+}
+```
+
+See the [Multilingual Content](../../guides/multilingual-content/) guide.
 
 ## `StorageConfig`
 

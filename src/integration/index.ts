@@ -12,6 +12,7 @@ import { loadCollections } from "./load-collections.ts";
 import { resolveAiGateway, resolveClientConfig } from "./resolve-config.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
+export type { ContentI18n } from "../shared/i18n.ts";
 export { defineComponent, image, file } from "../config.ts";
 export type { ComponentDefinition, InferComponentProps, ChildrenConfig } from "../config.ts";
 
@@ -53,9 +54,20 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Every default is applied once, here; `clientConfig` is what the admin
         // bundle and the rest of this hook both read.
-        const clientConfig = resolveClientConfig(effectiveConfig, astroConfig.trailingSlash);
+        const clientConfig = resolveClientConfig(
+          effectiveConfig,
+          astroConfig.trailingSlash,
+          astroConfig.i18n,
+        );
         const mountPoint = clientConfig.mountPoint;
         const mediaDir = join(rootDir, clientConfig.mediaDirectory);
+
+        if (clientConfig.contentI18n) {
+          const { locales, defaultLocale } = clientConfig.contentI18n;
+          logger.info(
+            `Multilingual content enabled for locales ${locales.join(", ")} (default: ${defaultLocale})`,
+          );
+        }
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;

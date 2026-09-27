@@ -9,6 +9,7 @@ const config: CmsClientConfig = {
   mediaDirectory: "src/assets",
   mediaExtensions: [".png", ".jpg", ".svg", ".pdf"],
   locale: "en",
+  contentI18n: { locales: ["en", "de"], defaultLocale: "en" },
 };
 
 export default config;
