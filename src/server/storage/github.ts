@@ -226,7 +226,7 @@ export class GitHubStorage extends BranchedStorage {
     );
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
+  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
     await this.commitBlob(repoPath, bytes.toBase64(), "base64", `Upload ${repoPath}`);
   }
 

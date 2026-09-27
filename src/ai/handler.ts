@@ -17,6 +17,7 @@ import { RateLimiter } from "../shared/rate-limit.ts";
 import { unreachable } from "../shared/unreachable.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 import { joinUrl } from "../shared/url.ts";
+import { errorMessage } from "../shared/errors.ts";
 
 /** The `Authorization` header for a gateway credential, or none when it has none. */
 export const bearer = (token: string | undefined): Record<string, string> =>
@@ -186,7 +187,7 @@ async function forward({ request, getEnv, ai, models, fail }: RelayRequest): Pro
   } catch (err) {
     console.error("[astronaut-cms] Failed to resolve AI gateway:", err);
 
-    return fail(err instanceof Error ? err.message : "Gateway not configured", 500);
+    return fail(errorMessage(err, "Gateway not configured"), 500);
   }
 
   let upstream: Response;

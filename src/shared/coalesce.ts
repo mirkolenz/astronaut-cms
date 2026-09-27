@@ -58,7 +58,7 @@ export class Coalesced<T> {
 
     // Held for the window, or — with none — for as long as the call is on its
     // way, which is what `forget` below then ends.
-    const entry: Entry<T> = { expiry: this.ttlMs > 0 ? now + this.ttlMs : Infinity, value: work() };
+    const entry: Entry<T> = { expiry: this.ttlMs > 0 ? now + this.ttlMs : Infinity, value: Promise.try(work) };
 
     this.entries.set(key, entry);
 

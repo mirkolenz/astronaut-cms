@@ -131,7 +131,7 @@ export function mapMergeError(err: unknown): Error {
 
   if (status === 405 || status === 406 || status === 409) return new MergeConflictError();
 
-  return err instanceof Error ? err : new Error(String(err));
+  return Error.isError(err) ? err : new Error(String(err), { cause: err });
 }
 
 /**
@@ -215,7 +215,7 @@ export interface MediaBackend {
    */
   beginUpload(path: string, size: number, overwrite: boolean): Promise<UploadTicket>;
   /** Takes the bytes through this server, for a library that handed out no URL. */
-  uploadMedia(path: string, bytes: Uint8Array, overwrite: boolean): Promise<void>;
+  uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void>;
   renameMedia(from: string, to: string): Promise<void>;
   deleteMedia(path: string): Promise<void>;
   /**

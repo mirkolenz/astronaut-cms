@@ -34,6 +34,7 @@ import { collectResolvableLeaves, type ResolvableLeaf } from "./resolvable-leave
 import { diagnostic, type Diagnostic } from "./diagnostics.ts";
 import { imageUrls } from "./markdown-images.ts";
 import { isAllowedLink, LINK_MESSAGE } from "./links.ts";
+import { errorMessage } from "./errors.ts";
 
 // The HTML an MDX body may use directly, enough to wrap content in utility classes.
 const HTML_ELEMENTS: ReadonlySet<string> = new Set(["div", "span"]);
@@ -71,13 +72,7 @@ function isComponentName(name: string): boolean {
 
 // Every `source` a registered component is imported from, nested ones included.
 function componentSources(components: ComponentSchemaMap): Set<string> {
-  const sources = new Set<string>();
-
-  for (const [, def] of componentEntries(components)) {
-    if (def.source) sources.add(def.source);
-  }
-
-  return sources;
+  return new Set(componentEntries(components).flatMap(([, def]) => (def.source ? [def.source] : [])));
 }
 
 // Why a node that is not a JSX element breaks the subset, or null when it does
@@ -158,14 +153,10 @@ function validateHtml(ctx: WalkContext, name: string, values: Map<string, Static
     return;
   }
 
-  for (const attr of values.keys()) {
-    if (!HTML_ATTRIBUTES.has(attr)) {
-      ctx.diagnostics.push(
-        diagnostic(
-          `<${name}> attribute "${attr}" is not allowed, only ${[...HTML_ATTRIBUTES].join(", ")}.`,
-        ),
-      );
-    }
+  for (const attr of new Set(values.keys()).difference(HTML_ATTRIBUTES)) {
+    ctx.diagnostics.push(
+      diagnostic(`<${name}> attribute "${attr}" is not allowed, only ${[...HTML_ATTRIBUTES].join(", ")}.`),
+    );
   }
 }
 
@@ -320,7 +311,7 @@ export function validateBody(
   try {
     root = parseBody(body, format);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
 
     return empty([diagnostic(`Failed to parse the body: ${message}`)]);
   }

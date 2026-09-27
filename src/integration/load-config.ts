@@ -12,6 +12,7 @@ import type {
   CollectionManifest,
   CollectionManifestEntry,
 } from "../shared/types.ts";
+import { errorMessage } from "../shared/errors.ts";
 
 /**
  * The user's two config files, read in Node so the integration can see a live
@@ -68,20 +69,16 @@ async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) =
   const environment = createRunnableDevEnvironment(RUNNER, config, { hot: false });
 
   await environment.init();
+  await using cleanup = new AsyncDisposableStack();
+  cleanup.defer(() => environment.close());
 
-  try {
-    return await load(async <M>(path: string) => {
-      try {
-        return await environment.runner.import<M>(path);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-
-        throw new Error(`astronaut-cms: failed to load ${path}: ${reason}`, { cause: error });
-      }
-    });
-  } finally {
-    await environment.close();
-  }
+  return await load(async <M>(path: string) => {
+    try {
+      return await environment.runner.import<M>(path);
+    } catch (error) {
+      throw new Error(`astronaut-cms: failed to load ${path}: ${errorMessage(error)}`, { cause: error });
+    }
+  });
 }
 
 // Astro hands a function-style schema exactly one helper, `image`. Standing a

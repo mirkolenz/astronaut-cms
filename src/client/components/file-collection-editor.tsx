@@ -71,9 +71,8 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     const current = ids[index];
     const target = ids[targetIndex];
     if (current === undefined || target === undefined) return;
-    [ids[index], ids[targetIndex]] = [target, current];
     reorderMutation.mutate(
-      { ids, expectedVersion: file?.version },
+      { ids: ids.with(index, target).with(targetIndex, current), expectedVersion: file?.version },
       { onError: (err) => toast(writeError(err), "error") },
     );
   };

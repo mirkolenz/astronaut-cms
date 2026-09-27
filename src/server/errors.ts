@@ -1,3 +1,5 @@
+import { errorMessage } from "../shared/errors.ts";
+
 /** An error with the HTTP status it should reach the browser as. */
 export class HttpError extends Error {
   readonly status: number;
@@ -14,7 +16,7 @@ export function checked<T>(status: number, run: () => T): T {
   try {
     return run();
   } catch (err) {
-    throw new HttpError(err instanceof Error ? err.message : "Invalid request.", status);
+    throw new HttpError(errorMessage(err, "Invalid request."), status);
   }
 }
 

@@ -129,7 +129,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * All three take repository paths, lowered by the funnels below, and persist a
    * write the library's limits have already been checked against.
    */
-  protected abstract writeMedia(repoPath: string, bytes: Uint8Array): Promise<void>;
+  protected abstract writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
   protected abstract moveMedia(from: string, to: string): Promise<void>;
   protected abstract removeMedia(repoPath: string): Promise<void>;
   /** A content write, after which the container this request read is stale. */
@@ -251,7 +251,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       collection,
       (entries) =>
         new Map(
-          [...new Set([...ids, ...entries.keys()])]
+          new Set(ids)
+            .union(entries)
+            .values()
             .filter((id) => entries.has(id))
             .map((id) => [id, entries.get(id)!]),
         ),
@@ -347,7 +349,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     const { path, content } = await this.editFileCollection(collection, (entries) => {
       if (entries.has(newId)) throw staleWrite(`${collection}/${newId}`);
 
-      return new Map([...entries].map(([id, item]) => [id === oldId ? newId : id, item]));
+      return new Map(entries.entries().map(([id, item]) => [id === oldId ? newId : id, item]));
     });
 
     await this.persist(
@@ -423,7 +425,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   /** Where a repository library's own writes are checked, before any path is built. */
-  async uploadMedia(path: string, bytes: Uint8Array, overwrite: boolean): Promise<void> {
+  async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
     await this.assertUploadable(path, bytes.byteLength, overwrite);
 
     return this.writeMedia(this.mediaRepoPath(path), bytes);
@@ -476,17 +478,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected mediaFiles(
     files: Iterable<{ path: string; size?: number; version?: string }>,
   ): MediaFile[] {
-    const result: MediaFile[] = [];
+    return Iterator.from(files)
+      .flatMap((file) => {
+        const path = stripMediaPrefix(file.path, this.mediaDirectory);
 
-    for (const file of files) {
-      const path = stripMediaPrefix(file.path, this.mediaDirectory);
-
-      if (path != null && isLibraryFile(path, this.options.mediaExtensions)) {
-        result.push({ path, size: file.size ?? 0, ...(file.version && { version: file.version }) });
-      }
-    }
-
-    return result;
+        return path != null && isLibraryFile(path, this.options.mediaExtensions)
+          ? [{ path, size: file.size ?? 0, ...(file.version && { version: file.version }) }]
+          : [];
+      })
+      .toArray();
   }
 
   private schema(collection: string): CollectionManifestEntry {
@@ -564,7 +564,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
     const { entries, format } = await this.readFileCollection(collection);
 
-    return [...entries.keys()].map((id) => ({ id, collection, format }));
+    return entries.keys().map((id) => ({ id, collection, format })).toArray();
   }
 
   /**
@@ -606,19 +606,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    */
   protected entriesFromTreePaths(collection: string, paths: Iterable<string>): EntryMeta[] {
     const prefix = `${this.getCollectionPath(collection)}/`;
-    const result: EntryMeta[] = [];
 
-    for (const path of paths) {
-      if (!path.startsWith(prefix)) continue;
+    return Iterator.from(paths)
+      .flatMap((path) => {
+        const format = path.startsWith(prefix) ? asEntryFormat(getFileExtension(path)) : undefined;
 
-      const format = asEntryFormat(getFileExtension(path));
-
-      if (!format) continue;
-
-      result.push({ id: stripExtension(path.slice(prefix.length)), collection, format });
-    }
-
-    return result;
+        return format ? [{ id: stripExtension(path.slice(prefix.length)), collection, format }] : [];
+      })
+      .toArray();
   }
 }
 

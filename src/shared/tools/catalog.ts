@@ -100,9 +100,9 @@ function applyBodyEdit(body: string, edit: BodyEdit | undefined): { body: string
 
     const end = Math.min(edit.endLine, lines.length);
 
-    lines.splice(edit.startLine - 1, end - edit.startLine + 1, ...edit.text.split("\n"));
-
-    return { body: lines.join("\n") };
+    return {
+      body: lines.toSpliced(edit.startLine - 1, end - edit.startLine + 1, ...edit.text.split("\n")).join("\n"),
+    };
   }
 
   if (!body.includes(edit.find)) return { error: "Body text to replace was not found." };

@@ -39,13 +39,7 @@ export const LINK_DESCRIPTION = `A ${LINK_KINDS}.`;
 export const PLAIN_TEXT_MESSAGE =
   "Plain text may not be a link. Declare the field with link() to hold a URL.";
 
-function resolve(value: string): URL | null {
-  try {
-    return new URL(value, BASE);
-  } catch {
-    return null;
-  }
-}
+const resolve = (value: string): URL | null => URL.parse(value, BASE);
 
 /** Whether a value declared as a link points somewhere a visitor may follow. */
 export function isAllowedLink(value: string): boolean {

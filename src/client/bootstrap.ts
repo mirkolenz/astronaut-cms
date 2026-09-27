@@ -13,6 +13,7 @@
 import { ADMIN_ROOT_ID, API_SESSION, type SessionState } from "@/shared/auth";
 import { setConfig } from "@/client/lib/config";
 import { apiFetch, apiUrl } from "@/client/lib/routes";
+import { errorMessage } from "@/shared/errors";
 
 const root = document.getElementById(ADMIN_ROOT_ID);
 const panel = document.getElementById("astronaut-cms-signin");
@@ -68,5 +69,5 @@ async function start(): Promise<void> {
 }
 
 void start().catch((err: unknown) => {
-  signIn("", err instanceof Error ? err.message : "The CMS failed to load.");
+  signIn("", errorMessage(err, "The CMS failed to load."));
 });

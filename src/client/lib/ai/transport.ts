@@ -15,7 +15,7 @@ function toUserErrorMessage(error: unknown): string {
     return "Could not reach the assistant. Check that the server is running and try again.";
   }
 
-  if (error instanceof Error && error.message) return error.message;
+  if (Error.isError(error) && error.message) return error.message;
 
   return "The assistant ran into an unexpected error.";
 }

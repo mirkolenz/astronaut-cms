@@ -69,6 +69,7 @@ import {
   type Login,
   type Session,
 } from "./session.ts";
+import { errorMessage } from "../shared/errors.ts";
 
 /** An RPC body is entry data, which is text. A media upload takes its own route. */
 const MAX_RPC_BYTES = 4 * 1024 * 1024;
@@ -732,13 +733,9 @@ function runBatch(ctx: RequestContext, calls: BatchCall[]): Promise<OperationRes
   return serially(ctx, calls);
 }
 
-async function serially(ctx: RequestContext, calls: BatchCall[]): Promise<OperationResult[]> {
-  const results: OperationResult[] = [];
-
-  for (const call of calls) results.push(await runOne(ctx, call));
-
-  return results;
-}
+/** One call at a time, since `Array.fromAsync` awaits each mapped value before the next. */
+const serially = (ctx: RequestContext, calls: BatchCall[]): Promise<OperationResult[]> =>
+  Array.fromAsync(calls, (call) => runOne(ctx, call));
 
 async function runOne(ctx: RequestContext, { op, input }: BatchCall): Promise<OperationResult> {
   if (typeof op !== "string") {
@@ -774,7 +771,7 @@ function errorOf(err: unknown): OperationError {
 
   console.error("[astronaut-cms] Request failed:", err);
 
-  return { status: 500, message: err instanceof Error ? err.message : "Request failed" };
+  return { status: 500, message: errorMessage(err, "Request failed") };
 }
 
 function toResponse(err: unknown): Response {

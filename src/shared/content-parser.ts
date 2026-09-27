@@ -8,6 +8,7 @@ import {
   stringify as stringifyYaml,
   type Document,
 } from "yaml";
+import { extname } from "pathe";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
@@ -17,9 +18,7 @@ import type { FileEntryLayout } from "./types";
 /**
  * Extracts the file extension from a file name or path.
  */
-export function getFileExtension(fileName: string): string {
-  return fileName.split(".").pop() ?? "";
-}
+export const getFileExtension = (fileName: string): string => extname(fileName).slice(1);
 
 const isYaml = (format: string): boolean => format === "yaml" || format === "yml";
 

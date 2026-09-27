@@ -19,11 +19,5 @@ export function imageUrls(tree: Nodes): string[] {
 
   visit(tree);
 
-  for (const id of referenced) {
-    const url = definitions.get(id);
-
-    if (url) urls.push(url);
-  }
-
-  return urls;
+  return [...urls, ...referenced.values().flatMap((id) => definitions.get(id) ?? [])];
 }

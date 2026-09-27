@@ -15,6 +15,7 @@
 import { z } from "zod";
 import { collectionDataSchema, collectionPatchSchema } from "../collection-schema.ts";
 import type { CollectionManifestEntry } from "../types.ts";
+import { errorMessage } from "../errors.ts";
 
 /**
  * What a tool may be called, as the strictest of its consumers allows: WebMCP
@@ -50,7 +51,7 @@ export function unexposable(name: string, col: CollectionManifestEntry): string 
       z.toJSONSchema(schema, { target: "draft-2020-12", io: "input" });
     }
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = errorMessage(error);
 
     return `its schema cannot be described to an agent: ${reason}`;
   }

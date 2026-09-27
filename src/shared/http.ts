@@ -44,29 +44,18 @@ export class BodyTooLargeError extends Error {
  * Yields the chunks rather than a body, so the two readers below each build the
  * shape they want without either paying for the other's.
  */
-async function* chunks(request: Request, maxBytes: number): AsyncGenerator<Uint8Array> {
+async function* chunks(request: Request, maxBytes: number): AsyncGenerator<Uint8Array<ArrayBuffer>> {
   const declared = Number(request.headers.get("content-length"));
 
   if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError(maxBytes);
 
-  const reader = request.body?.getReader();
-
-  if (!reader) return;
-
   let size = 0;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-
-    if (done) break;
-
+  // Leaving the loop, by a throw or a caller that stops, cancels the stream.
+  for await (const value of request.body ?? []) {
     size += value.length;
 
-    if (size > maxBytes) {
-      await reader.cancel();
-
-      throw new BodyTooLargeError(maxBytes);
-    }
+    if (size > maxBytes) throw new BodyTooLargeError(maxBytes);
 
     yield value;
   }
@@ -77,23 +66,7 @@ export async function readBytes(
   request: Request,
   maxBytes: number,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const parts: Uint8Array[] = [];
-  let size = 0;
-
-  for await (const chunk of chunks(request, maxBytes)) {
-    parts.push(chunk);
-    size += chunk.length;
-  }
-
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-
-  for (const part of parts) {
-    bytes.set(part, offset);
-    offset += part.length;
-  }
-
-  return bytes;
+  return new Blob(await Array.fromAsync(chunks(request, maxBytes))).bytes();
 }
 
 /**
@@ -133,14 +106,11 @@ export interface PartialContent {
  * server that ignores the header would.
  */
 export function parseByteRange(header: string | null): ByteRange | null {
-  const match = header?.match(/^bytes=(\d*)-(\d*)$/);
+  const { start, end } = header?.match(/^bytes=(?<start>\d*)-(?<end>\d*)$/)?.groups ?? {};
 
-  if (!match || (!match[1] && !match[2])) return null;
+  if (!start && !end) return null;
 
-  return {
-    start: match[1] ? Number(match[1]) : undefined,
-    end: match[2] ? Number(match[2]) : undefined,
-  };
+  return { start: start ? Number(start) : undefined, end: end ? Number(end) : undefined };
 }
 
 /** The header a range is forwarded upstream with. Inverse of {@link parseByteRange}. */

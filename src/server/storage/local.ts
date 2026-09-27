@@ -72,7 +72,7 @@ export class LocalStorage extends StorageBase {
     assertWithinBase(fullPath, this.rootDir);
 
     const { root, managed } = await this.roots();
-    const actualManagedRoot = [...managed].find(([absolute]) => isWithin(fullPath, absolute))?.[1];
+    const actualManagedRoot = managed.entries().find(([absolute]) => isWithin(fullPath, absolute))?.[1];
 
     if (actualManagedRoot === undefined) {
       throw new Error(`Path is not managed by the CMS: ${path}`);
@@ -93,25 +93,21 @@ export class LocalStorage extends StorageBase {
     let entries;
 
     try {
-      entries = await readdir(await this.resolve(dir), { withFileTypes: true });
+      entries = await readdir(await this.resolve(dir), { withFileTypes: true, recursive: true });
     } catch {
       return [];
     }
 
-    const found = await Promise.all(
-      entries.map(async (entry): Promise<MediaFile[]> => {
-        const fullPath = join(entry.parentPath, entry.name);
-        const path = relative(this.rootDir, fullPath);
+    return Promise.all(
+      entries
+        .filter((entry) => !entry.isDirectory())
+        .map(async (entry) => {
+          const path = relative(this.rootDir, join(entry.parentPath, entry.name));
+          const stats = await stat(await this.resolve(path));
 
-        if (entry.isDirectory()) return this.listDirectory(path);
-
-        const stats = await stat(await this.resolve(path));
-
-        return [{ path, size: stats.size, version: statVersion(stats) }];
-      }),
+          return { path, size: stats.size, version: statVersion(stats) };
+        }),
     );
-
-    return found.flat();
   }
 
   private async writeFileAt(
@@ -192,7 +188,7 @@ export class LocalStorage extends StorageBase {
     return this.mediaFiles(await this.listDirectory(this.mediaDirectory));
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
+  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
     await this.writeFileAt(repoPath, bytes);
   }
 
@@ -283,5 +279,5 @@ const statVersion = ({ size, mtimeMs }: Stats): string => `${size}-${mtimeMs}`;
 async function digest(content: string): Promise<string> {
   const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
 
-  return Array.from(new Uint8Array(hashed), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return new Uint8Array(hashed).toHex();
 }

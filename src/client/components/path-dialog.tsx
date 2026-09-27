@@ -11,6 +11,7 @@ import {
 import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
 import { Label } from "@/client/components/ui/label";
+import { errorMessage } from "@/shared/errors";
 
 interface PathDialogProps {
   title: string;
@@ -113,6 +114,6 @@ export function refusal(validate: (value: string) => void, value: string): strin
 
     return null;
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    return errorMessage(e);
   }
 }

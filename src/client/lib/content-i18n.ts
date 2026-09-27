@@ -52,12 +52,5 @@ export function browseLocation(i18n: ContentI18n | null, dir: string): BrowseLoc
 }
 
 /** How many entries a locale holds, across all of its subfolders. */
-export function countIn(i18n: CollectionI18n, locale: string): number {
-  let count = 0;
-
-  for (const id of i18n.ids) {
-    if (localeOf(id, i18n.locales) === locale) count++;
-  }
-
-  return count;
-}
+export const countIn = (i18n: CollectionI18n, locale: string): number =>
+  i18n.ids.values().filter((id) => localeOf(id, i18n.locales) === locale).reduce((count) => count + 1, 0);

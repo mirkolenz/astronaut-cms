@@ -187,17 +187,12 @@ export async function call<K extends OperationName>(
   op: K,
   input: OperationInput<K>,
 ): Promise<OperationOutput<K>> {
-  return new Promise<OperationOutput<K>>((resolve, reject) => {
-    queue.push({
-      op,
-      input,
-      keys: keysFor(op, input),
-      resolve: resolve as (data: unknown) => void,
-      reject,
-    });
+  const { promise, resolve, reject } = Promise.withResolvers<OperationOutput<K>>();
 
-    schedule();
-  });
+  queue.push({ op, input, keys: keysFor(op, input), resolve: resolve as (data: unknown) => void, reject });
+  schedule();
+
+  return promise;
 }
 
 export async function signOut(): Promise<void> {

@@ -20,9 +20,5 @@ export function findComponent<T extends ComponentSchema>(
   name: string,
   tree: Record<string, T>,
 ): T | undefined {
-  for (const [key, def] of componentEntries(tree)) {
-    if (key === name) return def;
-  }
-
-  return undefined;
+  return componentEntries(tree).find(([key]) => key === name)?.[1];
 }

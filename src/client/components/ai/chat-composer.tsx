@@ -35,6 +35,7 @@ import { clearChat } from "@/client/lib/ai/chat";
 import { toast } from "@/client/components/toast";
 import type { CmsChat } from "@/client/components/ai/chat-view";
 import type { TFunction } from "i18next";
+import { errorMessage } from "@/shared/errors";
 
 function effortLabel(t: TFunction, effort: ReasoningEffort): string {
   switch (effort) {
@@ -147,10 +148,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
 
   // Pasting a file (e.g. a screenshot) attaches it instead of inserting text.
   const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = (event) => {
-    const files = [...(event.clipboardData?.items ?? [])]
-      .filter((item) => item.kind === "file")
-      .map((item) => item.getAsFile())
-      .filter((file): file is File => file !== null);
+    const files = [...(event.clipboardData?.files ?? [])];
 
     if (files.length > 0) {
       event.preventDefault();
@@ -169,7 +167,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     try {
       prepared = await prepareMessage(text, attachments);
     } catch (error) {
-      toast(error instanceof Error ? error.message : t(($) => $.ai.attachError), "error");
+      toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
       throw error;
     } finally {
       setPreparing(false);

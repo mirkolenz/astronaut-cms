@@ -14,6 +14,7 @@ import { buildPreviewUrl } from "@/client/lib/preview-url";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { Button } from "@/client/components/ui/button";
 import { toast } from "@/client/components/toast";
+import { errorMessage } from "@/shared/errors";
 
 /**
  * Publish, update and discard for the changeset as a whole. Nothing here acts on
@@ -41,9 +42,7 @@ export function ChangeActions() {
     toast(
       isMergeConflict(err)
         ? t(($) => $.publish.mergeConflict)
-        : err instanceof Error
-          ? err.message
-          : String(err),
+        : errorMessage(err),
       "error",
     );
   };

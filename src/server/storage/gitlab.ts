@@ -201,7 +201,7 @@ export class GitLabStorage extends BranchedStorage {
     );
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
+  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
     // An upload replaces whatever is at the path, which GitLab's commit API
     // spells as two different actions; `commitUpsert` is what knows which.
     await this.commitUpsert(repoPath, bytes.toBase64(), `Upload ${repoPath}`, "base64");

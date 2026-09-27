@@ -60,16 +60,9 @@ async function extractDocumentText(file: File): Promise<string> {
   return file.text();
 }
 
-// FileReader is callback-based, so wrap it once. A data URL (not a blob URL) is
-// required because the part is serialized into the model request.
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error(`Failed to read ${file.name}`));
-    reader.readAsDataURL(file);
-  });
-}
+// A data URL (not a blob URL), because the part is serialized into the model request.
+const fileToDataUrl = async (file: File): Promise<string> =>
+  `data:${file.type || "application/octet-stream"};base64,${(await file.bytes()).toBase64()}`;
 
 async function imageToFilePart(file: File): Promise<FileUIPart> {
   return {

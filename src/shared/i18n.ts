@@ -49,13 +49,8 @@ export function joinLocale(locale: string, slug: string): string {
  * behind a locale tab. An empty collection counts as localized, so the first
  * entry of a new collection can be created straight into a language.
  */
-export function isLocalized(ids: Iterable<string>, locales: string[]): boolean {
-  for (const id of ids) {
-    if (localeOf(id, locales) === null) return false;
-  }
-
-  return true;
-}
+export const isLocalized = (ids: Iterable<string>, locales: string[]): boolean =>
+  Iterator.from(ids).every((id) => localeOf(id, locales) !== null);
 
 export interface Translation {
   locale: string;

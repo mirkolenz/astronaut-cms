@@ -41,7 +41,7 @@ export class RateLimiter {
   /**
    * Claims a slot for `caller`, or names why it could not. A granted slot must
    * be released with the returned callback once the request is done, whether it
-   * succeeded or not.
+   * succeeded or not, which `using` does on leaving its scope.
    *
    * `cost` is what the request spends of the per-window budget, for a request
    * that carries more than one thing to do: a batch of operations occupies one
@@ -51,27 +51,27 @@ export class RateLimiter {
   acquire(
     caller: string,
     cost = 1,
-  ): { ok: true; release: () => void } | { ok: false; reason: RateLimitDenial } {
+  ): ({ ok: true; release: () => void } | { ok: false; reason: RateLimitDenial }) & Disposable {
     const now = Date.now();
     const state = this.caller(caller, now);
+    const denial = (reason: RateLimitDenial) => ({ ok: false as const, reason, [Symbol.dispose]: () => {} });
 
-    if (state.inFlight >= this.config.concurrency) return { ok: false, reason: "concurrency" };
-    if (state.count + cost > this.config.requests) return { ok: false, reason: "rate" };
+    if (state.inFlight >= this.config.concurrency) return denial("concurrency");
+    if (state.count + cost > this.config.requests) return denial("rate");
 
     state.count += cost;
     state.inFlight++;
 
     let released = false;
 
-    return {
-      ok: true,
-      release: () => {
-        if (released) return;
+    const release = () => {
+      if (released) return;
 
-        released = true;
-        state.inFlight--;
-      },
+      released = true;
+      state.inFlight--;
     };
+
+    return { ok: true, release, [Symbol.dispose]: release };
   }
 
   // Expired windows are dropped here, so the map stays bounded by the callers
@@ -118,15 +118,11 @@ export async function limited<T>(
   work: () => Promise<T>,
   cost = 1,
 ): Promise<T> {
-  const slot = limiter.acquire(caller, cost);
+  using slot = limiter.acquire(caller, cost);
 
   if (!slot.ok) throw denied();
 
-  try {
-    return await work();
-  } finally {
-    slot.release();
-  }
+  return await work();
 }
 
 /**

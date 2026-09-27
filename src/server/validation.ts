@@ -6,6 +6,7 @@ import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { validateBody } from "@/shared/body-validation";
 import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 import type { ComponentSchemaMap } from "@/shared/field-schema";
+import { errorMessage } from "../shared/errors.ts";
 
 /**
  * What the checks need to look things up. The storage backend is passed in
@@ -36,7 +37,7 @@ function validateEntryId(id: string): Diagnostic[] {
 
     return [];
   } catch (e) {
-    return [diagnostic(e instanceof Error ? e.message : String(e))];
+    return [diagnostic(errorMessage(e))];
   }
 }
 
@@ -44,27 +45,25 @@ function validateEntryId(id: string): Diagnostic[] {
 export function validateReorder(existing: string[], ids: string[]): Diagnostic[] {
   const existingSet = new Set(existing);
   const seen = new Set<string>();
-  const unknown: string[] = [];
-  const duplicates: string[] = [];
+  const duplicates = new Set<string>();
 
-  for (const id of ids) {
-    if (!existingSet.has(id)) unknown.push(id);
-    if (seen.has(id)) duplicates.push(id);
+  for (const id of ids) (seen.has(id) ? duplicates : seen).add(id);
 
-    seen.add(id);
-  }
-
-  const missing = existing.filter((id) => !seen.has(id));
+  const unknown = [...seen.difference(existingSet)];
+  const missing = [...existingSet.difference(seen)];
   const diagnostics: Diagnostic[] = [];
 
   if (unknown.length) diagnostics.push(diagnostic(`Unknown entry id(s): ${unknown.join(", ")}.`));
+
   if (missing.length) {
     diagnostics.push(
       diagnostic(`Every entry must appear exactly once; missing: ${missing.join(", ")}.`),
     );
   }
-  if (duplicates.length)
-    diagnostics.push(diagnostic(`Duplicate entry id(s): ${duplicates.join(", ")}.`));
+
+  if (duplicates.size) {
+    diagnostics.push(diagnostic(`Duplicate entry id(s): ${[...duplicates].join(", ")}.`));
+  }
 
   return diagnostics;
 }
@@ -73,14 +72,7 @@ async function checkReferences(
   source: ContentSource,
   references: ResolvableLeaf[],
 ): Promise<Diagnostic[]> {
-  const byCollection = new Map<string, ResolvableLeaf[]>();
-
-  for (const ref of references) {
-    const collection = ref.collection ?? "";
-    const list = byCollection.get(collection) ?? [];
-    list.push(ref);
-    byCollection.set(collection, list);
-  }
+  const byCollection = Map.groupBy(references, (ref) => ref.collection ?? "");
 
   const groups = await Promise.all(
     [...byCollection].map(async ([collection, refs]) => {

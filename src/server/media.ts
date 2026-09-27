@@ -172,7 +172,7 @@ export class ObjectStoreLibrary implements MediaBackend {
   }
 
   /** The proxied path: bytes this server is holding, so its own count is the terms. */
-  async uploadMedia(path: string, bytes: Uint8Array, overwrite: boolean): Promise<void> {
+  async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
     const key = this.toKey(path);
 
     await this.assertWritable(key, path, overwrite);
@@ -250,11 +250,4 @@ export class ObjectStoreLibrary implements MediaBackend {
   }
 }
 
-function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-}
+const streamOf = (bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array> => new Blob([bytes]).stream();

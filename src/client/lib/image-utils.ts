@@ -52,30 +52,33 @@ export async function optimizeImage(file: File): Promise<File> {
   if (!isOptimizableExtension(ext)) return file;
 
   const target = mimeType(settings.format ?? ext);
-  const img = await loadImage(file);
-  const { width, height } = scaledDimensions(img.naturalWidth, img.naturalHeight, settings);
+  const img = await createImageBitmap(file).catch((cause: unknown) => {
+    throw new Error(`Failed to load image: ${file.name}`, { cause });
+  });
+  const { width, height } = scaledDimensions(img.width, img.height, settings);
   const unchanged =
-    width === img.naturalWidth &&
-    height === img.naturalHeight &&
+    width === img.width &&
+    height === img.height &&
     target === mimeType(ext) &&
     file.size <= settings.maxFileSize;
 
-  if (unchanged) return file;
+  if (unchanged) {
+    img.close();
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, 0, 0, width, height);
+    return file;
+  }
+
+  const canvas = new OffscreenCanvas(width, height);
+  canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+  img.close();
 
   const name = settings.format ? withExtension(file.name, settings.format) : file.name;
 
   const encode = async (quality?: number): Promise<File | null> => {
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, target, quality);
-    });
+    const blob = await canvas.convertToBlob({ type: target, quality });
 
-    return blob && new File([blob], name, { type: target, lastModified: file.lastModified });
+    // A browser that cannot encode the type (e.g. AVIF) falls back to PNG.
+    return blob.type === target ? new File([blob], name, { type: target, lastModified: file.lastModified }) : null;
   };
 
   // Canvas ignores `quality` for PNG, so the ladder would encode the same bytes
@@ -109,22 +112,6 @@ function withExtension(fileName: string, format: ImageOutputFormat): string {
   const stem = fileName.slice(0, fileName.length - extname(fileName).length);
 
   return `${stem}.${format === "jpeg" ? "jpg" : format}`;
-}
-
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error(`Failed to load image: ${file.name}`));
-    };
-    img.src = url;
-  });
 }
 
 function scaledDimensions(
