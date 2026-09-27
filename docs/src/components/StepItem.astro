@@ -1,0 +1,12 @@
+---
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["StepItem"];
+
+const { title } = Astro.props;
+---
+
+<li>
+  <strong>{title}</strong>
+  <slot />
+</li>
