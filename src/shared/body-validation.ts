@@ -22,7 +22,7 @@ import {
   type MdxJsxExpressionAttribute,
 } from "mdast-util-mdx";
 import { attributeValue, type StaticValue } from "./mdx-attributes.ts";
-import { componentEntries, findComponent } from "./component-lookup.ts";
+import { childComponents, componentEntries, findComponent } from "./component-lookup.ts";
 import {
   isRequired,
   objectShape,
@@ -62,8 +62,6 @@ interface WalkContext {
   diagnostics: Diagnostic[];
   leaves: ResolvableLeaf[];
 }
-
-const NO_CHILDREN: ReadonlySet<string> = new Set();
 
 // Capitalized names are components; lowercase ones are plain HTML with no schema.
 function isComponentName(name: string): boolean {
@@ -206,18 +204,9 @@ function validateProps(
   }
 }
 
-// Which component names may appear directly under a given parent: the top-level
-// set at the document root or under a markdown-children component, the declared
-// child set for a component with a children map, and nothing for a leaf.
+// Which component names may appear directly under a given parent, the top-level set at the document root.
 function allowedChildren(ctx: WalkContext, parent: Parent): ReadonlySet<string> {
-  if (!parent) return ctx.topLevel;
-
-  const children = parent.def.children;
-
-  if (children === undefined) return NO_CHILDREN;
-  if (children === "markdown") return ctx.topLevel;
-
-  return new Set(Object.keys(children));
+  return parent ? new Set(Object.keys(childComponents(parent.def, ctx.components))) : ctx.topLevel;
 }
 
 function placementMessage(name: string, parent: Parent, allowed: ReadonlySet<string>): string {

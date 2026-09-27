@@ -1,7 +1,22 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ArrowUp, CircleAlert, Copy, Ellipsis, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CircleAlert,
+  ClipboardPaste,
+  Copy,
+  CopyPlus,
+  Ellipsis,
+  Plus,
+  Scissors,
+  Trash2,
+} from "lucide-react";
+import type { ComponentIcon } from "@/config";
 import type { ClientComponentDef } from "@/internal/user-config";
-import type { BlockActions } from "@/client/lib/block-editing";
+import { insertChild, pasteChildren, type BlockActions } from "@/client/lib/block-editing";
+import type { BlockSelection } from "@/client/stores/inspector-store";
+import { SortableList } from "@/client/components/sortable-list";
 import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
@@ -32,8 +47,17 @@ export function BlockMenu({ actions }: { actions: BlockActions }) {
           {t(($) => $.editors.moveDown)}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.duplicate}>
-          <Copy />
+          <CopyPlus />
           {t(($) => $.entry.duplicate)}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={actions.copy}>
+          <Copy />
+          {t(($) => $.editors.copy)}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={actions.cut}>
+          <Scissors />
+          {t(($) => $.editors.cut)}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={actions.remove}>
@@ -45,8 +69,28 @@ export function BlockMenu({ actions }: { actions: BlockActions }) {
   );
 }
 
-/** Adds a structured child, offering only the components allowed there. */
-export function AddChildMenu({
+/** Adds structured children to a block, new or from the clipboard, taking only the components allowed there. */
+export function ChildListControls({
+  parent,
+  childDefs,
+}: {
+  parent: BlockSelection;
+  childDefs: Record<string, ClientComponentDef>;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex gap-1">
+      <AddChildMenu childDefs={childDefs} onAdd={(name, def) => insertChild(parent, name, def)} />
+      <Button type="button" variant="ghost" size="xs" onClick={() => void pasteChildren(parent, childDefs)}>
+        <ClipboardPaste />
+        {t(($) => $.editors.paste)}
+      </Button>
+    </div>
+  );
+}
+
+function AddChildMenu({
   childDefs,
   onAdd,
 }: {
@@ -108,5 +152,60 @@ export function MissingProps({ labels }: { labels: string[] }) {
       <CircleAlert className="size-4" />
       <span className="sr-only">{message}</span>
     </span>
+  );
+}
+
+interface BlockRow {
+  icon?: ComponentIcon | null;
+  label: string;
+  summary?: string;
+  onOpen: () => void;
+  /** Shown at the end of the row. */
+  trailing?: ReactNode;
+}
+
+/** A titled list of blocks, each opened by a click and reordered by dragging. */
+export function BlockList<T>({
+  title,
+  items,
+  getKey,
+  onMove,
+  row,
+  children,
+}: {
+  title: string;
+  items: readonly T[];
+  getKey: (item: T) => string;
+  onMove: (from: number, to: number) => void;
+  row: (item: T) => BlockRow;
+  /** Shown below the list. */
+  children?: ReactNode;
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
+      <SortableList items={items} getKey={getKey} onMove={onMove} className="space-y-0.5">
+        {(item, _, handle) => {
+          const { icon: Icon, label, summary, onOpen, trailing } = row(item);
+
+          return (
+            <div className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-accent">
+              {handle}
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
+                onClick={onOpen}
+              >
+                {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
+                <span className="truncate">{label}</span>
+                {summary && <span className="truncate text-muted-foreground">{summary}</span>}
+                {trailing && <span className="ml-auto flex shrink-0 items-center gap-1">{trailing}</span>}
+              </button>
+            </div>
+          );
+        }}
+      </SortableList>
+      {children}
+    </section>
   );
 }

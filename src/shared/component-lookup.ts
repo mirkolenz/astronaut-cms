@@ -22,3 +22,13 @@ export function findComponent<T extends ComponentSchema>(
 ): T | undefined {
   return componentEntries(tree).find(([key]) => key === name)?.[1];
 }
+
+/**
+ * The components written directly inside one: its declared children, the
+ * top-level ones inside markdown children, and none inside a leaf.
+ */
+export function childComponents<T extends ComponentSchema>(def: T, topLevel: Record<string, T>): Record<string, T> {
+  if (def.children === undefined) return {};
+
+  return def.children === "markdown" ? topLevel : def.children;
+}

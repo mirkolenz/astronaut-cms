@@ -6,13 +6,15 @@ import {
   duplicateChild,
   findAt,
   jsxChildren,
+  misplacedComponents,
   missingProps,
   moveChild,
-  newChild,
+  newComponent,
   readProps,
   removeChild,
   updateAt,
   withProp,
+  type JsxChild,
 } from "@/client/lib/component-tree";
 
 const feature: ClientComponentDef = {
@@ -30,7 +32,7 @@ const feature: ClientComponentDef = {
   editor: null,
 };
 
-function grid(...titles: string[]): MdxJsxElement {
+function grid(...titles: string[]): JsxChild {
   return {
     type: "mdxJsxFlowElement",
     name: "Grid",
@@ -75,7 +77,7 @@ describe("structured children", () => {
   });
 
   it("writes a new child with its defaults and a key already set", () => {
-    const child = newChild("Feature", feature);
+    const child = newComponent("Feature", feature);
 
     expect(child.data?.cmsKey).toBeTypeOf("string");
     expect(readProps(child)).toEqual({ title: "", icon: "a" });
@@ -110,5 +112,14 @@ describe("props", () => {
     expect(
       missingProps(feature, { ...empty, attributes: [{ type: "mdxJsxExpressionAttribute", value: "...rest" }] }),
     ).toEqual([]);
+  });
+});
+
+describe("placement", () => {
+  it("reports components written where their definition does not allow them", () => {
+    const top = { Grid: { ...feature, label: "Grid", children: { Feature: feature } } };
+
+    expect(misplacedComponents([grid("A")], top, top)).toEqual([]);
+    expect(misplacedComponents(grid("A").children, top, top)).toEqual(["Feature"]);
   });
 });

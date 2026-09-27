@@ -1,13 +1,24 @@
-import { useRef, useEffect, useLayoutEffect, useMemo, useCallback, useImperativeHandle, type MouseEvent, type Ref } from "react";
 import {
-  $getSelection,
-  $isParagraphNode,
-  $isRangeSelection,
-  $isRootOrShadowRoot,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useCallback,
+  useImperativeHandle,
+  type ClipboardEvent,
+  type CSSProperties,
+  type MouseEvent,
+  type Ref,
+} from "react";
+import { useTranslation } from "react-i18next";
+import type { Root } from "mdast";
+import { defaultHandlers } from "mdast-util-to-markdown";
+import {
   COMMAND_PRIORITY_BEFORE_CRITICAL,
   COMMAND_PRIORITY_LOW,
   KEY_BACKSPACE_COMMAND,
   KEY_DOWN_COMMAND,
+  getNearestEditorFromDOMNode,
   type LexicalEditor,
 } from "lexical";
 import {
@@ -17,8 +28,12 @@ import {
   type Realm,
   NESTED_EDITOR_UPDATED_COMMAND,
   activeEditor$,
+  addComposerChild$,
+  addExportVisitor$,
+  addToMarkdownExtension$,
   createActiveEditorSubscription$,
   rootEditor$,
+  setMarkdown$,
   realmPlugin,
   headingsPlugin,
   listsPlugin,
@@ -40,21 +55,21 @@ import {
   ListsToggle,
   BlockTypeSelect,
   CreateLink,
-  InsertImage,
-  InsertTable,
-  InsertThematicBreak,
   UndoRedo,
   DiffSourceToggleWrapper,
 } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
 import { toJsxDescriptors } from "@/client/lib/component-descriptors";
-import { selectBlock } from "@/client/stores/inspector-store";
+import { $caretBlock, $isEmptyLine, $isSkippedLine, pruneEmptyLines } from "@/client/lib/empty-lines";
+import { isComponentMdx, parseMdx, pasteText } from "@/client/lib/editor-content";
+import { createSourcePreserver } from "@/client/lib/markdown-source";
+import { blockActions, blockMdx } from "@/client/lib/block-editing";
+import { getSelectedBlock, selectBlock, setBodyRealm } from "@/client/stores/inspector-store";
 import { CmsImageDialog } from "./cms-image-dialog";
-import { componentPalette$, InsertCmsComponent } from "./insert-cms-component";
+import { GapInserter } from "./gap-inserter";
+import { InsertButton, InsertMenu, insertTarget$ } from "./insert-menu";
 
-const hasComponents = Object.keys(components).length > 0;
-
-// The style formatters write, so a save rewrites no more than what was edited.
+// The style edited blocks are written in. The others keep their source text.
 const MARKDOWN_STYLE: MDXEditorProps["toMarkdownOptions"] = {
   bullet: "-",
   emphasis: "_",
@@ -62,20 +77,6 @@ const MARKDOWN_STYLE: MDXEditorProps["toMarkdownOptions"] = {
   rule: "-",
   listItemIndent: "one",
 };
-
-// Typing `/` on an empty line opens the component palette.
-function isOnEmptyLine(editor: LexicalEditor): boolean {
-  return editor.getEditorState().read(() => {
-    const selection = $getSelection();
-
-    if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false;
-
-    const node = selection.anchor.getNode();
-    const line = $isRootOrShadowRoot(node) ? null : node.getTopLevelElement();
-
-    return $isParagraphNode(line) && line.getTextContentSize() === 0;
-  });
-}
 
 export interface MdxEditorHandle {
   /** The current markdown, with an edit still pending in a nested editor written back first. */
@@ -95,17 +96,67 @@ interface MdxEditorProps {
 }
 
 export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEditorProps) {
+  const { t } = useTranslation();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MDXEditorMethods>(null);
   const realmRef = useRef<Realm | null>(null);
   const onDirtyRef = useRef(onDirty);
   const prevMarkdownRef = useRef(markdown);
+  // The markdown the editor content was last loaded from.
+  const sourceRef = useRef(markdown);
 
   useLayoutEffect(() => {
     onDirtyRef.current = onDirty;
   }, [onDirty]);
 
-  // A block selected in this editor is gone with it, such as when changes are discarded.
-  useEffect(() => () => selectBlock(null), []);
+  useEffect(() => {
+    setBodyRealm(realmRef.current);
+
+    return () => setBodyRealm(null);
+  }, []);
+
+  // A focused component block takes the clipboard and delete keys before the editor around it.
+  useEffect(() => {
+    const controller = new AbortController();
+    const options = { capture: true, signal: controller.signal };
+    const focusedBlock = () => {
+      const active = document.activeElement;
+
+      return active?.hasAttribute("data-cms-block") && wrapperRef.current?.contains(active)
+        ? getSelectedBlock()
+        : null;
+    };
+    const clipboard = (event: globalThis.ClipboardEvent) => {
+      const block = focusedBlock();
+      const mdx = block ? blockMdx(block) : undefined;
+
+      if (!block || mdx === undefined) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.clipboardData?.setData("text/plain", mdx);
+
+      if (event.type === "cut") blockActions(block).remove();
+    };
+
+    document.addEventListener("copy", clipboard, options);
+    document.addEventListener("cut", clipboard, options);
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        const block = focusedBlock();
+
+        if (!block || (event.key !== "Backspace" && event.key !== "Delete")) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        blockActions(block).remove();
+      },
+      options,
+    );
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (markdown !== prevMarkdownRef.current) {
@@ -153,6 +204,25 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
 
   const isMdx = format === "mdx";
 
+  // Text written as a component, such as a copied one, is pasted as that component.
+  const handlePaste = useCallback(
+    (event: ClipboardEvent<HTMLDivElement>) => {
+      const realm = realmRef.current;
+      const text = event.clipboardData.getData("text/plain");
+      const target = event.target;
+      // Code blocks and dialogs take the text as it is.
+      const editable = target instanceof Element ? target.closest('[contenteditable="true"]') : null;
+      const editor = editable?.hasAttribute("data-lexical-editor") ? getNearestEditorFromDOMNode(editable) : null;
+
+      if (!isMdx || !realm || !editor || !isComponentMdx(text)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      pasteText(realm, { editor }, text);
+    },
+    [isMdx],
+  );
+
   const plugins = useMemo(() => {
     const list = [
       headingsPlugin(),
@@ -185,16 +255,36 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
             <ListsToggle />
             <BlockTypeSelect />
             <CreateLink />
-            <InsertImage />
-            <InsertTable />
-            <InsertThematicBreak />
-            {isMdx && hasComponents && <InsertCmsComponent />}
+            <InsertButton />
           </DiffSourceToggleWrapper>
         ),
       }),
       realmPlugin({
         init: (realm) => {
           realmRef.current = realm;
+
+          const preserveSource = createSourcePreserver((value) => parseMdx(realm, value));
+          let previousEditor: LexicalEditor | null = null;
+
+          realm.sub(setMarkdown$, (value) => {
+            sourceRef.current = value;
+          });
+          // Leaving an editor leaves no empty lines behind in it.
+          realm.sub(activeEditor$, (editor) => {
+            if (previousEditor && previousEditor !== editor && previousEditor.getRootElement()) {
+              pruneEmptyLines(previousEditor, { keepCaret: false });
+            }
+
+            previousEditor = editor;
+          });
+          realm.pub(addComposerChild$, [InsertMenu, GapInserter]);
+          realm.pub(addExportVisitor$, { testLexicalNode: $isSkippedLine, visitLexicalNode: () => {}, priority: 1 });
+          realm.pub(addToMarkdownExtension$, {
+            handlers: {
+              root: (node: Root, parent, state, info) =>
+                preserveSource(sourceRef.current, defaultHandlers.root(node, parent, state, info)),
+            },
+          });
           realm.pub(createActiveEditorSubscription$, [
             // The root editor reports its edits through `onChange` right away.
             (editor: LexicalEditor) =>
@@ -203,6 +293,19 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
                   onDirtyRef.current();
                 }
               }),
+            // An empty line goes once the caret has left it.
+            (editor: LexicalEditor) => {
+              let caret: string | null | undefined;
+
+              return editor.registerUpdateListener(({ editorState }) => {
+                const next = editorState.read(() => $caretBlock()?.getKey() ?? null);
+
+                if (next === caret) return;
+
+                caret = next;
+                pruneEmptyLines(editor);
+              });
+            },
             // MDXEditor removes a component once its emptied content is
             // backspaced, which for a structured child's content would remove
             // the whole parent. The block menu removes a component instead.
@@ -220,14 +323,17 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
                 },
                 COMMAND_PRIORITY_BEFORE_CRITICAL,
               ),
+            // Typing `/` on an empty line opens the insert menu.
             (editor: LexicalEditor) =>
               editor.registerCommand(
                 KEY_DOWN_COMMAND,
                 (event) => {
-                  if (!isMdx || !hasComponents || event.key !== "/" || !isOnEmptyLine(editor)) return false;
+                  if (event.key !== "/" || !editor.getEditorState().read(() => $isEmptyLine($caretBlock()))) {
+                    return false;
+                  }
 
                   event.preventDefault();
-                  realm.pub(componentPalette$, true);
+                  realm.pub(insertTarget$, { editor });
 
                   return true;
                 },
@@ -249,7 +355,12 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
   }, [isMdx]);
 
   return (
-    <div onClick={handleClick}>
+    <div
+      ref={wrapperRef}
+      onClick={handleClick}
+      onPasteCapture={handlePaste}
+      style={{ "--cms-empty-line": JSON.stringify(t(($) => $.editors.emptyLine)) } as CSSProperties}
+    >
       <MDXEditor
         ref={editorRef}
         markdown={markdown}

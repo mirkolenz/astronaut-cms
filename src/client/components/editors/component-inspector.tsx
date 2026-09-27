@@ -1,11 +1,13 @@
 /**
  * The props of the selected component, next to the body on a wide screen and
  * as a sheet over it otherwise. Its structured children are listed to reorder
- * and to drill into, with breadcrumbs leading back out.
+ * and to drill into, with breadcrumbs leading back out. Without a selection,
+ * the panel shows the outline of the body.
  */
 import { Fragment, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, X } from "lucide-react";
+import { rootEditor$ } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
 import type { MdxJsxElement } from "@/shared/jsx-editor";
@@ -16,6 +18,7 @@ import {
   defAt,
   findAt,
   jsxChildren,
+  labelOf,
   missingProps,
   moveChild,
   readProps,
@@ -23,16 +26,9 @@ import {
   updateAt,
   withProp,
 } from "@/client/lib/component-tree";
-import {
-  blockActions,
-  insertChild,
-  releaseEditors,
-  updateBlock,
-  useBlockElement,
-} from "@/client/lib/block-editing";
+import { blockActions, releaseEditors, updateBlock, useBlockElement } from "@/client/lib/block-editing";
 import { useMediaQuery } from "@/client/lib/use-media-query";
-import { selectBlock, useSelection, type BlockSelection } from "@/client/stores/inspector-store";
-import { SortableList } from "@/client/components/sortable-list";
+import { selectBlock, useBodyRealm, useSelection, type BlockSelection } from "@/client/stores/inspector-store";
 import { Button } from "@/client/components/ui/button";
 import {
   Breadcrumb,
@@ -43,18 +39,16 @@ import {
   BreadcrumbSeparator,
 } from "@/client/components/ui/breadcrumb";
 import { FieldList } from "./field-renderer";
-import { AddChildMenu, BlockMenu, MissingProps } from "./block-controls";
+import { BlockList, BlockMenu, ChildListControls, MissingProps } from "./block-controls";
+import { BlockOutline } from "./block-outline";
 
 // Wide enough for the body and the docked inspector side by side.
 const DOCKED = "(min-width: 80rem)";
 
 export function InspectorPanel() {
-  const { t } = useTranslation();
   const selection = useSelection();
+  const bodyEditor = useBodyRealm()?.getValue(rootEditor$);
   const docked = useMediaQuery(DOCKED);
-
-  // Leaving the entry leaves nothing to inspect.
-  useEffect(() => () => selectBlock(null), []);
 
   const inspector = (onClose?: () => void) =>
     selection && (
@@ -71,12 +65,7 @@ export function InspectorPanel() {
         className="w-80 shrink-0 overflow-y-auto border-l border-border pl-6"
         onFocusCapture={() => selection && releaseEditors(selection)}
       >
-        {inspector() ?? (
-          <div className="space-y-1 pt-1 text-sm text-muted-foreground">
-            <p>{t(($) => $.editors.inspectorEmpty)}</p>
-            <p className="text-xs">{t(($) => $.editors.inspectorHint)}</p>
-          </div>
-        )}
+        {inspector() ?? (bodyEditor && <BlockOutline editor={bodyEditor} />)}
       </aside>
     );
   }
@@ -108,7 +97,7 @@ function ComponentInspector({ selection, onClose }: { selection: BlockSelection;
   const { path } = selection;
   const rootDef = root.name ? findComponent(root.name, components) : undefined;
   const def = defAt(rootDef, root, path);
-  const label = def?.label ?? element.name ?? "Fragment";
+  const label = labelOf(def, element);
   const Icon = def?.icon;
   const shape = objectShape(def?.props) ?? {};
   const childDefs = typeof def?.children === "object" ? def.children : undefined;
@@ -122,7 +111,7 @@ function ComponentInspector({ selection, onClose }: { selection: BlockSelection;
       const ancestorDef = defAt(rootDef, root, ancestorPath);
 
       return {
-        label: (ancestor && summaryOf(ancestorDef, ancestor)) ?? ancestorDef?.label ?? ancestor?.name ?? "",
+        label: ancestor ? (summaryOf(ancestorDef, ancestor) ?? labelOf(ancestorDef, ancestor)) : "",
         selection: { ...selection, path: ancestorPath },
       };
     }),
@@ -170,7 +159,7 @@ function ComponentInspector({ selection, onClose }: { selection: BlockSelection;
           <h2 className="text-sm font-semibold">{label}</h2>
           {def?.description && <p className="text-xs text-muted-foreground">{def.description}</p>}
         </div>
-        <BlockMenu actions={blockActions(selection, path)} />
+        <BlockMenu actions={blockActions(selection)} />
         {onClose && (
           <Button type="button" variant="ghost" size="icon-xs" aria-label={t(($) => $.common.close)} onClick={onClose}>
             <X className="size-4" />
@@ -204,44 +193,33 @@ function ChildList({
   const { path } = selection;
 
   return (
-    <section className="space-y-2">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {t(($) => $.editors.contents)}
-      </h3>
-      <SortableList
-        items={children}
-        getKey={(child) => childKey(child)}
-        className="space-y-1"
-        onMove={(from, to) => {
-          const child = children[from];
+    <BlockList
+      title={t(($) => $.editors.contents)}
+      items={children}
+      getKey={childKey}
+      onMove={(from, to) => {
+        const child = children[from];
 
-          if (child) updateBlock(selection, (root) => moveChild(root, path, childKey(child), to - from));
-        }}
-      >
-        {(child, _, handle) => {
-          const def = child.name ? childDefs[child.name] : undefined;
-          const Icon = def?.icon;
+        if (child) updateBlock(selection, (root) => moveChild(root, path, childKey(child), to - from));
+      }}
+      row={(child) => {
+        const def = child.name ? childDefs[child.name] : undefined;
 
-          return (
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5">
-              {handle}
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-                onClick={() => selectBlock({ ...selection, path: [...path, childKey(child)] }, { reveal: true })}
-              >
-                {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{summaryOf(def, child) ?? def?.label ?? child.name}</span>
-                <span className="ml-auto flex shrink-0 items-center gap-1">
-                  <MissingProps labels={missingProps(def, child)} />
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                </span>
-              </button>
-            </div>
-          );
-        }}
-      </SortableList>
-      <AddChildMenu childDefs={childDefs} onAdd={(name, def) => insertChild(selection, name, def)} />
-    </section>
+        return {
+          icon: def?.icon,
+          label: labelOf(def, child),
+          summary: summaryOf(def, child),
+          onOpen: () => selectBlock({ ...selection, path: [...path, childKey(child)] }, { reveal: true }),
+          trailing: (
+            <>
+              <MissingProps labels={missingProps(def, child)} />
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </>
+          ),
+        };
+      }}
+    >
+      <ChildListControls parent={selection} childDefs={childDefs} />
+    </BlockList>
   );
 }

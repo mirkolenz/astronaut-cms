@@ -13,29 +13,40 @@ import {
   HISTORY_PUSH_TAG,
   SKIP_DOM_SELECTION_TAG,
   type EditorState,
+  type LexicalEditor,
   type LexicalNode,
 } from "lexical";
 import { NESTED_EDITOR_UPDATED_COMMAND } from "@mdxeditor/editor";
 import type { MdxJsxElement } from "@/shared/jsx-editor";
 import type { ClientComponentDef } from "@/internal/user-config";
-import { selectBlock, type BlockNode, type BlockSelection } from "@/client/stores/inspector-store";
 import {
-  addChild,
+  getBodyRealm,
+  selectBlock,
+  type BlockNode,
+  type BlockRef,
+  type BlockSelection,
+} from "@/client/stores/inspector-store";
+import {
+  addChildren,
+  asBlockContent,
   childKey,
   duplicateChild,
+  findAt,
   moveChild,
-  newChild,
+  newComponent,
   removeChild,
-  type ChildPath,
+  type JsxChild,
 } from "@/client/lib/component-tree";
+import { $isEmptyLine } from "@/client/lib/empty-lines";
+import { pastedChildren, readClipboard, toMdx, writeClipboard } from "@/client/lib/editor-content";
 
 interface JsxNode extends LexicalNode {
-  getMdastNode(): MdxJsxElement;
+  getMdastNode(): JsxChild;
   setMdastNode(node: MdxJsxElement): void;
 }
 
 // MDXEditor keeps its JSX node class to itself, so the node is known by its type.
-function isJsxNode(node: LexicalNode | null): node is JsxNode {
+export function isJsxNode(node: LexicalNode | null): node is JsxNode {
   return node?.getType() === "jsx";
 }
 
@@ -97,42 +108,66 @@ export function releaseEditors({ editor, trail }: BlockSelection): void {
   }
 }
 
-/** The current element of a block, or `undefined` once it or its editor is gone. */
-export function useBlockElement({ editor, nodeKey }: BlockNode): MdxJsxElement | undefined {
-  const subscribe = useCallback((onChange: () => void) => editor.registerUpdateListener(onChange), [editor]);
-  const read = useCallback(
-    () =>
-      editor.getRootElement() === null
-        ? undefined
-        : editor.getEditorState().read(() => {
-            const node = $getNodeByKey(nodeKey);
+/** The current element of the component a block is written as, or `undefined` once it or its editor is gone. */
+function readElement({ editor, nodeKey }: BlockNode): JsxChild | undefined {
+  return editor.getRootElement() === null
+    ? undefined
+    : editor.getEditorState().read(() => {
+        const node = $getNodeByKey(nodeKey);
 
-            return isJsxNode(node) ? node.getMdastNode() : undefined;
-          }),
-    [editor, nodeKey],
-  );
+        return isJsxNode(node) ? node.getMdastNode() : undefined;
+      });
+}
+
+/** A value read from an editor, and read again after each of its updates. */
+export function useEditorValue<T>(editor: LexicalEditor, read: () => T): T {
+  const subscribe = useCallback((onChange: () => void) => editor.registerUpdateListener(onChange), [editor]);
 
   return useSyncExternalStore(subscribe, read);
+}
+
+export function useBlockElement(block: BlockNode): MdxJsxElement | undefined {
+  return useEditorValue(block.editor, () => readElement(block));
+}
+
+/** A block's MDX, as copying puts it on the clipboard. */
+export function blockMdx(block: BlockRef): string | undefined {
+  const root = readElement(block);
+  const element = root && findAt(root, block.path);
+  const realm = getBodyRealm();
+
+  return element && realm ? toMdx(realm, [asBlockContent(element)]) : undefined;
 }
 
 export interface BlockActions {
   move: (offset: -1 | 1) => void;
   duplicate: () => void;
+  copy: () => void;
+  cut: () => void;
   remove: () => void;
 }
 
+// A block moves past the empty lines, which are no part of the file.
+function $sibling(node: LexicalNode, offset: -1 | 1): LexicalNode | null {
+  let sibling = offset < 0 ? node.getPreviousSibling() : node.getNextSibling();
+
+  while ($isEmptyLine(sibling)) sibling = offset < 0 ? sibling.getPreviousSibling() : sibling.getNextSibling();
+
+  return sibling;
+}
+
 /**
- * What can be done to a block as a whole. A component in the text moves among
- * the nodes of its editor, a structured child among its siblings.
+ * How a block moves and goes. A component in the text moves among the nodes of
+ * its editor, a structured child among its siblings.
  */
-export function blockActions(block: BlockNode, path: ChildPath): BlockActions {
-  const key = path.at(-1);
+function structureActions(block: BlockRef): Omit<BlockActions, "copy" | "cut"> {
+  const key = block.path.at(-1);
 
   if (key === undefined) {
     return {
       move: (offset) =>
         editNode(block, (node) => {
-          const sibling = offset < 0 ? node.getPreviousSibling() : node.getNextSibling();
+          const sibling = $sibling(node, offset);
 
           if (offset < 0) sibling?.insertBefore(node);
           else sibling?.insertAfter(node);
@@ -146,7 +181,7 @@ export function blockActions(block: BlockNode, path: ChildPath): BlockActions {
     };
   }
 
-  const parent = path.slice(0, -1);
+  const parent = block.path.slice(0, -1);
 
   return {
     move: (offset) => updateBlock(block, (root) => moveChild(root, parent, key, offset)),
@@ -155,10 +190,44 @@ export function blockActions(block: BlockNode, path: ChildPath): BlockActions {
   };
 }
 
-/** Appends a new structured child to the selected block and selects it, so its props can be filled in. */
-export function insertChild(parent: BlockSelection, name: string, def: ClientComponentDef): void {
-  const child = newChild(name, def);
+/** What can be done to a block as a whole. */
+export function blockActions(block: BlockRef): BlockActions {
+  const actions = structureActions(block);
+  const copy = async () => {
+    const mdx = blockMdx(block);
 
-  updateBlock(parent, (root) => addChild(root, parent.path, child));
-  selectBlock({ ...parent, path: [...parent.path, childKey(child)] }, { reveal: true });
+    return mdx !== undefined && (await writeClipboard(mdx));
+  };
+
+  return {
+    ...actions,
+    copy: () => void copy(),
+    cut: () => void copy().then((copied) => copied && actions.remove()),
+  };
+}
+
+// The added children are selected, so their props can be filled in.
+function addAndSelect(parent: BlockSelection, children: JsxChild[]): void {
+  const [first] = children;
+
+  if (!first) return;
+
+  updateBlock(parent, (root) => addChildren(root, parent.path, children));
+  selectBlock({ ...parent, path: [...parent.path, childKey(first)] }, { reveal: true });
+}
+
+export function insertChild(parent: BlockSelection, name: string, def: ClientComponentDef): void {
+  addAndSelect(parent, [newComponent(name, def)]);
+}
+
+/** Appends the components on the clipboard to the selected block's structured children. */
+export async function pasteChildren(
+  parent: BlockSelection,
+  childDefs: Record<string, ClientComponentDef>,
+): Promise<void> {
+  const text = await readClipboard();
+  const realm = getBodyRealm();
+  const children = text && realm ? pastedChildren(realm, text, childDefs) : undefined;
+
+  if (children) addAndSelect(parent, children);
 }

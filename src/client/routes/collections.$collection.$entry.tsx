@@ -14,7 +14,6 @@ import { objectShape } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { MdxEditor, type MdxEditorHandle } from "@/client/components/editors/mdx-editor";
 import { InspectorPanel } from "@/client/components/editors/component-inspector";
-import { components } from "virtual:astronaut-cms/user-config";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
 import { EntryIdDialog } from "@/client/components/entry-id-dialog";
@@ -252,8 +251,6 @@ function EntryEditor() {
 
   const contentFilePath = meta && entryFilePath(meta, entryId, format);
 
-  const hasInspector = format === "mdx" && Object.keys(components).length > 0;
-
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -338,7 +335,7 @@ function EntryEditor() {
               </CollapsibleSection>
             )}
           </div>
-          {hasInspector && <InspectorPanel />}
+          {isContentFormat && <InspectorPanel />}
         </div>
 
         <ConfirmDialog

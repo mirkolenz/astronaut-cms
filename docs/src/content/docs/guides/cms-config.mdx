@@ -29,7 +29,7 @@ export const components = {
 };
 ```
 
-Editors insert a component with the toolbar's Component button, or by typing `/` on an empty line.
+Editors insert a component with the [insert menu](/astronaut-cms/guides/content-collections/#editing-the-body) of the body.
 In the body, a component is a compact block that shows its label and summary and holds its children.
 Clicking it selects it, and its props are edited in the inspector next to the body.
 
@@ -159,7 +159,7 @@ In MDX content, this renders as:
 ```
 
 In the body, each child is a block of its own inside its parent, and its markdown children stay editable in place.
-Only the declared child components can be added there.
+Only the declared child components can be added there, new or pasted from the clipboard.
 Selecting the parent lists its children in the inspector, where they can be reordered by dragging and opened one by one, with breadcrumbs leading back out.
 
 An MDX body refers to a component by its name alone, so a name may stand for one definition only.

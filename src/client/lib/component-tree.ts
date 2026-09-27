@@ -8,6 +8,7 @@ import type { RootContent } from "mdast";
 import type { MdxJsxFlowElement, MdxJsxTextElement } from "mdast-util-mdx";
 import type { ClientComponentDef } from "@/internal/user-config";
 import type { MdxJsxAttribute, MdxJsxElement, MdxJsxExpressionAttribute } from "@/shared/jsx-editor";
+import { childComponents } from "@/shared/component-lookup";
 import { isRequired, objectShape } from "@/shared/field-schema";
 import { attributeValue, valueToAttribute } from "@/shared/mdx-attributes";
 import { arrayMove } from "@/client/lib/arrays";
@@ -44,8 +45,8 @@ export function jsxChildren(element: MdxJsxElement): JsxChild[] {
   return element.children.filter(isJsxElement);
 }
 
-export function findAt(element: MdxJsxElement, path: ChildPath): MdxJsxElement | undefined {
-  let current: MdxJsxElement | undefined = element;
+export function findAt<T extends MdxJsxElement>(element: T, path: ChildPath): T | JsxChild | undefined {
+  let current: T | JsxChild | undefined = element;
 
   for (const key of path) current = current && jsxChildren(current).find((c) => childKey(c) === key);
 
@@ -143,6 +144,11 @@ export function defaultProps(def: ClientComponentDef): Record<string, unknown> {
   );
 }
 
+/** What an instance is called in the admin. */
+export function labelOf(def: ClientComponentDef | undefined, element: MdxJsxElement): string {
+  return def?.label ?? element.name ?? "Fragment";
+}
+
 /** The one-line name of an instance, such as its title. */
 export function summaryOf(def: ClientComponentDef | undefined, element: MdxJsxElement): string | undefined {
   return textSummary(objectShape(def?.props) ?? {}, readProps(element), def?.summary);
@@ -173,10 +179,15 @@ export function imageOf(def: ClientComponentDef | undefined, element: MdxJsxElem
     .find((value): value is string => typeof value === "string" && value !== "");
 }
 
+/** An element as content of a markdown body, where an inline one sits in a paragraph. */
+export function asBlockContent(element: JsxChild): RootContent {
+  return element.type === "mdxJsxTextElement" ? { type: "paragraph", children: [element] } : element;
+}
+
 // ── Structured children ─────────────────────────────────────────────
 
-/** A new child with its default props, keyed already so it can be selected right away. */
-export function newChild(name: string, def: ClientComponentDef): JsxChild {
+/** A new instance with its default props, keyed already so it can be selected right away. */
+export function newComponent(name: string, def: ClientComponentDef): JsxChild {
   const attributes = Object.entries(defaultProps(def)).map(([key, value]) => valueToAttribute(key, value));
   const data = { cmsKey: crypto.randomUUID() };
 
@@ -208,8 +219,8 @@ function editChildren(
   return updateAt(root, parentPath, (parent) => withJsxChildren(parent, edit(jsxChildren(parent))));
 }
 
-export function addChild(root: MdxJsxElement, parentPath: ChildPath, child: JsxChild): MdxJsxElement {
-  return editChildren(root, parentPath, (children) => [...children, child]);
+export function addChildren(root: MdxJsxElement, parentPath: ChildPath, added: JsxChild[]): MdxJsxElement {
+  return editChildren(root, parentPath, (children) => [...children, ...added]);
 }
 
 export function removeChild(root: MdxJsxElement, parentPath: ChildPath, key: string): MdxJsxElement {
@@ -248,4 +259,27 @@ function freshCopy(child: JsxChild): JsxChild {
   forget(copy);
 
   return copy;
+}
+
+// ── Placement ───────────────────────────────────────────────────────
+
+/**
+ * The names of the components in `nodes` that do not belong there, where the
+ * `allowed` ones go. A fragment passes its place on to its children.
+ */
+export function misplacedComponents(
+  nodes: readonly RootContent[],
+  allowed: Record<string, ClientComponentDef>,
+  topLevel: Record<string, ClientComponentDef>,
+): string[] {
+  const check = (content: readonly RootContent[], defs: Record<string, ClientComponentDef>): string[] =>
+    content.flatMap((node) => {
+      if (!isJsxElement(node) || node.name === null) return "children" in node ? check(node.children, defs) : [];
+
+      const def = defs[node.name];
+
+      return def ? check(node.children, childComponents(def, topLevel)) : [node.name];
+    });
+
+  return check(nodes, allowed);
 }

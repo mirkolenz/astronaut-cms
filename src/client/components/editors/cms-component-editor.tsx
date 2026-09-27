@@ -18,20 +18,16 @@ import {
   imageOf,
   isJsxElement,
   jsxChildren,
+  labelOf,
   missingProps,
   summaryOf,
   updateAt,
   type ChildPath,
 } from "@/client/lib/component-tree";
-import { blockActions, insertChild } from "@/client/lib/block-editing";
-import {
-  selectBlock,
-  useIsSelected,
-  type BlockNode,
-  type Crumb,
-} from "@/client/stores/inspector-store";
+import { blockActions } from "@/client/lib/block-editing";
+import { selectBlock, useIsSelected, type BlockNode, type Crumb } from "@/client/stores/inspector-store";
 import { useAssetUrl } from "@/client/queries/use-media";
-import { AddChildMenu, BlockMenu, MissingProps } from "./block-controls";
+import { BlockMenu, ChildListControls, MissingProps } from "./block-controls";
 
 /** The components enclosing a nested editor, for the breadcrumbs of those written in it. */
 const TrailContext = createContext<readonly Crumb[]>([]);
@@ -69,20 +65,9 @@ export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
     return <InlineBlock node={node} element={mdastNode} def={def} trail={trail} />;
   }
 
-  const insertParagraph = (position: "before" | "after") => {
-    parentEditor.update(() => {
-      const selection = position === "before" ? lexicalNode.selectPrevious() : lexicalNode.selectNext();
-
-      selection.insertParagraph();
-    });
-    parentEditor.focus();
-  };
-
   return (
-    <div className="my-1">
-      <GapCursor onClick={() => insertParagraph("before")} />
+    <div className="my-2">
       <Block node={node} path={[]} element={mdastNode} def={def} outer={trail} crumbs={trail} />
-      <GapCursor onClick={() => insertParagraph("after")} />
     </div>
   );
 }
@@ -102,7 +87,7 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
   const ref = useRef<HTMLDivElement>(null);
   const block = { ...node, path };
   const { selected, reveal } = useIsSelected(block);
-  const label = def?.label ?? element.name ?? "Fragment";
+  const label = labelOf(def, element);
   const summary = summaryOf(def, element);
   const image = useAssetUrl(imageOf(def, element));
   const Icon = def?.icon;
@@ -120,10 +105,12 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
     <div
       ref={ref}
       data-cms-block
+      // Focused, the body editor gives it the clipboard and delete keys.
+      tabIndex={-1}
       onClickCapture={select}
       onFocusCapture={select}
       className={cn(
-        "rounded-md border bg-card transition-[border-color,box-shadow]",
+        "rounded-md border bg-card outline-none transition-[border-color,box-shadow]",
         selected ? "border-ring ring-3 ring-ring/30" : "border-border hover:border-ring/60",
       )}
     >
@@ -133,7 +120,7 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{summary}</span>
         {image && <img src={image} alt="" className="size-7 shrink-0 rounded object-cover" />}
         <MissingProps labels={missingProps(def, element)} />
-        <BlockMenu actions={blockActions(node, path)} />
+        <BlockMenu actions={blockActions(block)} />
       </div>
       {def?.children === "markdown" && (
         <div className="border-t border-border px-3 py-2">
@@ -202,10 +189,7 @@ function ChildBlocks({
         );
       })}
       {other && <p className="not-prose px-1 text-xs text-muted-foreground">{t(($) => $.editors.sourceOnly)}</p>}
-      <AddChildMenu
-        childDefs={childDefs}
-        onAdd={(name, def) => insertChild({ ...node, path, trail: outer }, name, def)}
-      />
+      <ChildListControls parent={{ ...node, path, trail: outer }} childDefs={childDefs} />
     </div>
   );
 }
@@ -224,7 +208,7 @@ function InlineBlock({
 }) {
   const block = { ...node, path: [] };
   const { selected } = useIsSelected(block);
-  const label = def?.label ?? element.name ?? "Fragment";
+  const label = labelOf(def, element);
   const summary = summaryOf(def, element);
   const Icon = def?.icon;
 
@@ -235,10 +219,11 @@ function InlineBlock({
   return (
     <span
       data-cms-block
+      tabIndex={-1}
       onClickCapture={select}
       onFocusCapture={select}
       className={cn(
-        "not-prose inline-flex max-w-full items-baseline gap-1 rounded border bg-card px-1.5 align-baseline",
+        "not-prose inline-flex max-w-full items-baseline gap-1 rounded border bg-card px-1.5 align-baseline outline-none",
         selected ? "border-ring ring-2 ring-ring/30" : "border-border",
       )}
     >
@@ -257,13 +242,5 @@ function InlineBlock({
       )}
       <MissingProps labels={missingProps(def, element)} />
     </span>
-  );
-}
-
-function GapCursor({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="group flex h-2 cursor-text items-center" onClick={onClick}>
-      <div className="h-px w-full bg-transparent transition group-hover:bg-primary/40" />
-    </div>
   );
 }

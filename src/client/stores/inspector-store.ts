@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { LexicalEditor } from "lexical";
+import type { Realm } from "@mdxeditor/editor";
 import type { ChildPath } from "@/client/lib/component-tree";
 
 /** The Lexical node a component is written as, in the editor that holds it. */
@@ -25,13 +26,24 @@ export interface BlockSelection extends BlockRef {
 }
 
 /**
- * The component whose props the inspector shows. There is one body editor at a
- * time, and the entry page clears the selection when it goes.
+ * The body editor's realm, for what works on its content from outside it, and
+ * the component whose props the inspector shows. There is one body editor at a
+ * time, which clears both when it goes.
  */
-const useInspectorStore = create<{ selection: BlockSelection | null; reveal: boolean }>()(() => ({
-  selection: null,
-  reveal: false,
-}));
+const useInspectorStore = create<{ realm: Realm | null; selection: BlockSelection | null; reveal: boolean }>()(
+  () => ({ realm: null, selection: null, reveal: false }),
+);
+
+/** Sets the body editor's realm, which takes the selection in the one before along. */
+export function setBodyRealm(realm: Realm | null): void {
+  useInspectorStore.setState({ realm, selection: null, reveal: false });
+}
+
+export const getBodyRealm = (): Realm | null => useInspectorStore.getState().realm;
+
+export function useBodyRealm(): Realm | null {
+  return useInspectorStore((state) => state.realm);
+}
 
 /**
  * Selects a block, or nothing. With `reveal`, the body scrolls to it, for a
@@ -40,6 +52,8 @@ const useInspectorStore = create<{ selection: BlockSelection | null; reveal: boo
 export function selectBlock(selection: BlockSelection | null, { reveal = false } = {}): void {
   useInspectorStore.setState({ selection, reveal });
 }
+
+export const getSelectedBlock = (): BlockSelection | null => useInspectorStore.getState().selection;
 
 export function useSelection(): BlockSelection | null {
   return useInspectorStore((state) => state.selection);

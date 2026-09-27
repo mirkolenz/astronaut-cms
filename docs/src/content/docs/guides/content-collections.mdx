@@ -161,6 +161,23 @@ The same keys work for the props of a component.
   `resolveFile()`. In a `cms.config.ts` both helpers come from the component's props function.
 </Aside>
 
+## Editing the Body
+
+The body of a Markdown or MDX entry is edited as rich text.
+One insert menu adds anything to it: text blocks such as headings, lists, tables and images, the components from `cms.config`, and the content of the clipboard.
+It opens from the buttons above and below the block under the pointer, from typing `/` on an empty line, and from the Insert button of the toolbar.
+
+An empty line is a place to type or insert at.
+Markdown only knows blank lines between blocks, so an empty line is never written to the file, and it disappears once the caret leaves it.
+Saving rewrites only the blocks that were edited, and every other block keeps its source text along with the blank lines around it.
+
+While no component is selected, the panel next to the body shows its outline.
+Dragging a row reorders the body, and clicking one jumps to its block.
+
+To move a component within the body or to another entry, copy or cut it from its menu, or with the keyboard while it is selected, and paste it where it belongs.
+The clipboard holds the component as MDX, so it can also be pasted into the source view or another editor.
+Pasting checks where the content goes: a structured child only fits into its parent, and a line of text only takes inline components.
+
 ## Supported Content Formats
 
 Glob collections support the following file formats:
