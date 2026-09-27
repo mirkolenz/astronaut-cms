@@ -27,3 +27,7 @@ dist-ssr
 /.direnv/
 /assets/logo.af
 /assets/logo-raw.png
+
+# Nix build outputs
+/result
+/result-*
