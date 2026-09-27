@@ -122,6 +122,9 @@ export interface MediaConfig {
 export interface CmsClientConfig {
   mountPoint: string;
   storageType: "local" | "github" | "gitlab";
+  // The host site's Astro `trailingSlash` policy, so the client can address the
+  // injected relay route (an API endpoint) in the form Astro will actually match.
+  trailingSlash: "always" | "never" | "ignore";
   mediaDirectory: string;
   locale: SupportedLocale;
   previewUrl?: string;

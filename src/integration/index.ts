@@ -147,7 +147,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           vite: {
             plugins: [
               tailwindcss(),
-              cmsVitePlugin(effectiveConfig, userConfigPath, collections),
+              cmsVitePlugin(effectiveConfig, userConfigPath, collections, astroConfig.trailingSlash),
               ...devPlugins,
             ],
           },

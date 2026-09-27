@@ -37,11 +37,13 @@ export function cmsVitePlugin(
   config: CmsConfig,
   userConfigPath: string | null,
   collections: CollectionManifest | null,
+  trailingSlash: "always" | "never" | "ignore",
 ): Plugin {
   const storage = config.storage ?? { type: "local" as const };
   const clientConfig: CmsClientConfig = {
     mountPoint: config.mountPoint ?? "/admin",
     storageType: storage.type,
+    trailingSlash,
     mediaDirectory: config.media?.directory ?? "src/assets",
     locale: config.locale ?? "en",
     previewUrl: config.previewUrl,
