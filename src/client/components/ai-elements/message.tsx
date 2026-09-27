@@ -1,14 +1,14 @@
 "use client";
 
-import { Button } from "@client/components/ui/button";
-import { ButtonGroup, ButtonGroupText } from "@client/components/ui/button-group";
+import { Button } from "@/client/components/ui/button";
+import { ButtonGroup, ButtonGroupText } from "@/client/components/ui/button-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@client/components/ui/tooltip";
-import { cn } from "@client/lib/utils";
+} from "@/client/components/ui/tooltip";
+import { cn } from "@/client/lib/utils";
 import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";

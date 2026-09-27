@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { collectResolvableLeaves } from "@shared/resolvable-leaves";
-import type { FieldSchema } from "@shared/field-schema";
+import { collectResolvableLeaves } from "@/shared/resolvable-leaves";
+import type { FieldSchema } from "@/shared/field-schema";
 
 // The reference/asset integrity check walks (schema, value) in tandem. These pin
 // that it finds every resolvable leaf at any nesting depth with a readable path,

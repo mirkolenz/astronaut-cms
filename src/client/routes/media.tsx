@@ -10,8 +10,8 @@ import {
   useTrash,
   useRestoreMedia,
   usePurgeTrash,
-} from "@client/queries/use-media";
-import config from "@client/lib/config";
+} from "@/client/queries/use-media";
+import config from "@/client/lib/config";
 import {
   classifyUsage,
   describeReference,
@@ -19,18 +19,18 @@ import {
   staleReferences,
   type AssetReference,
   type Usage,
-} from "@shared/references";
-import { ErrorBanner } from "@client/components/error-banner";
-import { ConfirmDialog } from "@client/components/confirm-dialog";
-import { ImageLightbox } from "@client/components/image-lightbox";
+} from "@/shared/references";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { ImageLightbox } from "@/client/components/image-lightbox";
 import { dirname, join } from "pathe";
-import { isImagePath, getFileName } from "@client/lib/asset-utils";
-import { MediaImage } from "@client/components/media-image";
-import { dirSegments, listDirectory } from "@client/lib/entry-tree";
-import { optimizeImage } from "@client/lib/image-utils";
-import { mediaUrl } from "@client/lib/media";
-import type { MediaFile } from "@shared/types";
-import { isTransactionalMedia } from "@shared/media";
+import { isImagePath, getFileName } from "@/client/lib/asset-utils";
+import { MediaImage } from "@/client/components/media-image";
+import { dirSegments, listDirectory } from "@/client/lib/entry-tree";
+import { optimizeImage } from "@/client/lib/image-utils";
+import { mediaUrl } from "@/client/lib/media";
+import type { MediaFile } from "@/shared/types";
+import { isTransactionalMedia } from "@/shared/media";
 import {
   Dialog,
   DialogContent,
@@ -38,9 +38,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@client/components/ui/dialog";
-import { Button } from "@client/components/ui/button";
-import { Input } from "@client/components/ui/input";
+} from "@/client/components/ui/dialog";
+import { Button } from "@/client/components/ui/button";
+import { Input } from "@/client/components/ui/input";
 
 export const Route = createFileRoute("/media")({
   component: MediaLibrary,

@@ -8,30 +8,30 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@client/components/ui/command";
+} from "@/client/components/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@client/components/ui/dropdown-menu";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@client/components/ui/hover-card";
+} from "@/client/components/ui/dropdown-menu";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/client/components/ui/hover-card";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@client/components/ui/input-group";
+} from "@/client/components/ui/input-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@client/components/ui/select";
-import { Spinner } from "@client/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@client/components/ui/tooltip";
-import { cn } from "@client/lib/utils";
+} from "@/client/components/ui/select";
+import { Spinner } from "@/client/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
+import { cn } from "@/client/lib/utils";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import { CornerDownLeftIcon, ImageIcon, Monitor, PlusIcon, SquareIcon, XIcon } from "lucide-react";
 import { nanoid } from "nanoid";

@@ -1,12 +1,12 @@
 import config from "virtual:astronaut-cms/config";
-import { collectionDataSchema, normalizeDates } from "@shared/collection-schema";
-import { validatePath } from "@shared/validation";
-import { describeMediaRef, mediaPath } from "@shared/media";
-import { entryFilePath, type CollectionManifestEntry } from "@shared/types";
-import { dataLeaves, type ResolvableLeaf } from "@shared/resolvable-leaves";
+import { collectionDataSchema, normalizeDates } from "@/shared/collection-schema";
+import { validatePath } from "@/shared/validation";
+import { describeMediaRef, mediaPath } from "@/shared/media";
+import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
+import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { components } from "virtual:astronaut-cms/user-config";
-import { validateMdx } from "@shared/mdx-validation";
-import { diagnostic, ContentValidationError, type Diagnostic } from "@shared/diagnostics";
+import { validateMdx } from "@/shared/mdx-validation";
+import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 
 /**
  * What the checks need to look things up. The storage backend is passed in

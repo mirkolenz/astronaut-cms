@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMedia, useUploadMedia } from "@client/queries/use-media";
-import { getFileName } from "@client/lib/asset-utils";
-import { MediaImage } from "@client/components/media-image";
-import { optimizeImage } from "@client/lib/image-utils";
-import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { useMedia, useUploadMedia } from "@/client/queries/use-media";
+import { getFileName } from "@/client/lib/asset-utils";
+import { MediaImage } from "@/client/components/media-image";
+import { optimizeImage } from "@/client/lib/image-utils";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@client/components/ui/dialog";
-import { Button } from "@client/components/ui/button";
-import { Input } from "@client/components/ui/input";
+} from "@/client/components/ui/dialog";
+import { Button } from "@/client/components/ui/button";
+import { Input } from "@/client/components/ui/input";
 
 interface MediaPickerDialogProps {
   open: boolean;

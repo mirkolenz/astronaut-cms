@@ -8,10 +8,10 @@
  * nothing at all. Stating it per operation puts it where the write is: one
  * place decides, and every caller of `call` inherits it, surgically.
  */
-import type { OperationInput, OperationName } from "@server/operations";
-import config from "@client/lib/config";
-import { queryClient } from "@client/lib/query-client";
-import { isTransactionalMedia } from "@shared/media";
+import type { OperationInput, OperationName } from "@/server/operations";
+import config from "@/client/lib/config";
+import { queryClient } from "@/client/lib/query-client";
+import { isTransactionalMedia } from "@/shared/media";
 
 type QueryKey = readonly unknown[];
 

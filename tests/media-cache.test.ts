@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "pathe";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { handle } from "@server/handler";
-import { LocalStorage } from "@server/storage/local";
-import { API_MEDIA } from "@shared/auth";
+import { handle } from "@/server/handler";
+import { LocalStorage } from "@/server/storage/local";
+import { API_MEDIA } from "@/shared/auth";
 
 // What the admin may keep, decided by the file rather than by the caller. The
 // version makes a library file's URL change with its contents, so an address

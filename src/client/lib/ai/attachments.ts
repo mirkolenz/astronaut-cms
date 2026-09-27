@@ -1,11 +1,11 @@
 import type { FileUIPart } from "ai";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import config from "@client/lib/config";
-import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@shared/media";
-import { uploadMedia } from "@client/lib/media";
-import { call } from "@client/lib/api";
-import { optimizeImage } from "@client/lib/image-utils";
+import config from "@/client/lib/config";
+import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@/shared/media";
+import { uploadMedia } from "@/client/lib/media";
+import { call } from "@/client/lib/api";
+import { optimizeImage } from "@/client/lib/image-utils";
 
 const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 

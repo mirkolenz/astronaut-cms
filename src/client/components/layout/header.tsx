@@ -1,11 +1,11 @@
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { toLabel } from "@client/lib/to-label";
-import { baseName, dirSegments, parentDir } from "@client/lib/entry-tree";
-import { joinLocale, splitLocale } from "@shared/i18n";
-import { useEntries } from "@client/queries/use-entries";
-import { useCollectionI18n } from "@client/lib/content-i18n";
-import { UiLocaleMenu } from "@client/components/layout/ui-locale-menu";
+import { toLabel } from "@/client/lib/to-label";
+import { baseName, dirSegments, parentDir } from "@/client/lib/entry-tree";
+import { joinLocale, splitLocale } from "@/shared/i18n";
+import { useEntries } from "@/client/queries/use-entries";
+import { useCollectionI18n } from "@/client/lib/content-i18n";
+import { UiLocaleMenu } from "@/client/components/layout/ui-locale-menu";
 
 interface BreadcrumbSegment {
   label: string;

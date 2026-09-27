@@ -11,7 +11,7 @@
  * the live values. {@link setConfig} runs in `bootstrap.ts` before the admin
  * chunk is imported, which is what makes a read at module scope safe.
  */
-import type { CmsClientConfig } from "@integration/types";
+import type { CmsClientConfig } from "@/integration/types";
 
 const config = {} as CmsClientConfig;
 

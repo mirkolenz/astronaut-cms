@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { isStaleWrite } from "@client/lib/api";
+import { isStaleWrite } from "@/client/lib/api";
 
 /**
  * How a failed write reads to the editor.

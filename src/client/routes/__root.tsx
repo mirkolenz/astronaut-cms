@@ -1,12 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Sidebar } from "@client/components/layout/sidebar";
-import { Header } from "@client/components/layout/header";
-import { PublishBar } from "@client/components/publish-bar";
-import { Toaster } from "@client/components/toast";
-import { Button } from "@client/components/ui/button";
-import { TooltipProvider } from "@client/components/ui/tooltip";
+import { Sidebar } from "@/client/components/layout/sidebar";
+import { Header } from "@/client/components/layout/header";
+import { PublishBar } from "@/client/components/publish-bar";
+import { Toaster } from "@/client/components/toast";
+import { Button } from "@/client/components/ui/button";
+import { TooltipProvider } from "@/client/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootLayout,

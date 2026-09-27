@@ -1,6 +1,6 @@
 import { Chat } from "@ai-sdk/react";
-import type { CmsUIMessage } from "@client/lib/ai/agent";
-import { cmsTransport } from "@client/lib/ai/transport";
+import type { CmsUIMessage } from "@/client/lib/ai/agent";
+import { cmsTransport } from "@/client/lib/ai/transport";
 
 /** Starts a new conversation on the shared Chat. */
 export function clearChat(): void {

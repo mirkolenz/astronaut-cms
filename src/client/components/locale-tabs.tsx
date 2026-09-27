@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { joinLocale, localeLabel } from "@shared/i18n";
-import { Button } from "@client/components/ui/button";
+import { joinLocale, localeLabel } from "@/shared/i18n";
+import { Button } from "@/client/components/ui/button";
 
 interface LocaleTabsProps {
   collection: string;

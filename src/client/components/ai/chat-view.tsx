@@ -2,20 +2,20 @@ import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot } from "lucide-react";
 import { isStaticToolUIPart } from "ai";
-import type { CmsUIMessage } from "@client/lib/ai/agent";
+import type { CmsUIMessage } from "@/client/lib/ai/agent";
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-} from "@client/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@client/components/ai-elements/message";
-import { ReasoningTrace } from "@client/components/ai/reasoning-trace";
-import { ToolCall } from "@client/components/ai/tool-call";
-import { Button } from "@client/components/ui/button";
-import { Spinner } from "@client/components/ui/spinner";
-import { getChat } from "@client/lib/ai/chat";
-import { cn } from "@client/lib/utils";
+} from "@/client/components/ai-elements/conversation";
+import { Message, MessageContent, MessageResponse } from "@/client/components/ai-elements/message";
+import { ReasoningTrace } from "@/client/components/ai/reasoning-trace";
+import { ToolCall } from "@/client/components/ai/tool-call";
+import { Button } from "@/client/components/ui/button";
+import { Spinner } from "@/client/components/ui/spinner";
+import { getChat } from "@/client/lib/ai/chat";
+import { cn } from "@/client/lib/utils";
 
 /**
  * Subscribes to the shared Chat, so every view that renders it stays in sync.

@@ -18,13 +18,13 @@ import type {
   OperationName,
   OperationOutput,
   OperationResult,
-} from "@server/operations";
-import { API_LOGOUT, API_RPC, MAX_BATCH_OPS } from "@shared/auth";
-import { ContentValidationError, type Diagnostic } from "@shared/diagnostics";
-import { WRITE_HEADER } from "@shared/http";
-import { isWriteOperation } from "@shared/operations";
-import { invalidate, keysFor } from "@client/lib/query-keys";
-import { apiFetch, apiUrl } from "@client/lib/routes";
+} from "@/server/operations";
+import { API_LOGOUT, API_RPC, MAX_BATCH_OPS } from "@/shared/auth";
+import { ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
+import { WRITE_HEADER } from "@/shared/http";
+import { isWriteOperation } from "@/shared/operations";
+import { invalidate, keysFor } from "@/client/lib/query-keys";
+import { apiFetch, apiUrl } from "@/client/lib/routes";
 
 /** A refusal from the CMS server, keeping the status the UI reacts to. */
 export class CmsError extends Error {

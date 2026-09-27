@@ -8,7 +8,7 @@ import {
   issue,
   verify,
   type Session,
-} from "@server/session";
+} from "@/server/session";
 
 // The session cookie is now the only thing standing between a visitor and the
 // repository, so these pin the three properties it has to have: it cannot be

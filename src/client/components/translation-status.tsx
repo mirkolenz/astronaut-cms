@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { localeLabel, translationsOf } from "@shared/i18n";
-import type { CollectionI18n } from "@client/lib/content-i18n";
-import { Badge } from "@client/components/ui/badge";
+import { localeLabel, translationsOf } from "@/shared/i18n";
+import type { CollectionI18n } from "@/client/lib/content-i18n";
+import { Badge } from "@/client/components/ui/badge";
 
 interface TranslationStatusProps {
   i18n: CollectionI18n;

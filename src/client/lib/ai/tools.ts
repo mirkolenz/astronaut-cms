@@ -8,7 +8,7 @@
  * itself, which is why this binding does not.
  */
 import { tool, type ToolSet } from "ai";
-import { cmsToolCatalog } from "@client/lib/tools";
+import { cmsToolCatalog } from "@/client/lib/tools";
 
 export const cmsTools: ToolSet = Object.fromEntries(
   Object.entries(cmsToolCatalog).map(([name, cmsTool]) => [

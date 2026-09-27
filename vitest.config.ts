@@ -22,11 +22,7 @@ export default defineConfig({
         import.meta.dirname,
         "tests/fixtures/local-storage.ts",
       ),
-      "@client": resolve(import.meta.dirname, "src/client"),
-      "@server": resolve(import.meta.dirname, "src/server"),
-      "@shared": resolve(import.meta.dirname, "src/shared"),
-      "@integration": resolve(import.meta.dirname, "src/integration"),
-      "@assets": resolve(import.meta.dirname, "assets"),
+      "@": resolve(import.meta.dirname, "src"),
     },
   },
   test: {

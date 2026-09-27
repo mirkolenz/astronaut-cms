@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateMdx } from "@shared/mdx-validation";
+import { validateMdx } from "@/shared/mdx-validation";
 import { components } from "./fixtures/user-config";
 
 // Asset props on MDX components are plain strings in the schema, so a model can

@@ -7,9 +7,9 @@ import {
   type CollectionManifest,
   type CollectionManifestEntry,
   type EntryFormat,
-} from "@shared/types";
-import type { FieldSchema } from "@shared/field-schema";
-import { fieldSchemaToZod } from "@shared/field-to-zod";
+} from "@/shared/types";
+import type { FieldSchema } from "@/shared/field-schema";
+import { fieldSchemaToZod } from "@/shared/field-to-zod";
 
 /**
  * Collection-shaped Zod schemas, built on the shared {@link fieldSchemaToZod}

@@ -1,7 +1,7 @@
 import "./types";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import config from "@client/lib/config";
+import config from "@/client/lib/config";
 import en from "./locales/en";
 import de from "./locales/de";
 

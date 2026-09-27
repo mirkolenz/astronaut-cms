@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { discardChanges, readChanges } from "@server/storage/git-changes";
+import { discardChanges, readChanges } from "@/server/storage/git-changes";
 
 // The local backend derives its changeset from `git status`, which collapses a
 // directory git has never seen into a single `dir/` record. That record names no

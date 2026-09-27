@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, ApiError } from "@server/storage/api";
-import { GitHubStorage } from "@server/storage/github";
-import { GitLabStorage } from "@server/storage/gitlab";
-import { getErrorStatus } from "@server/storage/types";
-import type { StorageOptions } from "@server/storage/base";
+import { ApiClient, ApiError } from "@/server/storage/api";
+import { GitHubStorage } from "@/server/storage/github";
+import { GitLabStorage } from "@/server/storage/gitlab";
+import { getErrorStatus, StaleWriteError } from "@/server/storage/types";
+import type { StorageOptions } from "@/server/storage/base";
 import collections from "virtual:astronaut-cms/collections";
 
 // The provider SDKs were 1.1 MB of runtime JavaScript for twenty-nine endpoints,

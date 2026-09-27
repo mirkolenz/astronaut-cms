@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { INVALIDATIONS } from "@client/lib/query-keys";
-import { operations } from "@server/operations";
-import { ContentValidationError, diagnostic } from "@shared/diagnostics";
-import { READ_ONLY_OPERATIONS, isWriteOperation } from "@shared/operations";
+import { INVALIDATIONS } from "@/client/lib/query-keys";
+import { operations } from "@/server/operations";
+import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
+import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
 import collections from "virtual:astronaut-cms/collections";
-import { createCmsTools } from "@shared/tools/catalog";
-import { TOOL_NAME_PATTERN, unexposable } from "@shared/tools/exposable";
-import type { CmsCall, CmsToolSet, ToolConfig } from "@shared/tools/types";
+import { createCmsTools } from "@/shared/tools/catalog";
+import { TOOL_NAME_PATTERN, unexposable } from "@/shared/tools/exposable";
+import type { CmsCall, CmsToolSet, ToolConfig } from "@/shared/tools/types";
 
 const config: ToolConfig = {
   mediaBackend: { type: "repo" },

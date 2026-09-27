@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMultiEntryFile, serializeMultiEntryFile } from "@shared/content-parser";
+import { parseMultiEntryFile, serializeMultiEntryFile } from "@/shared/content-parser";
 
 // An array-backed file() collection keys its entries by an `id` field embedded in
 // each item, so the map key and the data can disagree. The key is the entry id,

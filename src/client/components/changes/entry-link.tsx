@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Button } from "@client/components/ui/button";
+import { Button } from "@/client/components/ui/button";
 
 /** Jumps to an entry's editor, from a change row or from a tool call in the chat. */
 export function EntryLink({ collection, entryId }: { collection: string; entryId: string }) {

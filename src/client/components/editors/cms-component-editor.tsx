@@ -17,18 +17,18 @@ import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { findComponent } from "@shared/component-lookup";
-import { isRequired, objectShape } from "@shared/field-schema";
-import { attributeValue, valueToAttribute } from "@shared/mdx-attributes";
+import { findComponent } from "@/shared/component-lookup";
+import { isRequired, objectShape } from "@/shared/field-schema";
+import { attributeValue, valueToAttribute } from "@/shared/mdx-attributes";
 import { FieldRenderer, getDefaultValue } from "./field-renderer";
 import { EditorCard } from "./editor-card";
-import { Button } from "@client/components/ui/button";
+import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@client/components/ui/dropdown-menu";
+} from "@/client/components/ui/dropdown-menu";
 
 // ── MDAST helpers ───────────────────────────────────────────────────
 

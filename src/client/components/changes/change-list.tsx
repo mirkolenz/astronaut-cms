@@ -1,16 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { ChevronRight, FilePlus2, FilePen, FileX2, FileSymlink } from "lucide-react";
-import type { ChangeKind, FileChange } from "@shared/types";
-import { describeChange } from "@client/lib/changes";
-import { CodeBlock } from "@client/components/ai-elements/code-block";
+import type { ChangeKind, FileChange } from "@/shared/types";
+import { describeChange } from "@/client/lib/changes";
+import { CodeBlock } from "@/client/components/ai-elements/code-block";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@client/components/ui/collapsible";
-import { Badge } from "@client/components/ui/badge";
+} from "@/client/components/ui/collapsible";
+import { Badge } from "@/client/components/ui/badge";
 import { EntryLink } from "./entry-link";
-import type en from "@client/i18n/locales/en";
+import type en from "@/client/i18n/locales/en";
 
 interface KindPresentation {
   icon: typeof FilePen;

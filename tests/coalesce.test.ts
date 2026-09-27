@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Coalesced } from "@shared/coalesce";
+import { Coalesced } from "@/shared/coalesce";
 
 // Both providers rotate the refresh token, so a second concurrent exchange of
 // the same one does not just waste a call, it invalidates the first. This is the

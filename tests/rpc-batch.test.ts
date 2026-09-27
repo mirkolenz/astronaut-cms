@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RateLimiter } from "@shared/rate-limit";
+import { RateLimiter } from "@/shared/rate-limit";
 
 // Calls made in the same tick travel as one request, which is what turns a
 // navigation's five queries into one function invocation. These pin the two
@@ -38,7 +38,7 @@ describe("batched calls", () => {
   it("sends one request and answers each caller from its own result", async () => {
     stubFetch((ops) => ({ body: ops.map((_, index) => ({ ok: true, data: index })) }));
 
-    const { call } = await import("@client/lib/api");
+    const { call } = await import("@/client/lib/api");
     const answers = await Promise.all([
       call("getStatus", {}),
       call("getChanges", {}),
@@ -65,7 +65,7 @@ describe("batched calls", () => {
       ],
     }));
 
-    const { call, isMergeConflict } = await import("@client/lib/api");
+    const { call, isMergeConflict } = await import("@/client/lib/api");
     const [failed, succeeded] = await Promise.allSettled([
       call("publish", {}),
       call("discard", {}),

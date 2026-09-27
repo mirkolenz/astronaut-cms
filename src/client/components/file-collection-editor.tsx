@@ -8,22 +8,22 @@ import {
   useDeleteEntry,
   useFileLayout,
   useReorderFileEntries,
-} from "@client/queries/use-entries";
-import { useCollections } from "@client/queries/use-collections";
-import { useWriteError } from "@client/lib/write-error";
-import { FieldRenderer } from "@client/components/editors/field-renderer";
-import { isRequired, objectShape, type FieldSchema } from "@shared/field-schema";
-import { schemaDefaults } from "@shared/collection-schema";
-import { asEntryFormat, type EntryFormat } from "@shared/types";
-import { ConfirmDialog } from "@client/components/confirm-dialog";
-import { NewEntryDialog } from "@client/components/new-entry-dialog";
-import { ErrorBanner } from "@client/components/error-banner";
-import { EntryContextProvider } from "@client/lib/entry-context";
-import { toast } from "@client/components/toast";
-import { toLabel } from "@client/lib/to-label";
-import { getFileExtension } from "@shared/content-parser";
-import { Button } from "@client/components/ui/button";
-import { Badge } from "@client/components/ui/badge";
+} from "@/client/queries/use-entries";
+import { useCollections } from "@/client/queries/use-collections";
+import { useWriteError } from "@/client/lib/write-error";
+import { FieldRenderer } from "@/client/components/editors/field-renderer";
+import { isRequired, objectShape, type FieldSchema } from "@/shared/field-schema";
+import { schemaDefaults } from "@/shared/collection-schema";
+import { asEntryFormat, type EntryFormat } from "@/shared/types";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { NewEntryDialog } from "@/client/components/new-entry-dialog";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { EntryContextProvider } from "@/client/lib/entry-context";
+import { toast } from "@/client/components/toast";
+import { toLabel } from "@/client/lib/to-label";
+import { getFileExtension } from "@/shared/content-parser";
+import { Button } from "@/client/components/ui/button";
+import { Badge } from "@/client/components/ui/badge";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {

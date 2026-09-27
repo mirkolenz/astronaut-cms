@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Languages, Plus } from "lucide-react";
-import { localeLabel, translationsOf } from "@shared/i18n";
-import type { CollectionI18n } from "@client/lib/content-i18n";
-import { Button } from "@client/components/ui/button";
+import { localeLabel, translationsOf } from "@/shared/i18n";
+import type { CollectionI18n } from "@/client/lib/content-i18n";
+import { Button } from "@/client/components/ui/button";
 
 interface TranslationSwitcherProps {
   collection: string;

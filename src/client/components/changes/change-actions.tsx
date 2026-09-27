@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import config from "@client/lib/config";
+import config from "@/client/lib/config";
 import type { UseMutationResult } from "@tanstack/react-query";
 import {
   useBranchStatus,
@@ -8,12 +8,12 @@ import {
   usePublish,
   useUpdate,
   useDiscard,
-} from "@client/queries/use-entries";
-import { isMergeConflict } from "@client/lib/api";
-import { buildPreviewUrl } from "@client/lib/preview-url";
-import { ConfirmDialog } from "@client/components/confirm-dialog";
-import { Button } from "@client/components/ui/button";
-import { toast } from "@client/components/toast";
+} from "@/client/queries/use-entries";
+import { isMergeConflict } from "@/client/lib/api";
+import { buildPreviewUrl } from "@/client/lib/preview-url";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { Button } from "@/client/components/ui/button";
+import { toast } from "@/client/components/toast";
 
 /**
  * Publish, update and discard for the changeset as a whole. Nothing here acts on

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useChanges } from "@client/queries/use-entries";
-import { ChangeList } from "@client/components/changes/change-list";
-import { ErrorBanner } from "@client/components/error-banner";
-import { Spinner } from "@client/components/ui/spinner";
+import { useChanges } from "@/client/queries/use-entries";
+import { ChangeList } from "@/client/components/changes/change-list";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { Spinner } from "@/client/components/ui/spinner";
 
 export const Route = createFileRoute("/changes")({
   component: ChangesPage,

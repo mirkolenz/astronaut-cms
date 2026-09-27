@@ -1,15 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { Languages } from "lucide-react";
-import { localeLabel } from "@shared/i18n";
-import { setUiLocale, uiLocales } from "@client/i18n";
-import { Button } from "@client/components/ui/button";
+import { localeLabel } from "@/shared/i18n";
+import { setUiLocale, uiLocales } from "@/client/i18n";
+import { Button } from "@/client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@client/components/ui/dropdown-menu";
+} from "@/client/components/ui/dropdown-menu";
 
 /** Admin UI language. Unrelated to the site's content languages. */
 export function UiLocaleMenu() {

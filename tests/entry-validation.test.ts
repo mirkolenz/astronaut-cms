@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { assertEntryWritable, validateAgainstSchema } from "@server/validation";
-import { ContentValidationError } from "@shared/diagnostics";
-import type { CollectionManifestEntry } from "@shared/types";
+import { assertEntryWritable, validateAgainstSchema } from "@/server/validation";
+import { ContentValidationError } from "@/shared/diagnostics";
+import type { CollectionManifestEntry } from "@/shared/types";
 
 // An entry that does not match its collection schema is fatal to the site: Astro
 // throws while syncing content and the dev server exits. These pin the two ways
@@ -100,7 +100,7 @@ describe("assertEntryWritable", () => {
 // "Unknown collection" instead of being validated.
 describe("storage knows the content model", () => {
   it("validates a write rather than rejecting the collection", async () => {
-    const { createStorage } = await import("@server/storage");
+    const { createStorage } = await import("@/server/storage");
     const storage = createStorage({ provider: "local", token: "", login: "test" });
 
     await expect(

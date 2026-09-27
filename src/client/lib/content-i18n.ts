@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import type { EntryMeta } from "@shared/types";
-import { type ContentI18n, isLocalized, joinLocale, localeOf, splitLocale } from "@shared/i18n";
-import config from "@client/lib/config";
+import type { EntryMeta } from "@/shared/types";
+import { type ContentI18n, isLocalized, joinLocale, localeOf, splitLocale } from "@/shared/i18n";
+import config from "@/client/lib/config";
 
 export interface CollectionI18n extends ContentI18n {
   /** Every entry id, prepared once so translations can be paired per row. */

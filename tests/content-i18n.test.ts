@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isLocalized, joinLocale, splitLocale, translationsOf } from "@shared/i18n";
-import { resolveContentI18n } from "@integration/resolve-config";
+import { isLocalized, joinLocale, splitLocale, translationsOf } from "@/shared/i18n";
+import { resolveContentI18n } from "@/integration/resolve-config";
 
 const locales = ["en", "de"];
 

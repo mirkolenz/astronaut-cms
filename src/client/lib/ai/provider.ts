@@ -1,8 +1,8 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { apiFetch, apiUrl } from "@client/lib/routes";
-import { AI_API_BASE } from "@shared/ai";
-import { aiConfig } from "@client/lib/ai/config";
-import { useAiKeyStore } from "@client/stores/ai-key-store";
+import { apiFetch, apiUrl } from "@/client/lib/routes";
+import { AI_API_BASE } from "@/shared/ai";
+import { aiConfig } from "@/client/lib/ai/config";
+import { useAiKeyStore } from "@/client/stores/ai-key-store";
 
 /**
  * The editor's own key, attached per request rather than built into the

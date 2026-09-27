@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { collectReferencedAssets } from "@integration/collect-assets";
-import type { ComponentSchemaMap } from "@shared/field-schema";
-import type { CollectionManifest } from "@shared/types";
+import { collectReferencedAssets } from "@/integration/collect-assets";
+import type { ComponentSchemaMap } from "@/shared/field-schema";
+import type { CollectionManifest } from "@/shared/types";
 
 // A production build bundles only the assets content can reach, and every one of
 // them is reached through a schema: a collection field or a declared MDX

@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChatComposer } from "@client/components/ai/chat-composer";
-import { ChatError, ChatMessages, useCmsChat } from "@client/components/ai/chat-view";
-import { AiKeyGate, AiKeyReset } from "@client/components/ai/key-gate";
-import { aiConfig } from "@client/lib/ai/config";
-import { useAiKeyStore } from "@client/stores/ai-key-store";
+import { ChatComposer } from "@/client/components/ai/chat-composer";
+import { ChatError, ChatMessages, useCmsChat } from "@/client/components/ai/chat-view";
+import { AiKeyGate, AiKeyReset } from "@/client/components/ai/key-gate";
+import { aiConfig } from "@/client/lib/ai/config";
+import { useAiKeyStore } from "@/client/stores/ai-key-store";
 
 export const Route = createFileRoute("/assistant")({
   component: AssistantPage,

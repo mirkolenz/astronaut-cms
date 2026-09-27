@@ -29,7 +29,7 @@ import {
   DiffSourceToggleWrapper,
 } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
-import { toJsxDescriptors } from "@client/lib/component-descriptors";
+import { toJsxDescriptors } from "@/client/lib/component-descriptors";
 import { CmsImageDialog } from "./cms-image-dialog";
 import { InsertCmsComponent } from "./insert-cms-component";
 

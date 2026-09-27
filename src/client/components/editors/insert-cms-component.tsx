@@ -1,14 +1,14 @@
 import { usePublisher, insertJsx$ } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { objectShape } from "@shared/field-schema";
+import { objectShape } from "@/shared/field-schema";
 import { getDefaultValue } from "./field-renderer";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@client/components/ui/dropdown-menu";
+} from "@/client/components/ui/dropdown-menu";
 
 /**
  * Builds default JSX props from a Zod schema for inserting a new component.

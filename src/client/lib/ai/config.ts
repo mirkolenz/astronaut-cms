@@ -1,4 +1,4 @@
-import rawConfig from "@client/lib/config";
+import rawConfig from "@/client/lib/config";
 
 /** AI assistant settings, or undefined when the assistant is disabled. */
 export const aiConfig = rawConfig.ai;

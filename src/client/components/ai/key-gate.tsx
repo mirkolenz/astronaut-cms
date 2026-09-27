@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAiKeyStore } from "@client/stores/ai-key-store";
-import { Button } from "@client/components/ui/button";
-import { Input } from "@client/components/ui/input";
-import { Label } from "@client/components/ui/label";
+import { useAiKeyStore } from "@/client/stores/ai-key-store";
+import { Button } from "@/client/components/ui/button";
+import { Input } from "@/client/components/ui/input";
+import { Label } from "@/client/components/ui/label";
 
 /**
  * Where an editor supplies their own gateway key, in the deployments that ask

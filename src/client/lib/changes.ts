@@ -1,7 +1,7 @@
 import collections from "virtual:astronaut-cms/collections";
-import config from "@client/lib/config";
-import { stripExtension, stripMediaPrefix } from "@shared/paths";
-import { collectionBase, type FileChange } from "@shared/types";
+import config from "@/client/lib/config";
+import { stripExtension, stripMediaPrefix } from "@/shared/paths";
+import { collectionBase, type FileChange } from "@/shared/types";
 
 /** A changed file mapped back onto the content model the user recognizes. */
 export interface DescribedChange extends FileChange {

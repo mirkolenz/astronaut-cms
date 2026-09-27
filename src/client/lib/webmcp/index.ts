@@ -21,10 +21,10 @@
  */
 import { useEffect } from "react";
 import { z } from "zod";
-import config from "@client/lib/config";
-import { cmsToolCatalog } from "@client/lib/tools";
-import { TOOL_NAME_PATTERN } from "@shared/tools/exposable";
-import type { AnyCmsTool, ToolAnnotations } from "@shared/tools/types";
+import config from "@/client/lib/config";
+import { cmsToolCatalog } from "@/client/lib/tools";
+import { TOOL_NAME_PATTERN } from "@/shared/tools/exposable";
+import type { AnyCmsTool, ToolAnnotations } from "@/shared/tools/types";
 import type { WebmcpModelContext, WebmcpToolAnnotations, WebmcpToolResult } from "./types";
 
 const asResult = (value: unknown): WebmcpToolResult => ({

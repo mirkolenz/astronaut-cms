@@ -1,10 +1,10 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { NotebookPen, BarChart3 } from "lucide-react";
-import { useCollections } from "@client/queries/use-collections";
-import { ErrorBanner } from "@client/components/error-banner";
-import { toLabel } from "@client/lib/to-label";
-import { objectShape } from "@shared/field-schema";
+import { useCollections } from "@/client/queries/use-collections";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { toLabel } from "@/client/lib/to-label";
+import { objectShape } from "@/shared/field-schema";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,

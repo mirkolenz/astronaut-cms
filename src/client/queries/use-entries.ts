@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { call } from "@client/lib/api";
-import { cmsKeys } from "@client/lib/query-keys";
-import type { EntryContent, SaveEntryRequest } from "@shared/types";
+import { call } from "@/client/lib/api";
+import { cmsKeys } from "@/client/lib/query-keys";
+import type { EntryContent, SaveEntryRequest } from "@/shared/types";
 
 // None of these mutations invalidates anything: what a write ages is stated once
 // per operation in `lib/query-keys.ts` and applied by `call` itself, so the

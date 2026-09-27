@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import config from "@client/lib/config";
-import { signOut } from "@client/lib/api";
-import { useBranchStatus, useChanges } from "@client/queries/use-entries";
-import { ChangeActions } from "@client/components/changes/change-actions";
-import { Button } from "@client/components/ui/button";
+import config from "@/client/lib/config";
+import { signOut } from "@/client/lib/api";
+import { useBranchStatus, useChanges } from "@/client/queries/use-entries";
+import { ChangeActions } from "@/client/components/changes/change-actions";
+import { Button } from "@/client/components/ui/button";
 
 /**
  * Standing summary of the pending changeset, with the actions that resolve it.

@@ -1,22 +1,22 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { EntryFormat } from "@shared/types";
+import type { EntryFormat } from "@/shared/types";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEntries } from "@client/queries/use-entries";
-import { useCollections } from "@client/queries/use-collections";
-import { NewEntryDialog } from "@client/components/new-entry-dialog";
-import { ErrorBanner } from "@client/components/error-banner";
-import { toLabel } from "@client/lib/to-label";
-import { baseName, listDirectory } from "@client/lib/entry-tree";
-import { localeLabel, splitLocale } from "@shared/i18n";
-import { browseLocation, countIn, useCollectionI18n } from "@client/lib/content-i18n";
-import { LocaleTabs } from "@client/components/locale-tabs";
-import { TranslationStatus } from "@client/components/translation-status";
-import { extractFormatsFromLoader } from "@shared/types";
-import { FileCollectionEditor } from "@client/components/file-collection-editor";
-import { Button } from "@client/components/ui/button";
-import { Badge } from "@client/components/ui/badge";
+import { useEntries } from "@/client/queries/use-entries";
+import { useCollections } from "@/client/queries/use-collections";
+import { NewEntryDialog } from "@/client/components/new-entry-dialog";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { toLabel } from "@/client/lib/to-label";
+import { baseName, listDirectory } from "@/client/lib/entry-tree";
+import { localeLabel, splitLocale } from "@/shared/i18n";
+import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
+import { LocaleTabs } from "@/client/components/locale-tabs";
+import { TranslationStatus } from "@/client/components/translation-status";
+import { extractFormatsFromLoader } from "@/shared/types";
+import { FileCollectionEditor } from "@/client/components/file-collection-editor";
+import { Button } from "@/client/components/ui/button";
+import { Badge } from "@/client/components/ui/badge";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({

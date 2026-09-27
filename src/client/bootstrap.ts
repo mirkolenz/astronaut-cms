@@ -10,9 +10,9 @@
  * Keep this module small and keep its static imports trivial. Anything imported
  * at the top lands in the shell's chunk and is served to anyone who asks.
  */
-import { API_SESSION, type SessionState } from "@shared/auth";
-import { setConfig } from "@client/lib/config";
-import { apiFetch, apiUrl } from "@client/lib/routes";
+import { API_SESSION, type SessionState } from "@/shared/auth";
+import { setConfig } from "@/client/lib/config";
+import { apiFetch, apiUrl } from "@/client/lib/routes";
 
 const root = document.getElementById("astronaut-cms-root");
 const panel = document.getElementById("astronaut-cms-signin");
@@ -62,7 +62,7 @@ async function start(): Promise<void> {
   setConfig(state.config);
   document.documentElement.lang = state.config.locale;
 
-  const { mount } = await import("@client/index");
+  const { mount } = await import("@/client/index");
 
   mount(root);
 }

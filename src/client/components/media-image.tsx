@@ -1,7 +1,7 @@
 import { extname } from "pathe";
-import { isImagePath } from "@client/lib/asset-utils";
-import { mediaUrl } from "@client/lib/media";
-import type { MediaFile } from "@shared/types";
+import { isImagePath } from "@/client/lib/asset-utils";
+import { mediaUrl } from "@/client/lib/media";
+import type { MediaFile } from "@/shared/types";
 
 /**
  * A library file's thumbnail, or its file type when it has no preview.

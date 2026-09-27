@@ -15,12 +15,12 @@
  * every visit: the URL changes when the bytes do, so the answer can be cached
  * for good instead of for minutes.
  */
-import config from "@client/lib/config";
-import { API_MEDIA, API_UPLOAD } from "@shared/auth";
-import { assertWithinSizeLimit, encodeKeyPath, remoteMediaUrl } from "@shared/media";
-import { call, unwrap } from "@client/lib/api";
-import { invalidateMedia } from "@client/lib/query-keys";
-import { apiFetch, apiUrl } from "@client/lib/routes";
+import config from "@/client/lib/config";
+import { API_MEDIA, API_UPLOAD } from "@/shared/auth";
+import { assertWithinSizeLimit, encodeKeyPath, remoteMediaUrl } from "@/shared/media";
+import { call, unwrap } from "@/client/lib/api";
+import { invalidateMedia } from "@/client/lib/query-keys";
+import { apiFetch, apiUrl } from "@/client/lib/routes";
 
 /**
  * Where the admin loads one library file from. `version` comes from the listing

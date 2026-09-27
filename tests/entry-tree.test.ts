@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { baseName, dirSegments, listDirectory, parentDir } from "@client/lib/entry-tree";
-import type { EntryMeta } from "@shared/types";
+import { baseName, dirSegments, listDirectory, parentDir } from "@/client/lib/entry-tree";
+import type { EntryMeta } from "@/shared/types";
 
 const entries: EntryMeta[] = [
   "getting-started",

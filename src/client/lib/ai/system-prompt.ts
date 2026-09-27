@@ -1,5 +1,5 @@
-import { contentModel } from "@shared/tools/content-model";
-import config from "@client/lib/config";
+import { contentModel } from "@/shared/tools/content-model";
+import config from "@/client/lib/config";
 
 // Compact view of the content model: which collections exist, their kind, and the
 // file formats they accept. Each collection's field schema is not repeated here,

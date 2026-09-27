@@ -5,9 +5,9 @@
  * projects this one object, so a tool added to the catalog reaches all of them
  * and none of them can offer something the others do not.
  */
-import { call } from "@client/lib/api";
-import config from "@client/lib/config";
-import { createCmsTools } from "@shared/tools/catalog";
+import { call } from "@/client/lib/api";
+import config from "@/client/lib/config";
+import { createCmsTools } from "@/shared/tools/catalog";
 
 // `config` is filled in place by `bootstrap.ts` before the admin chunk is
 // imported, and every tool reads it when it runs rather than now, so binding it

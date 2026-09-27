@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
-import type { CmsToolUIPart } from "@client/lib/ai/agent";
-import { isRefusal } from "@shared/tools/types";
-import type en from "@client/i18n/locales/en";
+import type { CmsToolUIPart } from "@/client/lib/ai/agent";
+import { isRefusal } from "@/shared/tools/types";
+import type en from "@/client/i18n/locales/en";
 
 export interface ToolSummary {
   /** One line naming the change, in the vocabulary of the content model. */

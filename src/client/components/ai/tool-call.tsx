@@ -6,10 +6,10 @@ import {
   ToolHeader,
   ToolInput,
   ToolOutput,
-} from "@client/components/ai-elements/tool";
-import { EntryLink } from "@client/components/changes/entry-link";
-import { describeToolCall } from "@client/lib/ai/tool-summary";
-import type { CmsToolUIPart } from "@client/lib/ai/agent";
+} from "@/client/components/ai-elements/tool";
+import { EntryLink } from "@/client/components/changes/entry-link";
+import { describeToolCall } from "@/client/lib/ai/tool-summary";
+import type { CmsToolUIPart } from "@/client/lib/ai/agent";
 
 interface ToolCallProps {
   part: CmsToolUIPart;

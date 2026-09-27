@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { dispatch, operations } from "@server/operations";
-import type { RequestContext } from "@server/context";
-import { HttpError } from "@server/errors";
-import { READ_ONLY_OPERATIONS, isWriteOperation } from "@shared/operations";
-import { ContentValidationError } from "@shared/diagnostics";
+import { dispatch, operations } from "@/server/operations";
+import type { RequestContext } from "@/server/context";
+import { HttpError } from "@/server/errors";
+import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
+import { ContentValidationError } from "@/shared/diagnostics";
 
 // The operation registry is the security boundary: a compromised admin can call
 // anything here and nothing else. These pin the two properties that makes true —

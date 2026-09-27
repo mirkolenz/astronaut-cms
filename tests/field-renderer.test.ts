@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import type { FieldSchema } from "@shared/field-schema";
-import { FieldRenderer, getDefaultValue } from "@client/components/editors/field-renderer";
+import type { FieldSchema } from "@/shared/field-schema";
+import { FieldRenderer, getDefaultValue } from "@/client/components/editors/field-renderer";
 
 // FieldRenderer dispatches each FieldSchema variant to a dedicated editor and
 // uses no hooks itself, so we can call it as a plain function and read which

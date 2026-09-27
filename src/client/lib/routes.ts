@@ -7,7 +7,7 @@
  * config is delivered by the probe, and the probe has to be addressed first.
  */
 import routing from "virtual:astronaut-cms/routing";
-import { conformTrailingSlash, joinUrl } from "@shared/url";
+import { conformTrailingSlash, joinUrl } from "@/shared/url";
 
 /** Absolute URL for a CMS API path, in the form the host's `trailingSlash` makes Astro match. */
 export function apiUrl(path: string): string {

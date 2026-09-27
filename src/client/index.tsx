@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { AdminApp } from "@client/app";
+import { AdminApp } from "@/client/app";
 
 // Follow the OS color scheme. Runs at module load (before render) so the dark
 // class is set as early as possible; a CSS prefers-color-scheme fallback in

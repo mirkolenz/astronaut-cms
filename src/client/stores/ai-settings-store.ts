@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { aiConfig } from "@client/lib/ai/config";
-import type { ReasoningEffort } from "@client/lib/ai/reasoning";
+import { aiConfig } from "@/client/lib/ai/config";
+import type { ReasoningEffort } from "@/client/lib/ai/reasoning";
 
 interface AiSettingsState {
   model: string;

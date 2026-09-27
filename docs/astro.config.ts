@@ -11,7 +11,7 @@ export default defineConfig({
     starlight({
       title: "Astronaut CMS",
       logo: {
-        src: "../assets/logo.png",
+        src: "../src/brand/logo.png",
       },
       favicon: "/favicon.png",
       social: [

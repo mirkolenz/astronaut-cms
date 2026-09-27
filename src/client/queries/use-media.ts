@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import config from "@client/lib/config";
-import { mediaPath } from "@shared/media";
-import type { ReferenceIndex } from "@shared/references";
-import { call } from "@client/lib/api";
-import { cmsKeys } from "@client/lib/query-keys";
-import { mediaUrl, uploadMedia } from "@client/lib/media";
-import { useEntryContext } from "@client/lib/entry-context";
+import config from "@/client/lib/config";
+import { mediaPath } from "@/shared/media";
+import type { ReferenceIndex } from "@/shared/references";
+import { call } from "@/client/lib/api";
+import { cmsKeys } from "@/client/lib/query-keys";
+import { mediaUrl, uploadMedia } from "@/client/lib/media";
+import { useEntryContext } from "@/client/lib/entry-context";
 
 /**
  * The reference scan. Derived from entries, not from the library, so it

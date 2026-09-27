@@ -1,12 +1,12 @@
 "use client";
 
-import { Badge } from "@client/components/ui/badge";
+import { Badge } from "@/client/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@client/components/ui/collapsible";
-import { cn } from "@client/lib/utils";
+} from "@/client/components/ui/collapsible";
+import { cn } from "@/client/lib/utils";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import {
   CheckCircleIcon,

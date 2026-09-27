@@ -8,26 +8,26 @@ import {
   useDeleteEntry,
   useRenameEntry,
   useDuplicateEntry,
-} from "@client/queries/use-entries";
-import { FieldRenderer } from "@client/components/editors/field-renderer";
-import { isRequired, objectShape } from "@shared/field-schema";
-import { schemaDefaults } from "@shared/collection-schema";
-import { MdxEditor } from "@client/components/editors/mdx-editor";
-import { ConfirmDialog } from "@client/components/confirm-dialog";
-import { EntryIdDialog } from "@client/components/entry-id-dialog";
-import { toast } from "@client/components/toast";
-import { useWriteError } from "@client/lib/write-error";
-import { ErrorBanner } from "@client/components/error-banner";
-import { DATA_FORMATS, entryFilePath } from "@shared/types";
-import { EntryContextProvider } from "@client/lib/entry-context";
-import { baseName } from "@client/lib/entry-tree";
-import { splitLocale } from "@shared/i18n";
-import { useCollectionI18n } from "@client/lib/content-i18n";
-import { TranslationSwitcher } from "@client/components/translation-switcher";
+} from "@/client/queries/use-entries";
+import { FieldRenderer } from "@/client/components/editors/field-renderer";
+import { isRequired, objectShape } from "@/shared/field-schema";
+import { schemaDefaults } from "@/shared/collection-schema";
+import { MdxEditor } from "@/client/components/editors/mdx-editor";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { EntryIdDialog } from "@/client/components/entry-id-dialog";
+import { toast } from "@/client/components/toast";
+import { useWriteError } from "@/client/lib/write-error";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { DATA_FORMATS, entryFilePath } from "@/shared/types";
+import { EntryContextProvider } from "@/client/lib/entry-context";
+import { baseName } from "@/client/lib/entry-tree";
+import { splitLocale } from "@/shared/i18n";
+import { useCollectionI18n } from "@/client/lib/content-i18n";
+import { TranslationSwitcher } from "@/client/components/translation-switcher";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@client/components/ui/button";
+import { Button } from "@/client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
-import { asEntryFormat, type EntryFormat } from "@shared/types";
+import { asEntryFormat, type EntryFormat } from "@/shared/types";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
   component: EntryEditor,

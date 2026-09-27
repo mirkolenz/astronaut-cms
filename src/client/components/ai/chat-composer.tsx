@@ -12,28 +12,28 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   type PromptInputMessage,
-} from "@client/components/ai-elements/prompt-input";
+} from "@/client/components/ai-elements/prompt-input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@client/components/ui/select";
-import { Button } from "@client/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@client/components/ui/tooltip";
-import { useAiSettingsStore } from "@client/stores/ai-settings-store";
-import { aiConfig } from "@client/lib/ai/config";
+} from "@/client/components/ui/select";
+import { Button } from "@/client/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
+import { useAiSettingsStore } from "@/client/stores/ai-settings-store";
+import { aiConfig } from "@/client/lib/ai/config";
 import {
   ATTACHMENT_ACCEPT,
   isImageAttachment,
   prepareMessage,
   type ComposerAttachment,
-} from "@client/lib/ai/attachments";
-import { REASONING_EFFORTS, type ReasoningEffort } from "@client/lib/ai/reasoning";
-import { clearChat } from "@client/lib/ai/chat";
-import { toast } from "@client/components/toast";
-import type { CmsChat } from "@client/components/ai/chat-view";
+} from "@/client/lib/ai/attachments";
+import { REASONING_EFFORTS, type ReasoningEffort } from "@/client/lib/ai/reasoning";
+import { clearChat } from "@/client/lib/ai/chat";
+import { toast } from "@/client/components/toast";
+import type { CmsChat } from "@/client/components/ai/chat-view";
 import type { TFunction } from "i18next";
 
 function effortLabel(t: TFunction, effort: ReasoningEffort): string {

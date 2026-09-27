@@ -5,8 +5,8 @@ import {
   type InferUITools,
   type ToolUIPart,
 } from "ai";
-import { DEFAULT_AI_MAX_STEPS } from "@shared/ai";
-import { useAiSettingsStore } from "@client/stores/ai-settings-store";
+import { DEFAULT_AI_MAX_STEPS } from "@/shared/ai";
+import { useAiSettingsStore } from "@/client/stores/ai-settings-store";
 import { aiConfig } from "./config";
 import { aiProvider } from "./provider";
 import { SYSTEM_PROMPT } from "./system-prompt";

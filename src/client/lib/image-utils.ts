@@ -1,8 +1,8 @@
 import { extname } from "pathe";
-import config from "@client/lib/config";
-import { mediaContentType } from "@shared/media";
-import type { ImageOutputFormat, ResolvedImageOptimization } from "@integration/types";
-import type { AstroImageFormat } from "@shared/image-formats";
+import config from "@/client/lib/config";
+import { mediaContentType } from "@/shared/media";
+import type { ImageOutputFormat, ResolvedImageOptimization } from "@/integration/types";
+import type { AstroImageFormat } from "@/shared/image-formats";
 
 /** How many quality attempts the `maxFileSize` ladder makes, endpoints included. */
 const QUALITY_STEPS = 4;

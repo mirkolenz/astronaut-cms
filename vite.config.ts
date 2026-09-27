@@ -21,15 +21,7 @@ const isExternal = (id: string) =>
   );
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      "@client": resolve(import.meta.dirname, "src/client"),
-      "@server": resolve(import.meta.dirname, "src/server"),
-      "@shared": resolve(import.meta.dirname, "src/shared"),
-      "@integration": resolve(import.meta.dirname, "src/integration"),
-      "@assets": resolve(import.meta.dirname, "assets"),
-    },
-  },
+  resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
   plugins: [
     tanstackRouter({
       target: "react",

@@ -1,4 +1,4 @@
-import type { CmsServerConfig } from "@integration/types";
+import type { CmsServerConfig } from "@/integration/types";
 
 // Stand-in for the build-time `virtual:astronaut-cms/server` module. Local
 // storage, so no provider credential is involved in a test run.

@@ -1,7 +1,7 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
-import { isRequired, type FieldSchema } from "@shared/field-schema";
-import { CmsComponentEditor } from "@client/components/editors/cms-component-editor";
+import { isRequired, type FieldSchema } from "@/shared/field-schema";
+import { CmsComponentEditor } from "@/client/components/editors/cms-component-editor";
 
 /**
  * Maps a field type to the closest MDXEditor property type.
