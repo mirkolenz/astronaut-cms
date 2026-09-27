@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@astrojs/react": "^5",
-    "@astrojs/starlight": "^0.39",
+    "@astrojs/starlight": "^0.40",
     "astro": "^6",
     "astronaut-cms": "file:..",
     "lucide-react": "^1",
