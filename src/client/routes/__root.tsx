@@ -74,7 +74,11 @@ function RootLayout() {
               </main>
               <PublishBar />
             </div>
-            <ChatPanel />
+            {/* `contents` keeps the panel's <aside> a direct flex child; the hook
+                lets styles.css lay it out without editing the generated ChatPanel. */}
+            <div data-cms-ai-panel className="contents">
+              <ChatPanel />
+            </div>
           </div>
           <Toaster />
         </TooltipProvider>

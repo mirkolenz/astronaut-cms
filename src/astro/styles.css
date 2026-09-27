@@ -240,3 +240,22 @@
 .mdxeditor .mdxeditor-root-contenteditable {
   overflow-y: auto;
 }
+
+/* --- AI assistant panel ---
+   The ChatPanel under components/ai/ is generated, so its layout is adjusted
+   here via the `[data-cms-ai-panel]` hook added around it in routes/__root.tsx. */
+
+/* Span a third of the viewport instead of the generated fixed width, and keep
+   every child inside the panel. */
+[data-cms-ai-panel] > aside {
+  width: calc(100% / 3);
+  overflow: hidden;
+}
+
+/* The generated prompt-input <form> is width:100% with a 0.5rem margin, so it
+   would spill 1rem past the panel edge. Move that spacing inside the form's box
+   (which is border-box) so the input stays fully within the sidebar. */
+[data-cms-ai-panel] form {
+  margin-inline: 0;
+  padding-inline: 0.5rem;
+}

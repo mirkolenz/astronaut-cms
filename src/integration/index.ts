@@ -152,7 +152,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           },
         });
 
-        if (command === "dev" || effectiveConfig.storage?.type !== "local") {
+        // The admin (and therefore the AI relay it calls) is only reachable via
+        // `astro dev` when storage is local; a remote backend keeps it in the
+        // production build too.
+        const adminAvailable = command === "dev" || effectiveConfig.storage?.type !== "local";
+
+        if (adminAvailable) {
           injectRoute({
             pattern: mountPoint,
             entrypoint: "astronaut-cms/admin.astro",
@@ -173,12 +178,20 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             throw new Error('AI assistant: \'gateway\' is required (e.g. { type: "netlify" }).');
           }
 
-          injectRoute({
-            pattern: AI_CHAT_COMPLETIONS_PATTERN,
-            entrypoint: "astronaut-cms/ai-endpoint",
-            prerender: false,
-          });
-          logger.info(`AI assistant relay will be available at ${AI_CHAT_COMPLETIONS_PATTERN}`);
+          // The relay is a server route. Inject it only where the admin exists,
+          // so a static local-storage build (no adapter) is not forced on-demand.
+          if (adminAvailable) {
+            injectRoute({
+              pattern: AI_CHAT_COMPLETIONS_PATTERN,
+              entrypoint: "astronaut-cms/ai-endpoint",
+              prerender: false,
+            });
+            logger.info(`AI assistant relay will be available at ${AI_CHAT_COMPLETIONS_PATTERN}`);
+          } else {
+            logger.info(
+              `AI assistant relay disabled for "${command}" with local storage (only available via "astro dev")`,
+            );
+          }
         }
       },
     },
