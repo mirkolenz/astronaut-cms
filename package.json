@@ -24,6 +24,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -101,7 +104,6 @@
     "es-module-lexer": "^3",
     "i18next": "^26",
     "jose": "^6",
-    "lucide-react": "^1",
     "mammoth": "^1",
     "mdast-util-from-markdown": "^2",
     "mdast-util-mdx": "^3",
@@ -135,6 +137,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "astro": "^7",
+    "lucide-react": "^1",
     "react": "^19",
     "react-dom": "^19",
     "shadcn": "^4",
@@ -144,19 +147,25 @@
     "typescript": "^6",
     "unplugin-dts": "^1",
     "vite": "^8",
-    "vitest": "^5"
+    "vitest": "^5",
+    "zod": "^4"
   },
   "peerDependencies": {
+    "@astrojs/mdx": "^7 || ^8",
     "@astrojs/react": "^6",
     "@aws-sdk/client-s3": "^3",
     "@aws-sdk/s3-request-presigner": "^3",
     "astro": "^7",
+    "lucide-react": "^1",
     "react": "^19",
     "react-dom": "^19",
     "vite": "^8",
     "zod": "^4"
   },
   "peerDependenciesMeta": {
+    "@astrojs/mdx": {
+      "optional": true
+    },
     "@aws-sdk/client-s3": {
       "optional": true
     },
