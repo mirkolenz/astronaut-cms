@@ -29,6 +29,7 @@ function EntryEditor() {
   const deleteMutation = useDeleteEntry(collection);
 
   const schema = collections?.[collection]?.schema;
+  const shape: Record<string, ZodFieldSchema> | undefined = schema?.shape;
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [editBody, setEditBody] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -172,10 +173,10 @@ function EntryEditor() {
           className="min-h-0 flex-1 overflow-y-auto"
         >
           <div className="space-y-4">
-            {schema?.shape && (
+            {shape && (
               <CollapsibleSection title={t($ => $.entry.fields)}>
                 <div className="space-y-3">
-                  {Object.entries(schema.shape).map(([key, fieldSchema]) => (
+                  {Object.entries(shape).map(([key, fieldSchema]) => (
                     <FieldRenderer
                       key={key}
                       schema={fieldSchema}

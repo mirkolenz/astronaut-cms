@@ -7,6 +7,7 @@ import {
   useMdastNodeUpdater,
   useLexicalNodeRemove,
 } from "@mdxeditor/editor";
+import { $copyNode } from "lexical";
 import type { MdxJsxAttribute, MdxJsxFlowElement } from "mdast-util-mdx-jsx";
 import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
@@ -187,10 +188,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
 
   const handleDuplicate = useCallback(() => {
     parentEditor.update(() => {
-      const serialized = lexicalNode.exportJSON();
-      const NodeClass = lexicalNode.constructor as { importJSON(json: unknown): typeof lexicalNode };
-      const clone = NodeClass.importJSON(serialized);
-      lexicalNode.insertAfter(clone);
+      lexicalNode.insertAfter($copyNode(lexicalNode));
     });
   }, [parentEditor, lexicalNode]);
 
