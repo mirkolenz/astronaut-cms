@@ -1,0 +1,32 @@
+---
+import { getCollection, getEntry, render } from "astro:content";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import PostCard from "@/components/PostCard.astro";
+
+const home = await getEntry("pages", "home");
+if (!home) throw new Error("Missing `pages/home` entry.");
+const { Content } = await render(home);
+
+const posts = (await getCollection("posts"))
+  .sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime())
+  .slice(0, 3);
+const authors = await Promise.all(posts.map((post) => getEntry(post.data.author)));
+---
+
+<BaseLayout title="Meridian" description={home.data.description}>
+  <!-- Everything above is composed visually in the CMS block editor. -->
+  <Content />
+
+  <!-- ...and mixed freely with dynamic collection data. -->
+  <section class="section">
+    <div class="wrap">
+      <div class="feature-grid__head">
+        <span class="eyebrow">From the journal</span>
+        <h2 style="margin-top: 0.9rem">Recent writing</h2>
+      </div>
+      <div class="post-grid">
+        {posts.map((post, i) => <PostCard post={post} author={authors[i]} />)}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

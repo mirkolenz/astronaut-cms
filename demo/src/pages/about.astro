@@ -1,0 +1,36 @@
+---
+import { getCollection, getEntry, render } from "astro:content";
+import Image from "astronaut-cms/Image.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+const about = await getEntry("pages", "about");
+if (!about) throw new Error("Missing `pages/about` entry.");
+const { Content } = await render(about);
+
+const team = await getCollection("team");
+---
+
+<BaseLayout title={about.data.title} description={about.data.description}>
+  <Content />
+
+  <section class="section">
+    <div class="wrap">
+      <div class="feature-grid__head">
+        <span class="eyebrow">The people</span>
+        <h2 style="margin-top: 0.9rem">A small team by design</h2>
+      </div>
+      <div class="team-grid">
+        {
+          team.map((member) => (
+            <article class="team-card">
+              <Image src={member.data.avatar} alt={member.data.name} width={160} height={160} />
+              <h3>{member.data.name}</h3>
+              <p class="team-card__role">{member.data.role}</p>
+              <p class="team-card__bio">{member.data.bio}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>

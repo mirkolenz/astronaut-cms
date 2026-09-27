@@ -1,0 +1,28 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import PostCard from "@/components/PostCard.astro";
+
+const posts = (await getCollection("posts")).sort(
+  (a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime(),
+);
+const authors = await Promise.all(posts.map((post) => getEntry(post.data.author)));
+---
+
+<BaseLayout
+  title="Journal"
+  description="Notes on design, engineering, and studio life from the Meridian team."
+>
+  <div class="wrap page-head">
+    <span class="eyebrow">Journal</span>
+    <h1>Notes on craft, process,<br />and building things well.</h1>
+  </div>
+
+  <section class="section" style="padding-top: 0">
+    <div class="wrap">
+      <div class="post-grid">
+        {posts.map((post, i) => <PostCard post={post} author={authors[i]} />)}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

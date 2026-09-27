@@ -1,0 +1,29 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Abstract meridian arcs">
+  <defs>
+    <linearGradient id="h-bg" x1="0" y1="0" x2="800" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6EBE5"/>
+      <stop offset="1" stop-color="#F1E7DC"/>
+    </linearGradient>
+    <linearGradient id="h-clay" x1="220" y1="120" x2="620" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9663F"/>
+      <stop offset="1" stop-color="#B8412A"/>
+    </linearGradient>
+    <clipPath id="h-clip"><rect width="800" height="600"/></clipPath>
+  </defs>
+  <g clip-path="url(#h-clip)">
+    <rect width="800" height="600" fill="url(#h-bg)"/>
+    <circle cx="470" cy="300" r="180" fill="url(#h-clay)"/>
+    <circle cx="470" cy="300" r="180" fill="#1B1A17" opacity="0.06"/>
+    <g stroke="#1B1A17" stroke-width="1.5" opacity="0.5" fill="none">
+      <path d="M-40 300 C 160 120, 640 120, 840 300"/>
+      <path d="M-40 360 C 160 200, 640 200, 840 360"/>
+      <path d="M-40 240 C 160 40, 640 40, 840 240"/>
+      <ellipse cx="400" cy="300" rx="360" ry="360"/>
+      <ellipse cx="400" cy="300" rx="240" ry="360"/>
+      <ellipse cx="400" cy="300" rx="120" ry="360"/>
+    </g>
+    <circle cx="470" cy="300" r="14" fill="#1B1A17"/>
+    <circle cx="620" cy="150" r="7" fill="#C6553A"/>
+    <circle cx="180" cy="450" r="10" fill="#C6553A"/>
+  </g>
+</svg>

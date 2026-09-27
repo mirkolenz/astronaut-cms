@@ -1,0 +1,48 @@
+---
+title: "Studio"
+description: "Meridian is a small, senior team that designs and builds digital products with care, from strategy through launch."
+---
+
+import Hero from "@/components/Hero.astro";
+import FeatureGrid from "@/components/FeatureGrid.astro";
+import Feature from "@/components/Feature.astro";
+import Figure from "@/components/Figure.astro";
+import Quote from "@/components/Quote.astro";
+import CallToAction from "@/components/CallToAction.astro";
+
+<Hero
+  eyebrow="About the studio"
+  title="Small team. Senior hands. Whole projects."
+  subtitle="Meridian is a design and engineering studio of three. We take products from a rough idea to something real and lasting, and we stay close to the work the entire way."
+/>
+
+<Figure
+  src="/src/assets/cover-design-system.svg"
+  alt="A modular grid of design tokens"
+  caption="Everything we make is built from a small, consistent set of parts."
+/>
+
+<FeatureGrid title="How we work">
+  <Feature title="Start with the problem" icon="compass">
+    We spend real time understanding who the product is for before we design a single screen.
+  </Feature>
+  <Feature title="Design and build together" icon="layers">
+    Design and engineering sit at the same table, so what we draw is always something we can ship.
+  </Feature>
+  <Feature title="Leave it maintainable" icon="pen">
+    We hand over clean code, a documented system, and a team that can keep moving without us.
+  </Feature>
+</FeatureGrid>
+
+<Quote
+  text="The best software gets out of the way. Our job is to remove everything that is not helping."
+  author="Elena Marsh"
+  role="Founder, Meridian"
+/>
+
+<CallToAction
+  title="Let's build something together"
+  text="We partner with a few teams each quarter. If the fit is right, we would love to hear from you."
+  buttonText="Get in touch"
+  buttonHref="mailto:hello@example.com"
+/>

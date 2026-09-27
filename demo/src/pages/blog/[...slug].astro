@@ -1,0 +1,62 @@
+---
+import type { GetStaticPaths } from "astro";
+import { getCollection, getEntry, render } from "astro:content";
+import Image from "astronaut-cms/Image.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { formatDate } from "@/lib/format";
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection("posts");
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}) satisfies GetStaticPaths;
+
+const { post } = Astro.props;
+const { title, excerpt, cover, category, publishDate } = post.data;
+const author = await getEntry(post.data.author);
+const { Content } = await render(post);
+---
+
+<BaseLayout title={title} description={excerpt}>
+  <article class="wrap article">
+    <div class="page-head" style="padding-bottom: 0">
+      <span class="eyebrow">{category}</span>
+      <h1 style="margin-top: 0.9rem">{title}</h1>
+      <p class="lead" style="margin-top: 1.2rem">{excerpt}</p>
+      <div class="article__meta">
+        {
+          author && (
+            <span class="byline">
+              <Image
+                class="avatar"
+                src={author.data.avatar}
+                alt={author.data.name}
+                width={80}
+                height={80}
+              />
+              <span>
+                <strong>{author.data.name}</strong>
+                <br />
+                <span style="color: var(--muted); font-size: 0.88rem">{author.data.role}</span>
+              </span>
+            </span>
+          )
+        }
+        <time datetime={publishDate.toISOString()} style="color: var(--muted)">
+          {formatDate(publishDate)}
+        </time>
+      </div>
+    </div>
+
+    <Image class="article__cover" src={cover} alt={title} width={1280} height={720} />
+
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+
+  <section class="section">
+    <div class="wrap" style="text-align: center">
+      <a class="btn btn-ghost" href="/blog">← Back to the journal</a>
+    </div>
+  </section>
+</BaseLayout>

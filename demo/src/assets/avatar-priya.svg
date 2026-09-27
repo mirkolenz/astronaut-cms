@@ -1,0 +1,11 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Portrait monogram PN">
+  <defs>
+    <linearGradient id="a3" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8A24A"/>
+      <stop offset="1" stop-color="#B87333"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#a3)"/>
+  <circle cx="100" cy="78" r="34" fill="#FBFAF7" opacity="0.94"/>
+  <path d="M40 176 C 40 128, 160 128, 160 176 Z" fill="#FBFAF7" opacity="0.94"/>
+</svg>

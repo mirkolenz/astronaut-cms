@@ -1,0 +1,21 @@
+{
+  "name": "astronaut-cms-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^6",
+    "@astrojs/react": "^5",
+    "@fontsource-variable/geist": "^5",
+    "astro": "^6",
+    "astronaut-cms": "file:..",
+    "lucide-react": "^1",
+    "react": "^19",
+    "react-dom": "^19",
+    "zod": "^4"
+  }
+}

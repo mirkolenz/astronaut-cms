@@ -1,0 +1,19 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Nested frames">
+  <defs>
+    <linearGradient id="c1-bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7ECE6"/>
+      <stop offset="1" stop-color="#EEE2D6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="720" fill="url(#c1-bg)"/>
+  <g transform="translate(600 360)">
+    <g stroke="#C6553A" stroke-width="2" fill="none" opacity="0.9">
+      <rect x="-360" y="-216" width="720" height="432" rx="10"/>
+      <rect x="-280" y="-168" width="560" height="336" rx="8"/>
+      <rect x="-200" y="-120" width="400" height="240" rx="6"/>
+    </g>
+    <rect x="-120" y="-72" width="240" height="144" rx="6" fill="#1B1A17"/>
+    <rect x="-120" y="-72" width="240" height="144" rx="6" fill="#C6553A" opacity="0.15"/>
+    <circle cx="0" cy="0" r="9" fill="#F7ECE6"/>
+  </g>
+</svg>

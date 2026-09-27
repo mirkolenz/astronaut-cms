@@ -1,0 +1,20 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Modular grid of tokens">
+  <defs>
+    <linearGradient id="c2-bg" x1="0" y1="0" x2="1200" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EFEBE2"/>
+      <stop offset="1" stop-color="#E6E9E2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="720" fill="url(#c2-bg)"/>
+  <g transform="translate(240 150)">
+    <rect x="0" y="0" width="180" height="180" rx="14" fill="#C6553A"/>
+    <rect x="200" y="0" width="180" height="180" rx="90" fill="#1B1A17"/>
+    <rect x="400" y="0" width="180" height="180" rx="14" fill="#1B1A17" opacity="0.12"/>
+    <rect x="600" y="0" width="180" height="180" rx="14" fill="#C6553A" opacity="0.35"/>
+
+    <rect x="0" y="200" width="180" height="180" rx="14" fill="#1B1A17" opacity="0.12"/>
+    <rect x="200" y="200" width="180" height="180" rx="14" fill="#C6553A" opacity="0.35"/>
+    <rect x="400" y="200" width="180" height="180" rx="90" fill="#C6553A"/>
+    <rect x="600" y="200" width="180" height="180" rx="14" fill="#1B1A17"/>
+  </g>
+</svg>

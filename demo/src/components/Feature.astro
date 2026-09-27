@@ -1,0 +1,36 @@
+---
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Feature"];
+
+const { title, icon = "compass" } = Astro.props;
+
+// Inline Lucide-style glyphs keyed by the schema enum, so the icon renders
+// without shipping React to the page.
+const icons: Record<string, string> = {
+  compass:
+    '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+  layers:
+    '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.18-8.58 3.9a2 2 0 0 1-1.66 0L2 12.18"/><path d="m22 17.18-8.58 3.9a2 2 0 0 1-1.66 0L2 17.18"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  spark:
+    '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/>',
+};
+---
+
+<article class="feature">
+  <span class="feature__icon">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.75"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      set:html={icons[icon] ?? icons.compass}
+    />
+  </span>
+  <h3>{title}</h3>
+  <slot />
+</article>

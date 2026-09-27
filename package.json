@@ -2,7 +2,8 @@
   "name": "astronaut-cms",
   "version": "0.0.0",
   "workspaces": [
-    "docs"
+    "docs",
+    "demo"
   ],
   "files": [
     "dist"

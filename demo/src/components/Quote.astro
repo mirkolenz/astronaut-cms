@@ -1,0 +1,17 @@
+---
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Quote"];
+
+const { text, author, role } = Astro.props;
+---
+
+<section class="section">
+  <figure class="wrap pull-quote">
+    <span class="pull-quote__mark" aria-hidden="true">&ldquo;</span>
+    <blockquote>{text}</blockquote>
+    <figcaption>
+      <strong>{author}</strong>{role && <> · {role}</>}
+    </figcaption>
+  </figure>
+</section>

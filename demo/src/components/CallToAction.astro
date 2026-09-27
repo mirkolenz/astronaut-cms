@@ -1,0 +1,17 @@
+---
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["CallToAction"];
+
+const { title, text, buttonText, buttonHref } = Astro.props;
+---
+
+<section class="section">
+  <div class="wrap">
+    <div class="cta">
+      <h2>{title}</h2>
+      {text && <p>{text}</p>}
+      <a class="btn btn-primary" href={buttonHref}>{buttonText}</a>
+    </div>
+  </div>
+</section>

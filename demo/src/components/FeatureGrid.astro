@@ -1,0 +1,23 @@
+---
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["FeatureGrid"];
+
+const { title } = Astro.props;
+---
+
+<section class="section">
+  <div class="wrap">
+    {
+      title && (
+        <div class="feature-grid__head">
+          <span class="eyebrow">What we do</span>
+          <h2 style="margin-top: 0.9rem">{title}</h2>
+        </div>
+      )
+    }
+    <div class="feature-grid__items">
+      <slot />
+    </div>
+  </div>
+</section>

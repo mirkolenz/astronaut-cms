@@ -14,6 +14,7 @@
     {
       packages = {
         docs = pkgs.callPackage ./docs.nix { };
+        demo = pkgs.callPackage ./demo.nix { };
       };
       devShells.default = pkgs.callPackage ./shell.nix {
         treefmt = config.treefmt.build.wrapper;

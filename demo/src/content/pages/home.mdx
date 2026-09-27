@@ -1,0 +1,44 @@
+---
+title: "Meridian — a calm software studio"
+description: "Meridian is a small design and engineering studio building calm, useful software for teams who care about craft."
+---
+
+import Hero from "@/components/Hero.astro";
+import FeatureGrid from "@/components/FeatureGrid.astro";
+import Feature from "@/components/Feature.astro";
+import Quote from "@/components/Quote.astro";
+import CallToAction from "@/components/CallToAction.astro";
+
+<Hero
+  eyebrow="Design & engineering studio"
+  title="We build calm, useful software."
+  subtitle="Meridian is a small studio that designs and ships digital products end to end, from the first sketch to the last deploy."
+  image="/src/assets/hero.svg"
+  ctaText="Read the journal"
+  ctaHref="/blog"
+/>
+
+<FeatureGrid title="A studio that does the whole job">
+  <Feature title="Product design" icon="pen">
+    We shape interfaces that feel obvious in use and considered underneath.
+  </Feature>
+  <Feature title="Design systems" icon="layers">
+    Reusable components and tokens so your product stays coherent as it grows.
+  </Feature>
+  <Feature title="Engineering" icon="compass">
+    Fast, accessible front ends built on standards that will still be here in five years.
+  </Feature>
+</FeatureGrid>
+
+<Quote
+  text="Meridian shipped in half the time we expected, and the result still looks effortless a year later."
+  author="A partner we worked with"
+  role="Series A founder"
+/>
+
+<CallToAction
+  title="Have a project in mind?"
+  text="We take on a handful of engagements each quarter. Tell us what you are building."
+  buttonText="Start a conversation"
+  buttonHref="/about"
+/>

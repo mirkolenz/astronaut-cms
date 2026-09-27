@@ -1,0 +1,29 @@
+---
+import Image from "astronaut-cms/Image.astro";
+import type { CollectionEntry } from "astro:content";
+import { formatDate } from "@/lib/format";
+
+interface Props {
+  post: CollectionEntry<"posts">;
+  author?: CollectionEntry<"team">;
+}
+
+const { post, author } = Astro.props;
+const { title, excerpt, cover, category, publishDate } = post.data;
+---
+
+<a class="post-card" href={`/blog/${post.id}/`}>
+  <div class="post-card__media">
+    <Image src={cover} alt={title} width={640} height={427} />
+  </div>
+  <div class="post-card__body">
+    <span class="tag">{category}</span>
+    <h3>{title}</h3>
+    <p class="post-card__excerpt">{excerpt}</p>
+    <div class="meta-row">
+      {author && <span>{author.data.name}</span>}
+      {author && <span aria-hidden="true">·</span>}
+      <time datetime={publishDate.toISOString()}>{formatDate(publishDate)}</time>
+    </div>
+  </div>
+</a>

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "elena",
+    "name": "Elena Marsh",
+    "role": "Founder & Design Lead",
+    "avatar": "/src/assets/avatar-elena.svg",
+    "bio": "Founded Meridian to prove that thoughtful software can also be calm. Leads product design and keeps every project honest about who it serves."
+  },
+  {
+    "id": "marcus",
+    "name": "Marcus Cole",
+    "role": "Engineering Lead",
+    "avatar": "/src/assets/avatar-marcus.svg",
+    "bio": "Turns interfaces into resilient systems. Cares deeply about performance budgets, accessible defaults, and code that the next person can read."
+  },
+  {
+    "id": "priya",
+    "name": "Priya Nair",
+    "role": "Studio & Client Partner",
+    "avatar": "/src/assets/avatar-priya.svg",
+    "bio": "The bridge between the studio and the people we build for. Runs discovery, scopes the work, and makes sure launches actually land."
+  }
+]

@@ -1,0 +1,39 @@
+---
+import Image from "astronaut-cms/Image.astro";
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Hero"];
+
+const { eyebrow, title, subtitle, image, ctaText, ctaHref } = Astro.props;
+---
+
+<section class="section">
+  <div class="wrap">
+    <div class:list={["hero", image && "hero--media"]}>
+      <div>
+        {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+        <h1 class="hero__title">{title}</h1>
+        {subtitle && <p class="lead hero__subtitle">{subtitle}</p>}
+        {
+          ctaText && ctaHref && (
+            <div class="hero__actions">
+              <a class="btn btn-primary" href={ctaHref}>
+                {ctaText}
+              </a>
+              <a class="btn btn-ghost" href="/about">
+                Meet the studio
+              </a>
+            </div>
+          )
+        }
+      </div>
+      {
+        image && (
+          <div class="hero__media">
+            <Image src={image} alt={title} width={720} height={540} />
+          </div>
+        )
+      }
+    </div>
+  </div>
+</section>
