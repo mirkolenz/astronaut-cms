@@ -42,14 +42,18 @@ function patchField(field: FieldSchema): z.ZodType {
     .optional();
 }
 
+// Data without a schema is still content, so it is held to the same link policy.
+const UNTYPED_DATA: FieldSchema = { type: "record", value: { type: "unknown" } };
+
 /**
  * Full data/frontmatter schema for a collection, for a complete overwrite. Falls
- * back to a free record only when the collection declares no schema.
+ * back to a free record, still link-checked, only when the collection declares
+ * no schema.
  */
 export function collectionDataSchema(
   col: CollectionManifestEntry,
 ): z.ZodType<Record<string, unknown>> {
-  const schema = col.schema ? fieldSchemaToZod(col.schema) : z.record(z.string(), z.unknown());
+  const schema = fieldSchemaToZod(col.schema ?? UNTYPED_DATA);
 
   return schema as z.ZodType<Record<string, unknown>>;
 }
@@ -69,7 +73,7 @@ export function collectionPatchSchema(
     return z.object(shape) as z.ZodType<Record<string, unknown>>;
   }
 
-  return z.record(z.string(), z.unknown()) as z.ZodType<Record<string, unknown>>;
+  return fieldSchemaToZod(UNTYPED_DATA) as z.ZodType<Record<string, unknown>>;
 }
 
 /**

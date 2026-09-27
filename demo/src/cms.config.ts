@@ -15,19 +15,20 @@ import {
 // block points at its rendering `.astro` component via `source`, so the editor
 // wires up the import automatically.
 //
-// A block whose props name an asset takes the function form and reads `image` /
-// `file` off the helpers it is handed, exactly as a collection schema reads
-// `image` off astro's. The rest declare their props directly.
+// A block whose props name an asset or a link takes the function form and reads
+// `image` / `file` / `link` off the helpers it is handed,
+// exactly as a collection schema reads `image` off astro's.
+// The rest declare their props directly.
 export const components = {
   Hero: defineComponent({
-    props: ({ image }) =>
+    props: ({ image, link }) =>
       z.object({
         eyebrow: z.string().optional(),
         title: z.string(),
         subtitle: z.string().optional(),
         image: image().optional(),
         ctaText: z.string().optional(),
-        ctaHref: z.string().optional(),
+        ctaHref: link().optional(),
       }),
     source: "@/components/Hero.astro",
     defaultExport: true,
@@ -59,12 +60,13 @@ export const components = {
   }),
 
   CallToAction: defineComponent({
-    props: z.object({
-      title: z.string(),
-      text: z.string().optional(),
-      buttonText: z.string(),
-      buttonHref: z.string(),
-    }),
+    props: ({ link }) =>
+      z.object({
+        title: z.string(),
+        text: z.string().optional(),
+        buttonText: z.string(),
+        buttonHref: link(),
+      }),
     source: "@/components/CallToAction.astro",
     defaultExport: true,
     label: "Call to Action",

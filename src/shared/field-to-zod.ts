@@ -1,9 +1,19 @@
 import { z } from "zod";
 import type { FieldSchema } from "./field-schema.ts";
+import {
+  allowedLinks,
+  containsLink,
+  isLinkLike,
+  LINK_DESCRIPTION,
+  PLAIN_TEXT_MESSAGE,
+} from "./links.ts";
 
 // Hoisted out of the refinement below so the check reuses one validator instead
 // of building a fresh one per value.
 const EMAIL = z.email();
+
+// A value of no known shape can still hold text a component renders as a link.
+const UNKNOWN = z.unknown().refine((value) => !containsLink(value), PLAIN_TEXT_MESSAGE);
 
 /**
  * Rebuilds a live Zod validator from a serialized {@link FieldSchema}, the inverse
@@ -13,8 +23,9 @@ const EMAIL = z.email();
  * Schema and validate the agent's writes natively.
  *
  * Details the lowering could not capture (refinements, transforms) collapse to
- * their base type, and `unknown` becomes `z.unknown()`, so the reconstruction is a
- * faithful but never stricter view of the original schema.
+ * their base type, so the reconstruction is a faithful view of the original
+ * schema, stricter only by the link policy of `links.ts` that every string is
+ * held to.
  */
 function base(field: FieldSchema): z.ZodType {
   switch (field.type) {
@@ -30,14 +41,17 @@ function base(field: FieldSchema): z.ZodType {
           .describe("Email address.");
       }
 
-      if (field.format === "url") return z.url();
+      // A declared URL has to be one a visitor may follow, and only a declared
+      // one may be a URL at all (see `links.ts`).
+      if (field.format === "url") return allowedLinks(z.url());
+      if (field.format === "link") return allowedLinks(z.string()).describe(LINK_DESCRIPTION);
 
       let s = z.string();
       if (typeof field.minLength === "number") s = s.min(field.minLength);
       if (typeof field.maxLength === "number") s = s.max(field.maxLength);
       if (field.pattern) s = s.regex(new RegExp(field.pattern));
 
-      return s;
+      return s.refine((value) => !isLinkLike(value), PLAIN_TEXT_MESSAGE);
     }
 
     case "number": {
@@ -93,7 +107,7 @@ function base(field: FieldSchema): z.ZodType {
     case "tuple":
       return field.items.length
         ? z.tuple(field.items.map(fieldSchemaToZod) as [z.ZodType, ...z.ZodType[]])
-        : z.array(z.unknown());
+        : z.array(UNKNOWN);
 
     case "object": {
       const shape: Record<string, z.ZodType> = {};
@@ -124,7 +138,7 @@ function base(field: FieldSchema): z.ZodType {
     }
 
     case "unknown":
-      return z.unknown();
+      return UNKNOWN;
   }
 }
 

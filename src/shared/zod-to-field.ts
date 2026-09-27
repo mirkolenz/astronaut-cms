@@ -14,6 +14,7 @@ import {
   CMS_IMAGE,
   CMS_FILE,
   CMS_REFERENCE,
+  CMS_LINK,
   type FieldMods,
   type FieldSchema,
 } from "./field-schema.ts";
@@ -105,6 +106,7 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
   const meta = schema.meta();
   if (meta?.[CMS_IMAGE]) return { type: "image" };
   if (meta?.[CMS_FILE]) return { type: "file" };
+  if (meta?.[CMS_LINK]) return { type: "string", format: "link" };
 
   const ref = meta?.[CMS_REFERENCE];
   if (typeof ref === "string") return { type: "reference", collection: ref };

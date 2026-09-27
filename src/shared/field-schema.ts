@@ -35,7 +35,8 @@ export type FieldSchema = FieldMods &
   (
     | {
         type: "string";
-        format?: "email" | "url";
+        /** `url` is `z.url()`, `link` the CMS `link()` helper, which also takes a relative URL. */
+        format?: "email" | "url" | "link";
         minLength?: number;
         maxLength?: number;
         pattern?: string;
@@ -102,3 +103,4 @@ export function objectShape(
 export const CMS_IMAGE = "x-cms-image";
 export const CMS_FILE = "x-cms-file";
 export const CMS_REFERENCE = "x-cms-reference";
+export const CMS_LINK = "x-cms-link";

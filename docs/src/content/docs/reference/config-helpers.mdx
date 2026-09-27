@@ -29,12 +29,12 @@ const Alert = defineComponent({
 });
 ```
 
-## Schema helpers (`image`, `file`)
+## Schema helpers (`image`, `file`, `link`)
 
-A component's `props` may be written as a function, which receives the asset helpers:
+A component's `props` may be written as a function, which receives the asset and link helpers:
 
 ```ts
-type SchemaHelpers = { image: () => z.ZodString; file: () => z.ZodString };
+type SchemaHelpers = { image: () => z.ZodString; file: () => z.ZodString; link: () => z.ZodString };
 
 props: T | ((helpers: SchemaHelpers) => T);
 ```
@@ -60,17 +60,28 @@ const Download = defineComponent({
 });
 ```
 
+`link()` creates a Zod string tagged with `x-cms-link` metadata.
+It accepts relative, `http`, `https`, `mailto` and `tel` URLs, and it is the only way to store a URL.
+Every other string field, `z.url()` aside, refuses a value that would act as a link, such as `https://example.com`, `//host`, `mailto:a@b.c` or `javascript:alert(1)`.
+`z.url()` works too, but it only takes absolute URLs, and the CMS limits it to the same schemes.
+
+```ts
+const CallToAction = defineComponent({
+  props: ({ link }) => z.object({ label: z.string(), href: link() }),
+});
+```
+
 `image` is deliberately not importable. A collection field takes astro's own `({ image })` and a
 component prop takes the one its props function is handed, so there is no spelling that resolves in
 one place and silently fails in the other.
 
-## `file()`
+## `file()` and `link()`
 
-The one asset helper that _is_ exported, because astro's collection schema has no counterpart for
-it. Use it for a non-image asset in a `content.config.ts` field:
+The helpers that _are_ exported, because astro's collection schema has no counterpart for them.
+Use them for a non-image asset or a URL in a `content.config.ts` field:
 
 ```ts title="src/content.config.ts"
-import { file } from "astronaut-cms/config";
+import { file, link } from "astronaut-cms/config";
 
 const pages = defineCollection({
   loader: glob({ pattern: "**/*.mdx", base: "src/content/pages" }),
@@ -78,11 +89,12 @@ const pages = defineCollection({
     z.object({
       cover: image(), // astro's helper: resolved into entry.data
       brief: file().optional(), // the CMS's: a path string, resolved with resolveFile()
+      website: link().optional(), // the only kind of field that may hold a URL
     }),
 });
 ```
 
-Inside a `cms.config.ts` props function, take `file` from the helpers instead of importing it.
+Inside a `cms.config.ts` props function, take `file` and `link` from the helpers instead of importing them.
 
 ## `InferComponentProps`
 

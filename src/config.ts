@@ -13,9 +13,9 @@ export type { JsxEditorProps };
  * `({ image })`, and a component prop takes the one its props function is
  * handed, so there is no spelling that resolves in one place and not the other.
  */
-export { fileMarker as file } from "./shared/cms-markers.ts";
+export { fileMarker as file, linkMarker as link } from "./shared/cms-markers.ts";
 
-/** The asset helpers a component's props function receives. */
+/** The asset and link helpers a component's props function receives. */
 export type SchemaHelpers = typeof schemaHelpers;
 
 export type ChildrenConfig = "markdown" | Record<string, ComponentDefinition>;
