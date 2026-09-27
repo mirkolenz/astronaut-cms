@@ -1,3 +1,4 @@
+import { relative } from "pathe";
 import { useAuthStore } from "@client/stores/auth-store";
 
 export function getToken(): string {
@@ -12,8 +13,8 @@ export function stripExtension(filename: string): string {
 }
 
 export function stripMediaPrefix(path: string, mediaDirectory: string): string {
-  const prefix = mediaDirectory + "/";
-  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+  const rel = relative(mediaDirectory, path);
+  return rel.startsWith("..") ? path : rel;
 }
 
 export async function fileToBase64(file: File): Promise<string> {

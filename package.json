@@ -65,6 +65,7 @@
     "jiti": "^2",
     "lucide-react": "^1",
     "openid-client": "^6",
+    "pathe": "^2",
     "radix-ui": "^1",
     "react-i18next": "^17",
     "smol-toml": "^1",

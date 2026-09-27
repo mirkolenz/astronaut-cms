@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
+import { join } from "pathe";
 import { getAssetType, getReferenceCollection } from "@shared/schema-utils";
 import { toPreviewUrl } from "@client/lib/asset-utils";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
@@ -446,7 +447,7 @@ function AssetField({
   // full media-dir path; these are resolved at render time by the host via
   // `astronaut-cms/assets`, so no per-file relative resolution is needed.
   const handleSelect = (assetPath: string) => {
-    onChange(`/${assetPath.replace(/^\/+/, "")}`);
+    onChange(join("/", assetPath));
     setShowPicker(false);
   };
 

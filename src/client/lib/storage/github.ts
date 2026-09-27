@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/rest";
+import { join } from "pathe";
 import type { CollectionInfo, EntryMeta, MediaFile, SaveEntryRequest } from "@shared/types";
 import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
@@ -149,7 +150,7 @@ export class GitHubStorage extends BranchedStorage {
   }
 
   async uploadMedia(path: string, file: File): Promise<MediaFile> {
-    const repoPath = `${this.mediaDirectory}/${path}`;
+    const repoPath = join(this.mediaDirectory, path);
     const content = await fileToBase64(file);
     await this.commitBlobs([{ path: repoPath, content, encoding: "base64" }], `Upload ${repoPath}`);
     return { path: repoPath, size: file.size, lastModified: "" };

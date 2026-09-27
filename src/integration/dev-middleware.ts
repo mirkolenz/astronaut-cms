@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readdir, readFile, writeFile, unlink, stat, mkdir, rename } from "node:fs/promises";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, resolve } from "pathe";
 import type { ViteDevServer } from "vite";
 import {
   ALL_FORMATS,

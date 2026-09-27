@@ -15,20 +15,20 @@
  * `src` from an `.astro` wrapper rather than calling these directly.
  */
 import type { ImageMetadata } from "astro";
-import { posix } from "node:path";
+import { dirname, join } from "pathe";
 import { images, files } from "virtual:astronaut-cms/assets";
 
 // Map a stored asset path to its glob key. Absolute paths are keys as-is; relative
-// paths resolve against `base`'s directory. POSIX ops match Vite's forward-slash,
-// root-absolute glob keys on every platform and handle "." / ".." normalization.
+// paths resolve against `base`'s directory. pathe is POSIX-normalized on every
+// platform, matching Vite's forward-slash glob keys and handling "." / "..".
 function toKey(path: string, base: string | undefined): string {
   if (path.startsWith("/")) return path;
 
   if (!base) throw new Error(`Relative CMS asset path requires a base: ${path}`);
 
-  const baseDir = posix.dirname(posix.join("/", base));
+  const baseDir = dirname(join("/", base));
 
-  return posix.join(baseDir, path);
+  return join(baseDir, path);
 }
 
 function resolve<T>(

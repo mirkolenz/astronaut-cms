@@ -1,7 +1,7 @@
 import type { AstroIntegration } from "astro";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";

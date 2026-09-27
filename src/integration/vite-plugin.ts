@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, posix, resolve } from "node:path";
+import { dirname, join, resolve } from "pathe";
 import { fileURLToPath } from "node:url";
 import { init, parse } from "es-module-lexer";
 import type { Plugin } from "vite";
@@ -186,8 +186,8 @@ export default processCollections(collections);`;
 // "default"` makes each loader resolve straight to the ImageMetadata / URL. This
 // runs entirely in Vite, independent of the markdown processor (unified or satteri).
 function generateAssetsModule(mediaDirectory: string): string {
-  // posix.join normalizes any leading/trailing slashes into a single root-absolute base.
-  const base = posix.join("/", mediaDirectory);
+  // join normalizes any leading/trailing slashes into a single root-absolute base.
+  const base = join("/", mediaDirectory);
   const imagesGlob = JSON.stringify(`${base}/**/*.{png,jpg,jpeg,webp,avif,gif,svg,tiff}`);
   const filesGlob = JSON.stringify(`${base}/**/*`);
   return `\
