@@ -1,4 +1,4 @@
-import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
+import { defineComponent, image, type InferComponentProps } from "astronaut-cms/config";
 import { z } from "astro/zod";
 import {
   MessageSquareWarning,
@@ -8,9 +8,21 @@ import {
   FolderTree,
   Columns2,
   ExternalLink,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export const components = {
+  Figure: defineComponent({
+    props: z.object({
+      src: image(),
+      alt: z.string(),
+      caption: z.string().optional(),
+    }),
+    source: "@/components/Figure.astro",
+    defaultExport: true,
+    label: "Figure",
+    icon: ImageIcon,
+  }),
   Aside: defineComponent({
       props: z.object({
         type: z.enum(["note", "tip", "caution", "danger"]).default("note"),

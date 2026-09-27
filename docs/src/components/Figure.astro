@@ -1,0 +1,13 @@
+---
+import Image from "astronaut-cms/Image.astro";
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Figure"];
+
+const { src, alt, caption } = Astro.props;
+---
+
+<figure>
+  <Image src={src} alt={alt} />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

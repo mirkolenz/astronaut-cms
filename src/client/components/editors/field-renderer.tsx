@@ -2,8 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { getAssetType, getReferenceCollection } from "@shared/schema-utils";
-import { useEntryContext } from "@client/lib/entry-context";
-import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@client/lib/asset-utils";
+import { toPreviewUrl } from "@client/lib/asset-utils";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { useEntries } from "@client/queries/use-entries";
@@ -442,11 +441,12 @@ function AssetField({
   const { t } = useTranslation();
   const label = assetType === "image" ? t($ => $.editors.image) : t($ => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
-  const ctx = useEntryContext();
 
+  // Store root-absolute paths (e.g. "/src/assets/x.png"). The picker yields the
+  // full media-dir path; these are resolved at render time by the host via
+  // `astronaut-cms/assets`, so no per-file relative resolution is needed.
   const handleSelect = (assetPath: string) => {
-    const relativePath = ctx ? toRelativeAssetPath(ctx.contentFilePath, assetPath) : assetPath;
-    onChange(relativePath);
+    onChange(`/${assetPath.replace(/^\/+/, "")}`);
     setShowPicker(false);
   };
 
@@ -504,9 +504,7 @@ function ImageField({
   onChange: (v: unknown) => void;
   required?: boolean;
 }) {
-  const ctx = useEntryContext();
-  const previewSrc =
-    value && ctx ? toPreviewUrl(resolveAssetPath(ctx.contentFilePath, value)) : undefined;
+  const previewSrc = value ? toPreviewUrl(value) : undefined;
 
   return (
     <AssetField name={name} value={value} onChange={onChange} required={required} assetType="image">

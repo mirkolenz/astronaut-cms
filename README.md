@@ -34,7 +34,7 @@ Each component is a form with Zod-validated props defined in `cms.config.ts`, an
 
 ### Live Preview
 
-Renders markdown in real-time using your project's own remark and rehype plugins, so what you see in the editor matches the final output.
+A WYSIWYG editor renders text blocks and custom components as you type, so what you compose closely matches the final output.
 
 ### Media Library
 

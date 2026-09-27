@@ -9,7 +9,8 @@
       "@stubs/*": ["../src/stubs/*"],
       "@assets/*": ["../assets/*"],
       "astronaut-cms": ["../src/integration/index.ts"],
-      "astronaut-cms/config": ["../src/config.ts"]
+      "astronaut-cms/config": ["../src/config.ts"],
+      "astronaut-cms/assets": ["../src/runtime/index.ts"]
     }
   }
 }

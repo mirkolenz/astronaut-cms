@@ -26,27 +26,6 @@ export function toRelativeAssetPath(contentFilePath: string, assetPath: string):
 }
 
 /**
- * Resolve a potentially relative path back to project-root-relative.
- * contentFilePath: "src/content/blog/hello.mdx"
- * relativePath: "../../assets/photo.jpg"
- * returns: "src/assets/photo.jpg"
- */
-export function resolveAssetPath(contentFilePath: string, relativePath: string): string {
-  if (!relativePath.startsWith(".")) return relativePath;
-  const contentDir = contentFilePath.split("/").slice(0, -1);
-  const parts = relativePath.split("/");
-  const result = [...contentDir];
-  for (const part of parts) {
-    if (part === "..") {
-      result.pop();
-    } else if (part !== ".") {
-      result.push(part);
-    }
-  }
-  return result.join("/");
-}
-
-/**
  * Convert project-root-relative path to browser-accessible dev URL.
  * Prepends the site base path so requests pass Vite's base middleware.
  * "src/assets/photo.jpg" -> "/astronaut-cms/src/assets/photo.jpg"
@@ -73,25 +52,4 @@ export function isImagePath(path: string): boolean {
 /** Extract the filename from a path, stripping any directory prefix. */
 export function getFileName(path: string): string {
   return path.split("/").pop() ?? path;
-}
-
-/**
- * Post-process rendered HTML to fix relative asset paths for dev preview.
- * Uses the browser's native DOMParser.
- */
-export function resolvePreviewAssetPaths(html: string, contentFilePath: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  for (const img of doc.querySelectorAll("img")) {
-    const src = img.getAttribute("src");
-    if (src && !src.startsWith("http") && !src.startsWith("data:")) {
-      img.setAttribute("src", toPreviewUrl(resolveAssetPath(contentFilePath, src)));
-    }
-  }
-  for (const a of doc.querySelectorAll("a[href]")) {
-    const href = a.getAttribute("href");
-    if (href && !href.startsWith("http") && !href.startsWith("#") && !href.startsWith("data:")) {
-      a.setAttribute("href", toPreviewUrl(resolveAssetPath(contentFilePath, href)));
-    }
-  }
-  return doc.body.innerHTML;
 }

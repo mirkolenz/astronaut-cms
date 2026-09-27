@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { init, parse } from "es-module-lexer";
 import type { Plugin } from "vite";
@@ -75,6 +75,7 @@ export function cmsVitePlugin(
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/collections": generateCollectionsModule(contentConfigPath),
+    "virtual:astronaut-cms/assets": generateAssetsModule(clientConfig.mediaDirectory),
   };
 
   return {
@@ -175,6 +176,23 @@ function generateCollectionsModule(configPath: string | null): string {
 import { collections } from "${configPath}";
 import { processCollections } from "astronaut-cms/stubs";
 export default processCollections(collections);`;
+}
+
+// Emits the lazy `import.meta.glob` maps that back `astronaut-cms/assets`. Only
+// the globs live here because Vite's import.meta.glob requires a static literal
+// argument with the media directory baked in; the resolver logic that consumes
+// these maps is plain (type-checked) TypeScript in src/runtime/assets.ts. Lazy
+// globs keep the Promise-based form expected by astro:assets <Image>, and `import:
+// "default"` makes each loader resolve straight to the ImageMetadata / URL. This
+// runs entirely in Vite, independent of the markdown processor (unified or satteri).
+function generateAssetsModule(mediaDirectory: string): string {
+  // posix.join normalizes any leading/trailing slashes into a single root-absolute base.
+  const base = posix.join("/", mediaDirectory);
+  const imagesGlob = JSON.stringify(`${base}/**/*.{png,jpg,jpeg,webp,avif,gif,svg,tiff}`);
+  const filesGlob = JSON.stringify(`${base}/**/*`);
+  return `\
+export const images = import.meta.glob(${imagesGlob}, { import: "default" });
+export const files = import.meta.glob(${filesGlob}, { query: "?url", import: "default" });`;
 }
 
 function generateUserConfigModule(configPath: string | null): string {

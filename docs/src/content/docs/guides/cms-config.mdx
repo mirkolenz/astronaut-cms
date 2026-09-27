@@ -134,6 +134,10 @@ export const components = {
 };
 ```
 
+Asset props are stored as root-absolute path strings and resolved to optimized assets at render
+time. See [Asset Handling](/astronaut-cms/guides/asset-handling/) for how the matching component
+renders them with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
+
 ## Matching Astro Components
 
 Each component defined in `cms.config.ts` must have a corresponding Astro component that renders the HTML.

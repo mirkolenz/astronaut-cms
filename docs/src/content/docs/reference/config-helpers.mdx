@@ -35,6 +35,8 @@ const Alert = defineComponent({
 
 Creates a Zod string schema tagged with `x-cms-image` metadata.
 Use this in CMS component props to create image picker fields.
+The stored value is a root-absolute path string; resolve it at render time with
+`astronaut-cms/Image.astro` or `resolveImage()` (see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
 
 ```ts
 function image(): z.ZodString;
@@ -58,6 +60,8 @@ const Hero = defineComponent({
 
 Creates a Zod string schema tagged with `x-cms-file` metadata.
 Use this in CMS component props to create file picker fields.
+The stored value is a root-absolute path string; resolve it at render time with `resolveFile()`
+(see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
 
 ```ts
 function file(): z.ZodString;
@@ -126,8 +130,11 @@ The interface for a single component definition.
 interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   props: T;
   children?: "markdown" | Record<string, ComponentDefinition>;
+  kind?: "flow" | "text";
+  source?: string;
+  defaultExport?: boolean;
   label?: string;
   icon?: LucideIcon;
-  wrapper?: ComponentType<{ children: ReactNode }>;
+  editor?: ComponentType<JsxEditorProps>;
 }
 ```

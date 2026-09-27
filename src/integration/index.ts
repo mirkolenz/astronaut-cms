@@ -8,9 +8,6 @@ import { cmsVitePlugin } from "./vite-plugin.ts";
 import { createDevMiddleware } from "./dev-middleware.ts";
 import { createJiti } from "jiti";
 import { CLIENT_REDIRECTS } from "./client-redirects.ts";
-import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
-import { unified, isUnifiedProcessor } from "@astrojs/markdown-remark";
-import { getAssetType } from "../shared/schema-utils.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export { defineComponent, image, file } from "../config.ts";
@@ -49,41 +46,8 @@ function findConfig(rootDir: string, base: string): string | null {
   return null;
 }
 
-interface LoadedComponentDef {
-  props?: { shape?: Record<string, Parameters<typeof getAssetType>[0]> };
-  children?: "markdown" | Record<string, LoadedComponentDef>;
-}
-
-function flattenAssetFields(defs: Record<string, LoadedComponentDef>, result: AssetFieldsMap) {
-  for (const [name, def] of Object.entries(defs)) {
-    const shape = def.props?.shape;
-    if (shape) {
-      const fields: Record<string, "image" | "file"> = {};
-      for (const [propName, propSchema] of Object.entries(shape)) {
-        const assetType = getAssetType(propSchema);
-        if (assetType) fields[propName] = assetType;
-      }
-      if (Object.keys(fields).length > 0) result[name] = fields;
-    }
-    if (typeof def.children === "object" && def.children !== null) {
-      flattenAssetFields(def.children, result);
-    }
-  }
-}
-
 function createCmsJiti(rootDir: string) {
   return createJiti(rootDir, { alias: CLIENT_REDIRECTS });
-}
-
-function extractAssetFields(userConfigPath: string, rootDir: string): AssetFieldsMap {
-  const jiti = createCmsJiti(rootDir);
-  const { components } = jiti(userConfigPath) as {
-    components?: Record<string, LoadedComponentDef>;
-  };
-
-  const result: AssetFieldsMap = {};
-  flattenAssetFields(components ?? {}, result);
-  return result;
 }
 
 interface LoadedCollectionMeta {
@@ -202,41 +166,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           collectionsMeta = extractCollectionMeta(contentConfigPath, rootDir);
         } else {
           logger.warn("No content.config found — collections will be empty");
-        }
-
-        // Extract asset fields from CMS config for remark plugin
-        let assetFieldsMap: AssetFieldsMap = {};
-        if (userConfigPath) {
-          try {
-            assetFieldsMap = extractAssetFields(userConfigPath, rootDir);
-            if (Object.keys(assetFieldsMap).length > 0) {
-              logger.info(`Extracted asset fields: ${JSON.stringify(assetFieldsMap)}`);
-            }
-          } catch (err) {
-            logger.warn(
-              `Could not extract asset fields from CMS config: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        }
-
-        // Astro 6.4+ sources Markdown/MDX plugins from `markdown.processor`; the
-        // top-level `markdown.remarkPlugins` option is deprecated and is ignored by
-        // @astrojs/mdx v6. Attach to the unified processor (creating it if unset).
-        // Sätteri and other non-unified processors don't run remark plugins, and
-        // their plugin API can't inject the module-level imports this plugin relies
-        // on, so asset auto-import is only available under unified().
-        const processor = astroConfig.markdown.processor;
-        if (processor && !isUnifiedProcessor(processor)) {
-          logger.warn(
-            `Markdown processor "${processor.name}" does not run remark plugins, so CMS asset `
-              + `auto-import (component image()/file() props and relative asset links) is disabled. `
-              + `Markdown images still resolve via the processor's built-in handling. `
-              + `Set markdown.processor: unified({...}) to enable full CMS asset handling.`,
-          );
-        } else {
-          const target = processor ?? unified();
-          target.options.remarkPlugins.push([remarkCmsAssets, assetFieldsMap]);
-          updateConfig({ markdown: { processor: target } });
         }
 
         updateConfig({

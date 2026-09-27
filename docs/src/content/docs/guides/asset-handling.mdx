@@ -1,0 +1,97 @@
+---
+title: Asset Handling
+description: How CMS-referenced images and files are bundled and optimized at render time.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Figure from "@/components/Figure.astro";
+
+The CMS stores asset references as plain path strings and resolves them to optimized assets
+**at render time** through a Vite `import.meta.glob` map. Nothing is injected into your Markdown or
+MDX at build time, so this works identically under Astro's default `unified()` pipeline and the
+Rust `satteri()` processor.
+
+There are three kinds of asset references, each handled differently:
+
+| Reference | Where | How it is handled |
+|---|---|---|
+| Markdown image `![alt](./x.png)` | prose | Native Astro (relative path), no extra wiring |
+| `image()` / `file()` prop | component props, frontmatter, data | Stored as a path string, resolved via `astronaut-cms/assets` |
+| Link to a file `[doc](/files/x.pdf)` | prose | Put the file in `public/` (plain URL) |
+
+## Resolving `image()` props
+
+`image()` and `file()` values are stored as **root-absolute** path strings (e.g.
+`/src/assets/hero.png`, following your configured `media.directory`). Render them with the
+ready-made wrapper, which forwards to `astro:assets`:
+
+```astro title="src/components/Figure.astro"
+---
+import Image from "astronaut-cms/Image.astro";
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Figure"];
+const { src, alt } = Astro.props;
+---
+
+<figure>
+  <Image src={src} alt={alt} />
+</figure>
+```
+
+`<Image>` accepts a path string or an `ImageMetadata`, so the same component works whether the
+value comes from the CMS or a manual import. For full control, call the resolver directly:
+
+```astro
+---
+import { resolveImage, resolveFile } from "astronaut-cms/assets";
+const cover = await resolveImage("/src/assets/hero.png");   // -> ImageMetadata
+const pdfUrl = await resolveFile("/src/assets/report.pdf"); // -> string URL
+---
+```
+
+The example below is rendered through `Figure` from a real `image()` prop:
+
+<Figure src="/src/assets/sample.svg" alt="Sample graphic" caption="Resolved at render time from a path string." />
+
+## Relative paths
+
+Absolute paths are recommended (the media picker writes them automatically). Relative paths are
+also accepted when you pass the referencing content file as `base`, which is convenient for
+frontmatter and data fields where the entry is already in scope:
+
+```astro
+---
+import Image from "astronaut-cms/Image.astro";
+const entry = Astro.props.entry;
+---
+
+<Image src={entry.data.cover} base={entry.filePath} alt={entry.data.title} />
+```
+
+<Aside type="note">
+  A relative path must resolve into your `media.directory` (the glob only covers that folder).
+  For deeply nested MDX component props, prefer absolute paths so no `base` needs to be threaded down.
+</Aside>
+
+## React islands
+
+The resolver is async (it returns a `Promise`), which Astro awaits in `.astro` frontmatter. React
+components render synchronously and cannot await, so resolve in an `.astro` wrapper and pass the
+already-resolved `src` (or a plain URL) down to the island:
+
+```astro title="src/components/Gallery.astro"
+---
+import Carousel from "@/components/Carousel.tsx";
+import { resolveImage } from "astronaut-cms/assets";
+const images = await Promise.all(Astro.props.srcs.map((s) => resolveImage(s)));
+---
+
+<Carousel client:visible images={images.map((i) => i.src)} />
+```
+
+## Downloadable files
+
+For files you only link to (PDFs, archives), place them in `public/` and reference them by URL
+(e.g. `/files/report.pdf`). They are served verbatim with no bundling step. Use a `file()` prop
+with `resolveFile()` only when you want the file content-hashed and bundled.

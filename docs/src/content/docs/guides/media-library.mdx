@@ -67,6 +67,11 @@ defineComponent({
 });
 ```
 
+These props are stored as root-absolute path strings (e.g. `/src/assets/photo.png`) and resolved
+to optimized assets at render time. Render them with `astronaut-cms/Image.astro` or the
+`resolveImage()`/`resolveFile()` helpers from `astronaut-cms/assets` — see
+[Asset Handling](/astronaut-cms/guides/asset-handling/).
+
 <Aside type="note">
   The `image()` and `file()` helpers from `astronaut-cms/config` are different from the `image()` provided by Astro's schema function.
   Use `astronaut-cms/config` helpers for CMS component props, and use Astro's `image()` for content collection schemas.

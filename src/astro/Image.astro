@@ -1,0 +1,16 @@
+---
+import { Image as AstroImage } from "astro:assets";
+import { resolveImage } from "astronaut-cms/assets";
+import type { ImageMetadata, LocalImageProps } from "astro";
+
+type Props = Omit<LocalImageProps, "src"> & {
+  src: string | ImageMetadata;
+  /** Content file the `src` is relative to (e.g. `entry.filePath`). Only needed for relative paths. */
+  base?: string;
+};
+
+const { src, base, ...rest } = Astro.props;
+const resolved = typeof src === "string" ? await resolveImage(src, base) : src;
+---
+
+<AstroImage src={resolved} {...rest} />

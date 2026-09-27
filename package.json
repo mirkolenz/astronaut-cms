@@ -23,6 +23,15 @@
       "source": "./src/astro/admin.astro",
       "default": "./dist/astro/admin.astro"
     },
+    "./Image.astro": {
+      "source": "./src/astro/Image.astro",
+      "default": "./dist/astro/Image.astro"
+    },
+    "./assets": {
+      "types": "./dist/runtime/index.d.ts",
+      "source": "./src/runtime/index.ts",
+      "default": "./dist/runtime.js"
+    },
     "./client": {
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
@@ -63,7 +72,6 @@
     "tailwind-merge": "^3",
     "tailwind-scrollbar-hide": "^4",
     "tailwindcss": "^4",
-    "unist-util-visit": "^5",
     "yaml": "^2",
     "zustand": "^5"
   },
@@ -71,14 +79,11 @@
     "@astrojs/react": "^5",
     "@fontsource-variable/geist": "^5",
     "@tanstack/router-plugin": "^1",
-    "@types/estree": "^1",
-    "@types/mdast": "^4",
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "astro": "^6",
     "mdast-util-mdx-jsx": "^3",
-    "mdast-util-mdxjs-esm": "^2",
     "react": "^19",
     "react-dom": "^19",
     "shadcn": "^4",
@@ -89,7 +94,6 @@
     "vite-plugin-externalize-deps": "^0.10"
   },
   "peerDependencies": {
-    "@astrojs/markdown-remark": "^7",
     "@astrojs/react": "^5",
     "astro": "^6",
     "react": "^19",

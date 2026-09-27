@@ -8,6 +8,13 @@ declare module "virtual:astronaut-cms/config" {
   export default config;
 }
 
+declare module "virtual:astronaut-cms/assets" {
+  import type { ImageMetadata } from "astro";
+  /** Lazy media-directory glob maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
+  export const images: Record<string, () => Promise<ImageMetadata>>;
+  export const files: Record<string, () => Promise<string>>;
+}
+
 declare module "virtual:astronaut-cms/collections" {
   import type { ZodFieldSchema } from "./client/components/editors/field-renderer";
   const collections: Record<

@@ -41,6 +41,7 @@ export default defineConfig({
         config: "src/config.ts",
         stubs: "src/stubs/index.ts",
         client: "src/client/index.tsx",
+        runtime: "src/runtime/index.ts",
       },
       formats: ["es"],
     },
