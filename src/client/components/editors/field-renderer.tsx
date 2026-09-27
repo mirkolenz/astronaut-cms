@@ -139,6 +139,11 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
         <ArrayField element={schema.element} name={name} value={asArray(resolved)} onChange={onChange} />
       );
 
+    case "tuple":
+      return (
+        <TupleField items={schema.items} name={name} value={asArray(resolved)} onChange={onChange} />
+      );
+
     case "object":
       return (
         <ObjectField shape={schema.shape} name={name} value={asRecord(resolved)} onChange={onChange} />
@@ -160,6 +165,7 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
       if (schema.discriminator === undefined) {
         return <FallbackField name={name} value={resolved} onChange={onChange} />;
       }
+
       return (
         <UnionField
           variants={schema.variants}
@@ -551,6 +557,46 @@ function ReferenceField({
 
 function isComplexSchema(schema?: FieldSchema): boolean {
   return schema?.type === "object" || schema?.type === "array" || schema?.type === "record";
+}
+
+// A tuple is a fixed-length, heterogeneous list: each position has its own
+// schema, so there is no add/remove, only per-slot editing.
+function TupleField({
+  items,
+  name,
+  value,
+  onChange,
+}: {
+  items: FieldSchema[];
+  name: string;
+  value: unknown[];
+  onChange: (v: unknown) => void;
+}) {
+  const current = Array.isArray(value) ? value : [];
+
+  const updateItem = (index: number, newValue: unknown) => {
+    const updated = items.map((item, i) =>
+      i === index ? newValue : (current[i] ?? getDefaultValue(item)),
+    );
+    onChange(updated);
+  };
+
+  return (
+    <div>
+      <Label>{name}</Label>
+      <div className="space-y-2 rounded-md border border-border p-3">
+        {items.map((item, i) => (
+          <FieldRenderer
+            key={i}
+            schema={item}
+            value={current[i]}
+            onChange={(v) => updateItem(i, v)}
+            name={`${i}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ArrayField({

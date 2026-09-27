@@ -66,9 +66,21 @@ function base(field: FieldSchema): z.ZodType {
 
     case "union": {
       const variants = field.variants.map(fieldSchemaToZod);
-      return variants.length >= 2
-        ? z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]])
-        : (variants[0] ?? z.unknown());
+
+      if (variants.length < 2) return variants[0] ?? z.unknown();
+
+      // A discriminated union round-trips back to one: it gives the model (and
+      // validation errors) the discriminant the original schema declared, which
+      // a plain union erases. The discriminator is only set for unions whose
+      // variants are all objects, so the cast is sound.
+      if (field.discriminator !== undefined) {
+        return z.discriminatedUnion(
+          field.discriminator,
+          variants as [z.ZodObject, z.ZodObject, ...z.ZodObject[]],
+        );
+      }
+
+      return z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]]);
     }
 
     case "unknown":
