@@ -53,6 +53,7 @@ export default defineConfig({
         client: "src/client/index.tsx",
         assets: "src/assets/index.ts",
         "ai-endpoint": "src/ai/endpoint.ts",
+        "auth-endpoint": "src/auth/endpoint.ts",
         internal: "src/internal/index.ts",
       },
       formats: ["es"],

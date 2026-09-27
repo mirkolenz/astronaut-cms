@@ -54,6 +54,11 @@
       "source": "./src/ai/endpoint.ts",
       "default": "./dist/ai-endpoint.js"
     },
+    "./auth-endpoint": {
+      "types": "./dist/auth/endpoint.d.ts",
+      "source": "./src/auth/endpoint.ts",
+      "default": "./dist/auth-endpoint.js"
+    },
     "./client": {
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"

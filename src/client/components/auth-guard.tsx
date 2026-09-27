@@ -2,15 +2,21 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
-import { toSession, isExpired } from "@client/lib/oauth/session";
-import { initiateDeviceAuthorization, verifyRepoWriteAccess } from "@client/lib/oauth/github";
+import { isExpired } from "@client/lib/oauth/session";
 import {
-  startGitLabLogin,
-  handleGitLabCallback,
-  verifyProjectWriteAccess,
-} from "@client/lib/oauth/gitlab";
+  getDeviceLogin,
+  getRedirectLogin,
+  type DeviceLogin,
+  type RedirectLogin,
+} from "@client/lib/oauth";
+import { takePendingCallback } from "@client/lib/oauth/redirect-flow";
 import { Button } from "@client/components/ui/button";
 import { Alert, AlertDescription } from "@client/components/ui/alert";
+
+// Static for the lifetime of the bundle: which login the configured backend uses
+// is decided at build time.
+const redirectLogin = getRedirectLogin();
+const deviceLogin = getDeviceLogin();
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -37,40 +43,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [session, clearSession]);
 
   useEffect(() => {
-    if (config.storageType !== "gitlab") return;
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const errorParam = params.get("error");
-    const cleanUrl = () =>
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+    const callback = redirectLogin && takePendingCallback();
 
-    if (errorParam) {
-      setOauthError(params.get("error_description") ?? errorParam);
-      cleanUrl();
+    if (!callback) return;
+
+    if (callback.error) {
+      setOauthError(callback.error);
       return;
     }
 
-    if (!code) return;
-
+    // Not cleared on success: the valid session takes over the render below, so
+    // the pending flag is never read again.
     setOauthPending(true);
-    handleGitLabCallback(
-      config.gitlab!.clientId,
-      config.gitlab!.instanceUrl,
-      new URL(window.location.href),
-    )
-      .then(async (tokens) => {
-        await verifyProjectWriteAccess(
-          tokens.access_token,
-          config.gitlab!.project,
-          config.gitlab!.instanceUrl,
-        );
-        setSession(toSession("gitlab", tokens));
-        cleanUrl();
-      })
-      .catch((err) => {
-        setOauthError(err instanceof Error ? err.message : "Authentication failed");
-      })
-      .finally(() => setOauthPending(false));
+    redirectLogin.complete(callback.url).then(setSession, (err: unknown) => {
+      setOauthError(err instanceof Error ? err.message : "Authentication failed");
+      setOauthPending(false);
+    });
   }, [setSession]);
 
   const hasValidSession = session != null && !isExpired(session);
@@ -87,26 +75,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (config.storageType === "github" && config.github) {
-    return (
-      <GitHubLogin
-        clientId={config.github.clientId}
-        repo={config.github.repo}
-        // GitHub Apps derive permissions from the installation and ignore scopes.
-        scopes={config.github.authMode === "github-app" ? undefined : config.github.scopes}
-      />
-    );
+  if (redirectLogin) {
+    return <RedirectLoginForm login={redirectLogin} error={oauthError} onError={setOauthError} />;
   }
 
-  if (config.storageType === "gitlab" && config.gitlab) {
-    return (
-      <GitLabLogin
-        clientId={config.gitlab.clientId}
-        instanceUrl={config.gitlab.instanceUrl}
-        scopes={config.gitlab.scopes}
-        oauthError={oauthError}
-      />
-    );
+  if (deviceLogin) {
+    return <GitHubDeviceLogin login={deviceLogin} />;
   }
 
   return (
@@ -118,15 +92,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GitHubLogin({
-  clientId,
-  repo,
-  scopes,
-}: {
-  clientId: string;
-  repo: string;
-  scopes?: string[];
-}) {
+function GitHubDeviceLogin({ login }: { login: DeviceLogin }) {
   const { t } = useTranslation();
   const setSession = useAuthStore((s) => s.setSession);
   const [userCode, setUserCode] = useState<string | null>(null);
@@ -146,23 +112,23 @@ function GitHubLogin({
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const auth = await initiateDeviceAuthorization(clientId, scopes);
-      setUserCode(auth.userCode);
-      setVerificationUri(auth.verificationUri);
+      const prompt = await login.start();
+      setUserCode(prompt.userCode);
+      setVerificationUri(prompt.verificationUri);
       setIsPolling(true);
 
-      const tokens = await auth.poll(controller.signal);
-      await verifyRepoWriteAccess(tokens.access_token, repo);
-      setSession(toSession("github", tokens));
+      setSession(await prompt.complete(controller.signal));
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Authentication failed");
       setIsPolling(false);
     }
-  }, [clientId, repo, scopes, setSession]);
+  }, [login, setSession]);
+
+  const title = t(($) => $.auth.signInGitHub);
 
   return (
-    <LoginShell title={t(($) => $.auth.signInGitHub)} error={error}>
+    <LoginShell title={title} error={error}>
       {userCode && verificationUri ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -187,41 +153,41 @@ function GitHubLogin({
         </div>
       ) : (
         <Button className="w-full" onClick={() => void startLogin()} disabled={isPolling}>
-          {t(($) => $.auth.signInGitHub)}
+          {title}
         </Button>
       )}
     </LoginShell>
   );
 }
 
-function GitLabLogin({
-  clientId,
-  instanceUrl,
-  scopes,
-  oauthError,
+function RedirectLoginForm({
+  login,
+  error,
+  onError,
 }: {
-  clientId: string;
-  instanceUrl: string;
-  scopes: string[];
-  oauthError: string | null;
+  login: RedirectLogin;
+  error: string | null;
+  onError: (message: string | null) => void;
 }) {
   const { t } = useTranslation();
-  const [error, setError] = useState<string | null>(oauthError);
+  const title =
+    login.provider === "github" ? t(($) => $.auth.signInGitHub) : t(($) => $.auth.signInGitLab);
 
+  // The error is the guard's, not this form's: the provider can report a refused
+  // consent on the callback URL, and that arrives after this form has mounted.
   const handleLogin = useCallback(async () => {
-    setError(null);
+    onError(null);
     try {
-      const redirectUri = `${window.location.origin}${config.mountPoint}`;
-      await startGitLabLogin(clientId, instanceUrl, redirectUri, scopes);
+      await login.start();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      onError(err instanceof Error ? err.message : "Login failed");
     }
-  }, [clientId, instanceUrl, scopes]);
+  }, [login, onError]);
 
   return (
-    <LoginShell title={t(($) => $.auth.signInGitLab)} error={error}>
+    <LoginShell title={title} error={error}>
       <Button className="w-full" onClick={() => void handleLogin()}>
-        {t(($) => $.auth.signInGitLab)}
+        {title}
       </Button>
     </LoginShell>
   );

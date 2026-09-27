@@ -95,6 +95,23 @@ export type PublishMode = "direct" | "pull-request";
  */
 export type GitHubAuthMode = "oauth-app" | "github-app";
 
+/**
+ * How the editor signs in to GitHub.
+ *
+ * - `device`: the device flow. Entirely browser-side — no server route, no
+ *   client secret — but the editor has to copy a code to github.com by hand,
+ *   every time and in every new tab.
+ * - `redirect`: the ordinary browser redirect, with PKCE. GitHub demands a
+ *   client secret to redeem the authorization code even so (it does not
+ *   distinguish public clients), so this injects a token-exchange route that
+ *   holds the secret in `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` and therefore needs
+ *   an SSR adapter. After the first consent GitHub approves the redirect without
+ *   a prompt, which makes signing in a round-trip the editor barely sees — worth
+ *   it in particular when an access proxy (Cloudflare Access, Vercel Passport)
+ *   already signed them in with the same identity provider.
+ */
+export type GitHubLoginFlow = "device" | "redirect";
+
 export type StorageConfig =
   | { type: "local" }
   | {
@@ -104,6 +121,8 @@ export type StorageConfig =
       clientId: string;
       /** Authentication strategy (default: "oauth-app"). */
       authMode?: GitHubAuthMode;
+      /** Sign-in flow (default: "device"). See {@link GitHubLoginFlow}. */
+      flow?: GitHubLoginFlow;
       /**
        * OAuth scopes for `oauth-app` mode (default: `["repo"]`). Use
        * `["public_repo"]` for public-only repositories. Ignored for
@@ -164,7 +183,8 @@ export interface CmsClientConfig {
     repo: string;
     branch: string;
     clientId: string;
-    authMode: GitHubAuthMode;
+    flow: GitHubLoginFlow;
+    /** Empty when the scope parameter does not apply, i.e. for `github-app`. */
     scopes: string[];
     publishMode: PublishMode;
   };

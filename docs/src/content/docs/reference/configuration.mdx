@@ -65,6 +65,7 @@ Only available during development.
   branch?: string;
   clientId: string;
   authMode?: "oauth-app" | "github-app";
+  flow?: "device" | "redirect";
   scopes?: string[];
   publishMode?: "direct" | "pull-request";
 }
@@ -76,6 +77,7 @@ Only available during development.
 | `branch`      | `string`                      | `"main"`      | Target branch                                                                    |
 | `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                                         |
 | `authMode`    | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy; `github-app` allows single-repo, least-privilege tokens |
+| `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow; `redirect` needs a client secret and an SSR adapter                |
 | `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app`                      |
 | `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | Commit strategy                                                                  |
 

@@ -22,6 +22,8 @@
  */
 import type { AiGateway } from "../integration/types.ts";
 import { verifyGitHubWriteAccess, verifyGitLabWriteAccess } from "../shared/access.ts";
+import type { EnvReader } from "../shared/runtime-env.ts";
+import { joinUrl } from "../shared/url.ts";
 
 export interface RelayConfig {
   storageType: "local" | "github" | "gitlab";
@@ -51,14 +53,10 @@ function unreachable(value: never, message: string): never {
   throw new Error(`${message}: ${JSON.stringify(value)}`);
 }
 
-function joinUrl(base: string, path: string): string {
-  return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
-}
-
 // The gateway type comes from static config; credentials come from the config
 // when set, otherwise from the platform-injected environment (Netlify/Vercel),
 // so nothing has to be configured at deploy time.
-function resolveGateway(gateway: AiGateway, getEnv: (name: string) => string | undefined): Gateway {
+function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
   switch (gateway.type) {
     case "vercel": {
       const key = getEnv("AI_GATEWAY_API_KEY") ?? getEnv("VERCEL_OIDC_TOKEN");
@@ -149,7 +147,7 @@ function jsonError(message: string, status: number): Response {
 
 export async function handle(
   request: Request,
-  getEnv: (name: string) => string | undefined,
+  getEnv: EnvReader,
   config: RelayConfig,
 ): Promise<Response> {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");

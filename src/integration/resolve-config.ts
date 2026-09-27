@@ -83,8 +83,11 @@ export function resolveClientConfig(
         repo: storage.repo,
         branch: storage.branch ?? "main",
         clientId: storage.clientId,
-        authMode: storage.authMode ?? "oauth-app",
-        scopes: storage.scopes ?? ["repo"],
+        flow: storage.flow ?? "device",
+        // A GitHub App derives its permissions from the installation and ignores
+        // the scope parameter, so it resolves to none rather than to a default
+        // the client would then have to know to drop.
+        scopes: storage.authMode === "github-app" ? [] : (storage.scopes ?? ["repo"]),
         publishMode: storage.publishMode ?? "direct",
       },
     }),

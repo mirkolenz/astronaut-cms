@@ -4,7 +4,7 @@ import type { StorageBackend } from "./types";
 import { LocalStorage } from "./local";
 import { GitHubStorage } from "./github";
 import { GitLabStorage } from "./gitlab";
-import { parseRepo } from "@client/lib/oauth/github";
+import { parseRepo } from "@shared/access";
 
 let instance: StorageBackend | null = null;
 

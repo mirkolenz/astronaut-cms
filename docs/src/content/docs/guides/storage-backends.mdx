@@ -49,6 +49,7 @@ cms({
 | `branch`      | `string`                      | `"main"`      | Target branch for reading and writing                       |
 | `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                    |
 | `authMode`    | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy (see below)                         |
+| `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow (see below)                                    |
 | `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
 | `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | How changes are published                                   |
 
@@ -92,12 +93,52 @@ cms({
 2. Create a new OAuth App with the callback URL set to your site's `/admin` path.
 3. Copy the **Client ID** and pass it to the `clientId` option.
 
+### Sign-in flow
+
+GitHub offers no way for a browser-only app to complete an ordinary OAuth redirect.
+It demands a client secret to redeem the authorization code, and PKCE does not change that, because GitHub does not distinguish public from confidential clients.
+The `flow` option decides how the CMS works around it.
+
+- **`device`** (default) — the device flow, which needs no secret.
+  Everything happens in the browser, so the CMS stays a static site with no server route and nothing to configure at deploy time.
+  The cost is the sign-in itself: the editor copies a code to `github.com/login/device` by hand, and does it again in every new tab, since the token is kept per browser session.
+- **`redirect`** — the ordinary redirect, with PKCE.
+  The CMS injects a token-exchange route that holds the secret and redeems the code server-side.
+  After the first consent GitHub approves the redirect without prompting, so signing in becomes a round-trip the editor barely notices.
+
+```ts title="astro.config.ts"
+cms({
+  storage: {
+    type: "github",
+    repo: "owner/repo",
+    clientId: "your-github-app-client-id",
+    authMode: "github-app",
+    flow: "redirect",
+  },
+});
+```
+
+Using `flow: "redirect"` means:
+
+1. Set `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` in your host's environment.
+   Generate the secret next to the client ID in the app's settings, and never commit it.
+2. Set the app's callback URL to the admin panel's full URL (for example `https://example.com/admin`), which is where GitHub sends the editor back.
+3. Configure an SSR adapter.
+   The exchange runs on demand, like the AI relay.
+
+The relay only ever forwards one request: an authorization-code exchange naming the configured client.
+It stores nothing and issues nothing of its own, so it is safe to leave unauthenticated.
+A request is worth something only when it carries a live code, which GitHub hands exclusively to the registered callback URL and which PKCE binds to the browser that started the flow.
+
 <Aside type="tip">
-  Use `publishMode: "pull-request"` for editorial workflows where changes should be reviewed before
-  merging.
+  `redirect` is the flow to pick when an access proxy (Cloudflare Access, Vercel Passport, Netlify
+  SSO) already guards the admin panel with the same identity provider. The proxy cannot hand its
+  GitHub token to the CMS, so a second sign-in is unavoidable, but with this flow it costs a redirect
+  rather than a copied code. See [Access proxies](#access-proxies).
 </Aside>
 
 ## GitLab Storage
+
 
 The GitLab backend uses the GitLab API.
 It supports self-hosted GitLab instances.
@@ -146,3 +187,48 @@ Both GitHub and GitLab backends support two publish modes:
 
 - **`"direct"`** — Changes are committed directly to the configured branch.
 - **`"pull-request"` / `"merge-request"`** — Changes are committed to a new branch and a pull/merge request is created for review.
+
+## Access proxies
+
+An access proxy sits in front of the whole site and demands a sign-in before any request reaches it: [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), Vercel's [Deployment Protection](https://vercel.com/docs/deployment-protection) (Vercel Authentication on every plan, [Passport](https://vercel.com/docs/passport) with your own identity provider on Enterprise), or Netlify's [password and SSO protection](https://docs.netlify.com/manage/security/secure-access-to-sites/password-protection/).
+Putting one in front of the admin panel is worth doing: it keeps unauthenticated traffic away from `/admin` entirely, and the admin bundle with it.
+
+### The editor still signs in twice
+
+Pointing the proxy at the same identity provider the CMS uses does not remove the CMS's own sign-in, and no configuration can make it.
+The two prove different things:
+
+- The proxy establishes **identity**.
+  It runs its own OAuth exchange, consumes the resulting token itself, and issues a session cookie for your hostname.
+  The provider's token never reaches the application: Cloudflare passes through custom OIDC claims, Vercel Passport a signed JWT of claims, neither the upstream access token.
+  Cloudflare's GitHub integration only requests read-only organization and email scopes anyway, so the token could not write a commit even if it were forwarded.
+- The CMS needs a **capability**: a repository-scoped token it uses from the browser against the Git provider's API.
+  Only a grant the editor makes to the CMS's own OAuth app produces one.
+
+What you can do is make the second sign-in cheap.
+On GitHub, set [`flow: "redirect"`](#sign-in-flow): the editor has a live provider session from the proxy sign-in moments earlier, so GitHub approves the redirect without prompting and returns them to the admin panel.
+GitLab already works this way.
+
+### Expired proxy sessions
+
+When a proxy session lapses mid-edit, the proxy answers requests with a redirect to its own login origin.
+Reads and writes are unaffected, since those go straight to the Git provider's API, cross-origin, past the proxy entirely.
+The AI relay and the GitHub token exchange are routes on your own site, though, and a browser can only surface that redirect as an opaque network failure.
+The CMS detects it and says so, asking for a page reload, which is the only thing that can complete the proxy's sign-in.
+To make it rare, set the proxy's session lifetime longer than the Git provider's token lifetime.
+
+<Aside type="caution">
+  Deployment Protection and Access gate the injected server routes along with everything else, so the
+  AI relay is unreachable to anything that cannot sign in. That is the intent for editors, but it
+  also means uptime checks and automation need the platform's bypass mechanism (Vercel's [Protection
+  Bypass for
+  Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation),
+  a Cloudflare Access [service
+  token](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)).
+</Aside>
+
+### Netlify's hosted OAuth
+
+Netlify offers the token exchange as a [hosted service](https://docs.netlify.com/manage/security/secure-access-to-sites/oauth-provider-tokens/): you register the client ID and secret under **Project configuration > Access & security > OAuth** and Netlify signs the exchange.
+It is the same idea as `flow: "redirect"`, with the secret held by Netlify instead of by your own route, and it uses a popup and a Netlify-hosted callback URL rather than a plain redirect.
+The CMS does not use it, because the injected route works identically on every host and keeps the callback URL on your own domain.

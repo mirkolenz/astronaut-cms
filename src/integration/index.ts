@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
+import { AUTH_TOKEN_PATTERN, GITHUB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-config.ts";
@@ -157,6 +158,37 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
+        /**
+         * A server route the admin calls. Injected only where the admin exists,
+         * so a static local-storage build (which has no adapter) is not forced
+         * on-demand — and reported the same way for every route.
+         */
+        const injectServerRoute = (
+          pattern: string,
+          entrypoint: string,
+          label: string,
+          detail = "",
+        ) => {
+          if (adminAvailable) {
+            injectRoute({ pattern, entrypoint, prerender: false });
+            logger.info(`${label} will be available at ${pattern}${detail}`);
+          } else {
+            logger.info(
+              `${label} disabled for "${command}" with local storage (only available via "astro dev")`,
+            );
+          }
+        };
+
+        // The redirect flow redeems its code through a server route (see `src/auth/handler.ts`).
+        if (clientConfig.github?.flow === "redirect") {
+          injectServerRoute(
+            AUTH_TOKEN_PATTERN,
+            "astronaut-cms/auth-endpoint",
+            "GitHub token exchange",
+            ` (set ${GITHUB_CLIENT_SECRET_ENV} on the server)`,
+          );
+        }
+
         if (config.ai?.enabled) {
           if (!config.ai.models?.length) {
             throw new Error("AI assistant: 'models' must list at least one gateway model id.");
@@ -166,20 +198,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
           }
 
-          // The relay is a server route. Inject it only where the admin exists,
-          // so a static local-storage build (no adapter) is not forced on-demand.
-          if (adminAvailable) {
-            injectRoute({
-              pattern: AI_CHAT_COMPLETIONS_PATTERN,
-              entrypoint: "astronaut-cms/ai-endpoint",
-              prerender: false,
-            });
-            logger.info(`AI assistant relay will be available at ${AI_CHAT_COMPLETIONS_PATTERN}`);
-          } else {
-            logger.info(
-              `AI assistant relay disabled for "${command}" with local storage (only available via "astro dev")`,
-            );
-          }
+          injectServerRoute(
+            AI_CHAT_COMPLETIONS_PATTERN,
+            "astronaut-cms/ai-endpoint",
+            "AI assistant relay",
+          );
         }
       },
     },
