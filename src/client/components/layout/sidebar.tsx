@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { FileText, NotebookPen, BarChart3, Image } from "lucide-react";
+import { FileText, NotebookPen, BarChart3, Image, Bot } from "lucide-react";
 import { useCollections } from "@client/queries/use-collections";
 import { toLabel } from "@client/lib/to-label";
+import { aiEnabled } from "@client/lib/ai/config";
 // `?url` forces a URL string in both the standalone Vite lib build (where assets
 // inline as data URIs) and the Astro dev/build runtime, where a bare image import
 // would otherwise resolve to an `astro:assets` ImageMetadata object ([object]).
@@ -54,12 +55,18 @@ export function Sidebar() {
             </Link>
           ))}
         <p className="mt-4 px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {t($ => $.layout.assets)}
+          {t($ => $.layout.workspace)}
         </p>
         <Link to="/media" className={navLinkClasses}>
           <Image className="size-4 text-muted-foreground" />
           {t($ => $.layout.media)}
         </Link>
+        {aiEnabled && (
+          <Link to="/assistant" className={navLinkClasses}>
+            <Bot className="size-4 text-muted-foreground" />
+            {t($ => $.ai.title)}
+          </Link>
+        )}
       </nav>
     </aside>
   );

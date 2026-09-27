@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as MediaRouteImport } from "./routes/media";
+import { Route as AssistantRouteImport } from "./routes/assistant";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as CollectionsCollectionRouteImport } from "./routes/collections.$collection";
 import { Route as CollectionsCollectionIndexRouteImport } from "./routes/collections.$collection.index";
@@ -18,6 +19,11 @@ import { Route as CollectionsCollectionEntryRouteImport } from "./routes/collect
 const MediaRoute = MediaRouteImport.update({
   id: "/media",
   path: "/media",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AssistantRoute = AssistantRouteImport.update({
+  id: "/assistant",
+  path: "/assistant",
   getParentRoute: () => rootRouteImport,
 } as any);
 const IndexRoute = IndexRouteImport.update({
@@ -45,6 +51,7 @@ const CollectionsCollectionEntryRoute =
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/assistant": typeof AssistantRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
@@ -52,6 +59,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/assistant": typeof AssistantRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
   "/collections/$collection": typeof CollectionsCollectionIndexRoute;
@@ -59,6 +67,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/assistant": typeof AssistantRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
@@ -68,6 +77,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/assistant"
     | "/media"
     | "/collections/$collection"
     | "/collections/$collection/$entry"
@@ -75,12 +85,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
+    | "/assistant"
     | "/media"
     | "/collections/$collection/$entry"
     | "/collections/$collection";
   id:
     | "__root__"
     | "/"
+    | "/assistant"
     | "/media"
     | "/collections/$collection"
     | "/collections/$collection/$entry"
@@ -89,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  AssistantRoute: typeof AssistantRoute;
   MediaRoute: typeof MediaRoute;
   CollectionsCollectionRoute: typeof CollectionsCollectionRouteWithChildren;
 }
@@ -100,6 +113,13 @@ declare module "@tanstack/react-router" {
       path: "/media";
       fullPath: "/media";
       preLoaderRoute: typeof MediaRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/assistant": {
+      id: "/assistant";
+      path: "/assistant";
+      fullPath: "/assistant";
+      preLoaderRoute: typeof AssistantRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/": {
@@ -150,6 +170,7 @@ const CollectionsCollectionRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssistantRoute: AssistantRoute,
   MediaRoute: MediaRoute,
   CollectionsCollectionRoute: CollectionsCollectionRouteWithChildren,
 };

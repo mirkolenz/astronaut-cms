@@ -22,7 +22,7 @@ const de: TranslationShape<typeof en> = {
   layout: {
     appName: "Astronaut CMS",
     collections: "Sammlungen",
-    assets: "Medien",
+    workspace: "Arbeitsbereich",
     media: "Medien",
     breadcrumbRoot: "CMS",
   },

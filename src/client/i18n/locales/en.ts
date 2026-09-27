@@ -19,7 +19,7 @@ const en = {
   layout: {
     appName: "Astronaut CMS",
     collections: "Collections",
-    assets: "Assets",
+    workspace: "Workspace",
     media: "Media",
     breadcrumbRoot: "CMS",
   },

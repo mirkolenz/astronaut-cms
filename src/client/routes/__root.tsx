@@ -6,7 +6,6 @@ import { Header } from "@client/components/layout/header";
 import { AuthGuard } from "@client/components/auth-guard";
 import { PublishBar } from "@client/components/publish-bar";
 import { Toaster } from "@client/components/toast";
-import { ChatPanel } from "@client/components/ai/chat-panel";
 import { Button } from "@client/components/ui/button";
 import { TooltipProvider } from "@client/components/ui/tooltip";
 
@@ -73,11 +72,6 @@ function RootLayout() {
                 <Outlet />
               </main>
               <PublishBar />
-            </div>
-            {/* `contents` keeps the panel's <aside> a direct flex child; the hook
-                lets styles.css lay it out without editing the generated ChatPanel. */}
-            <div data-cms-ai-panel className="contents">
-              <ChatPanel />
             </div>
           </div>
           <Toaster />
