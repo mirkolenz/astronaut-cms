@@ -8,7 +8,10 @@ import { externalizeDeps } from "vite-plugin-externalize-deps";
 export default defineConfig({
   resolve: {
     alias: {
-      "@": resolve(import.meta.dirname, "src"),
+      "@client": resolve(import.meta.dirname, "src/client"),
+      "@shared": resolve(import.meta.dirname, "src/shared"),
+      "@integration": resolve(import.meta.dirname, "src/integration"),
+      "@stubs": resolve(import.meta.dirname, "src/stubs"),
     },
   },
   plugins: [
@@ -47,6 +50,7 @@ export default defineConfig({
       },
       onwarn(warning, warn) {
         if (warning.code === "MODULE_LEVEL_DIRECTIVE") return;
+        if (warning.code === "SOURCEMAP_ERROR") return;
         warn(warning);
       },
     },

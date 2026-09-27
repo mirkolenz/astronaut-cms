@@ -1,7 +1,7 @@
 import type { AstroIntegration } from "astro";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
@@ -9,16 +9,16 @@ import { createDevMiddleware } from "./dev-middleware.ts";
 import { createJiti } from "jiti";
 import { CLIENT_REDIRECTS } from "./client-redirects.ts";
 import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
-import { getAssetType } from "@/shared/schema-utils.ts";
+import { getAssetType } from "../shared/schema-utils.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
-export { defineConfig, defineComponent, image, file } from "@/config.ts";
+export { defineConfig, defineComponent, image, file } from "../config.ts";
 export type {
   CmsUserConfig,
   ComponentDefinition,
   ComponentProps,
   ChildrenConfig,
-} from "@/config.ts";
+} from "../config.ts";
 
 const CONFIG_EXTENSIONS = ["ts", "mts", "js", "mjs"];
 
@@ -208,25 +208,18 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           }
         }
 
-        const adminPage = join(dirname(fileURLToPath(import.meta.url)), "astro/admin.astro");
-
         updateConfig({
           markdown: {
             remarkPlugins: [[remarkCmsAssets, assetFieldsMap]],
           },
           vite: {
-            define: {
-              "process.env.NODE_ENV": JSON.stringify(
-                command === "dev" ? "development" : "production",
-              ),
-            },
             plugins: [tailwindcss(), cmsVitePlugin(config, userConfigPath, contentConfigPath)],
           },
         });
 
         injectRoute({
           pattern: mountPoint,
-          entrypoint: adminPage,
+          entrypoint: "astronaut-cms/admin.astro",
         });
 
         logger.info(`Admin panel will be available at ${mountPoint}`);

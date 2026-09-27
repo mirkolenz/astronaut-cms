@@ -1,13 +1,13 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { Sidebar } from "@/client/components/layout/sidebar";
-import { Header } from "@/client/components/layout/header";
-import { AuthGuard } from "@/client/components/auth-guard";
-import { PublishBar } from "@/client/components/publish-bar";
-import { Toaster } from "@/client/components/toast";
-import { Button } from "@/client/components/ui/button";
-import { TooltipProvider } from "@/client/components/ui/tooltip";
+import { Sidebar } from "@client/components/layout/sidebar";
+import { Header } from "@client/components/layout/header";
+import { AuthGuard } from "@client/components/auth-guard";
+import { PublishBar } from "@client/components/publish-bar";
+import { Toaster } from "@client/components/toast";
+import { Button } from "@client/components/ui/button";
+import { TooltipProvider } from "@client/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -40,12 +40,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-      <div className="max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-sm dark:border-red-800 dark:bg-gray-900">
-        <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="max-w-md rounded-lg border border-destructive/30 bg-card p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-destructive">
           {t($ => $.errors.somethingWentWrong)}
         </h2>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           {error.message}
         </p>
         <Button className="mt-4" onClick={onReset}>
@@ -63,7 +63,7 @@ function RootLayout() {
         <TooltipProvider>
           <div
             data-astronaut-cms
-            className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+            className="flex h-screen overflow-hidden bg-background text-foreground"
           >
             <Sidebar />
             <div className="flex min-w-0 flex-1 flex-col">

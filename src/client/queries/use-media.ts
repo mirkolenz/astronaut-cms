@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getStorage } from "@/client/lib/storage";
+import { getStorage } from "@client/lib/storage";
 
 export function useMedia() {
   return useQuery({

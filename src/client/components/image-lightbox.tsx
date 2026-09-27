@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { Dialog, DialogContent } from "@/client/components/ui/dialog";
+import { Dialog, DialogContent } from "@client/components/ui/dialog";
 
 interface ImageLightboxProps {
   open: boolean;

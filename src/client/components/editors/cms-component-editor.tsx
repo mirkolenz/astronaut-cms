@@ -7,23 +7,20 @@ import {
   useMdastNodeUpdater,
   useLexicalNodeRemove,
 } from "@mdxeditor/editor";
-import type {
-  MdxJsxAttribute,
-  MdxJsxFlowElement,
-} from "mdast-util-mdx-jsx";
+import type { MdxJsxAttribute, MdxJsxFlowElement } from "mdast-util-mdx-jsx";
 import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { findComponent } from "@/client/lib/component-lookup";
+import { findComponent } from "@client/lib/component-lookup";
 import { FieldRenderer, type ZodFieldSchema, getDefaultValue } from "./field-renderer";
-import { Button } from "@/client/components/ui/button";
+import { Button } from "@client/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
+} from "@client/components/ui/dropdown-menu";
 
 // ── MDAST helpers ───────────────────────────────────────────────────
 
@@ -36,7 +33,11 @@ function extractProps(node: MdastJsx): Record<string, string | number | boolean>
       } else if (attr.value && typeof attr.value === "object" && "value" in attr.value) {
         try {
           const parsed: unknown = JSON.parse(attr.value.value);
-          if (typeof parsed === "string" || typeof parsed === "number" || typeof parsed === "boolean") {
+          if (
+            typeof parsed === "string" ||
+            typeof parsed === "number" ||
+            typeof parsed === "boolean"
+          ) {
             props[attr.name] = parsed;
           }
         } catch {
@@ -307,12 +308,7 @@ function NestedCmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
 // own block controls or backspace).
 
 function RootCmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
-  return (
-    <ComponentEditorShell
-      mdastNode={mdastNode}
-      descriptor={descriptor}
-    />
-  );
+  return <ComponentEditorShell mdastNode={mdastNode} descriptor={descriptor} />;
 }
 
 // ── Entry point ─────────────────────────────────────────────────────

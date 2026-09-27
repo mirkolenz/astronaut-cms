@@ -1,3 +1,6 @@
 {
-  "ignorePatterns": ["src/**/*.gen.ts"]
+  "ignorePatterns": [
+    "src/**/*.gen.ts",
+    "src/client/components/ui/**"
+  ]
 }

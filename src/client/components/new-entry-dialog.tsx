@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { validateSegment } from "@/shared/validation";
-import { CONTENT_FORMATS, DATA_FORMATS } from "@/shared/types";
+import { validateSegment } from "@shared/validation";
+import { CONTENT_FORMATS, DATA_FORMATS } from "@shared/types";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/client/components/ui/dialog";
-import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
-import { Label } from "@/client/components/ui/label";
+} from "@client/components/ui/dialog";
+import { Button } from "@client/components/ui/button";
+import { Input } from "@client/components/ui/input";
+import { Label } from "@client/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/client/components/ui/select";
+} from "@client/components/ui/select";
 
 interface NewEntryDialogProps {
   open: boolean;

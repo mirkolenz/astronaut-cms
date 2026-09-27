@@ -8,15 +8,15 @@ import {
   type EntryContent,
   type MediaFile,
   type SaveEntryRequest,
-} from "@/shared/types.ts";
+} from "../shared/types.ts";
 import {
   parseContent,
   serializeContent,
   parseMultiEntryFile,
   serializeMultiEntryFile,
   getFileExtension,
-} from "@/shared/content-parser.ts";
-import { validateSegment, validatePath, validateFormat } from "@/shared/validation.ts";
+} from "../shared/content-parser.ts";
+import { validateSegment, validatePath, validateFormat } from "../shared/validation.ts";
 
 type NextFn = () => void;
 

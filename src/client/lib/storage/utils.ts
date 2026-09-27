@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/client/stores/auth-store";
+import { useAuthStore } from "@client/stores/auth-store";
 
 export function getToken(): string {
   const token = useAuthStore.getState().token;

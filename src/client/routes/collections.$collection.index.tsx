@@ -2,15 +2,15 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEntries, useCreateEntry } from "@/client/queries/use-entries";
-import { useCollections } from "@/client/queries/use-collections";
-import { NewEntryDialog } from "@/client/components/new-entry-dialog";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { toast } from "@/client/components/toast";
-import { toLabel } from "@/client/lib/to-label";
-import { extractFormatsFromLoader } from "@/shared/types";
-import { FileCollectionEditor } from "@/client/components/file-collection-editor";
-import { Button } from "@/client/components/ui/button";
+import { useEntries, useCreateEntry } from "@client/queries/use-entries";
+import { useCollections } from "@client/queries/use-collections";
+import { NewEntryDialog } from "@client/components/new-entry-dialog";
+import { ErrorBanner } from "@client/components/error-banner";
+import { toast } from "@client/components/toast";
+import { toLabel } from "@client/lib/to-label";
+import { extractFormatsFromLoader } from "@shared/types";
+import { FileCollectionEditor } from "@client/components/file-collection-editor";
+import { Button } from "@client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({
@@ -80,7 +80,7 @@ function GlobCollectionPage({
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-12 animate-pulse rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+            className="h-12 animate-pulse rounded-lg border border-border bg-muted"
           />
         ))}
       </div>
@@ -97,7 +97,7 @@ function GlobCollectionPage({
         <div>
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
           {collectionInfo && (
-            <p className="mt-0.5 text-sm text-gray-500">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {collectionInfo.type === "content" ? t($ => $.collection.contentCollection) : t($ => $.collection.dataCollection)} &middot;{" "}
               {t($ => $.collection.entries, { count: filteredEntries?.length ?? 0 })}
             </p>
@@ -109,27 +109,27 @@ function GlobCollectionPage({
       </div>
 
       {(!filteredEntries || filteredEntries.length === 0) && (
-        <div className="text-center text-gray-500">
+        <div className="text-center text-muted-foreground">
           <p>{t($ => $.collection.noEntries)}</p>
         </div>
       )}
 
       {filteredEntries && filteredEntries.length > 0 && (
-        <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+        <div className="divide-y divide-border rounded-lg border border-border">
           {filteredEntries.map((entry) => (
             <Link
               key={entry.id}
               to="/collections/$collection/$entry"
               params={{ collection, entry: entry.id }}
-              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900"
+              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
             >
               <div>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-medium text-foreground">
                   {entry.id}
                 </span>
-                <span className="ml-2 text-xs text-gray-400">.{entry.format}</span>
+                <span className="ml-2 text-xs text-muted-foreground">.{entry.format}</span>
               </div>
-              <ChevronRight className="size-4 text-gray-400" />
+              <ChevronRight className="size-4 text-muted-foreground" />
             </Link>
           ))}
         </div>

@@ -9,17 +9,17 @@ import {
   useDeleteEntry,
   useFileLayout,
   useReorderFileEntries,
-} from "@/client/queries/use-entries";
-import { useCollections } from "@/client/queries/use-collections";
-import { FieldRenderer, type ZodFieldSchema } from "@/client/components/editors/field-renderer";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { NewEntryDialog } from "@/client/components/new-entry-dialog";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { toast } from "@/client/components/toast";
-import { toLabel } from "@/client/lib/to-label";
-import { getFileExtension } from "@/shared/content-parser";
-import { Button } from "@/client/components/ui/button";
-import { Badge } from "@/client/components/ui/badge";
+} from "@client/queries/use-entries";
+import { useCollections } from "@client/queries/use-collections";
+import { FieldRenderer, type ZodFieldSchema } from "@client/components/editors/field-renderer";
+import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { NewEntryDialog } from "@client/components/new-entry-dialog";
+import { ErrorBanner } from "@client/components/error-banner";
+import { toast } from "@client/components/toast";
+import { toLabel } from "@client/lib/to-label";
+import { getFileExtension } from "@shared/content-parser";
+import { Button } from "@client/components/ui/button";
+import { Badge } from "@client/components/ui/badge";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
@@ -80,7 +80,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-16 animate-pulse rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+            className="h-16 animate-pulse rounded-lg border border-border bg-muted"
           />
         ))}
       </div>
@@ -96,7 +96,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {t($ => $.collection.fileCollection)} &middot; {t($ => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
           </p>
         </div>
@@ -106,7 +106,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
       </div>
 
       {(!sortedEntries || sortedEntries.length === 0) && (
-        <div className="text-center text-gray-500">
+        <div className="text-center text-muted-foreground">
           <p>{t($ => $.collection.noEntries)}</p>
         </div>
       )}
@@ -217,7 +217,7 @@ function FileEntryCard({
   const shape = schema?.shape ?? {};
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="rounded-lg border border-border">
       <div className="flex items-center">
         <Button
           type="button"
@@ -225,15 +225,15 @@ function FileEntryCard({
           onClick={onToggle}
           className="flex flex-1 items-center justify-start gap-2 rounded-none px-4 py-3 text-left"
         >
-          {expanded ? <ChevronDown className="size-3.5 text-gray-400" /> : <ChevronRight className="size-3.5 text-gray-400" />}
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{entryId}</span>
+          {expanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
+          <span className="text-sm font-medium text-foreground">{entryId}</span>
           {isDirty && (
             <Badge variant="outline">
               {t($ => $.entry.modified)}
             </Badge>
           )}
         </Button>
-        <div className="flex items-center border-l border-gray-200 dark:border-gray-700">
+        <div className="flex items-center border-l border-border">
           {orderable && (
             <>
               <Button type="button" variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={!onMoveDown}>
@@ -257,9 +257,9 @@ function FileEntryCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="border-t border-border px-4 py-3">
           {isLoading ? (
-            <div className="h-24 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+            <div className="h-24 animate-pulse rounded bg-muted" />
           ) : (
             <div className="space-y-3">
               {Object.entries(shape).map(([key, fieldSchema]) => (
@@ -273,7 +273,7 @@ function FileEntryCard({
                 />
               ))}
               {Object.keys(shape).length === 0 && (
-                <p className="text-sm text-gray-400">{t($ => $.entry.noSchemaShort)}</p>
+                <p className="text-sm text-muted-foreground">{t($ => $.entry.noSchemaShort)}</p>
               )}
             </div>
           )}

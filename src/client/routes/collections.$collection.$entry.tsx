@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
-import { useEntry, useSaveEntry, useDeleteEntry } from "@/client/queries/use-entries";
-import { useCollections } from "@/client/queries/use-collections";
-import { FieldRenderer, type ZodFieldSchema } from "@/client/components/editors/field-renderer";
-import { MdxEditor } from "@/client/components/editors/mdx-editor";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { toast } from "@/client/components/toast";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { DATA_FORMATS } from "@/shared/types";
-import { EntryContextProvider } from "@/client/lib/entry-context";
-import { getContentFilePath } from "@/client/lib/asset-utils";
-import { Button } from "@/client/components/ui/button";
-import { Label } from "@/client/components/ui/label";
-import { Textarea } from "@/client/components/ui/textarea";
+import { useEntry, useSaveEntry, useDeleteEntry } from "@client/queries/use-entries";
+import { useCollections } from "@client/queries/use-collections";
+import { FieldRenderer, type ZodFieldSchema } from "@client/components/editors/field-renderer";
+import { MdxEditor } from "@client/components/editors/mdx-editor";
+import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { toast } from "@client/components/toast";
+import { ErrorBanner } from "@client/components/error-banner";
+import { DATA_FORMATS } from "@shared/types";
+import { EntryContextProvider } from "@client/lib/entry-context";
+import { getContentFilePath } from "@client/lib/asset-utils";
+import { Button } from "@client/components/ui/button";
+import { Label } from "@client/components/ui/label";
+import { Textarea } from "@client/components/ui/textarea";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
@@ -135,8 +135,8 @@ function EntryEditor() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-64 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -160,7 +160,7 @@ function EntryEditor() {
         <div className="mb-4 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-semibold">
             {entryId}
-            <span className="ml-2 text-sm font-normal text-gray-400">.{entry.format}</span>
+            <span className="ml-2 text-sm font-normal text-muted-foreground">.{entry.format}</span>
           </h1>
           <div className="flex items-center gap-2">
             <Button
@@ -272,8 +272,8 @@ function FieldsSection({
   const shape = schema?.shape ?? {};
 
   return (
-    <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{t($ => $.entry.fields)}</h2>
+    <div className="space-y-4 rounded-lg border border-border p-4">
+      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t($ => $.entry.fields)}</h2>
       {Object.entries(shape).map(([key, fieldSchema]) => (
         <FieldRenderer
           key={key}
@@ -285,7 +285,7 @@ function FieldsSection({
         />
       ))}
       {Object.keys(shape).length === 0 && (
-        <p className="text-sm text-gray-400">{t($ => $.entry.noSchema)}</p>
+        <p className="text-sm text-muted-foreground">{t($ => $.entry.noSchema)}</p>
       )}
     </div>
   );

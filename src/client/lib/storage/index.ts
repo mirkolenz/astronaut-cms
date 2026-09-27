@@ -1,6 +1,6 @@
 import config from "virtual:astronaut-cms/config";
 import type { StorageBackend } from "./types";
-import type { CollectionInfo } from "@/shared/types";
+import type { CollectionInfo } from "@shared/types";
 import { LocalStorage } from "./local";
 import { GitHubStorage } from "./github";
 import { GitLabStorage } from "./gitlab";

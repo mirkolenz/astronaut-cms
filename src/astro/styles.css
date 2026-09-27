@@ -1,11 +1,15 @@
+@import "@mdxeditor/editor/style.css" layer(mdxeditor);
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-@plugin "@tailwindcss/typography";
-@source "../../src/client/";
+@custom-variant dark (&:is(.dark *));
 
+@plugin "@tailwindcss/typography";
+
+@plugin "tailwind-scrollbar-hide";
+@source "../../src/client/";
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -48,6 +52,8 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-highlight: var(--highlight);
+  --color-brand: var(--brand);
 }
 
 :root {
@@ -83,42 +89,44 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --highlight: oklch(0.852 0.199 91.936);
+  --brand: oklch(0.623 0.214 259.815);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
-  }
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --highlight: oklch(0.852 0.199 91.936);
+  --brand: oklch(0.707 0.165 254.624);
 }
 
 @layer base {
@@ -131,10 +139,64 @@
   html {
     @apply font-sans;
   }
-  /* Map MDXEditor's semantic background variables to the shadcn theme */
-  [class*="editorRoot"],
-  [class*="nestedEditor"] {
-    --basePageBg: var(--background);
-    --baseBase: var(--card);
-  }
+}
+
+/* MDX Editor — remap to shadcn theme variables */
+.mdxeditor {
+  --basePageBg: var(--popover);
+  --baseBase: var(--popover);
+  --baseBgSubtle: var(--muted);
+  --baseBg: var(--muted);
+  --baseBgHover: var(--accent);
+  --baseBgActive: var(--accent);
+  --baseLine: var(--border);
+  --baseBorder: var(--border);
+  --baseBorderHover: var(--ring);
+  --baseSolid: var(--primary);
+  --baseSolidHover: var(--primary);
+  --baseText: var(--muted-foreground);
+  --baseTextContrast: var(--foreground);
+
+  --accentBase: var(--background);
+  --accentBgSubtle: var(--accent);
+  --accentBg: var(--accent);
+  --accentBgHover: var(--accent);
+  --accentBgActive: var(--accent);
+  --accentLine: var(--ring);
+  --accentBorder: var(--ring);
+  --accentBorderHover: var(--ring);
+  --accentSolid: var(--primary);
+  --accentSolidHover: var(--primary);
+  --accentText: var(--primary);
+  --accentTextContrast: var(--primary-foreground);
+
+  --error-color: var(--destructive);
+
+  --font-body: 'Geist Variable', sans-serif;
+
+  --radius-small: calc(var(--radius) * 0.4);
+  --radius-base: calc(var(--radius) * 0.6);
+  --radius-medium: calc(var(--radius) * 0.8);
+  --radius-large: var(--radius);
+  --radius-extra-large: calc(var(--radius) * 1.4);
+
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition-property: border-color, box-shadow;
+  transition-duration: 150ms;
+}
+
+.dark .mdxeditor {
+  background-color: color-mix(in oklch, var(--input) 30%, transparent);
+}
+
+.mdxeditor:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+.mdxeditor .mdxeditor-toolbar {
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
 }

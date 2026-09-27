@@ -1,4 +1,4 @@
-import type { EntryMeta, EntryContent, SaveEntryRequest, MediaFile } from "@/shared/types";
+import type { EntryMeta, EntryContent, SaveEntryRequest, MediaFile } from "@shared/types";
 
 export interface StorageBackend {
   listEntries(collection: string): Promise<EntryMeta[]>;

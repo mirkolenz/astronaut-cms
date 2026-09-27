@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import collectionData from "virtual:astronaut-cms/collections";
-import { initializeStorage } from "@/client/lib/storage";
-import type { CollectionInfo } from "@/shared/types";
+import { initializeStorage } from "@client/lib/storage";
+import type { CollectionInfo } from "@shared/types";
 
 // Eagerly initialize storage with collection type info so that
 // entry/media queries can use getStorage() immediately.

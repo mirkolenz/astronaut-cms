@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import {
   MDXEditor,
   type MDXEditorMethods,
@@ -26,20 +26,12 @@ import {
   InsertThematicBreak,
   DiffSourceToggleWrapper,
 } from "@mdxeditor/editor";
-import "@mdxeditor/editor/style.css";
 import { components } from "virtual:astronaut-cms/user-config";
-import { toJsxDescriptors } from "@/client/lib/component-descriptors";
+import { toJsxDescriptors } from "@client/lib/component-descriptors";
 import { CmsImageDialog } from "./cms-image-dialog";
 import { InsertCmsComponent } from "./insert-cms-component";
 
 const hasComponents = Object.keys(components).length > 0;
-
-const darkQuery = matchMedia("(prefers-color-scheme: dark)");
-const subscribeDarkMode = (cb: () => void) => {
-  darkQuery.addEventListener("change", cb);
-  return () => darkQuery.removeEventListener("change", cb);
-};
-const getDarkMode = () => darkQuery.matches;
 
 interface MdxEditorProps {
   markdown: string;
@@ -48,7 +40,6 @@ interface MdxEditorProps {
 }
 
 export function MdxEditor({ markdown, onChange, format }: MdxEditorProps) {
-  const isDark = useSyncExternalStore(subscribeDarkMode, getDarkMode);
   const editorRef = useRef<MDXEditorMethods>(null);
   const prevMarkdownRef = useRef(markdown);
 
@@ -113,7 +104,6 @@ export function MdxEditor({ markdown, onChange, format }: MdxEditorProps) {
   return (
     <MDXEditor
       ref={editorRef}
-      className={isDark ? "dark-theme" : undefined}
       markdown={markdown}
       onChange={handleChange}
       plugins={plugins}

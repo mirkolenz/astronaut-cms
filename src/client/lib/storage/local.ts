@@ -1,7 +1,7 @@
-import type { EntryMeta, EntryContent, MediaFile } from "@/shared/types";
+import type { EntryMeta, EntryContent, MediaFile } from "@shared/types";
 import { StorageBase } from "./base";
 import { fileToBase64, stripMediaPrefix } from "./utils";
-import type { PendingChange } from "@/client/stores/changes-store";
+import type { PendingChange } from "@client/stores/changes-store";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);

@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getStorage } from "@/client/lib/storage";
-import { parseContent, serializeContent } from "@/shared/content-parser";
-import { useChangesStore } from "@/client/stores/changes-store";
-import type { SaveEntryRequest } from "@/shared/types";
+import { getStorage } from "@client/lib/storage";
+import { parseContent, serializeContent } from "@shared/content-parser";
+import { useChangesStore } from "@client/stores/changes-store";
+import type { SaveEntryRequest } from "@shared/types";
 
 export function useEntries(collection: string) {
   return useQuery({

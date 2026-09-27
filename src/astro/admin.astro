@@ -1,6 +1,6 @@
 ---
-import "./styles.css";
-import AdminApp from "../client";
+import "astronaut-cms/styles.css";
+import AdminApp from "astronaut-cms/client";
 import config from "virtual:astronaut-cms/config";
 ---
 
@@ -10,6 +10,14 @@ import config from "virtual:astronaut-cms/config";
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />
+    <script is:inline>
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      function applyTheme(dark) {
+        document.documentElement.classList.toggle("dark", dark);
+      }
+      applyTheme(mq.matches);
+      mq.addEventListener("change", (e) => applyTheme(e.matches));
+    </script>
   </head>
   <body>
     <AdminApp client:only="react" />

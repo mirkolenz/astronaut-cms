@@ -1,7 +1,7 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
-import type { ZodFieldSchema } from "@/client/components/editors/field-renderer";
-import { CmsComponentEditor } from "@/client/components/editors/cms-component-editor";
+import type { ZodFieldSchema } from "@client/components/editors/field-renderer";
+import { CmsComponentEditor } from "@client/components/editors/cms-component-editor";
 
 /**
  * Converts a Zod schema field type to the closest MDXEditor property type.

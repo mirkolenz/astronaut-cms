@@ -1,24 +1,24 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { getAssetType, getReferenceCollection } from "@/shared/schema-utils";
-import { useEntryContext } from "@/client/lib/entry-context";
-import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@/client/lib/asset-utils";
-import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { useEntries } from "@/client/queries/use-entries";
-import { Input } from "@/client/components/ui/input";
-import { Textarea } from "@/client/components/ui/textarea";
-import { Switch } from "@/client/components/ui/switch";
-import { Label } from "@/client/components/ui/label";
-import { Button } from "@/client/components/ui/button";
+import { getAssetType, getReferenceCollection } from "@shared/schema-utils";
+import { useEntryContext } from "@client/lib/entry-context";
+import { toRelativeAssetPath, resolveAssetPath, toPreviewUrl } from "@client/lib/asset-utils";
+import { MediaPickerDialog } from "@client/components/media-picker-dialog";
+import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { useEntries } from "@client/queries/use-entries";
+import { Input } from "@client/components/ui/input";
+import { Textarea } from "@client/components/ui/textarea";
+import { Switch } from "@client/components/ui/switch";
+import { Label } from "@client/components/ui/label";
+import { Button } from "@client/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/client/components/ui/select";
+} from "@client/components/ui/select";
 
 /**
  * Runtime interface for Zod schemas as provided by astro/zod.
@@ -511,7 +511,7 @@ function ImageField({
   return (
     <AssetField name={name} value={value} onChange={onChange} required={required} assetType="image">
       {previewSrc && (
-        <div className="mt-2 h-24 w-24 overflow-hidden rounded border border-gray-200 dark:border-gray-700">
+        <div className="mt-2 h-24 w-24 overflow-hidden rounded border border-border">
           <img
             src={previewSrc}
             alt=""
@@ -600,15 +600,15 @@ function ReferenceField({
             placeholder={isLoading ? t($ => $.editors.loading) : t($ => $.editors.selectFrom, { collection })}
           />
           {isOpen && filtered.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-900">
+            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow-lg">
               {filtered.map((entry) => (
                 <li
                   key={entry.id}
                   onMouseDown={() => handleSelect(entry.id)}
-                  className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-950 ${
+                  className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-accent ${
                     entry.id === value
-                      ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400"
-                      : "text-gray-900 dark:text-gray-100"
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-popover-foreground"
                   }`}
                 >
                   {entry.id}
@@ -676,7 +676,7 @@ function ArrayField({
   return (
     <div>
       <Label>{name}</Label>
-      <div className="space-y-2 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+      <div className="space-y-2 rounded-md border border-border p-3">
         {items.map((item, i) => (
           <div key={i} className="flex items-start gap-2">
             <div className="flex-1">
@@ -746,8 +746,8 @@ function ObjectField({
   };
 
   return (
-    <fieldset className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-      <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{name}</legend>
+    <fieldset className="rounded-md border border-border p-3">
+      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
       <div className="space-y-3">
         {Object.entries(shape).map(([key, fieldSchema]) => (
           <FieldRenderer
@@ -799,12 +799,12 @@ function RecordField({
   };
 
   return (
-    <fieldset className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-      <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{name}</legend>
+    <fieldset className="rounded-md border border-border p-3">
+      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
       <div className="space-y-3">
         {Object.entries(obj).map(([key, val]) => (
           <div key={key} className="flex items-start gap-2">
-            <span className="mt-1.5 shrink-0 text-xs font-mono text-gray-500">{key}</span>
+            <span className="mt-1.5 shrink-0 text-xs font-mono text-muted-foreground">{key}</span>
             <div className="flex-1">
               {valueSchema ? (
                 <FieldRenderer
@@ -901,8 +901,8 @@ function UnionField({
   const selectedVariant = selectedIndex >= 0 ? variants[selectedIndex] : undefined;
 
   return (
-    <fieldset className="rounded-md border border-gray-200 p-3 dark:border-gray-700">
-      <legend className="px-1 text-sm font-medium text-gray-700 dark:text-gray-300">{name}</legend>
+    <fieldset className="rounded-md border border-border p-3">
+      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
       <div className="space-y-3">
         <div>
           <Label>{t($ => $.editors.variant)}</Label>
@@ -967,7 +967,7 @@ function NullableWrapper({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{name}</span>
+        <span className="text-sm font-medium text-foreground">{name}</span>
         <Button
           type="button"
           variant="ghost"
@@ -999,7 +999,7 @@ function FallbackField({
   return (
     <div>
       <Label>
-        {name} <span className="text-xs text-gray-400">{t($ => $.editors.raw)}</span>
+        {name} <span className="text-xs text-muted-foreground">{t($ => $.editors.raw)}</span>
       </Label>
       <Textarea
         value={text}

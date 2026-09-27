@@ -7,7 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/client/components/ui/dropdown-menu";
+} from "@client/components/ui/dropdown-menu";
 
 /**
  * Builds default JSX props from a Zod schema for inserting a new component.

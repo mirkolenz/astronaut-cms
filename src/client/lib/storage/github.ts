@@ -1,9 +1,9 @@
 import { Octokit } from "@octokit/rest";
-import type { CollectionInfo, EntryMeta, MediaFile } from "@/shared/types";
-import { ALL_FORMATS } from "@/shared/types";
+import type { CollectionInfo, EntryMeta, MediaFile } from "@shared/types";
+import { ALL_FORMATS } from "@shared/types";
 import { StorageBase } from "./base";
 import { getToken, getFormat, stripExtension, fileToBase64, stripMediaPrefix } from "./utils";
-import type { PendingChange } from "@/client/stores/changes-store";
+import type { PendingChange } from "@client/stores/changes-store";
 
 interface GitHubConfig {
   owner: string;

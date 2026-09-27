@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import config from "virtual:astronaut-cms/config";
-import { useChangesStore } from "@/client/stores/changes-store";
-import { useAuthStore } from "@/client/stores/auth-store";
-import { usePublish } from "@/client/queries/use-entries";
+import { useChangesStore } from "@client/stores/changes-store";
+import { useAuthStore } from "@client/stores/auth-store";
+import { usePublish } from "@client/queries/use-entries";
 import { ConfirmDialog } from "./confirm-dialog";
-import { Button } from "@/client/components/ui/button";
+import { Button } from "@client/components/ui/button";
 
 export function PublishBar() {
   const { t } = useTranslation();
@@ -29,14 +29,14 @@ export function PublishBar() {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
+    <div className="border-t border-border bg-muted px-4 py-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium">
             {t($ => $.publish.pendingChanges, { count: changes.length })}
           </span>
           {publishError && (
-            <span className="text-xs text-red-600 dark:text-red-400">{publishError}</span>
+            <span className="text-xs text-destructive">{publishError}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export function PublishBar() {
       {changes.length > 0 && (
         <div className="mt-2 space-y-1">
           {changes.map((change) => (
-            <div key={change.id} className="flex items-center gap-2 text-xs text-gray-500">
+            <div key={change.id} className="flex items-center gap-2 text-xs text-muted-foreground">
               <span
                 className={`inline-block h-1.5 w-1.5 rounded-full ${
                   change.action === "delete"

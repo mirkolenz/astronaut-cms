@@ -5,9 +5,9 @@ import {
   saveImage$,
   closeImageDialog$,
 } from "@mdxeditor/editor";
-import { useEntryContext } from "@/client/lib/entry-context";
-import { toRelativeAssetPath } from "@/client/lib/asset-utils";
-import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
+import { useEntryContext } from "@client/lib/entry-context";
+import { toRelativeAssetPath } from "@client/lib/asset-utils";
+import { MediaPickerDialog } from "@client/components/media-picker-dialog";
 
 /**
  * Custom ImageDialog for MDXEditor's imagePlugin.
@@ -26,11 +26,5 @@ export function CmsImageDialog() {
     saveImage({ src });
   };
 
-  return (
-    <MediaPickerDialog
-      open={isOpen}
-      onSelect={handleSelect}
-      onCancel={closeDialog}
-    />
-  );
+  return <MediaPickerDialog open={isOpen} onSelect={handleSelect} onCancel={closeDialog} />;
 }

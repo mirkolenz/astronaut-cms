@@ -8,13 +8,13 @@ import {
   useUploadMedia,
   useReplaceMedia,
   useRenameMedia,
-} from "@/client/queries/use-media";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { ImageLightbox } from "@/client/components/image-lightbox";
-import { isImagePath, toPreviewUrl, getFileName } from "@/client/lib/asset-utils";
-import { optimizeImage } from "@/client/lib/image-utils";
-import { stripMediaPrefix } from "@/client/lib/storage/utils";
+} from "@client/queries/use-media";
+import { ErrorBanner } from "@client/components/error-banner";
+import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { ImageLightbox } from "@client/components/image-lightbox";
+import { isImagePath, toPreviewUrl, getFileName } from "@client/lib/asset-utils";
+import { optimizeImage } from "@client/lib/image-utils";
+import { stripMediaPrefix } from "@client/lib/storage/utils";
 import {
   Dialog,
   DialogContent,
@@ -22,9 +22,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/client/components/ui/dialog";
-import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
+} from "@client/components/ui/dialog";
+import { Button } from "@client/components/ui/button";
+import { Input } from "@client/components/ui/input";
 
 export const Route = createFileRoute("/media")({
   component: MediaLibrary,
@@ -138,7 +138,7 @@ function MediaLibrary() {
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
-            className="h-32 animate-pulse rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+            className="h-32 animate-pulse rounded-lg border border-border bg-muted"
           />
         ))}
       </div>
@@ -168,7 +168,7 @@ function MediaLibrary() {
 
       {/* Breadcrumb navigation */}
       {breadcrumbs.length > 0 && (
-        <nav className="mb-3 flex items-center gap-1 text-sm text-gray-500">
+        <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
           <Button
             type="button"
             variant="link"
@@ -184,7 +184,7 @@ function MediaLibrary() {
               <span key={path} className="flex items-center gap-1">
                 <span>/</span>
                 {isLast ? (
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{segment}</span>
+                  <span className="font-medium text-foreground">{segment}</span>
                 ) : (
                   <Button
                     type="button"
@@ -202,7 +202,7 @@ function MediaLibrary() {
       )}
 
       {sortedSubdirs.length === 0 && currentFiles.length === 0 && (
-        <div className="text-center text-gray-500">
+        <div className="text-center text-muted-foreground">
           <p>{t($ => $.media.noFiles)}</p>
         </div>
       )}
@@ -215,10 +215,10 @@ function MediaLibrary() {
             type="button"
             variant="outline"
             onClick={() => setCurrentDir(currentDir ? `${currentDir}/${dir}` : dir)}
-            className="flex h-28 flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:border-blue-600 dark:hover:bg-blue-950"
+            className="flex h-28 flex-col items-center justify-center gap-2 hover:border-accent-foreground/30 hover:bg-accent"
           >
-            <span className="text-3xl text-gray-400">&#128193;</span>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{dir}</span>
+            <span className="text-3xl text-muted-foreground">&#128193;</span>
+            <span className="text-sm font-medium text-foreground">{dir}</span>
           </Button>
         ))}
 
@@ -228,14 +228,14 @@ function MediaLibrary() {
           return (
             <div
               key={file.path}
-              className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
+              className="group relative overflow-hidden rounded-lg border border-border"
             >
               {isImage ? (
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setLightboxSrc(toPreviewUrl(file.path))}
-                  className="flex h-28 w-full items-center justify-center rounded-none bg-gray-50 dark:bg-gray-900 cursor-pointer"
+                  className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${getFileName(file.path)}`}
                 >
                   <img
@@ -248,8 +248,8 @@ function MediaLibrary() {
                   />
                 </Button>
               ) : (
-                <div className="flex h-28 items-center justify-center bg-gray-50 dark:bg-gray-900">
-                  <span className="text-2xl text-gray-400">
+                <div className="flex h-28 items-center justify-center bg-muted">
+                  <span className="text-2xl text-muted-foreground">
                     {file.path.split(".").pop()?.toUpperCase()}
                   </span>
                 </div>
@@ -290,14 +290,14 @@ function MediaLibrary() {
                   {t($ => $.common.delete)}
                 </Button>
               </div>
-              <div className="border-t border-gray-200 px-3 py-2 dark:border-gray-700">
+              <div className="border-t border-border px-3 py-2">
                 <p
-                  className="truncate text-xs font-medium text-gray-700 dark:text-gray-300"
+                  className="truncate text-xs font-medium text-foreground"
                   title={file.path}
                 >
                   {getFileName(file.path)}
                 </p>
-                <p className="text-xs text-gray-400">{formatSize(file.size)}</p>
+                <p className="text-xs text-muted-foreground">{formatSize(file.size)}</p>
               </div>
             </div>
           );

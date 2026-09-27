@@ -1,6 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { toLabel } from "@/client/lib/to-label";
+import { toLabel } from "@client/lib/to-label";
 
 export function Header() {
   const { t } = useTranslation();
@@ -21,21 +21,21 @@ export function Header() {
   }
 
   return (
-    <header className="flex h-12 items-center border-b border-gray-200 px-6 dark:border-gray-700">
-      <nav className="flex items-center gap-1.5 text-sm text-gray-500">
+    <header className="flex h-12 items-center border-b border-border px-6">
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
         {segments.map((seg, i) => (
           <span key={seg.to ?? seg.label} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-gray-300 dark:text-gray-600">/</span>}
+            {i > 0 && <span className="text-muted-foreground/50">/</span>}
             {i < segments.length - 1 && seg.to ? (
               <Link
                 to={seg.to}
                 params={seg.params ?? {}}
-                className="hover:text-gray-900 dark:hover:text-gray-100"
+                className="hover:text-foreground"
               >
                 {seg.label}
               </Link>
             ) : (
-              <span className="font-medium text-gray-900 dark:text-gray-100">{seg.label}</span>
+              <span className="font-medium text-foreground">{seg.label}</span>
             )}
           </span>
         ))}

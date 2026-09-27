@@ -1,20 +1,20 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useMedia } from "@/client/queries/use-media";
-import { getStorage } from "@/client/lib/storage";
-import { isImagePath, toPreviewUrl, getFileName } from "@/client/lib/asset-utils";
-import { optimizeImage } from "@/client/lib/image-utils";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { useMedia } from "@client/queries/use-media";
+import { getStorage } from "@client/lib/storage";
+import { isImagePath, toPreviewUrl, getFileName } from "@client/lib/asset-utils";
+import { optimizeImage } from "@client/lib/image-utils";
+import { ConfirmDialog } from "@client/components/confirm-dialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/client/components/ui/dialog";
-import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
+} from "@client/components/ui/dialog";
+import { Button } from "@client/components/ui/button";
+import { Input } from "@client/components/ui/input";
 
 interface MediaPickerDialogProps {
   open: boolean;

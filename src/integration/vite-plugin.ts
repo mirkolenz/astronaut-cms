@@ -1,5 +1,7 @@
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { init, parse } from "es-module-lexer";
 import type { Plugin } from "vite";
 import type { CmsClientConfig, CmsConfig } from "./types.ts";
@@ -7,6 +9,30 @@ import { CLIENT_REDIRECTS } from "./client-redirects.ts";
 
 const DEFAULT_CLIENT_STUBS = ["@astrojs/starlight/loaders"];
 const STUB_PREFIX = "virtual:cms-stub/";
+
+// Derive source paths from package.json exports for workspace-linked dev.
+// For published packages the source files don't exist and the existsSync
+// guard in resolveId falls through to default (dist/) resolution.
+const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const PKG_JSON_PATH = resolve(PKG_ROOT, "package.json");
+const SOURCE_EXPORTS: Record<string, string> = existsSync(PKG_JSON_PATH)
+  ? buildSourceExports(PKG_ROOT, PKG_JSON_PATH)
+  : {};
+
+function buildSourceExports(root: string, pkgPath: string): Record<string, string> {
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
+    name: string;
+    exports?: Record<string, { source?: string }>;
+  };
+  const map: Record<string, string> = {};
+  for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
+    if (conditions.source) {
+      const specifier = subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
+      map[specifier] = resolve(root, conditions.source);
+    }
+  }
+  return map;
+}
 
 export function cmsVitePlugin(
   config: CmsConfig,
@@ -77,6 +103,13 @@ export function cmsVitePlugin(
     resolveId(id) {
       if (id in virtualModules || id.startsWith(STUB_PREFIX))
         return "\0" + id;
+      // Resolve astronaut-cms exports to source files when available
+      // (workspace-linked development). Checked before the client-only
+      // gate so it applies in all Vite environments (SSR + client).
+      if (id in SOURCE_EXPORTS) {
+        const sourcePath = SOURCE_EXPORTS[id];
+        if (existsSync(sourcePath)) return sourcePath;
+      }
       if (this.environment?.name !== "client") return;
       if (id in CLIENT_REDIRECTS) return this.resolve(CLIENT_REDIRECTS[id]);
       if (stubExports.has(id)) return "\0" + STUB_PREFIX + id;

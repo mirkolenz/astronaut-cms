@@ -1,9 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { NotebookPen, BarChart3 } from "lucide-react";
-import { useCollections } from "@/client/queries/use-collections";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { toLabel } from "@/client/lib/to-label";
+import { useCollections } from "@client/queries/use-collections";
+import { ErrorBanner } from "@client/components/error-banner";
+import { toLabel } from "@client/lib/to-label";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -19,7 +19,7 @@ function Dashboard() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-32 animate-pulse rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"
+            className="h-32 animate-pulse rounded-lg border border-border bg-muted"
           />
         ))}
       </div>
@@ -32,7 +32,7 @@ function Dashboard() {
 
   if (!collections || Object.keys(collections).length === 0) {
     return (
-      <div className="text-center text-gray-500">
+      <div className="text-center text-muted-foreground">
         <p className="text-lg">{t($ => $.dashboard.noCollections)}</p>
         <p className="mt-1 text-sm">{t($ => $.dashboard.defineCollections)}</p>
       </div>
@@ -48,18 +48,18 @@ function Dashboard() {
             key={name}
             to="/collections/$collection"
             params={{ collection: name }}
-            className="group rounded-lg border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-700 dark:hover:bg-blue-950"
+            className="group rounded-lg border border-border p-4 transition-colors hover:border-accent-foreground/30 hover:bg-accent"
           >
             <div className="flex items-center gap-2">
               {col.type === "content" ? <NotebookPen className="size-5" /> : <BarChart3 className="size-5" />}
-              <h2 className="font-medium text-gray-900 group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">
+              <h2 className="font-medium text-foreground group-hover:text-accent-foreground">
                 {toLabel(name)}
               </h2>
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               {col.type === "content" ? t($ => $.dashboard.contentCollection) : t($ => $.dashboard.dataCollection)}
             </p>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground/70">
               {t($ => $.dashboard.fields, { count: Object.keys(col.schema.shape ?? {}).length })}
             </p>
           </Link>

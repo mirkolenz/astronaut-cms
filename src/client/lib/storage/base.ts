@@ -8,17 +8,17 @@ import type {
   FileEntryLayout,
   CONTENT_FORMATS,
   DATA_FORMATS,
-} from "@/shared/types";
+} from "@shared/types";
 import {
   parseContent,
   serializeContent,
   parseMultiEntryFile,
   serializeMultiEntryFile,
   getFileExtension,
-} from "@/shared/content-parser";
-import { validateSegment, validatePath, validateFormat } from "@/shared/validation";
-import type { PendingChange } from "@/client/stores/changes-store";
-import { useChangesStore } from "@/client/stores/changes-store";
+} from "@shared/content-parser";
+import { validateSegment, validatePath, validateFormat } from "@shared/validation";
+import type { PendingChange } from "@client/stores/changes-store";
+import { useChangesStore } from "@client/stores/changes-store";
 
 export abstract class StorageBase implements StorageBackend {
   protected schemas: Record<string, CollectionInfo>;

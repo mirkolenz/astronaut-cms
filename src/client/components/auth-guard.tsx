@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
-import { useAuthStore } from "@/client/stores/auth-store";
-import { initiateDeviceAuthorization } from "@/client/lib/oauth/github";
-import { startGitLabLogin, handleGitLabCallback } from "@/client/lib/oauth/gitlab";
-import { Button } from "@/client/components/ui/button";
-import { Alert, AlertDescription } from "@/client/components/ui/alert";
+import { useAuthStore } from "@client/stores/auth-store";
+import { initiateDeviceAuthorization } from "@client/lib/oauth/github";
+import { startGitLabLogin, handleGitLabCallback } from "@client/lib/oauth/gitlab";
+import { Button } from "@client/components/ui/button";
+import { Alert, AlertDescription } from "@client/components/ui/alert";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -54,7 +54,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (oauthPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-gray-500">{t($ => $.auth.completingAuth)}</p>
+        <p className="text-sm text-muted-foreground">{t($ => $.auth.completingAuth)}</p>
       </div>
     );
   }
@@ -79,7 +79,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-gray-500">{t($ => $.auth.unsupportedStorage, { type: config.storageType })}</p>
+      <p className="text-muted-foreground">{t($ => $.auth.unsupportedStorage, { type: config.storageType })}</p>
     </div>
   );
 }
@@ -122,22 +122,22 @@ function GitHubLogin({ clientId }: { clientId: string }) {
     <LoginShell title={t($ => $.auth.signInGitHub)} error={error}>
       {userCode && verificationUri ? (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {t($ => $.auth.enterCodeAt)}{" "}
             <a
               href={verificationUri}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-600 underline hover:text-blue-700"
+              className="font-medium text-primary underline hover:text-primary/80"
             >
               github.com/login/device
             </a>
           </p>
-          <div className="rounded-md bg-gray-100 p-3 text-center font-mono text-2xl font-bold tracking-widest dark:bg-gray-800">
+          <div className="rounded-md bg-muted p-3 text-center font-mono text-2xl font-bold tracking-widest">
             {userCode}
           </div>
           {isPolling && (
-            <p className="text-center text-xs text-gray-400">{t($ => $.auth.waitingAuth)}</p>
+            <p className="text-center text-xs text-muted-foreground">{t($ => $.auth.waitingAuth)}</p>
           )}
         </div>
       ) : (
@@ -198,10 +198,10 @@ function LoginShell({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-      <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm">
         <h1 className="mb-1 text-lg font-semibold">{t($ => $.layout.appName)}</h1>
-        <p className="mb-4 text-sm text-gray-500">{title}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{title}</p>
 
         {error && (
           <Alert variant="destructive" className="mb-4">
