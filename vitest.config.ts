@@ -1,31 +1,18 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
-import { srcDir } from "./vite.shared.ts";
 
-// Standalone config (not the build config) so tests do not pull in the dts /
-// router plugins. Aliases mirror tsconfig; `virtual:astronaut-cms/config` is a
-// build-time modules, so tests resolve them to fixture stubs.
+const fixture = (name: string) => resolve(import.meta.dirname, "tests/fixtures", `${name}.ts`);
+
+// Standalone rather than the build config, so tests skip its plugins. The
+// integration generates the virtual modules, so tests resolve them to fixtures.
 export default defineConfig({
   resolve: {
-    alias: {
-      "virtual:astronaut-cms/config": resolve(import.meta.dirname, "tests/fixtures/config.ts"),
-      "virtual:astronaut-cms/routing": resolve(import.meta.dirname, "tests/fixtures/routing.ts"),
-      "virtual:astronaut-cms/collections": resolve(
-        import.meta.dirname,
-        "tests/fixtures/collections.ts",
+    alias: [
+      { find: "@", replacement: resolve(import.meta.dirname, "src") },
+      ...["config", "routing", "collections", "user-config", "server", "order", "local-storage"].map(
+        (name) => ({ find: `virtual:astronaut-cms/${name}`, replacement: fixture(name) }),
       ),
-      "virtual:astronaut-cms/user-config": resolve(
-        import.meta.dirname,
-        "tests/fixtures/user-config.ts",
-      ),
-      "virtual:astronaut-cms/server": resolve(import.meta.dirname, "tests/fixtures/server.ts"),
-      "virtual:astronaut-cms/order": resolve(import.meta.dirname, "tests/fixtures/order.ts"),
-      "virtual:astronaut-cms/local-storage": resolve(
-        import.meta.dirname,
-        "tests/fixtures/local-storage.ts",
-      ),
-      "@": srcDir,
-    },
+    ],
   },
   test: {
     include: ["tests/**/*.test.{ts,tsx}"],

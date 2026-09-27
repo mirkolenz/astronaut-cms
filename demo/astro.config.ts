@@ -1,8 +1,7 @@
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
-import tailwindcss from "@tailwindcss/vite";
-import cms from "../src/integration/index.ts";
+import cms from "astronaut-cms";
 
 // A deliberately minimal setup: the CMS auto-discovers the collections in
 // `src/content.config.ts` and the block components in `src/cms.config.ts`, then
@@ -14,9 +13,6 @@ import cms from "../src/integration/index.ts";
 // as a static site and the admin is reachable through `astro dev` alone.
 export default defineConfig({
   site: "https://example.com",
-  // Linked from source, the admin's stylesheet is Tailwind input, which a
-  // published install ships compiled.
-  vite: { plugins: [tailwindcss()] },
   integrations: [
     mdx(),
     react(),

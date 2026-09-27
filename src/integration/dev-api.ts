@@ -17,7 +17,6 @@ import {
   type RunnableDevEnvironment,
   type ViteDevServer,
 } from "vite";
-import { PACKAGE_NAME } from "../entry-points.ts";
 
 /** The Vite environment the dev API runs in. */
 export const DEV_API_ENVIRONMENT = "astronaut_cms";
@@ -28,7 +27,7 @@ export const devApiEnvironment: EnvironmentOptions = {
   consumer: "server",
   // The package imports the virtual modules, so Vite has to transform it rather
   // than hand it to Node.
-  resolve: { noExternal: [PACKAGE_NAME] },
+  resolve: { noExternal: ["astronaut-cms"] },
   dev: { createEnvironment: (name, config) => createRunnableDevEnvironment(name, config) },
 };
 
@@ -42,7 +41,7 @@ export function serveDevApi(server: ViteDevServer, apiPath: string): void {
     if (path !== apiPath && !path.startsWith(`${apiPath}/`)) return next();
 
     environment.runner
-      .import<Endpoint>(`${PACKAGE_NAME}/endpoint`)
+      .import<Endpoint>("astronaut-cms/endpoint")
       .then(({ handleRequest }) => handleRequest(toRequest(req)))
       .then((response) => send(res, response))
       .catch(next);

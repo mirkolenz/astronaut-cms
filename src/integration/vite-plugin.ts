@@ -8,7 +8,6 @@ import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
 import type { ContentEntry } from "./content-files.ts";
-import { SOURCE_EXPORTS } from "./self-resolve.ts";
 import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
 
 type AstroCommand = HookParameters<"astro:config:setup">["command"];
@@ -79,11 +78,7 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
     enforce: "pre",
 
     resolveId(id) {
-      if (id in virtualModules) return "\0" + id;
-      // Resolve astronaut-cms exports to source files when available
-      // (workspace-linked development), so the admin can use the TypeScript
-      // sources directly without a rebuilt dist.
-      if (id in SOURCE_EXPORTS) return SOURCE_EXPORTS[id];
+      return id in virtualModules ? "\0" + id : undefined;
     },
 
     load(id) {
@@ -94,17 +89,6 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       return module({
         devApi: this.environment.name === DEV_API_ENVIRONMENT,
         watch: (path) => this.addWatchFile(path),
-      });
-    },
-
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url?.includes("dev-toolbar") && req.url.endsWith(".map")) {
-          res.setHeader("Content-Type", "application/json");
-          res.end('{"version":3,"sources":[],"mappings":""}');
-          return;
-        }
-        next();
       });
     },
   };

@@ -14,8 +14,8 @@
    instead of walking up into the site that embeds it: nothing the CMS renders
    comes from the user's own files, and every file Tailwind scans is one it also
    watches, which turns unrelated content edits into dev-server reloads.
-   The package build compiles this file (see `vite.styles.config.ts`), so an
-   installed site gets plain CSS. */
+   The package build compiles it beside the admin bundle, so an installed site
+   gets plain CSS. */
 @source "../";
 
 @theme inline {

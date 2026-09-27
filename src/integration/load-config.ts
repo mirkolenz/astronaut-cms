@@ -1,7 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
-import { SOURCE_EXPORTS } from "./self-resolve.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { imageMarker } from "../shared/cms-markers.ts";
 import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
@@ -28,16 +27,9 @@ import type {
 // ever run in the browser. Everything else (third-party loaders and schemas)
 // runs for real. Matched exactly, since an alias otherwise also claims every
 // subpath of its key.
-const LOADER_STUBS = SOURCE_EXPORTS["astronaut-cms/internal"] ?? "astronaut-cms/internal";
-const ALIASES: Alias[] = Object.entries({
-  ...SOURCE_EXPORTS,
-  "astro:content": LOADER_STUBS,
-  "astro/loaders": LOADER_STUBS,
-  "astronaut-cms/editor": LOADER_STUBS,
-}).map(([specifier, replacement]) => ({
-  find: new RegExp(`^${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
-  replacement,
-}));
+const ALIASES: Alias[] = [/^astro:content$/, /^astro\/loaders$/, /^astronaut-cms\/editor$/].map(
+  (find) => ({ find, replacement: "astronaut-cms/internal" }),
+);
 
 /** Imports a config module, typed as the exports the caller reads. */
 type ConfigImport = <T>(path: string) => Promise<T>;

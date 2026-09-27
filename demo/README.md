@@ -10,6 +10,9 @@ npm install
 npm run dev --workspace demo
 ```
 
+The demo runs the package as published, built into `dist/` first.
+Run `npm run dev` in the repository root beside it to rebuild the package on every change.
+
 Then open two tabs:
 
 - **http://localhost:4321/** — the public site

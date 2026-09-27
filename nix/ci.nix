@@ -45,8 +45,10 @@ in
   lint = job {
     name = "lint";
     nativeBuildInputs = [ oxlint ];
-    # `astro sync` writes the generated content types the type checker reads.
+    # `astro sync` writes the generated content types the type checker reads,
+    # and the demo reads the package's types from `dist/`.
     script = ''
+      npm run build
       npm exec --workspace demo -- astro sync
       npm exec --workspace docs -- astro sync
       oxlint --type-aware --type-check
