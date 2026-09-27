@@ -1,8 +1,8 @@
 /**
  * The media library of an object store, as a control plane rather than a data
  * plane. Policy, credentials and every decision about what an upload is allowed
- * to be live here; the bytes themselves go browser-to-store wherever the store
- * can be asked for a URL, because a serverless function is a poor file server.
+ * to be live here; the bytes themselves go browser-to-store, because a serverless
+ * function is a poor file server.
  *
  * Handing out that URL is the whole of an upload, because every decision made
  * here is signed into it: the exact byte count, the content type the store will
@@ -22,7 +22,7 @@ import {
   mediaContentType,
   remoteMediaUrl,
 } from "../shared/media.ts";
-import type { MediaStore, UploadTerms } from "../media/store.ts";
+import type { MediaStore, UploadTerms } from "../media/s3-store.ts";
 
 /**
  * Where a deletion goes instead of being dropped, and what `listTrash` reads
@@ -132,6 +132,23 @@ export class ObjectStoreLibrary implements MediaBackend {
     );
   }
 
+  /**
+   * Moves an object onto a library key. Conditional in the store, so a
+   * destination taken in between refuses rather than being quietly replaced,
+   * and the refusal is then named.
+   */
+  private async moveInto(from: string, key: string, path: string): Promise<void> {
+    try {
+      await this.store.copy(from, key, true);
+    } catch (err) {
+      await this.assertWritable(key, path, false);
+
+      throw err;
+    }
+
+    await this.store.remove(from);
+  }
+
   async listMedia(): Promise<MediaFile[]> {
     const objects = await this.store.list(this.config.prefix);
 
@@ -160,10 +177,6 @@ export class ObjectStoreLibrary implements MediaBackend {
     const key = this.toKey(path);
     const presigned = await this.store.presignUpload(key, this.terms(path, size, overwrite));
 
-    // A store that cannot sign takes the bytes through the route instead, where
-    // they are checked as they arrive.
-    if (!presigned) return { direct: false };
-
     // No check on the destination here: the precondition is signed into the URL,
     // so the store refuses an occupied key as the browser writes it, and the
     // admin says so from that refusal. A HEAD first would cost a round trip on
@@ -171,24 +184,11 @@ export class ObjectStoreLibrary implements MediaBackend {
     return { direct: true, ...presigned };
   }
 
-  /** The proxied path: bytes this server is holding, so its own count is the terms. */
-  async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
-    const key = this.toKey(path);
-
-    await this.assertWritable(key, path, overwrite);
-    await this.store.put(key, streamOf(bytes), this.terms(path, bytes.byteLength, overwrite));
-  }
-
   async renameMedia(from: string, to: string): Promise<void> {
     const source = this.toKey(from);
     const target = this.toKey(to);
 
-    // Unlike an upload, a rename has no browser to read the store's refusal, so
-    // the conflict is named here; `ifAbsent` on the copy is what makes it true,
-    // since a destination can appear between the two calls.
-    await this.assertWritable(target, to, false);
-    await this.store.copy(source, target, true);
-    await this.store.remove(source);
+    await this.moveInto(source, target, to);
   }
 
   async deleteMedia(path: string): Promise<void> {
@@ -221,17 +221,9 @@ export class ObjectStoreLibrary implements MediaBackend {
     // library no longer allows does not get in by way of the trash.
     const key = this.toKey(path);
 
-    // Conditional, so restoring onto a name taken since the deletion refuses in
-    // the store rather than quietly replacing the newer file.
-    try {
-      await this.store.copy(`${this.config.prefix}${id}`, key, true);
-    } catch (err) {
-      await this.assertWritable(key, path, false);
-
-      throw err;
-    }
-
-    await this.store.remove(`${this.config.prefix}${id}`);
+    // Restoring onto a name taken since the deletion refuses rather than
+    // quietly replacing the newer file.
+    await this.moveInto(`${this.config.prefix}${id}`, key, path);
   }
 
   async purgeTrash(id: string): Promise<void> {
@@ -249,5 +241,3 @@ export class ObjectStoreLibrary implements MediaBackend {
     return parsed;
   }
 }
-
-const streamOf = (bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array> => new Blob([bytes]).stream();

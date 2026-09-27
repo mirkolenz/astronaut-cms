@@ -42,7 +42,7 @@ export function serveDevApi(server: ViteDevServer, apiPath: string): void {
 
     environment.runner
       .import<Endpoint>("astronaut-cms/endpoint")
-      .then(({ handleRequest }) => handleRequest(toRequest(req)))
+      .then(({ handle }) => handle(toRequest(req)))
       .then((response) => send(res, response))
       .catch(next);
   });

@@ -121,33 +121,13 @@ Content then stores library keys instead of project paths, and the site loads th
     R2 speaks the S3 API, so this is the same backend with Cloudflare's endpoint filled in.
 
   </TabItem>
-
-  <TabItem label="R2 via Workers binding">
-    ```ts title="astro.config.ts"
-    cms({
-      media: {
-        backend: {
-          type: "r2",
-          bucket: "my-media",
-          binding: "MEDIA",
-          publicUrl: "https://cdn.example.com",
-        },
-      },
-    });
-    ```
-
-    On `@astrojs/cloudflare`, an R2 binding needs no credentials.
-    A binding cannot hand out a presigned URL, so uploads, renames and deletions pass through the Worker rather than going straight to the bucket, and an upload is bounded by your plan's request body limit.
-    For large videos, use `accountId` instead. A backend takes exactly one of the two.
-
-  </TabItem>
 </Tabs>
 
 ### What an object store needs
 
 <Steps>
   <StepItem title="Set the credentials on the server">
-    Not needed for a Workers binding:
+    On the server:
 
     ```sh
     ASTRONAUT_CMS_S3_ACCESS_KEY_ID=...
@@ -174,8 +154,9 @@ Content then stores library keys instead of project paths, and the site loads th
   </StepItem>
 
 <StepItem title="Allow browser uploads in the bucket's CORS policy">
-  A `PUT` from your admin's origin, with `if-none-match` among the allowed request headers: the
-  server signs that precondition into the upload URL, so the browser has to send it. Uploads go
+  A `PUT` from your admin's origin, with `content-type`, `if-none-match` and
+  `content-disposition` among the allowed request headers: the server signs those terms into the
+  upload URL, so the browser has to send them. Uploads go
   straight from the browser to the store, which is what keeps them clear of the 4.5 MB (Vercel) and
   6 MB (Netlify) function body limits.
 </StepItem>
@@ -247,7 +228,7 @@ The integration already registers `publicUrl` in astro's `image.remotePatterns`,
 
 - **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted file stops being served to every visitor at once, even if the entry referencing it is still a draft.
 - **Deletion is recoverable.** The object is moved to a `.trash/` prefix inside the library rather than dropped, and the media view restores it. See [Deleting and restoring](#deleting-and-restoring).
-- **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition; replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) are proxied through the server so they can be stored with `Content-Disposition: attachment`.
+- **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition; replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) get `Content-Disposition: attachment` signed in as well, so the store serves them as downloads.
 - **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
 - **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `file()` for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
 - **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.

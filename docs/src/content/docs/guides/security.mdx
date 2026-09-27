@@ -218,8 +218,7 @@ The bytes go straight from the browser to the store, and the server's decisions 
   </StepItem>
 </Steps>
 
-Active types (SVG and friends) need a `Content-Disposition: attachment` the store will keep, and there is no request header to sign one into.
-Those uploads, and any store that cannot hand out URLs at all (an R2 Workers binding), take the bytes through the route instead, where they are checked as they arrive.
+Active types (SVG and friends) get `Content-Disposition: attachment` signed in as well, so the store serves them as downloads rather than as pages.
 
 ### Reading
 

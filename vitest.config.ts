@@ -9,7 +9,8 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: "@", replacement: path("src") },
-      ...["server", "runtime", "order", "user-config"].map((name) => ({
+      { find: "astro:env/server", replacement: path("tests/fixtures/env.ts") },
+      ...["server", "local-storage", "order", "user-config"].map((name) => ({
         find: `virtual:astronaut-cms/${name}`,
         replacement: path("tests/fixtures", `${name}.ts`),
       })),

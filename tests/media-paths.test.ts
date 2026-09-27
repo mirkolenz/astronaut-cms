@@ -11,7 +11,7 @@ import {
   uniqueMediaPath,
 } from "@/shared/media";
 import { ObjectStoreLibrary } from "@/server/media";
-import { BindingStore, type MediaStore, type R2Binding } from "../src/media/store";
+import type { MediaStore } from "@/media/s3-store";
 
 // One rule maps a library path to the string content stores, and back. The two
 // backends spell it differently — a project path for a library in the
@@ -21,64 +21,24 @@ import { BindingStore, type MediaStore, type R2Binding } from "../src/media/stor
 
 const repo = { mediaBackend: { type: "repo" } as const, mediaDirectory: "src/assets" };
 const remote = {
-  mediaBackend: { type: "remote", publicUrl: "https://cdn.example.com" } as const,
+  mediaBackend: {
+    type: "remote",
+    publicUrl: "https://cdn.example.com",
+    storeOrigin: "https://s3.example.com",
+  } as const,
   mediaDirectory: "src/assets",
 };
 // `astro dev` may hold an object store's library in the working tree, which moves
 // the bytes and nothing else: an entry edited there has to build unchanged.
 const devLocal = {
-  mediaBackend: { type: "remote", publicUrl: "https://cdn.example.com", local: true } as const,
+  mediaBackend: {
+    type: "remote",
+    publicUrl: "https://cdn.example.com",
+    storeOrigin: "https://s3.example.com",
+    local: true,
+  } as const,
   mediaDirectory: "src/assets",
 };
-
-function bindingStore(initial: Record<string, string>) {
-  const objects = new Map(
-    Object.entries(initial).map(([key, value]) => [
-      key,
-      { bytes: new TextEncoder().encode(value), etag: `"${value}"` },
-    ]),
-  );
-  const bucket: R2Binding = {
-    list: async ({ prefix = "" } = {}) => ({
-      objects: [...objects]
-        .filter(([key]) => key.startsWith(prefix))
-        .map(([key, value]) => ({ key, size: value.bytes.byteLength, etag: value.etag })),
-      truncated: false,
-    }),
-    head: async (key) => {
-      const value = objects.get(key);
-
-      return value ? { key, size: value.bytes.byteLength, etag: value.etag } : null;
-    },
-    get: async (key) => {
-      const value = objects.get(key);
-
-      if (!value) return null;
-
-      return {
-        etag: value.etag,
-        body: new ReadableStream({
-          start(controller) {
-            controller.enqueue(value.bytes);
-            controller.close();
-          },
-        }),
-      };
-    },
-    put: async (key, _value, options) => {
-      if (options?.onlyIf?.etagDoesNotMatch === "*" && objects.has(key)) return null;
-
-      objects.set(key, { bytes: new Uint8Array(), etag: '"new"' });
-
-      return { key };
-    },
-    delete: async (key) => {
-      objects.delete(key);
-    },
-  };
-
-  return { objects, store: new BindingStore(bucket) };
-}
 
 describe("media paths", () => {
   it("round-trips a repository path", () => {
@@ -157,6 +117,31 @@ describe("media types", () => {
   });
 });
 
+/** A store that keeps only sizes, and refuses a conditional copy onto a taken key as S3 does. */
+function fakeStore() {
+  const objects = new Map<string, number>([["lib/photos/hero.png", 12]]);
+  const store: MediaStore = {
+    list: async (prefix) =>
+      [...objects].filter(([key]) => key.startsWith(prefix)).map(([key, size]) => ({ key, size })),
+    head: async (key) => {
+      const size = objects.get(key);
+
+      return size === undefined ? null : { key, size };
+    },
+    presignUpload: async (key) => ({ url: `https://s3.example.com/${key}`, headers: {} }),
+    copy: async (from, to, ifAbsent) => {
+      if (ifAbsent && objects.has(to)) throw new Error("PreconditionFailed");
+
+      objects.set(to, objects.get(from) ?? 0);
+    },
+    remove: async (key) => {
+      objects.delete(key);
+    },
+  };
+
+  return { objects, store };
+}
+
 // The admin reads a library file from its public URL. The route answers a
 // caller that asked it anyway with the same address, for a path the library
 // admits to holding.
@@ -164,16 +149,15 @@ const libraryOf = (store: MediaStore) =>
   new ObjectStoreLibrary(
     store,
     {
-      bucket: "b",
       publicUrl: "https://cdn.example.com",
       prefix: "lib/",
-      access: { type: "binding", name: "MEDIA" },
+      s3: { endpoint: "https://s3.example.com", region: "auto", pathStyle: true, bucket: "b" },
     },
     { extensions: ["png"], maxFileSize: null },
   );
 
 describe("reading a library", () => {
-  const { store } = bindingStore({});
+  const { store } = fakeStore();
 
   it("sends a read to the public URL", async () => {
     await expect(libraryOf(store).readMedia("photos/a b.png")).resolves.toEqual({
@@ -193,36 +177,6 @@ describe("reading a library", () => {
 // between a wrong delete and a lost file. What it stores has to survive the
 // round trip: the original path, and nothing a caller could have spelled.
 describe("the trash", () => {
-  function fakeStore() {
-    const objects = new Map<string, number>([["lib/photos/hero.png", 12]]);
-
-    return {
-      objects,
-      store: {
-        list: (prefix: string) =>
-          Promise.resolve(
-            [...objects]
-              .filter(([key]) => key.startsWith(prefix))
-              .map(([key, size]) => ({ key, size })),
-          ),
-        head: (key: string) =>
-          Promise.resolve(objects.has(key) ? { key, size: objects.get(key)! } : null),
-        copy: (from: string, to: string, ifAbsent?: boolean) => {
-          if (ifAbsent && objects.has(to)) return Promise.reject(new Error("PreconditionFailed"));
-
-          objects.set(to, objects.get(from)!);
-
-          return Promise.resolve();
-        },
-        remove: (key: string) => {
-          objects.delete(key);
-
-          return Promise.resolve();
-        },
-      } as unknown as MediaStore,
-    };
-  }
-
   it("round-trips a deletion back to its original path", async () => {
     const { objects, store } = fakeStore();
     const library = libraryOf(store);
@@ -261,15 +215,14 @@ describe("the trash", () => {
     await expect(library.restoreMedia(trashed.id)).rejects.toThrow(/already exists/);
   });
 
-  it("keeps an R2 trash object when its conditional restore is refused", async () => {
+  it("keeps the trash object when its conditional restore is refused", async () => {
     const id = ".trash/1-photos/hero.png";
-    const { objects, store } = bindingStore({
-      [`lib/${id}`]: "old",
-      "lib/photos/hero.png": "new",
-    });
+    const { objects, store } = fakeStore();
+
+    objects.set(`lib/${id}`, 3);
 
     await expect(libraryOf(store).restoreMedia(id)).rejects.toThrow(/already exists/);
     expect(objects.has(`lib/${id}`)).toBe(true);
-    expect(new TextDecoder().decode(objects.get("lib/photos/hero.png")?.bytes)).toBe("new");
+    expect(objects.get("lib/photos/hero.png")).toBe(12);
   });
 });

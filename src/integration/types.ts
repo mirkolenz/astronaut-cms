@@ -1,5 +1,5 @@
 import type { ContentI18n } from "../shared/i18n.ts";
-import type { ClientMediaBackend } from "../shared/media.ts";
+import type { ClientMediaBackend, S3Target } from "../shared/media.ts";
 import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 
@@ -12,12 +12,6 @@ export interface CmsConfig {
   mountPoint?: string;
   /** Storage backend configuration */
   storage?: StorageConfig;
-  /**
-   * Where the injected routes read Workers bindings from. Detected
-   * from the Astro adapter, so set it only for an adapter that wraps or forks a
-   * supported one under a name the detection does not recognise.
-   */
-  runtime?: CmsRuntime;
   /** Substitute the local filesystem backend during `astro dev`, even when a remote storage is configured (default: true) */
   localStorageInDev?: boolean;
   /**
@@ -93,12 +87,6 @@ export interface WebmcpConfig {
 }
 
 /**
- * AI gateway, selected statically in the config. Only non-secret structure lives
- * here. Credentials come exclusively from the environment, so an API key can
- * never be committed:
- *
- * - `netlify` / `vercel`: the platform injects credentials automatically, so the
-/**
  * Agentic AI assistant. The browser runs the agent loop, but every tool it calls
  * is one operation on the CMS server, so the model reaches exactly what the UI
  * reaches and no further. Only raw model inference is proxied, through a
@@ -108,7 +96,7 @@ export interface WebmcpConfig {
 export interface AiConfig {
   /** Enable the assistant and inject the relay route (default: false). */
   enabled?: boolean;
-  /** AI gateway and (optional) credentials. See {@link AiGateway}. */
+  /** AI gateway. Its credential comes from the environment, see {@link AiGateway}. */
   gateway: AiGateway;
   /**
    * Whose credential the assistant spends (default: `"relay"`).
@@ -326,31 +314,18 @@ export interface S3MediaConfig extends ObjectStoreConfig {
 }
 
 /**
- * Cloudflare R2, reached in exactly one of two ways.
- *
- * - `accountId`: the S3 API, with the `ASTRONAUT_CMS_S3_*` credentials. Uploads
- *   go straight from the browser to the bucket, and renames and deletions are
- *   copies inside R2, so file size is bounded by R2 alone.
- * - `binding`: a Workers binding on `@astrojs/cloudflare`, which needs no
- *   credential. Uploads, renames and deletions pass
- *   through the Worker instead, so an upload is bounded by the plan's request
- *   body limit.
+ * Cloudflare R2 through its S3 API, with the `ASTRONAUT_CMS_S3_*` credentials.
+ * Uploads go straight from the browser to the bucket, and renames and deletions
+ * are copies inside R2, so file size is bounded by R2 alone.
  *
  * Public serving needs a custom domain on the bucket: the `*.r2.dev` hostname is
  * rate-limited and not meant for production traffic.
  */
-export type R2MediaConfig = ObjectStoreConfig & { type: "r2" } & (
-    | {
-        /** Cloudflare account id, for the S3 API endpoint. */
-        accountId: string;
-        binding?: never;
-      }
-    | {
-        /** Workers R2 binding name, e.g. "MEDIA". */
-        binding: string;
-        accountId?: never;
-      }
-  );
+export interface R2MediaConfig extends ObjectStoreConfig {
+  type: "r2";
+  /** Cloudflare account id, for the S3 API endpoint. */
+  accountId: string;
+}
 
 /**
  * What the injected media route needs to reach the store. Server-only: it is
@@ -358,15 +333,12 @@ export type R2MediaConfig = ObjectStoreConfig & { type: "r2" } & (
  * admin bundle.
  */
 export interface MediaServerConfig {
-  bucket: string;
   /** Where the library's keys are served, which is where a read is sent. */
   publicUrl: string;
   /** Normalized to "" or "prefix/". */
   prefix: string;
-  /** How the store is reached: its S3 API, or a Workers R2 binding. */
-  access:
-    | { type: "s3"; endpoint: string; region: string; pathStyle: boolean }
-    | { type: "binding"; name: string };
+  /** The store's S3 API. */
+  s3: S3Target;
 }
 
 /**
@@ -399,13 +371,6 @@ export type ServerStorageConfig =
  * AI gateway. Imported solely by `server/`, so it is bundled into the SSR output
  * alone.
  */
-/**
- * Where the injected routes read secrets and bindings from. Detected from the
- * Astro adapter; set it only for an adapter that wraps or forks a supported one
- * under a name the detection does not recognise.
- */
-export type CmsRuntime = "cloudflare" | "node";
-
 export interface CmsServerConfig {
   /** The site's `trailingSlash` policy, which the CMS's own URLs have to follow for Astro to match them. */
   trailingSlash: "always" | "never" | "ignore";

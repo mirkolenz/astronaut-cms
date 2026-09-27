@@ -14,7 +14,7 @@ The agent loop and the chat interface run in the browser; the tools it calls and
 
 A tool call is an ordinary CMS API request, authenticated by the same session cookie everything else uses.
 Model requests go to a relay the integration serves at `/_astronaut-cms/api/ai/chat/completions`, which adds your gateway credential and forwards the request.
-The relay holds no secret of its own: credentials come from the config or from the environment your platform injects.
+The relay holds no secret of its own: credentials come only from the server environment, most of it injected by your platform.
 
 Keeping the loop in the browser is deliberate.
 Each relay call is a single model round-trip rather than a whole multi-step conversation, so no serverless duration limit can cut a turn in half.
@@ -73,7 +73,7 @@ It never reaches your server, and the relay route is not part of a `byok` build 
 The `models` list is still what the model picker offers, but the browser talks to the gateway directly, so an editor can reach any model their key allows.
 Under `byok`, choosing a model that meets your [transparency obligations](#ai-transparency) is the editor's responsibility, or that of whoever issues their keys, for example by restricting models in the gateway.
 
-`byok` needs a gateway the browser can address, so `cloudflare` or `custom`; the `netlify` and `vercel` gateways resolve their base URL from server-side environment variables, and the build fails with a message if you ask for `byok` with one of those. The gateway's origin is added to the admin's `connect-src`, and nothing else is.
+`byok` needs a gateway a browser can call with the editor's key, so `cloudflare` or `custom`. The `netlify` gateway resolves its base URL from the server environment, the `vercel` gateway is not known to answer a browser, and the build fails with a message if you ask for `byok` with either. The gateway's origin is added to the admin's `connect-src`, and nothing else is.
 
 <Aside type="caution" title="Not the deployment's key">
   `byok` means the *editor's* key. Never arrange for the browser to fetch your deployment's gateway
@@ -169,8 +169,10 @@ The first model is the default, and the relay rejects any request that names no 
 </Tabs>
 
 <Aside type="note">
-  With `netlify` and `vercel`, credentials are injected by the platform, so no secret appears in
-  your config or environment. Configure unified billing on the platform so all model usage lands on
+  With `netlify` and `vercel`, credentials come from the platform, so no secret appears in your
+  config or environment. Netlify injects `OPENAI_BASE_URL` and `OPENAI_API_KEY`, which the CMS
+  reads only as a pair, so a site that sets its own has to set both. Vercel sends each function a
+  fresh OIDC token, and `AI_GATEWAY_API_KEY` takes precedence when set. Configure unified billing on the platform so all model usage lands on
   a single invoice.
 </Aside>
 

@@ -18,11 +18,6 @@ const byokFetch: typeof fetch = (input, init) => {
 
   if (key) headers.set("authorization", `Bearer ${key}`);
 
-  // Whatever selects the gateway there, which is the same thing the relay sends.
-  for (const [name, value] of Object.entries(aiConfig?.byok?.headers ?? {})) {
-    headers.set(name, value);
-  }
-
   return fetch(input, { ...init, headers });
 };
 
@@ -38,6 +33,6 @@ const byokFetch: typeof fetch = (input, init) => {
 export const aiProvider = createOpenAICompatible({
   name: "astronaut-cms",
   ...(aiConfig?.byok
-    ? { baseURL: aiConfig.byok.baseUrl, fetch: byokFetch }
+    ? { baseURL: aiConfig.byok.baseUrl, headers: aiConfig.byok.headers, fetch: byokFetch }
     : { baseURL: apiUrl(AI_API_BASE), fetch: apiFetch }),
 });

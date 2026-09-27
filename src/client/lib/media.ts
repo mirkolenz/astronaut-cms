@@ -42,9 +42,10 @@ export function mediaUrl(path: string, version?: string): string {
 }
 
 /**
- * Uploads a file, taking whichever route the server says this library uses.
+ * Uploads a file, straight to an object store or through the server into a
+ * repository library, as the server says.
  *
- * The direct route is the normal one: the server signs a URL for this exact file
+ * The direct route is the object store's: the server signs a URL for this exact file
  * at this exact key, and the browser sends the bytes straight to the store. The
  * bytes never pass through a serverless function, and the library's rules travel
  * with the signature, so the store applies them to the write itself rather than

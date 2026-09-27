@@ -11,12 +11,10 @@ declare module "virtual:astronaut-cms/server" {
   export const components: ComponentSchemaMap;
 }
 
-/** What only resolves in the runtime the injected routes run in. */
-declare module "virtual:astronaut-cms/runtime" {
+/** The filesystem backend, linked only into the dev API, the one build that runs in Node for certain. */
+declare module "virtual:astronaut-cms/local-storage" {
   import type { LocalStorage as LocalStorageClass } from "@/server/storage/local";
 
-  /** The Workers `env`, where the injected routes run in Workers. Only bindings are read off it. */
-  export const env: Record<string, unknown> | undefined;
   /** The filesystem backend, or null in any build that is not the dev API. */
   export const LocalStorage: typeof LocalStorageClass | null;
 }

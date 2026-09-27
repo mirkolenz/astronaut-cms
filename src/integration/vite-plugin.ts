@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "pathe";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
-import type { CmsClientConfig, CmsRuntime, CmsServerConfig } from "./types.ts";
+import type { CmsClientConfig, CmsServerConfig } from "./types.ts";
 import type { CollectionManifest, CollectionSort } from "../shared/types.ts";
 import type { ComponentManifest } from "../internal/user-config.ts";
 import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
@@ -24,8 +24,6 @@ export interface CmsVitePluginOptions {
   entries: ContentEntry[];
   command: AstroCommand;
   rootDir: string;
-  /** Where the injected routes read secrets and bindings from. */
-  runtime: CmsRuntime;
 }
 
 /** What a module generated per load is told: whether it runs in the dev API, and how to watch a file. */
@@ -45,7 +43,7 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
 export const client = ${JSON.stringify(clientConfig)};
 export const server = ${JSON.stringify(serverConfig)};
 export const components = ${JSON.stringify(options.components)};`,
-    "virtual:astronaut-cms/runtime": ({ devApi }) => generateRuntimeModule(options, devApi),
+    "virtual:astronaut-cms/local-storage": ({ devApi }) => generateLocalStorageModule(options, devApi),
     "virtual:astronaut-cms/order": ({ watch }) =>
       generateOrderModule(clientConfig.collections, options.rootDir, watch),
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
@@ -78,20 +76,12 @@ export const components = ${JSON.stringify(options.components)};`,
   };
 }
 
-// Workers hand the environment to a module rather than to a global, and the
-// filesystem backend is Node-only, so both are linked in exactly where they
-// run. The dev API runs in Node whatever the adapter.
-function generateRuntimeModule(options: CmsVitePluginOptions, devApi: boolean): string {
-  const env =
-    options.runtime === "cloudflare" && !devApi
-      ? `export { env } from "cloudflare:workers";`
-      : `export const env = undefined;`;
-  const localStorage =
-    options.serverConfig.storage.type === "local" && devApi
-      ? `export { LocalStorage } from "astronaut-cms/server-local";`
-      : `export const LocalStorage = null;`;
-
-  return `${env}\n${localStorage}`;
+// The filesystem backend is Node-only, so it is linked in exactly where it runs:
+// the dev API, which runs in Node whatever the adapter.
+function generateLocalStorageModule(options: CmsVitePluginOptions, devApi: boolean): string {
+  return options.serverConfig.storage.type === "local" && devApi
+    ? `export { LocalStorage } from "astronaut-cms/server-local";`
+    : `export const LocalStorage = null;`;
 }
 
 // Emits the lazy loader maps that back `astronaut-cms/assets`, keyed by

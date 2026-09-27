@@ -1,24 +1,101 @@
 /**
- * The S3 implementation of {@link MediaStore}: plain `fetch` requests signed
- * with `aws4fetch`, which is small enough to load with the route itself.
+ * The object store a media library lives in, reached through its S3 API with
+ * plain `fetch` requests signed by `aws4fetch`, which is small enough to load
+ * with the route itself.
  */
+import { getSecret } from "astro:env/server";
 import { AwsClient } from "aws4fetch";
 import { z } from "zod";
 import { ApiError } from "../server/errors.ts";
-import { encodeKeyPath, remoteMediaUrl, s3BaseUrl } from "../shared/media.ts";
-import { parseXml, xmlList } from "../shared/xml.ts";
 import {
-  isFileKey,
-  MAX_KEYS,
-  UPLOAD_EXPIRY_SECONDS,
-  type MediaStore,
-  type PresignedUpload,
-  type UploadTerms,
-  type S3Credentials,
+  encodeKeyPath,
+  remoteMediaUrl,
+  S3_ACCESS_KEY_ID_ENV,
+  S3_SECRET_ACCESS_KEY_ENV,
+  S3_SESSION_TOKEN_ENV,
+  s3BaseUrl,
   type S3Target,
-  type StoredObject,
-  versionOf,
-} from "./store.ts";
+} from "../shared/media.ts";
+import { parseXml, xmlList } from "../shared/xml.ts";
+
+/**
+ * What an upload is allowed to be, decided by the route and never by its caller.
+ * Every one of these is signed into the upload URL, so the store enforces it
+ * rather than a check around it: the length because the URL is signed for it,
+ * the type because the store serves back what it was given, the disposition
+ * because it is what stops an uploaded SVG from becoming a page of its own, and
+ * the precondition because a destination checked beforehand can be taken in
+ * between.
+ */
+export interface UploadTerms {
+  /** Exact byte count. */
+  length: number;
+  /** Derived from the file's extension by `mediaContentType`. */
+  contentType: string;
+  /** Set for a type a browser would otherwise run as a document. */
+  attachment: boolean;
+  /** Refuses the write if anything is already at the key. Cleared to replace deliberately. */
+  ifAbsent: boolean;
+}
+
+/**
+ * A delegated upload: where the browser may PUT, and the headers it has to send
+ * because they are signed into that URL. The browser reproduces them verbatim
+ * or the store rejects the signature, which is what makes them terms rather
+ * than suggestions.
+ */
+export interface PresignedUpload {
+  url: string;
+  headers: Record<string, string>;
+}
+
+/** One object in the library, keyed absolutely (prefix included). */
+export interface StoredObject {
+  key: string;
+  size: number;
+  /**
+   * The store's entity tag for these bytes, which is what lets the library
+   * address a file by its contents: the URL changes when the object is
+   * replaced, so a browser or a CDN holding the old one stops being asked for
+   * it. Absent when the store does not report one.
+   */
+  version?: string;
+}
+
+/** The store as the library uses it, an interface so tests can stand in for it. */
+export interface MediaStore {
+  list(prefix: string): Promise<StoredObject[]>;
+  head(key: string): Promise<StoredObject | null>;
+  /**
+   * A URL the browser may PUT these exact terms to. The terms are signed into
+   * it, so a declared size is a promise the caller has to keep rather than a
+   * number to be trusted, an upload cannot choose how the store will serve it
+   * back, and an occupied destination is refused by the store as the write
+   * happens.
+   */
+  presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload>;
+  /** `ifAbsent` refuses a destination that already exists, in the store rather than in a prior check. */
+  copy(from: string, to: string, ifAbsent?: boolean): Promise<void>;
+  remove(key: string): Promise<void>;
+}
+
+/** How long a presigned upload URL stays valid. Long enough for a slow upload of a large file. */
+const UPLOAD_EXPIRY_SECONDS = 900;
+
+const MAX_KEYS = 1000;
+
+/** A key ending in a slash is a directory placeholder some tools write, never a library file. */
+const isFileKey = (key: string): boolean => !key.endsWith("/");
+
+/** An entity tag as a version: unquoted, and absent rather than empty. */
+const versionOf = (etag: string | undefined): string | undefined =>
+  etag?.replace(/^(W\/)?"|"$/g, "") || undefined;
+
+export interface S3Credentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+}
 
 const ListBucketResult = z.object({
   ListBucketResult: z.object({
@@ -49,6 +126,24 @@ export class S3Store implements MediaStore {
     this.base = s3BaseUrl(target).href;
     // Three attempts rather than aws4fetch's eleven.
     this.client = new AwsClient({ ...credentials, service: "s3", region: target.region, retries: 2 });
+  }
+
+  /** The store a library names, with the credential from the server's environment. */
+  static fromEnv(target: S3Target): S3Store {
+    const accessKeyId = getSecret(S3_ACCESS_KEY_ID_ENV);
+    const secretAccessKey = getSecret(S3_SECRET_ACCESS_KEY_ENV);
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        `Media storage credentials are missing: set ${S3_ACCESS_KEY_ID_ENV} and ${S3_SECRET_ACCESS_KEY_ENV}.`,
+      );
+    }
+
+    return new S3Store(target, {
+      accessKeyId,
+      secretAccessKey,
+      sessionToken: getSecret(S3_SESSION_TOKEN_ENV),
+    });
   }
 
   private url(key: string): URL {
@@ -109,17 +204,15 @@ export class S3Store implements MediaStore {
    * the store will serve the bytes back, nor take a destination the route
    * refused it.
    *
-   * A type a browser would run as a document needs a `Content-Disposition` the
-   * store will keep, and there is no request header for one to be signed into.
-   * Those uploads are proxied instead, where the route sets it directly.
+   * A type a browser would run as a document gets `Content-Disposition:
+   * attachment` signed in too, which the store keeps and serves back.
    */
-  async presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload | null> {
-    if (terms.attachment) return null;
-
+  async presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload> {
     // Signed, so the store applies it; sent back for the browser to reproduce,
     // since a signed header the request omits invalidates the signature.
     const headers = {
       "content-type": terms.contentType,
+      ...(terms.attachment && { "content-disposition": "attachment" }),
       ...(terms.ifAbsent && { "if-none-match": "*" }),
     };
 
@@ -137,22 +230,6 @@ export class S3Store implements MediaStore {
     });
 
     return { url: signed.url, headers };
-  }
-
-  async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
-    const request = await this.client.sign(this.url(key), {
-      method: "PUT",
-      body: stream,
-      headers: {
-        "content-type": terms.contentType,
-        "content-length": String(terms.length),
-        ...(terms.attachment && { "content-disposition": "attachment" }),
-        ...(terms.ifAbsent && { "if-none-match": "*" }),
-      },
-    });
-
-    // Sent once, since a stream cannot be replayed for a retry.
-    await ensureOk(await fetch(request), `PUT ${key}`);
   }
 
   async copy(from: string, to: string, ifAbsent = false): Promise<void> {

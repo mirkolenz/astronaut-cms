@@ -8,7 +8,7 @@ import type {
   SaveEntryRequest,
   TrashedFile,
 } from "../../shared/types.ts";
-import type { PresignedUpload } from "../../media/store.ts";
+import type { PresignedUpload } from "../../media/s3-store.ts";
 
 export type PublishMode = "direct" | "pull-request";
 
@@ -199,7 +199,7 @@ export interface StorageBackend {
   getChanges(): Promise<FileChange[]>;
 }
 
-/** Where an upload's bytes go. A library that cannot presign takes them through the route. */
+/** Where an upload's bytes go: straight to an object store, or through the route into a repository. */
 export type UploadTicket = ({ direct: true } & PresignedUpload) | { direct: false };
 
 /**
@@ -214,8 +214,8 @@ export interface MediaBackend {
    * principle, and the destination is claimed on arrival.
    */
   beginUpload(path: string, size: number, overwrite: boolean): Promise<UploadTicket>;
-  /** Takes the bytes through this server, for a library that handed out no URL. */
-  uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void>;
+  /** Takes the bytes through this server, present only for a repository library, which hands out no URL. */
+  uploadMedia?(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void>;
   renameMedia(from: string, to: string): Promise<void>;
   deleteMedia(path: string): Promise<void>;
   /**

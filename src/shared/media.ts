@@ -24,14 +24,13 @@ export type ClientMediaBackend =
       /** The base the library's keys are publicly served under. */
       publicUrl: string;
       /**
-       * Origin of the store's own S3 API, absent when it cannot be signed for
-       * and every upload is proxied through the site instead.
+       * Origin of the store's own S3 API, where presigned uploads go.
        *
        * The admin's CSP needs it to allow the upload the browser PUTs there. It
        * says only where the store lives, which is what a signed URL reveals
        * anyway.
        */
-      storeOrigin?: string;
+      storeOrigin: string;
       /**
        * `astro dev` only: the bytes live in the working tree under the media
        * directory rather than in the store, while references keep the store's
@@ -196,9 +195,10 @@ export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): strin
   }
 }
 
-/** Where a presigned upload is addressed: the endpoint, or the bucket's virtual host. */
+/** A bucket's S3 API: where requests go, and the region they are signed for. */
 export interface S3Target {
   endpoint: string;
+  region: string;
   pathStyle: boolean;
   bucket: string;
 }
@@ -215,9 +215,6 @@ export function s3BaseUrl(target: S3Target): URL {
 
   return url;
 }
-
-/** Origin allowed by the admin's CSP for a presigned upload. */
-export const presignedUploadOrigin = (target: S3Target): string => s3BaseUrl(target).origin;
 
 /** The public URL a library path is served under by a remote backend. */
 export function remoteMediaUrl(path: string, publicUrl: string): string {

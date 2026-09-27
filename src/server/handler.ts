@@ -1,7 +1,8 @@
 /**
- * The whole CMS server, as one platform-agnostic handler over Web `Request` and
- * `Response`. `endpoint.ts` is the thin Astro shell; nothing here knows about
- * Astro, Node or Workers, which is what keeps it runnable on all of them.
+ * The whole CMS server, as one handler over Web `Request` and `Response`.
+ * `endpoint.ts` is the thin Astro route around it. It reads only the build-time
+ * config and `astro:env`, which every adapter provides, so it runs unchanged on
+ * Node, serverless functions and Workers.
  *
  * Everything the browser can reach is here, and it is a short list: find out
  * whether there is a session, start one, end one, run one named operation, and
@@ -34,7 +35,7 @@ import {
 import { fetchRange } from "./ranges.ts";
 import { isActiveContentType, mediaContentType } from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
-import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
+import { getSecret } from "astro:env/server";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
 import { Coalesced } from "../shared/coalesce.ts";
 import { relay } from "../ai/handler.ts";
@@ -74,7 +75,7 @@ import { errorMessage } from "../shared/errors.ts";
 /** An RPC body is entry data, which is text. A media upload takes its own route. */
 const MAX_RPC_BYTES = 4 * 1024 * 1024;
 
-/** Largest upload this server will take through itself, for a store that cannot presign. */
+/** Largest upload this server takes through itself, which only a repository library needs. */
 const MAX_PROXY_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** Carries the PKCE verifier between the redirect out and the redirect back. */
@@ -185,8 +186,8 @@ function siteUrl(url: URL, path: string): string {
  * expire sessions without touching its OAuth app, or to share one session across
  * several services.
  */
-function sessionSecret(provider: ProviderConfig, getEnv: EnvReader): string {
-  return getEnv(SESSION_SECRET_ENV) ?? clientSecret(provider, getEnv);
+function sessionSecret(provider: ProviderConfig): string {
+  return getSecret(SESSION_SECRET_ENV) ?? clientSecret(provider);
 }
 
 /** The configured provider, or null when this deployment stores content locally. */
@@ -250,7 +251,6 @@ type Authenticated =
 async function authenticate(
   request: Request,
   url: URL,
-  getEnv: EnvReader,
   provider: ProviderConfig | null,
 ): Promise<Authenticated> {
   if (!provider) return { kind: "session", session: LOCAL_SESSION };
@@ -264,7 +264,7 @@ async function authenticate(
 
   let secret: string;
   try {
-    secret = sessionSecret(provider, getEnv);
+    secret = sessionSecret(provider);
   } catch (err) {
     // A deployment that cannot reach its secret cannot have issued this cookie
     // either, so whoever sent one is told nothing more than "not signed in".
@@ -286,7 +286,7 @@ async function authenticate(
     // requests one navigation fires would otherwise each spend the same one, the
     // first would win, and the rest would be handed a token already invalidated.
     const renewed = await refreshes.run(refreshToken, () =>
-      refreshSession(provider, getEnv, refreshToken, session.login),
+      refreshSession(provider, refreshToken, session.login),
     );
 
     if (!renewed) return { kind: "anonymous" };
@@ -386,30 +386,20 @@ function sessionState(request: Request, url: URL, authenticated: Authenticated):
   };
 }
 
-export async function handle(
-  request: Request,
-  getEnv: EnvReader,
-  getBinding: BindingReader,
-): Promise<Response> {
+export async function handle(request: Request): Promise<Response> {
   const url = new URL(request.url);
   // The same split the cookie scope uses, so a site base that itself contains
   // the API segment cannot be read one way here and another way there.
   const path = withoutTrailingSlash(url.pathname.slice(sitePath(url).length + API_BASE.length));
 
   try {
-    return await route(path, request, url, getEnv, getBinding);
+    return await route(path, request, url);
   } catch (err) {
     return toResponse(err);
   }
 }
 
-async function route(
-  path: string,
-  request: Request,
-  url: URL,
-  getEnv: EnvReader,
-  getBinding: BindingReader,
-): Promise<Response> {
+async function route(path: string, request: Request, url: URL): Promise<Response> {
   // A cookie rides along with any request this origin receives, whoever caused
   // it, so anything that changes state has to prove the admin itself asked.
   if (request.method !== "GET" && !isSameOrigin(request, url)) {
@@ -423,13 +413,13 @@ async function route(
 
     return limited(signInTotal, "all", denied, () =>
       limited(signIn, callerAddress(request), denied, () =>
-        path === "/login" ? startLogin(url, getEnv) : completeLogin(request, url, getEnv),
+        path === "/login" ? startLogin(url) : completeLogin(request, url),
       ),
     );
   }
 
   const provider = providerConfig();
-  const authenticated = await authenticate(request, url, getEnv, provider);
+  const authenticated = await authenticate(request, url, provider);
   const renewed = authenticated.kind === "session" ? authenticated.cookie : undefined;
   const extra: Record<string, string> = renewed ? { "set-cookie": renewed } : {};
 
@@ -449,7 +439,7 @@ async function route(
     // The token as well as the cookie, so the grant ends here rather than
     // whenever it would have lapsed. `local` has no provider and no token.
     if (provider && "session" in authenticated) {
-      await revokeSession(provider, getEnv, authenticated.session);
+      await revokeSession(provider, authenticated.session);
     }
 
     return json({ ok: true }, 200, { "set-cookie": sessionCookie(url) });
@@ -462,7 +452,7 @@ async function route(
   if (authenticated.kind !== "session") return fail("Not signed in.", 401);
 
   const { session } = authenticated;
-  const ctx = createContext(session, getEnv, getBinding);
+  const ctx = createContext(session);
 
   if (path === "/rpc" && request.method === "POST") {
     const body = await readBody(request, MAX_RPC_BYTES);
@@ -581,7 +571,6 @@ async function route(
 
     const response = await relay({
       request,
-      getEnv,
       ai,
       models: clientConfig.ai?.models ?? [],
       caller: session.login,
@@ -601,9 +590,14 @@ async function route(
 
     if (!uploadPath) return fail("An upload path is required.", 400);
 
+    const library = ctx.media();
+
+    // An object store takes every upload straight from the browser.
+    if (!library.uploadMedia) return fail("This library takes uploads directly.", 400);
+
     const bytes = await readBytes(request, MAX_PROXY_UPLOAD_BYTES);
 
-    await ctx.media().uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
+    await library.uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
 
     return json({ ok: true }, 200, extra);
   }
@@ -626,7 +620,7 @@ async function proxyMedia(source: string, path: string, range: ByteRange | null)
   return { body, partial, contentType: mediaContentType(path) };
 }
 
-async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
+async function startLogin(url: URL): Promise<Response> {
   const provider = providerConfig();
 
   if (!provider) return fail("This deployment does not sign in.", 400);
@@ -645,7 +639,7 @@ async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
         await issue(
           "oauth-login",
           { verifier } satisfies Login,
-          sessionSecret(provider, getEnv),
+          sessionSecret(provider),
           LOGIN_MAX_AGE,
         ),
       ),
@@ -654,7 +648,7 @@ async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
   });
 }
 
-async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Promise<Response> {
+async function completeLogin(request: Request, url: URL): Promise<Response> {
   const provider = providerConfig();
 
   if (!provider) return fail("This deployment does not sign in.", 400);
@@ -679,7 +673,7 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
 
   if (error) return failed(error);
 
-  const secret = sessionSecret(provider, getEnv);
+  const secret = sessionSecret(provider);
   const cookie = readCookie(request, LOGIN_COOKIE);
   const login = cookie ? await verify("oauth-login", cookie, secret, loginSchema) : null;
   const code = url.searchParams.get("code");
@@ -694,7 +688,6 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
 
   const session = await exchangeCode(
     provider,
-    getEnv,
     code,
     siteUrl(url, API_CALLBACK),
     login.verifier,

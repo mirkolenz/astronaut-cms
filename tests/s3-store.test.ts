@@ -50,4 +50,18 @@ describe("S3Store", () => {
       "S3 copy of from.png to to.png failed",
     );
   });
+
+  // An active type is served as a download, so the disposition is a term the
+  // upload cannot drop without breaking the signature.
+  it("signs the disposition of an active type into the upload", async () => {
+    const { url, headers } = await new S3Store(target, credentials).presignUpload("icon.svg", {
+      length: 3,
+      contentType: "image/svg+xml",
+      attachment: true,
+      ifAbsent: true,
+    });
+
+    expect(headers).toMatchObject({ "content-disposition": "attachment", "if-none-match": "*" });
+    expect(new URL(url).searchParams.get("X-Amz-SignedHeaders")).toContain("content-disposition");
+  });
 });

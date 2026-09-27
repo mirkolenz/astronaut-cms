@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
+import { gatewayAddress } from "../shared/ai.ts";
 import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
@@ -21,7 +22,6 @@ import {
   resolveServerConfig,
   storageType,
 } from "./resolve-config.ts";
-import { isAddressable } from "../shared/ai.ts";
 
 export type {
   CmsConfig,
@@ -88,6 +88,27 @@ function validateMediaOrigin(publicUrl: string, site: string | undefined): void 
   );
 }
 
+/** What an enabled assistant has to declare before any of it is resolved. */
+function validateAi(config: CmsConfig): void {
+  if (!config.ai?.enabled) return;
+
+  if (!config.ai.models?.length) {
+    throw new Error("AI assistant: 'models' must list at least one gateway model id.");
+  }
+
+  if (!config.ai.gateway) {
+    throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
+  }
+
+  // The editor's key goes straight to the gateway, so its address has to be
+  // known at build time and the gateway has to answer a browser.
+  if (isByok(config) && !gatewayAddress(config.ai.gateway)?.byok) {
+    throw new Error(
+      `AI assistant: credentials: "byok" needs a gateway a browser can call with the editor's key ("cloudflare" or "custom"), not "${config.ai.gateway.type}".`,
+    );
+  }
+}
+
 /** Everything an object-store media backend has to declare before it can be reached. */
 function validateMediaBackend(config: CmsConfig, site: string | undefined): void {
   const backend = config.media?.backend;
@@ -110,13 +131,10 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
     );
   }
 
-  if (backend.type === "r2" && !backend.accountId === !backend.binding) {
-    throw new Error("r2 media: set exactly one of 'accountId' (S3 API) or 'binding' (Workers).");
+  if (backend.type === "r2" && !backend.accountId) {
+    throw new Error("r2 media: 'accountId' is required, for the S3 API endpoint.");
   }
 }
-
-/** The one adapter that provides a Workers runtime, as Astro names it. */
-const CLOUDFLARE_ADAPTER = "@astrojs/cloudflare";
 
 /**
  * Narrows `resolveImage` to the media backend the site configures, so the call
@@ -187,6 +205,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // and a field that is missing rather than wrong would otherwise surface
         // as a TypeError from deep inside the resolver.
         validateMediaBackend(effectiveConfig, astroConfig.site);
+        validateAi(config);
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;
@@ -311,35 +330,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           astroConfig.trailingSlash,
         );
 
-        // Where runtime bindings and secrets come from. Astro has no capability
-        // to ask, so the adapter's own name is the signal; `runtime` overrides it
-        // for an adapter that wraps or forks one of these under another name.
-        const runtime =
-          effectiveConfig.runtime ??
-          (astroConfig.adapter?.name === CLOUDFLARE_ADAPTER ? "cloudflare" : "node");
-
-        // A binding only exists inside a Workers runtime. Left to itself the
-        // reader would answer `undefined` for it and the failure would surface
-        // much later as "no binding configured", so a misdetected adapter is
-        // called out here instead.
-        const access = serverConfig.media?.access;
-
-        if (access?.type === "binding" && runtime !== "cloudflare") {
-          throw new Error(
-            `Media binding '${access.name}' needs a Cloudflare Workers runtime, but the adapter is ${astroConfig.adapter?.name ?? "unset"}. Set 'runtime: "cloudflare"' if it deploys to Workers under another name, or configure 'accountId' to reach the bucket over the S3 API instead.`,
-          );
-        }
-
         // The working tree is only reachable from Node, so `astro dev` answers the
         // API itself there, whatever runtime the adapter renders in.
         const devApi = command === "dev" && serverConfig.storage.type === "local";
-
-        // Which leaves no runtime that holds a Workers binding.
-        if (devApi && access?.type === "binding") {
-          throw new Error(
-            `Media binding '${access.name}' is unreachable from "astro dev" on local storage, whose API runs in Node. Keep localMediaInDev on (the default), or configure 'accountId' to reach the bucket over the S3 API instead.`,
-          );
-        }
 
         const { mediaBackend } = clientConfig;
 
@@ -349,7 +342,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           ...(mediaBackend.type === "remote" && {
             image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
           }),
-          env: { schema: secretsSchema(config, configuredMedia) },
+          env: { schema: secretsSchema(config) },
           vite: {
             plugins: [
               cmsVitePlugin({
@@ -360,7 +353,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 entries,
                 command,
                 rootDir,
-                runtime,
               }),
               // The admin writes files the dev server watches; without this every
               // save reloads the page and wipes its state.
@@ -423,27 +415,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
-        if (mediaServer?.access.type === "binding") {
-          logger.info(`Media library reached through the R2 binding "${mediaServer.access.name}"`);
-        }
-
         if (config.ai?.enabled) {
-          if (!config.ai.models?.length) {
-            throw new Error("AI assistant: 'models' must list at least one gateway model id.");
-          }
-
-          if (!config.ai.gateway) {
-            throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
-          }
-
-          // The platform-injected gateways resolve their base URL from server
-          // environment variables, so there is nothing to hand the browser.
-          if (isByok(effectiveConfig) && !isAddressable(config.ai.gateway)) {
-            throw new Error(
-              `AI assistant: credentials: "byok" needs a gateway the browser can address ("cloudflare" or "custom"), not "${config.ai.gateway.type}". The editor's key is sent straight to the gateway, so its URL has to be known at build time.`,
-            );
-          }
-
           logger.info(
             `AI assistant enabled${isByok(effectiveConfig) ? " (each editor brings their own key)" : ""}`,
           );

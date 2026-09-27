@@ -24,7 +24,7 @@ import { GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/au
 import type { Provider } from "../shared/auth.ts";
 import { parseRepo } from "../shared/repo.ts";
 import { joinUrl } from "../shared/url.ts";
-import type { EnvReader } from "../shared/runtime-env.ts";
+import { getSecret } from "astro:env/server";
 import type { Session } from "./session.ts";
 import { GITHUB_API, githubClient } from "./storage/github.ts";
 import { gitlabClient } from "./storage/gitlab.ts";
@@ -81,9 +81,9 @@ export class OAuthError extends Error {}
  * derived from (see `sessionSecret`). Missing, it names itself rather than
  * failing somewhere downstream.
  */
-export function clientSecret(config: ProviderConfig, getEnv: EnvReader): string {
+export function clientSecret(config: ProviderConfig): string {
   const { secretEnv } = endpoints(config);
-  const secret = getEnv(secretEnv);
+  const secret = getSecret(secretEnv);
 
   if (!secret) {
     throw new OAuthError(`Sign-in is not configured: set ${secretEnv} on the server.`);
@@ -152,7 +152,6 @@ type TokenResponse = z.infer<typeof tokenSchema>;
 
 async function postToken(
   config: ProviderConfig,
-  getEnv: EnvReader,
   params: Record<string, string>,
 ): Promise<TokenResponse> {
   const response = await fetch(endpoints(config).token, {
@@ -161,7 +160,7 @@ async function postToken(
     body: new URLSearchParams({
       ...params,
       client_id: config.clientId,
-      client_secret: clientSecret(config, getEnv),
+      client_secret: clientSecret(config),
     }),
   });
 
@@ -188,12 +187,11 @@ function toSession(provider: OAuthProvider, token: TokenResponse, login: string)
 /** Redeems the callback's code, then refuses an editor who cannot write to the target. */
 export async function exchangeCode(
   config: ProviderConfig,
-  getEnv: EnvReader,
   code: string,
   redirectUri: string,
   verifier: string,
 ): Promise<Session> {
-  const token = await postToken(config, getEnv, {
+  const token = await postToken(config, {
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
@@ -215,12 +213,11 @@ export async function exchangeCode(
  */
 export async function refreshSession(
   config: ProviderConfig,
-  getEnv: EnvReader,
   refreshToken: string,
   login: string,
 ): Promise<Session | null> {
   try {
-    const token = await postToken(config, getEnv, {
+    const token = await postToken(config, {
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     });
@@ -245,11 +242,10 @@ export async function refreshSession(
  */
 export async function revokeSession(
   config: ProviderConfig,
-  getEnv: EnvReader,
   session: Session,
 ): Promise<void> {
   try {
-    const secret = clientSecret(config, getEnv);
+    const secret = clientSecret(config);
 
     if (config.provider === "github") {
       await fetch(`${GITHUB_API}/applications/${config.clientId}/token`, {

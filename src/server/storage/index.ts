@@ -1,5 +1,5 @@
 import { client, components, server as serverConfig } from "virtual:astronaut-cms/server";
-import { LocalStorage } from "virtual:astronaut-cms/runtime";
+import { LocalStorage } from "virtual:astronaut-cms/local-storage";
 import type { StorageBackend } from "./types.ts";
 import { GitHubStorage } from "./github.ts";
 import { GitLabStorage } from "./gitlab.ts";

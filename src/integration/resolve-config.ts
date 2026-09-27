@@ -17,10 +17,15 @@ import type {
   ResolvedImageOptimization,
   ServerStorageConfig,
 } from "./types.ts";
-import { presignedUploadOrigin, type ClientMediaBackend } from "../shared/media.ts";
+import { s3BaseUrl, type ClientMediaBackend } from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
-import { DEFAULT_AI_MAX_STEPS, gatewayEndpoint, isAddressable } from "../shared/ai.ts";
+import {
+  DEFAULT_AI_MAX_STEPS,
+  gatewayAddress,
+  type AiGateway,
+  type GatewayEndpoint,
+} from "../shared/ai.ts";
 import { parseRepo } from "../shared/repo.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 
@@ -111,8 +116,7 @@ export function resolveClientConfig(
           maxSteps: maxSteps(config),
           // Present only when the editor brings the key: it is then the browser
           // that calls the gateway, so the browser has to know where it is.
-          ...(isByok(config) &&
-            isAddressable(config.ai.gateway) && { byok: gatewayEndpoint(config.ai.gateway) }),
+          ...(isByok(config) && { byok: byokEndpoint(config.ai.gateway) }),
         },
       }),
     ...(config.webmcp?.enabled && {
@@ -161,30 +165,18 @@ function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): Clie
 
   if (backend.type === "repo") return { type: "repo" };
 
-  const storeOrigin = presignOrigin(resolveMediaServer(config));
-
   return {
     type: "remote",
     publicUrl: trimSlashes(backend.publicUrl),
-    ...(storeOrigin && { storeOrigin }),
+    // Where every presigned upload goes, which the admin's CSP has to allow.
+    storeOrigin: s3BaseUrl(storeS3(backend)).origin,
     ...(localMedia && { local: true }),
   };
 }
 
 /**
- * Origin the store's S3 API is reached at, which is where every presigned
- * upload points. A store reached solely through a Workers binding signs nothing and
- * proxies instead, so it has none.
- */
-function presignOrigin(media: MediaServerConfig | null): string | undefined {
-  if (media?.access.type !== "s3") return undefined;
-
-  return presignedUploadOrigin({ ...media.access, bucket: media.bucket });
-}
-
-/**
- * Server-only, imported by the injected route alone, so a bucket, endpoint or
- * binding name never reaches the client. The R2 preset is the S3 backend with
+ * Server-only, imported by the injected route alone, so a bucket or endpoint
+ * never reaches the client. The R2 preset is the S3 backend with
  * Cloudflare's endpoint filled in.
  */
 export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null {
@@ -193,32 +185,27 @@ export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null 
   if (backend.type === "repo") return null;
 
   return {
-    bucket: backend.bucket,
     publicUrl: trimSlashes(backend.publicUrl),
     prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
-    access: storeAccess(backend),
+    s3: storeS3(backend),
   };
 }
 
-function storeAccess(
-  backend: Exclude<MediaBackendConfig, { type: "repo" }>,
-): MediaServerConfig["access"] {
+function storeS3(backend: Exclude<MediaBackendConfig, { type: "repo" }>): MediaServerConfig["s3"] {
   if (backend.type === "s3") {
     return {
-      type: "s3",
       endpoint: trimSlashes(backend.endpoint),
       region: backend.region ?? "auto",
       pathStyle: backend.forcePathStyle ?? false,
+      bucket: backend.bucket,
     };
   }
 
-  if (backend.binding) return { type: "binding", name: backend.binding };
-
   return {
-    type: "s3",
     endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
     region: "auto",
     pathStyle: true,
+    bucket: backend.bucket,
   };
 }
 
@@ -277,6 +264,13 @@ const DEFAULT_AI_LIMITS: Required<AiLimits> = {
 };
 
 const maxSteps = (config: CmsConfig): number => config.ai?.maxSteps ?? DEFAULT_AI_MAX_STEPS;
+
+/** Where a browser holding the editor's own key sends inference, checked to be one by `validateAi`. */
+function byokEndpoint(gateway: AiGateway): GatewayEndpoint | undefined {
+  const address = gatewayAddress(gateway);
+
+  return address ? { baseUrl: address.baseUrl, headers: address.headers } : undefined;
+}
 
 /** Whether the editor supplies the credential rather than the deployment. */
 export function isByok(config: CmsConfig): boolean {

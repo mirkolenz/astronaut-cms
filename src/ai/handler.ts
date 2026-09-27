@@ -1,8 +1,7 @@
 /**
  * A stateless streaming proxy between the browser-side agent loop and the
- * configured AI gateway. It holds no secret of its own (the gateway credential
- * comes from the config or the platform-injected environment) and answers only
- * to a request the CMS server has already authenticated.
+ * configured AI gateway. It holds no secret of its own and answers only to a
+ * request the CMS server has already authenticated.
  *
  * The agent loop stays in the browser deliberately. Every request through here
  * is one model call, so nothing depends on how long a whole turn takes and no
@@ -11,16 +10,15 @@
  * the same rules rather than by where they run.
  */
 import type { AiServerConfig } from "../integration/types.ts";
-import { AI_API_KEY_ENV, gatewayEndpoint, type AiGateway } from "../shared/ai.ts";
+import { gatewayAddress, NETLIFY_GATEWAY_ENV, type AiGateway } from "../shared/ai.ts";
 import { BodyTooLargeError, readBody } from "../shared/http.ts";
 import { RateLimiter } from "../shared/rate-limit.ts";
-import { unreachable } from "../shared/unreachable.ts";
-import type { EnvReader } from "../shared/runtime-env.ts";
+import { getSecret } from "astro:env/server";
 import { joinUrl } from "../shared/url.ts";
 import { errorMessage } from "../shared/errors.ts";
 
 /** The `Authorization` header for a gateway credential, or none when it has none. */
-export const bearer = (token: string | undefined): Record<string, string> =>
+const bearer = (token: string | undefined): Record<string, string> =>
   token ? { authorization: `Bearer ${token}` } : {};
 
 /**
@@ -69,50 +67,38 @@ interface Gateway {
   headers: Record<string, string>;
 }
 
-// The gateway type comes from static config; credentials come from the config
-// when set, otherwise from the platform-injected environment (Netlify/Vercel),
-// so nothing has to be configured at deploy time.
-function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
-  switch (gateway.type) {
-    case "vercel": {
-      const key = getEnv("AI_GATEWAY_API_KEY") ?? getEnv("VERCEL_OIDC_TOKEN");
+// The gateway comes from static config and its credential from the server's
+// environment alone, most of it injected by the platform, so nothing reaches
+// the browser.
+function resolveGateway(gateway: AiGateway, request: Request): Gateway {
+  const address = gatewayAddress(gateway);
 
-      return { url: "https://ai-gateway.vercel.sh/v1/chat/completions", headers: bearer(key) };
+  if (!address) {
+    // Requiring the pair means a key is only ever sent to the endpoint it was
+    // issued with: Netlify injects both or, once a site sets either, neither.
+    const [base, key] = NETLIFY_GATEWAY_ENV.map((name) => getSecret(name));
+
+    if (!base || !key) {
+      throw new Error(
+        `Netlify AI Gateway needs ${NETLIFY_GATEWAY_ENV.join(" and ")} together. Unset both to use the injected pair, or set both.`,
+      );
     }
 
-    // Both are addressed from the config alone (see `gatewayEndpoint`), which is
-    // what also lets a browser reach them under `byok`. The credential is the
-    // only thing that differs between the two sides.
-    case "cloudflare":
-    case "custom": {
-      const { baseUrl, headers } = gatewayEndpoint(gateway);
-      const key =
-        gateway.type === "cloudflare"
-          ? getEnv("CLOUDFLARE_API_TOKEN")
-          : getEnv(AI_API_KEY_ENV);
-
-      return { url: joinUrl(baseUrl, "chat/completions"), headers: { ...bearer(key), ...headers } };
-    }
-
-    case "netlify": {
-      const base = getEnv("NETLIFY_AI_GATEWAY_BASE_URL") ?? getEnv("OPENAI_BASE_URL");
-      const key = getEnv("NETLIFY_AI_GATEWAY_KEY") ?? getEnv("OPENAI_API_KEY");
-
-      if (!base) {
-        throw new Error("Netlify AI Gateway credentials are not available in this environment.");
-      }
-
-      return { url: joinUrl(base, "v1/chat/completions"), headers: bearer(key) };
-    }
-
-    default:
-      return unreachable(gateway, "Unknown AI gateway");
+    return { url: joinUrl(base, "v1/chat/completions"), headers: bearer(key) };
   }
+
+  const key = address.keys
+    .map((source) => ("env" in source ? getSecret(source.env) : (request.headers.get(source.header) ?? undefined)))
+    .find(Boolean);
+
+  return {
+    url: joinUrl(address.baseUrl, "chat/completions"),
+    headers: { ...bearer(key), ...address.headers },
+  };
 }
 
 export interface RelayRequest {
   request: Request;
-  getEnv: EnvReader;
   ai: AiServerConfig;
   /** Model ids this deployment allows, from the client config. */
   models: string[];
@@ -163,7 +149,7 @@ export async function relay(options: RelayRequest): Promise<Response> {
   );
 }
 
-async function forward({ request, getEnv, ai, models, fail }: RelayRequest): Promise<Response> {
+async function forward({ request, ai, models, fail }: RelayRequest): Promise<Response> {
   const { limits } = ai;
 
   let body: Record<string, unknown>;
@@ -184,7 +170,7 @@ async function forward({ request, getEnv, ai, models, fail }: RelayRequest): Pro
 
   let gateway: Gateway;
   try {
-    gateway = resolveGateway(ai.gateway, getEnv);
+    gateway = resolveGateway(ai.gateway, request);
   } catch (err) {
     console.error("[astronaut-cms] Failed to resolve AI gateway:", err);
 

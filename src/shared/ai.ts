@@ -47,17 +47,6 @@ export type AiGateway =
   | { type: "cloudflare"; accountId: string; gatewayId?: string }
   | { type: "custom"; baseUrl: string };
 
-/**
- * A gateway whose address is in the config rather than in the server's
- * environment. That is what makes it reachable from a browser, so it is also
- * exactly the set `byok` can work with.
- */
-export type AddressableGateway = Extract<AiGateway, { type: "cloudflare" | "custom" }>;
-
-export function isAddressable(gateway: AiGateway): gateway is AddressableGateway {
-  return gateway.type === "cloudflare" || gateway.type === "custom";
-}
-
 /** Where a gateway's OpenAI-compatible API lives, and what selects it there. */
 export interface GatewayEndpoint {
   /** Base URL. Whoever calls it appends `chat/completions`. */
@@ -67,15 +56,66 @@ export interface GatewayEndpoint {
 }
 
 /**
+ * Where the relay finds a gateway credential: a server variable, or a header
+ * the platform adds to every request.
+ */
+export type KeySource = { env: string } | { header: string };
+
+/** A gateway addressed from the config alone, and where the relay finds its key. */
+export interface GatewayAddress extends GatewayEndpoint {
+  /** Tried in order, the first one set is the key. */
+  keys: KeySource[];
+  /**
+   * Whether a browser may call it with the editor's own key (`byok`). Only the
+   * ones known to answer a browser, so a gateway that would refuse it is caught
+   * at build time rather than by every editor.
+   */
+  byok: boolean;
+}
+
+/**
  * The one statement of where a gateway is. The relay and a browser holding the
  * editor's own key both address it through here, so the two cannot drift into
- * reaching the same gateway by different routes.
+ * reaching the same gateway by different routes. Null for `netlify`, whose
+ * address comes from the server's environment.
  */
-export function gatewayEndpoint(gateway: AddressableGateway): GatewayEndpoint {
-  return gateway.type === "cloudflare"
-    ? {
+export function gatewayAddress(gateway: AiGateway): GatewayAddress | null {
+  switch (gateway.type) {
+    case "netlify":
+      return null;
+    case "vercel":
+      return {
+        baseUrl: "https://ai-gateway.vercel.sh/v1",
+        headers: {},
+        // An explicit key, otherwise the OIDC token Vercel sends fresh with every
+        // request, then the build-time copy of it.
+        keys: [
+          { env: "AI_GATEWAY_API_KEY" },
+          { header: "x-vercel-oidc-token" },
+          { env: "VERCEL_OIDC_TOKEN" },
+        ],
+        byok: false,
+      };
+    case "cloudflare":
+      return {
         baseUrl: `https://api.cloudflare.com/client/v4/accounts/${gateway.accountId}/ai/v1`,
         headers: { "cf-aig-gateway-id": gateway.gatewayId ?? "default" },
-      }
-    : { baseUrl: gateway.baseUrl, headers: {} };
+        keys: [{ env: "CLOUDFLARE_API_TOKEN" }],
+        byok: true,
+      };
+    case "custom":
+      return { baseUrl: gateway.baseUrl, headers: {}, keys: [{ env: AI_API_KEY_ENV }], byok: true };
+  }
+}
+
+/** Netlify injects both into its functions, and the relay reads them only as a pair. */
+export const NETLIFY_GATEWAY_ENV = ["OPENAI_BASE_URL", "OPENAI_API_KEY"] as const;
+
+/** Every environment variable the relay may read for a gateway, so the integration can declare them. */
+export function gatewayEnv(gateway: AiGateway): string[] {
+  const address = gatewayAddress(gateway);
+
+  if (!address) return [...NETLIFY_GATEWAY_ENV];
+
+  return address.keys.flatMap((source) => ("env" in source ? [source.env] : []));
 }
