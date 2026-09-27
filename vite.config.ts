@@ -12,6 +12,7 @@ export default defineConfig({
       "@shared": resolve(import.meta.dirname, "src/shared"),
       "@integration": resolve(import.meta.dirname, "src/integration"),
       "@stubs": resolve(import.meta.dirname, "src/stubs"),
+      "@assets": resolve(import.meta.dirname, "assets"),
     },
   },
   plugins: [

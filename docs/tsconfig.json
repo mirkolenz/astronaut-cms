@@ -7,6 +7,7 @@
       "@shared/*": ["../src/shared/*"],
       "@integration/*": ["../src/integration/*"],
       "@stubs/*": ["../src/stubs/*"],
+      "@assets/*": ["../assets/*"],
       "astronaut-cms": ["../src/integration/index.ts"],
       "astronaut-cms/config": ["../src/config.ts"]
     }

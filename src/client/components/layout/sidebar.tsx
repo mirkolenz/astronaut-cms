@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FileText, NotebookPen, BarChart3, Image } from "lucide-react";
 import { useCollections } from "@client/queries/use-collections";
 import { toLabel } from "@client/lib/to-label";
+import logoUrl from "@assets/logo.png";
 
 const navLinkClasses =
   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent [&.active]:bg-sidebar-accent [&.active]:font-medium";
@@ -14,7 +15,11 @@ export function Sidebar() {
   return (
     <aside className="w-56 shrink-0 border-r border-sidebar-border bg-sidebar">
       <div className="p-4">
-        <Link to="/" className="text-lg font-semibold text-sidebar-foreground">
+        <Link
+          to="/"
+          className="flex items-center gap-2 text-lg font-semibold text-sidebar-foreground"
+        >
+          <img src={logoUrl} alt="" className="size-8 shrink-0" />
           {t($ => $.layout.appName)}
         </Link>
       </div>

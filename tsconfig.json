@@ -22,7 +22,8 @@
       "@client/*": ["./src/client/*"],
       "@shared/*": ["./src/shared/*"],
       "@integration/*": ["./src/integration/*"],
-      "@stubs/*": ["./src/stubs/*"]
+      "@stubs/*": ["./src/stubs/*"],
+      "@assets/*": ["./assets/*"]
     }
   },
   "include": ["src"]
