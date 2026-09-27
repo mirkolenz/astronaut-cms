@@ -10,7 +10,7 @@
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { unlink } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join, relative } from "pathe";
 import {
   collectionBase,
@@ -105,8 +105,11 @@ async function readStatus(
 ): Promise<StatusEntry[]> {
   if (paths.length === 0) return [];
 
+  // `--untracked-files=all` is what keeps a newly created directory from
+  // collapsing into a single `?? dir/` record: the changeset has to name the
+  // files it contains, both to show them and to delete them when discarding.
   return parseStatus(
-    await git(rootDir, ["status", "--porcelain=v1", "-z", "--", ...paths]),
+    await git(rootDir, ["status", "--porcelain=v1", "-z", "-uall", "--", ...paths]),
     prefix,
   );
 }
@@ -155,7 +158,9 @@ export async function discardChanges(rootDir: string, paths: string[]): Promise<
       const filePath = join(rootDir, entry.path);
       assertWithinBase(filePath, rootDir);
 
-      return unlink(filePath);
+      // `force` so a file that vanished between the status and here (a save, a
+      // watcher, a second discard) does not abort the rest of the discard.
+      return rm(filePath, { force: true });
     }),
   );
 }
