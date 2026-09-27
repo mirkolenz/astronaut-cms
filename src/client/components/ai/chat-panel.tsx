@@ -55,7 +55,7 @@ export function ChatPanel() {
   if (!aiConfig || !open) return null;
 
   const handleSubmit = (message: PromptInputMessage) => {
-    if (message.text?.trim()) sendMessage({ text: message.text });
+    if (message.text?.trim()) void sendMessage({ text: message.text });
   };
 
   return (

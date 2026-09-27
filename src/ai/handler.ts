@@ -103,8 +103,9 @@ async function verifyAccess(token: string | undefined, config: RelayConfig): Pro
 
   if (!token) throw new Error("Not authenticated");
 
+  const now = Date.now();
   const cached = accessCache.get(token);
-  if (cached != null && cached > Date.now()) return;
+  if (cached != null && cached > now) return;
 
   if (config.storageType === "github" && config.github) {
     await verifyGitHubWriteAccess(token, config.github.repo);
@@ -112,7 +113,13 @@ async function verifyAccess(token: string | undefined, config: RelayConfig): Pro
     await verifyGitLabWriteAccess(token, config.gitlab.project, config.gitlab.instanceUrl);
   }
 
-  accessCache.set(token, Date.now() + ACCESS_CACHE_TTL);
+  // Evict expired entries so the cache stays bounded by currently-valid tokens,
+  // not every token the warm instance has ever seen.
+  for (const [key, expiry] of accessCache) {
+    if (expiry <= now) accessCache.delete(key);
+  }
+
+  accessCache.set(token, now + ACCESS_CACHE_TTL);
 }
 
 function jsonError(message: string, status: number): Response {

@@ -129,9 +129,10 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
       description: `Partially update an existing entry in the "${name}" data collection. Only the \`data\` fields you provide change; set a field to null to remove it.`,
       inputSchema: z.object({ id: z.string(), data }),
       execute: async ({ id, data: patch }) => {
-        const current = await getStorage().getEntry(name, id);
+        const storage = getStorage();
+        const current = await storage.getEntry(name, id);
 
-        await getStorage().saveEntry(name, id, {
+        await storage.saveEntry(name, id, {
           data: applyDataPatch(current.data, patch),
           body: current.body,
           format: current.format,
@@ -146,12 +147,13 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
     description: `Partially update an existing entry in the "${name}" content collection. \`data\` changes only the frontmatter fields you provide (set a field to null to remove it); \`body\` edits the markdown by line range or text replacement. Both are optional.`,
     inputSchema: z.object({ id: z.string(), data: data.optional(), body: bodyEdit.optional() }),
     execute: async ({ id, data: patch, body: edit }) => {
-      const current = await getStorage().getEntry(name, id);
+      const storage = getStorage();
+      const current = await storage.getEntry(name, id);
       const edited = applyBodyEdit(current.body, edit);
 
       if ("error" in edited) return edited;
 
-      await getStorage().saveEntry(name, id, {
+      await storage.saveEntry(name, id, {
         data: patch ? applyDataPatch(current.data, patch) : current.data,
         body: edited.body,
         format: current.format,
