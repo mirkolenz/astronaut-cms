@@ -288,11 +288,6 @@ export type ResolvedImageOptimization = Required<Omit<ImageOptimizationConfig, "
  * because no bucket credential may ever reach the browser. What content stores
  * is always a plain key, never a signed URL that would expire inside an entry;
  * `publicUrl` is where those keys are served from.
- *
- * Leaving `publicUrl` out makes the library private: the admin reads through
- * signed URLs, and the site signs one per referenced image while building. That
- * needs every page showing library media to be prerendered, and S3 API access to
- * sign with.
  */
 export type MediaBackendConfig = { type: "repo" } | S3MediaConfig | R2MediaConfig;
 
@@ -306,12 +301,11 @@ interface ObjectStoreConfig {
    * `https://cdn.example.com`. It must serve the same `prefix` root, since a
    * key is appended to it verbatim.
    *
-   * Omit it for a library nothing may read anonymously. A CDN that holds the
-   * bucket credential itself (CloudFront with an origin access control, an R2
-   * custom domain) is a public base as far as this is concerned: set it to the
-   * CDN and the bucket stays closed.
+   * A CDN that holds the bucket credential itself (CloudFront with an origin
+   * access control, an R2 custom domain) is a public base as far as this is
+   * concerned: set it to the CDN and the bucket stays closed.
    */
-  publicUrl?: string;
+  publicUrl: string;
 }
 
 /**
@@ -355,6 +349,8 @@ export interface R2MediaConfig extends ObjectStoreConfig {
  */
 export interface MediaServerConfig {
   bucket: string;
+  /** Where the library's keys are served, which is where a read is sent. */
+  publicUrl: string;
   /** Normalized to "" or "prefix/". */
   prefix: string;
   /** S3 API access. Absent only for a binding-only R2 backend. */

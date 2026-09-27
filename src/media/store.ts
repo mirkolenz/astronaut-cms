@@ -1,4 +1,3 @@
-import { partialContent, type ByteRange, type PartialContent } from "../shared/http.ts";
 import type { S3Target as SharedS3Target } from "../shared/media.ts";
 
 /**
@@ -37,10 +36,6 @@ export interface PresignedUpload {
   headers: Record<string, string>;
 }
 
-export type StoreContent =
-  | { redirect: string }
-  | { body: ReadableStream<Uint8Array> | null; version?: string; partial?: PartialContent };
-
 /** One object in the library, keyed absolutely (prefix included). */
 export interface StoredObject {
   key: string;
@@ -69,12 +64,6 @@ export interface MediaStore {
    * occupied destination is refused by the store as the write happens.
    */
   presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload | null>;
-  /**
-   * The bytes themselves, or a signed URL the browser may read them from. A
-   * store handing over bytes cuts `range` itself, so a seek in a large video
-   * never streams the whole object through the route.
-   */
-  read(key: string, range?: ByteRange): Promise<StoreContent | null>;
   put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void>;
   /** `ifAbsent` refuses a destination that already exists, in the store rather than in a prior check. */
   copy(from: string, to: string, ifAbsent?: boolean): Promise<void>;
@@ -95,12 +84,6 @@ export interface S3Credentials {
 /** How long a presigned upload URL stays valid. Long enough for a slow upload of a large file. */
 export const UPLOAD_EXPIRY_SECONDS = 900;
 
-/**
- * How long a presigned read URL stays valid. Long enough to outlast a build that
- * signs one per referenced image and downloads them as it renders.
- */
-export const DOWNLOAD_EXPIRY_SECONDS = 3600;
-
 export const MAX_KEYS = 1000;
 
 /** A key ending in a slash is a directory placeholder some tools write, never a library file. */
@@ -114,10 +97,7 @@ export interface R2Binding {
     cursor?: string;
   }>;
   head(key: string): Promise<{ key: string; size: number; etag?: string } | null>;
-  get(
-    key: string,
-    options?: { range?: { offset: number; length: number } },
-  ): Promise<{
+  get(key: string): Promise<{
     body: ReadableStream<Uint8Array>;
     etag?: string;
     httpMetadata?: { contentType?: string; contentDisposition?: string };
@@ -172,30 +152,6 @@ export class BindingStore implements MediaStore {
   /** A binding signs nothing, so the route moves the bytes in both directions. */
   async presignUpload(): Promise<null> {
     return null;
-  }
-
-  async read(key: string, range?: ByteRange): Promise<StoreContent | null> {
-    if (!range) {
-      const object = await this.bucket.get(key);
-
-      return object && { body: object.body, version: versionOf(object.etag) };
-    }
-
-    // A range is settled against the object's size first, which a head reads
-    // without a byte of the body, so the get fetches only what is sent.
-    const head = await this.bucket.head(key);
-
-    if (!head) return null;
-
-    const version = versionOf(head.etag);
-    const partial = partialContent(range, head.size);
-
-    if (!partial.span) return { body: null, version, partial };
-
-    const { start, end } = partial.span;
-    const object = await this.bucket.get(key, { range: { offset: start, length: end - start + 1 } });
-
-    return object && { body: object.body, version, partial };
   }
 
   async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {

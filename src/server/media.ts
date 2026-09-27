@@ -14,13 +14,13 @@ import type { MediaBackend, MediaContent, UploadTicket } from "./storage/types.t
 import type { MediaFile, TrashedFile } from "../shared/types.ts";
 import type { MediaServerConfig } from "../integration/types.ts";
 import { HttpError, checked } from "./errors.ts";
-import type { ByteRange } from "../shared/http.ts";
 import { validateMediaPath } from "../shared/validation.ts";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
   isActiveContentType,
   mediaContentType,
+  remoteMediaUrl,
 } from "../shared/media.ts";
 import type { MediaStore, UploadTerms } from "../media/store.ts";
 
@@ -132,18 +132,15 @@ export class ObjectStoreLibrary implements MediaBackend {
   }
 
   /**
-   * Where the admin reads a library file from, which only a private library ever
-   * asks. One served from a public base is addressed there directly by the admin
-   * (see `client/lib/media.ts`), so this route exists for the bytes a browser
-   * cannot reach on its own. An S3 store signs a URL, while a Workers binding
-   * streams the bytes through the route.
+   * The public URL a library file is served under. The admin addresses it there
+   * directly (see `client/lib/media.ts`), so this only answers a caller that
+   * asked the route anyway.
    */
-  async readMedia(path: string, range?: ByteRange): Promise<MediaContent> {
-    const content = await this.store.read(this.toKey(path), range);
+  async readMedia(path: string): Promise<MediaContent> {
+    // Checked exactly as a write is, so no read reaches the trash or leaves the library.
+    this.toKey(path);
 
-    if (!content) throw new HttpError(`Media file not found: ${path}`, 404);
-
-    return "redirect" in content ? content : { ...content, contentType: mediaContentType(path) };
+    return { redirect: remoteMediaUrl(path, this.config.publicUrl) };
   }
 
   async beginUpload(path: string, size: number, overwrite: boolean): Promise<UploadTicket> {

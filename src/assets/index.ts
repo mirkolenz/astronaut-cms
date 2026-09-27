@@ -10,9 +10,8 @@
  *
  * With an object-store media backend there is no map and nothing to bundle: the
  * value content stores is a library key, and resolving it means putting the
- * configured public base in front — or, for a library with no public base,
- * signing a URL for it while the site builds. `resolveImage` then hands back that
- * URL rather than `ImageMetadata`, which is exactly what `astro:assets` `<Image>`
+ * configured public base in front. `resolveImage` then hands back that URL
+ * rather than `ImageMetadata`, which is exactly what `astro:assets` `<Image>`
  * takes for a remote image (`astronaut-cms/Image.astro` passes it on with
  * `inferSize`).
  *
@@ -36,7 +35,6 @@ import { mediaPath, remoteMediaUrl, type ClientMediaBackend } from "../shared/me
 import { isAbsoluteUrl } from "../shared/url.ts";
 import config from "virtual:astronaut-cms/config";
 import { images, files, referencedOnly } from "virtual:astronaut-cms/assets";
-import { mediaSourceUrl } from "virtual:astronaut-cms/media-source";
 
 type RemoteBackend = Extract<ClientMediaBackend, { type: "remote" }>;
 type AssetKind = "image" | "file";
@@ -84,23 +82,8 @@ async function resolve<T>(
 
   if (remote.local) return load(map, kind, join("/", config.mediaDirectory, key));
 
-  // A public library is pure string work and never reaches the store. A private
-  // one is signed per key, which only a build can do — which is exactly when the
-  // integration links a signer in, so there is no third case here.
-  if (remote.publicUrl) return remoteMediaUrl(key, remote.publicUrl);
-
-  if (!mediaSourceUrl) throw new Error("The media library has no public base and cannot sign one.");
-
-  // An image leaves the store during the build, since astro downloads it and
-  // emits an optimized copy. A file is linked as it is, and a signed URL in a
-  // prerendered page stops working the moment it expires.
-  if (kind === "file") {
-    throw new Error(
-      `CMS file "${path}" cannot be linked: the media library has no publicUrl, and a signed URL would expire in the built page. Set media.backend.publicUrl to serve files from the library.`,
-    );
-  }
-
-  return mediaSourceUrl(key);
+  // Pure string work, which never reaches the store.
+  return remoteMediaUrl(key, remote.publicUrl);
 }
 
 function load<T>(map: Record<string, () => Promise<T>>, kind: AssetKind, key: string): Promise<T> {

@@ -48,14 +48,6 @@ declare module "virtual:astronaut-cms/assets" {
   export const referencedOnly: boolean;
 }
 
-/**
- * Signs a read URL for a library key, or null when the library is served from a
- * public base and needs no signing. See `astronaut-cms/media-presign`.
- */
-declare module "virtual:astronaut-cms/media-source" {
-  export const mediaSourceUrl: ((key: string) => Promise<string>) | null;
-}
-
 declare module "virtual:astronaut-cms/collections" {
   const collections: import("./shared/types").CollectionManifest;
   export default collections;

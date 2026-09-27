@@ -1,9 +1,7 @@
 /**
  * How a {@link MediaStore} is built from configuration and credentials.
  *
- * Shared because two very different callers need the same store: the injected
- * route, which reads the environment of a running function, and the site's
- * build, which signs read URLs for a library that is not publicly readable.
+ * The injected route builds it from the environment of a running function.
  */
 import type { MediaServerConfig } from "../integration/types.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";

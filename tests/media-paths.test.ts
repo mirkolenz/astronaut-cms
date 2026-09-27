@@ -49,18 +49,17 @@ function bindingStore(initial: Record<string, string>) {
 
       return value ? { key, size: value.bytes.byteLength, etag: value.etag } : null;
     },
-    get: async (key, options) => {
+    get: async (key) => {
       const value = objects.get(key);
 
       if (!value) return null;
 
-      const { offset = 0, length = value.bytes.byteLength } = options?.range ?? {};
 
       return {
         etag: value.etag,
         body: new ReadableStream({
           start(controller) {
-            controller.enqueue(value.bytes.subarray(offset, offset + length));
+            controller.enqueue(value.bytes);
             controller.close();
           },
         }),
@@ -121,20 +120,6 @@ describe("media paths", () => {
   });
 });
 
-// A Workers binding streams the bytes through the route, so a seek in a large
-// video has to fetch only the range, never the whole object.
-describe("binding ranges", () => {
-  it("reads only the range it was asked for", async () => {
-    const { store } = bindingStore({ "lib/teaser.mp4": "0123456789" });
-    const content = await store.read("lib/teaser.mp4", { start: 2, end: 4 });
-
-    if (!content || !("body" in content)) throw new Error("expected a body");
-
-    expect(content.partial?.contentRange).toBe("bytes 2-4/10");
-    expect(await new Response(content.body).text()).toBe("234");
-  });
-});
-
 describe("media types", () => {
   it("admits any visible file unless the library is restricted", () => {
     expect(isLibraryFile("films/2026/teaser.mp4", null)).toBe(true);
@@ -160,24 +145,28 @@ describe("media types", () => {
   });
 });
 
-// Only a library with no public base is read through the server at all: the
-// admin addresses a public one directly. So this route always signs, and the
-// signature is over a key the library admits to holding.
+// The admin reads a library file from its public URL. The route answers a
+// caller that asked it anyway with the same address, for a path the library
+// admits to holding.
 const libraryOf = (store: MediaStore) =>
   new ObjectStoreLibrary(
     store,
-    { bucket: "b", prefix: "lib/", s3: null, binding: null },
+    {
+      bucket: "b",
+      publicUrl: "https://cdn.example.com",
+      prefix: "lib/",
+      s3: null,
+      binding: null,
+    },
     { extensions: ["png"], maxFileSize: null },
   );
 
 describe("reading a library", () => {
-  const store = {
-    read: (key: string) => Promise.resolve({ redirect: `https://store.example/${key}?sig=x` }),
-  } as unknown as MediaStore;
+  const { store } = bindingStore({});
 
-  it("signs a read under the configured prefix", async () => {
-    await expect(libraryOf(store).readMedia("photos/hero.png")).resolves.toEqual({
-      redirect: "https://store.example/lib/photos/hero.png?sig=x",
+  it("sends a read to the public URL", async () => {
+    await expect(libraryOf(store).readMedia("photos/a b.png")).resolves.toEqual({
+      redirect: "https://cdn.example.com/photos/a%20b.png",
     });
   });
 
@@ -186,18 +175,6 @@ describe("reading a library", () => {
   it("refuses a reserved or escaping path", async () => {
     await expect(libraryOf(store).readMedia(".trash/hero.png")).rejects.toThrow(/hidden/);
     await expect(libraryOf(store).readMedia("../secrets.png")).rejects.toThrow();
-  });
-
-  it("streams a private file through an R2 binding", async () => {
-    const { store: binding } = bindingStore({ "lib/photos/hero.png": "image" });
-    const content = await libraryOf(binding).readMedia("photos/hero.png");
-
-    expect(content.version).toBe("image");
-    expect("body" in content).toBe(true);
-
-    if ("body" in content) {
-      await expect(new Response(content.body).text()).resolves.toBe("image");
-    }
   });
 });
 

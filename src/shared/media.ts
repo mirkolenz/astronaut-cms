@@ -20,17 +20,15 @@ export type ClientMediaBackend =
   | { type: "repo" }
   | {
       type: "remote";
-      /** The base the library's keys are publicly served under, absent for a private library. */
-      publicUrl?: string;
+      /** The base the library's keys are publicly served under. */
+      publicUrl: string;
       /**
        * Origin of the store's own S3 API, absent when it cannot be signed for
        * and every upload is proxied through the site instead.
        *
-       * Two things need it, and both need exactly this: the admin's CSP, which
-       * has to allow the upload the browser PUTs there, and astro's
-       * `image.remotePatterns` for a private library, whose images are fetched
-       * from signed URLs on that same origin. It says only where the store
-       * lives, which is what a signed URL reveals anyway.
+       * The admin's CSP needs it to allow the upload the browser PUTs there. It
+       * says only where the store lives, which is what a signed URL reveals
+       * anyway.
        */
       storeOrigin?: string;
       /**

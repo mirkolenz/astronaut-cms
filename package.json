@@ -47,10 +47,6 @@
       "types": "./dist/assets/index.d.ts",
       "default": "./dist/assets.js"
     },
-    "./media-presign": {
-      "types": "./dist/media/presign.d.ts",
-      "default": "./dist/media-presign.js"
-    },
     "./client": {
       "default": "./dist/client.js"
     },

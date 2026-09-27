@@ -4,10 +4,10 @@
  *
  * Reading is a plain URL, and where that URL points is settled here rather than
  * by a round trip. A library served from a public base needs no server at all:
- * the key *is* the URL, so a grid of thumbnails costs nothing. Everything else —
- * a repository library, a private bucket, a dev run reading the working tree —
- * goes through `GET .../media/<path>`, which answers with the bytes or redirects
- * to wherever they really live. Either way an `<img>` addresses a library file
+ * the key *is* the URL, so a grid of thumbnails costs nothing. Everything else,
+ * a repository library or a dev run reading the working tree, goes through
+ * `GET .../media/<path>`, which answers with the bytes or redirects to wherever
+ * they really live. Either way an `<img>` addresses a library file
  * the same way, with no fetch, no object URL and no lifetime to manage.
  *
  * A proxied URL carries the file's version where the listing knows one, which is
@@ -34,7 +34,7 @@ export function mediaUrl(path: string, version?: string): string {
   // one. So the version goes on both kinds of URL, and means the same thing on
   // each — this address is these bytes.
   const url =
-    backend.type === "remote" && !backend.local && backend.publicUrl
+    backend.type === "remote" && !backend.local
       ? remoteMediaUrl(path, backend.publicUrl)
       : apiUrl(`${API_MEDIA}/${encodeKeyPath(path)}`);
 

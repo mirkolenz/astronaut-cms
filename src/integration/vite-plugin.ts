@@ -59,7 +59,6 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(options),
-    "virtual:astronaut-cms/media-source": generateMediaSourceModule(options),
   };
 
   return {
@@ -94,29 +93,11 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
   };
 }
 
-/**
- * How the site turns a library key into a URL it can load, for the one backend
- * where that is not a lookup.
- *
- * A public library needs nothing at runtime, so the module is a constant the
- * resolver never calls. A private one has to sign, which means the AWS SDK and
- * the bucket credentials — linked in here alone, so a public library and a
- * repository library carry neither.
- */
-function generateMediaSourceModule(options: CmsVitePluginOptions): string {
-  const { mediaBackend } = options.clientConfig;
-
-  if (mediaBackend.type !== "remote" || mediaBackend.local || mediaBackend.publicUrl) {
-    return "export const mediaSourceUrl = null;";
-  }
-
-  return `export { presignedMediaUrl as mediaSourceUrl } from "astronaut-cms/media-presign";`;
-}
-
 // Emits the lazy loader maps that back `astronaut-cms/assets`, keyed by
-// root-absolute path. A file is never inlined as a data URL, which would lose
-// its name as a download and its caching as a video. Lazy loaders keep the Promise-based form expected by
-// astro:assets <Image>, resolving straight to the ImageMetadata / URL.
+// root-absolute path. Lazy loaders keep the Promise-based form expected by
+// astro:assets <Image>, resolving straight to the ImageMetadata / URL. A file is
+// never inlined as a data URL, which would lose its name as a download and its
+// caching as a video.
 //
 // A build emits one entry per asset content actually references (see
 // collect-assets.ts), because a glob is a static set of dynamic imports and so

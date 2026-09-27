@@ -109,15 +109,13 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
 
   if (!backend.bucket) throw new Error(`${backend.type} media: 'bucket' is required.`);
 
-  // No public base means a private library, which is reached by signing a URL
-  // per read — so the store has to be one that can sign.
-  if (!backend.publicUrl && backend.type === "r2" && !backend.accountId) {
+  if (!backend.publicUrl) {
     throw new Error(
-      "r2 media: a private library (no 'publicUrl') needs 'accountId' so the S3 API can sign read URLs. A Workers binding signs nothing.",
+      `${backend.type} media: 'publicUrl' is required, the base the library's keys are served under (e.g. 'https://cdn.example.com').`,
     );
   }
 
-  if (backend.publicUrl) validateMediaOrigin(backend.publicUrl, site);
+  validateMediaOrigin(backend.publicUrl, site);
 
   if (backend.type === "s3" && !backend.endpoint) {
     throw new Error(
@@ -294,28 +292,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
-        // A private library is signed at build time, so what astro has to trust
-        // is the store's own origin rather than a public base it never sees.
-        const remoteMedia =
-          clientConfig.mediaBackend.type === "remote" ? clientConfig.mediaBackend : null;
-        const mediaOrigin = remoteMedia && (remoteMedia.publicUrl ?? remoteMedia.storeOrigin);
-
-        // Only where a signed URL can actually reach a visitor: a dev run serving
-        // the library from the working tree signs nothing, and a site that
-        // prerenders by default has already satisfied this.
-        if (
-          remoteMedia &&
-          !remoteMedia.publicUrl &&
-          !remoteMedia.local &&
-          astroConfig.output === "server"
-        ) {
-          logger.warn(
-            "Media library is private (no 'publicUrl') and this site renders on demand by default: every page showing library media must set 'export const prerender = true', since its URLs are signed while building and expire.",
-          );
-        }
+        const { mediaBackend } = clientConfig;
 
         updateConfig({
-          ...(mediaOrigin && { image: { remotePatterns: [mediaRemotePattern(mediaOrigin)] } }),
+          ...(mediaBackend.type === "remote" && {
+            image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
+          }),
           vite: {
             plugins: [
               tailwindcss(),

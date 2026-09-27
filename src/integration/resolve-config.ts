@@ -164,15 +164,15 @@ function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): Clie
 
   return {
     type: "remote",
-    ...(backend.publicUrl && { publicUrl: trimSlashes(backend.publicUrl) }),
+    publicUrl: trimSlashes(backend.publicUrl),
     ...(storeOrigin && { storeOrigin }),
     ...(localMedia && { local: true }),
   };
 }
 
 /**
- * Origin the store's S3 API is reached at, which is where every signed URL
- * points. A store reached solely through a Workers binding signs nothing and
+ * Origin the store's S3 API is reached at, which is where every presigned
+ * upload points. A store reached solely through a Workers binding signs nothing and
  * proxies instead, so it has none.
  */
 function presignOrigin(media: MediaServerConfig | null): string | undefined {
@@ -209,6 +209,7 @@ export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null 
 
   return {
     bucket: backend.bucket,
+    publicUrl: trimSlashes(backend.publicUrl),
     prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
     s3,
     binding: backend.type === "r2" ? (backend.binding ?? null) : null,

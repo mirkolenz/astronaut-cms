@@ -198,7 +198,7 @@ Content then stores library keys instead of project paths, and the site loads th
 
 ### Reading the library
 
-Writing is always authenticated and always signed. Reading is the choice, and there are three shapes.
+Writing is always authenticated and always signed. Reading goes through `publicUrl`, which comes in two shapes.
 
 #### A public bucket or CDN
 
@@ -219,34 +219,6 @@ Put a CDN in front that holds the credential, deny everything else, and point `p
 
 As far as the CMS is concerned this is a public library, so nothing else changes and every optimization above still applies.
 This is the setup to reach for when "the bucket must not be public" is the requirement.
-
-#### No public base at all
-
-Leave `publicUrl` out entirely and the library becomes private:
-
-```ts title="src/cms.config.ts"
-media: {
-  backend: {
-    type: "s3",
-    bucket: "my-media",
-    endpoint: "https://s3.eu-central-1.amazonaws.com",
-    // no publicUrl
-  },
-}
-```
-
-- **The admin** reads through signed URLs the CMS server mints per request. Fully supported.
-- **The site** signs a URL per referenced image _while building_, astro downloads it and emits an
-  optimized asset, and the built output refers to the store nowhere. Files, videos and audio cannot
-  work this way, since they are linked rather than downloaded, so `resolveFile()` fails the build
-  for them. Give the library a `publicUrl` to serve those.
-
-<Aside type="caution">
-  This needs **every page that renders library media to be prerendered**. A signed URL expires, so a
-  page rendered on demand would hand visitors a link that stops working. The integration warns at
-  build time when `publicUrl` is absent. It also needs S3 API access to sign with: a binding-only R2
-  backend is refused, since a Workers binding signs nothing.
-</Aside>
 
 ### Deleting and restoring
 
@@ -270,17 +242,15 @@ That is deliberate, since the point of the trash is to catch a delete that shoul
 
 ### Image optimization and adapter image services
 
-| Setup                                       | Public base                        | Private library                         |
-| ------------------------------------------- | ---------------------------------- | --------------------------------------- |
-| Astro's built-in service, prerendered page  | Optimized at build into `dist/`    | Signed at build, optimized into `dist/` |
-| Astro's built-in service, on-demand page    | Optimized per request by `/_image` | Not supported                           |
-| Vercel / Netlify / Cloudflare image service | Optimized at the edge              | Not supported                           |
+| Setup                                       | How library images are optimized   |
+| ------------------------------------------- | ---------------------------------- |
+| Astro's built-in service, prerendered page  | Optimized at build into `dist/`    |
+| Astro's built-in service, on-demand page    | Optimized per request by `/_image` |
+| Vercel / Netlify / Cloudflare image service | Optimized at the edge              |
 
 The adapter image services — `@astrojs/vercel` with `imageService: true`, `@astrojs/netlify`'s Image CDN, `@astrojs/cloudflare` with `imageService: "cloudflare"` — rewrite an `<Image>` into a CDN URL that carries your source URL as a parameter, and the CDN fetches that source **from its own edge at request time**.
 
-That works well with a public base: the integration already registers it in astro's `image.remotePatterns`, which each adapter translates into its own allowlist (`vercel.json` image domains, netlify.toml `remote_images`), so there is nothing further to configure.
-
-It cannot work with a private library. None of those CDNs can sign an S3 request, and deferring optimization to request time is exactly what a build-time signature cannot survive. Use astro's built-in service there.
+The integration already registers `publicUrl` in astro's `image.remotePatterns`, which each adapter translates into its own allowlist (`vercel.json` image domains, netlify.toml `remote_images`), so there is nothing further to configure.
 
 ### How it differs from a repository library
 

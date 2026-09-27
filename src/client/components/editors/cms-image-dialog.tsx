@@ -38,9 +38,7 @@ export function CmsImageDialog() {
 function markdownImageSrc(path: string, contentFilePath: string | undefined): string {
   const { mediaBackend } = config;
 
-  if (mediaBackend.type === "remote") {
-    return mediaBackend.publicUrl ? remoteMediaUrl(path, mediaBackend.publicUrl) : path;
-  }
+  if (mediaBackend.type === "remote") return remoteMediaUrl(path, mediaBackend.publicUrl);
 
   const ref = mediaRef(path, config);
 

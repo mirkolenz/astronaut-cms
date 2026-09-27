@@ -5,7 +5,6 @@
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
-  GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -14,13 +13,11 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { encodeKeyPath } from "../shared/media.ts";
 import {
-  DOWNLOAD_EXPIRY_SECONDS,
   isFileKey,
   MAX_KEYS,
   UPLOAD_EXPIRY_SECONDS,
   type MediaStore,
   type PresignedUpload,
-  type StoreContent,
   type UploadTerms,
   type S3Credentials,
   type S3Target,
@@ -129,20 +126,6 @@ export class S3Store implements MediaStore {
     );
 
     return { url, headers };
-  }
-
-  /**
-   * Nothing is signed but the key: a read carries no terms to bind, and the URL
-   * is handed to a browser or to astro's image pipeline, which sends a plain GET.
-   */
-  async read(key: string): Promise<StoreContent> {
-    return {
-      redirect: await getSignedUrl(
-        this.client,
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
-        { expiresIn: DOWNLOAD_EXPIRY_SECONDS },
-      ),
-    };
   }
 
   async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {

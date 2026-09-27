@@ -224,8 +224,8 @@ Those uploads, and any store that cannot hand out URLs at all (an R2 Workers bin
 ### Reading
 
 An object-store library never sends its bytes through the CMS server.
-One with a public base is addressed at that base directly, so a page of thumbnails costs no function invocations and leaks nothing the base does not already serve.
-One without a public base is read through short-lived signed URLs the server mints per request, so the bucket stays closed and the credential stays on the server either way.
+It is addressed at its public base directly, so a page of thumbnails costs no function invocations and leaks nothing the base does not already serve.
+A bucket that must stay closed sits behind a CDN holding the credential, which is the public base as far as the CMS is concerned, and the credential never leaves the server or the CDN.
 
 Every library URL carries the file's version, whichever way it is served, and it always means the same thing: this address is these bytes.
 On a public base that is what stops a CDN from serving a replaced file to every editor until it expires.
@@ -263,7 +263,6 @@ Restoring and purging are the media view's alone, so the assistant cannot undo i
 
 Uploaded files are attacker-influenced bytes your site serves back, and some allowed types are documents a browser will run.
 `media.publicUrl` must therefore not share an origin with the site itself; the integration refuses the configuration when your `astro.config` declares a `site` it can check against.
-A private library has no public base to check, and its signed URLs point at the store, so the rule is satisfied by construction.
 
 Serve the bucket from a dedicated host (a CDN subdomain), without cookies, and with `X-Content-Type-Options: nosniff` on its responses.
 
