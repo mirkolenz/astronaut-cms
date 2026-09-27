@@ -7,10 +7,7 @@
  * own and answers before the adapter's handler sees the request. Every adapter
  * takes this path, so the demo exercises the one a Workers site runs.
  */
-import type { IncomingMessage, ServerResponse } from "node:http";
-import { Readable } from "node:stream";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
-import { pipeline } from "node:stream/promises";
+import { createRequestFromNodeRequest, writeResponse } from "astro/app/node";
 import {
   createRunnableDevEnvironment,
   type EnvironmentOptions,
@@ -42,46 +39,10 @@ export function serveDevApi(server: ViteDevServer, apiPath: string): void {
 
     environment.runner
       .import<Endpoint>("astronaut-cms/endpoint")
-      .then(({ handle }) => handle(toRequest(req)))
-      .then((response) => send(res, response))
+      // Astro's own bridge, the one its Node adapter serves production with, so
+      // a browser that goes away aborts `request.signal` and cancels the body.
+      .then(({ handle }) => handle(createRequestFromNodeRequest(req)))
+      .then((response) => writeResponse(response, res))
       .catch(next);
   });
-}
-
-function toRequest(req: IncomingMessage): Request {
-  const protocol = "encrypted" in req.socket && req.socket.encrypted ? "https" : "http";
-  const url = new URL(req.url ?? "/", `${protocol}://${req.headers.host ?? "localhost"}`);
-  const headers = new Headers();
-
-  for (const [name, value] of Object.entries(req.headers)) {
-    for (const item of [value ?? []].flat()) headers.append(name, item);
-  }
-
-  const hasBody = req.method !== "GET" && req.method !== "HEAD";
-
-  return new Request(url, {
-    method: req.method,
-    headers,
-    ...(hasBody && { body: Readable.toWeb(req) as ReadableStream, duplex: "half" }),
-  });
-}
-
-async function send(res: ServerResponse, response: Response): Promise<void> {
-  res.statusCode = response.status;
-
-  for (const [name, value] of response.headers) {
-    if (name !== "set-cookie") res.setHeader(name, value);
-  }
-
-  const cookies = response.headers.getSetCookie();
-
-  if (cookies.length > 0) res.setHeader("set-cookie", cookies);
-
-  if (!response.body) {
-    res.end();
-
-    return;
-  }
-
-  await pipeline(Readable.fromWeb(response.body as NodeReadableStream), res);
 }

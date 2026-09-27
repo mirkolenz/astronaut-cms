@@ -81,8 +81,15 @@ export function cmsDevPlugin(apiPath: string | null): Plugin {
       // Appended from the body so it runs before Astro's own catch-all handler
       // (registered from a post-hook) and therefore sees the CMS write before
       // the file watcher does.
-      server.middlewares.use((req, _res, next) => {
-        if (isWrite(req)) suppressReloadUntil = Date.now() + SUPPRESS_WINDOW_MS;
+      server.middlewares.use((req, res, next) => {
+        const arm = () => (suppressReloadUntil = Date.now() + SUPPRESS_WINDOW_MS);
+
+        // Armed again once the write is answered, so one that outlasts the
+        // window, such as a large upload, still has its reload dropped.
+        if (isWrite(req)) {
+          arm();
+          res.once("close", arm);
+        }
 
         next();
       });
