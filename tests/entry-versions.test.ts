@@ -146,6 +146,7 @@ const collections: CollectionManifest = {
     loaderPattern: "**/*.md",
     loaderBase: "src/content/blog",
     loaderFileName: null,
+    sort: "id",
     schema: { type: "object", shape: { title: { type: "string" } } },
   },
 };
@@ -158,6 +159,7 @@ const dataCollections: CollectionManifest = {
     loaderPattern: "**/*.json",
     loaderBase: "src/data",
     loaderFileName: null,
+    sort: "id",
     schema: null,
   },
 };
@@ -170,6 +172,7 @@ const fileCollections: CollectionManifest = {
     loaderPattern: null,
     loaderBase: null,
     loaderFileName: "src/data/authors.json",
+    sort: "file",
     schema: { type: "object", shape: { name: { type: "string" } } },
   },
 };

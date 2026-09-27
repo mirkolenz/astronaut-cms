@@ -10,6 +10,7 @@ const collections: CollectionManifest = {
     loaderPattern: "**/*.md",
     loaderBase: "src/content/blog",
     loaderFileName: null,
+    sort: "id",
     schema: { type: "object", shape: { title: { type: "string" } } },
   },
 };

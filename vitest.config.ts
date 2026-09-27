@@ -18,6 +18,7 @@ export default defineConfig({
         "tests/fixtures/user-config.ts",
       ),
       "virtual:astronaut-cms/server": resolve(import.meta.dirname, "tests/fixtures/server.ts"),
+      "virtual:astronaut-cms/order": resolve(import.meta.dirname, "tests/fixtures/order.ts"),
       "virtual:astronaut-cms/local-storage": resolve(
         import.meta.dirname,
         "tests/fixtures/local-storage.ts",

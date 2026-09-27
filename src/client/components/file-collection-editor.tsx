@@ -14,7 +14,7 @@ import { useWriteError } from "@/client/lib/write-error";
 import { FieldRenderer } from "@/client/components/editors/field-renderer";
 import { isRequired, objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
-import { asEntryFormat, type EntryFormat } from "@/shared/types";
+import { asEntryFormat, sortByIds, type EntryFormat } from "@/shared/types";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
@@ -35,11 +35,12 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const format =
     (meta?.loaderFileName && asEntryFormat(getFileExtension(meta.loaderFileName))) || "json";
   const { data: file } = useFileLayout(collection);
-  const layout = file?.layout;
   // Every entry of a file collection lives in the same file, so a relative asset
   // reference in any of them resolves against that one path.
   const contentFilePath = meta?.loaderFileName;
-  const isOrderable = layout === "array";
+  // Only file order is the editors' to change: any other is derived from the ids.
+  const sort = meta?.sort ?? "id";
+  const isOrderable = sort === "file";
 
   const writeError = useWriteError();
   const deleteMutation = useDeleteEntry(collection);
@@ -54,11 +55,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   // one never lands in the file as an empty (schema-invalid) record.
   const [draftId, setDraftId] = useState<string | null>(null);
 
-  const sortedEntries = useMemo(() => {
-    if (!entries) return undefined;
-    if (layout === "object") return [...entries].sort((a, b) => a.id.localeCompare(b.id));
-    return entries;
-  }, [entries, layout]);
+  const sortedEntries = useMemo(() => entries && sortByIds(entries, sort), [entries, sort]);
 
   const toggleEntry = (id: string) => {
     setExpandedEntries((prev) => {

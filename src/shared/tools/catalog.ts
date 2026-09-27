@@ -284,7 +284,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     reorderEntries: defineTool({
       title: "Reorder a collection",
       description:
-        "Reorder a collection by giving the complete ordered list of entry ids. Every existing id must appear exactly once.",
+        "Reorder a collection the content model marks reorderable by giving the complete ordered list of entry ids. Every existing id must appear exactly once.",
       inputSchema: z.object({
         collection,
         ids: z

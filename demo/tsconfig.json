@@ -5,7 +5,8 @@
       "@/*": ["./src/*"],
       "astronaut-cms": ["../src/integration/index.ts"],
       "astronaut-cms/config": ["../src/config.ts"],
-      "astronaut-cms/assets": ["../src/assets/index.ts"]
+      "astronaut-cms/assets": ["../src/assets/index.ts"],
+      "astronaut-cms/content": ["../src/content/index.ts"]
     }
   }
 }

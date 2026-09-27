@@ -13,7 +13,7 @@ import { localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
 import { LocaleTabs } from "@/client/components/locale-tabs";
 import { TranslationStatus } from "@/client/components/translation-status";
-import { extractFormatsFromLoader } from "@/shared/types";
+import { compareIds, extractFormatsFromLoader } from "@/shared/types";
 import { FileCollectionEditor } from "@/client/components/file-collection-editor";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
@@ -68,9 +68,10 @@ function GlobCollectionPage({
   const locales = i18n?.locales ?? [];
   const { activeLocale, subDir, browseDir } = browseLocation(i18n, dir);
 
+  const sort = collectionInfo?.sort ?? "id";
   const { folders, files } = useMemo(
-    () => listDirectory(filteredEntries ?? [], browseDir, (entry) => entry.id),
-    [filteredEntries, browseDir],
+    () => listDirectory(filteredEntries ?? [], browseDir, (entry) => entry.id, compareIds(sort)),
+    [filteredEntries, browseDir, sort],
   );
   const isEmpty = folders.length === 0 && files.length === 0;
 

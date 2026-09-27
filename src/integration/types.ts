@@ -1,6 +1,7 @@
 import type { ContentI18n } from "../shared/i18n.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
 import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
+import type { CollectionSort } from "../shared/types.ts";
 
 export type { AiGateway };
 
@@ -11,6 +12,8 @@ export interface CmsConfig {
   mountPoint?: string;
   /** Storage backend configuration */
   storage?: StorageConfig;
+  /** Options per collection of `content.config`, keyed by collection name. */
+  collections?: Record<string, CollectionOptions>;
   /**
    * Where the injected routes read secrets and Workers bindings from. Detected
    * from the Astro adapter, so set it only for an adapter that wraps or forks a
@@ -60,6 +63,18 @@ export interface CmsConfig {
   ai?: AiConfig;
   /** Expose the CMS to agents running in the editor's browser. See {@link WebmcpConfig}. */
   webmcp?: WebmcpConfig;
+}
+
+export type { CollectionSort };
+
+export interface CollectionOptions {
+  /**
+   * How entries are ordered, both in the admin and for the site through
+   * `sortEntries` from `astronaut-cms/content` (default: "id", astro's own
+   * order). "file" keeps the order of a `file()` collection's file, which
+   * editors can then change.
+   */
+  sort?: CollectionSort;
 }
 
 /**

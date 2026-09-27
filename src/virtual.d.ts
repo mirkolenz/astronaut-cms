@@ -48,6 +48,12 @@ declare module "virtual:astronaut-cms/assets" {
   export const referencedOnly: boolean;
 }
 
+/** The collections whose `sort` is not astro's own, and the file order of those sorted by file. */
+declare module "virtual:astronaut-cms/order" {
+  export const sorts: Record<string, import("./shared/types").CollectionSort>;
+  export const fileOrder: Record<string, string[]>;
+}
+
 declare module "virtual:astronaut-cms/collections" {
   const collections: import("./shared/types").CollectionManifest;
   export default collections;

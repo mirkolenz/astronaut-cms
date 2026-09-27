@@ -11,7 +11,8 @@ import { describeMediaRef } from "../media.ts";
 import type { ToolConfig } from "./types.ts";
 
 export interface ContentModel {
-  collections: Record<string, { type: string; formats: string[] | null }>;
+  /** `reorderable` marks a collection sorted by file order, the only one reorderEntries changes. */
+  collections: Record<string, { type: string; formats: string[] | null; reorderable: boolean }>;
   /** How an image or file field spells a reference to the media library. */
   mediaReferences: string;
   /** The site's content languages, or null when it is single-language. */
@@ -26,6 +27,7 @@ export function contentModel(config: ToolConfig): ContentModel {
         {
           type: col.type,
           formats: extractFormatsFromLoader(col.loaderPattern, col.loaderFileName),
+          reorderable: col.sort === "file",
         },
       ]),
     ),

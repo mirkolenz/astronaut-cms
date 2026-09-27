@@ -19,6 +19,7 @@ import {
   isByok,
   resolveAlwaysInclude,
   resolveClientConfig,
+  resolveCollections,
   resolveMediaServer,
   resolveServerConfig,
   storageType,
@@ -27,6 +28,8 @@ import { isAddressable } from "../shared/ai.ts";
 
 export type {
   CmsConfig,
+  CollectionOptions,
+  CollectionSort,
   StorageConfig,
   MediaConfig,
   MediaBackendConfig,
@@ -257,6 +260,8 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         } else {
           logger.warn("No content.config found — collections will be empty");
         }
+
+        collections = resolveCollections(collections, effectiveConfig);
 
         // Read once for every pass over content: the check below and, in a build,
         // the assets it bundles.

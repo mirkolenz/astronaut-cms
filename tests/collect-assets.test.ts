@@ -22,6 +22,7 @@ const collections: CollectionManifest = {
     loaderPattern: "**/*.{md,mdx}",
     loaderBase: "src/content/pages",
     loaderFileName: null,
+    sort: "id",
     schema: {
       type: "object",
       shape: {
@@ -154,6 +155,7 @@ describe("collectReferencedAssets", () => {
         loaderPattern: null,
         loaderBase: null,
         loaderFileName: "src/data/authors.json",
+        sort: "id",
         schema: {
           type: "object",
           shape: { name: { type: "string" }, portrait: { type: "file" } },

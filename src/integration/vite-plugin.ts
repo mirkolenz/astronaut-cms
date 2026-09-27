@@ -1,8 +1,10 @@
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "pathe";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
 import type { CmsClientConfig, CmsRuntime, CmsServerConfig } from "./types.ts";
-import type { CollectionManifest } from "../shared/types.ts";
+import type { CollectionManifest, CollectionSort } from "../shared/types.ts";
+import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
 import type { ContentEntry } from "./content-files.ts";
@@ -28,10 +30,15 @@ export interface CmsVitePluginOptions {
   runtime: CmsRuntime;
 }
 
+/** What a module generated per load is told: how to watch a file. */
+interface LoadContext {
+  watch: (path: string) => void;
+}
+
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
   const { clientConfig, serverConfig, userConfigPath, collections } = options;
 
-  const virtualModules: Record<string, string> = {
+  const virtualModules: Record<string, string | ((ctx: LoadContext) => string)> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
     // Split out of the config so the admin can address the API before it has
     // one. The config is delivered by the session probe and therefore only to a
@@ -57,6 +64,8 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       serverConfig.storage.type === "local"
         ? `export { LocalStorage } from "astronaut-cms/server-local";`
         : `export const LocalStorage = null;`,
+    "virtual:astronaut-cms/order": ({ watch }) =>
+      generateOrderModule(collections, options.rootDir, watch),
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(options),
@@ -75,10 +84,11 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
     },
 
     load(id) {
-      if (id.startsWith("\0")) {
-        const vid = id.slice(1);
-        if (vid in virtualModules) return virtualModules[vid];
-      }
+      const module = id.startsWith("\0") ? virtualModules[id.slice(1)] : undefined;
+
+      if (typeof module !== "function") return module;
+
+      return module({ watch: (path) => this.addWatchFile(path) });
     },
 
     configureServer(server) {
@@ -160,6 +170,36 @@ function loaderMap(keys: string[], query: string): string {
   );
 
   return `{\n${entries.join("\n")}\n}`;
+}
+
+// The order behind `sortEntries`. File order is read off the file on every load
+// and the file is watched, so an edit reaches the site without a restart.
+function generateOrderModule(
+  collections: CollectionManifest,
+  rootDir: string,
+  watch: (path: string) => void,
+): string {
+  const sorts: Record<string, CollectionSort> = {};
+  const fileOrder: Record<string, string[]> = {};
+
+  for (const { name, sort, loaderFileName } of Object.values(collections)) {
+    if (sort !== "id") sorts[name] = sort;
+
+    // A file sort is only accepted on a file() collection, which names its file.
+    if (sort !== "file" || !loaderFileName) continue;
+
+    const path = join(rootDir, loaderFileName);
+
+    watch(path);
+
+    fileOrder[name] = existsSync(path)
+      ? [...parseMultiEntryFile(readFileSync(path, "utf-8"), getFileExtension(path)).entries.keys()]
+      : [];
+  }
+
+  return `\
+export const sorts = ${JSON.stringify(sorts)};
+export const fileOrder = ${JSON.stringify(fileOrder)};`;
 }
 
 function generateUserConfigModule(configPath: string | null): string {

@@ -23,6 +23,7 @@ const posts: CollectionManifestEntry = {
   loaderPattern: "**/*.md",
   loaderBase: "src/content/blog",
   loaderFileName: null,
+  sort: "id",
   schema: { type: "object", shape: { cover: { type: "image" } } },
 };
 

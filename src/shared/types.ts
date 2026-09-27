@@ -19,6 +19,38 @@ export type FileEntryLayout = "array" | "object";
 export type LoaderType = "glob" | "file";
 
 /**
+ * How a collection's entries are ordered, for the site (see
+ * `astronaut-cms/content`) and in the admin alike.
+ *
+ * - `id`: by id, as astro's content store returns them.
+ * - `natural`: by id, with digit runs compared as numbers (`2` before `10`).
+ * - `file`: in the order the file of a `file()` collection holds them, which the
+ *   admin then lets editors change.
+ */
+export type CollectionSort = "id" | "natural" | "file";
+
+const naturalCollator = new Intl.Collator(undefined, { numeric: true });
+
+/**
+ * Compares two entry ids under `sort`. File order is no order of ids, so it
+ * compares them as astro does, for whatever the file does not place.
+ */
+export function compareIds(sort: CollectionSort): (a: string, b: string) => number {
+  return sort === "natural"
+    ? (a, b) => naturalCollator.compare(a, b)
+    : (a, b) => a.localeCompare(b);
+}
+
+/** Entries by id under `sort`, or as given for file order, which the listing already is. */
+export function sortByIds<E extends { id: string }>(entries: readonly E[], sort: CollectionSort): E[] {
+  if (sort === "file") return [...entries];
+
+  const compare = compareIds(sort);
+
+  return entries.toSorted((a, b) => compare(a.id, b.id));
+}
+
+/**
  * Fully-resolved description of one content collection, extracted from the
  * user's `content.config.ts` in Node and serialized into the admin bundle.
  */
@@ -30,6 +62,7 @@ export interface CollectionManifestEntry {
   loaderPattern: string | string[] | null;
   loaderBase: string | null;
   loaderFileName: string | null;
+  sort: CollectionSort;
 }
 
 export type CollectionManifest = Record<string, CollectionManifestEntry>;

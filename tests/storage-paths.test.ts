@@ -34,6 +34,7 @@ const glob = {
   schema: null,
   loaderPattern: null,
   loaderFileName: null,
+  sort: "id",
 } as const;
 
 const schemas: CollectionManifest = {

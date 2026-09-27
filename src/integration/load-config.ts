@@ -101,6 +101,7 @@ export function loadCollections(
         loaderPattern: loader?.__cmsPattern ?? null,
         loaderBase: loader?.__cmsBase ?? null,
         loaderFileName: loader?.__cmsFileName ?? null,
+      sort: "id",
       } satisfies CollectionManifestEntry;
     }
 

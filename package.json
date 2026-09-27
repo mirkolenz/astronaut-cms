@@ -47,6 +47,10 @@
       "types": "./dist/assets/index.d.ts",
       "default": "./dist/assets.js"
     },
+    "./content": {
+      "types": "./dist/content/index.d.ts",
+      "default": "./dist/content.js"
+    },
     "./client": {
       "default": "./dist/client.js"
     },
