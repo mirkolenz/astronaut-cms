@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useEntry, useSaveEntry, useDeleteEntry } from "@client/queries/use-entries";
@@ -11,9 +11,8 @@ import { ErrorBanner } from "@client/components/error-banner";
 import { DATA_FORMATS } from "@shared/types";
 import { EntryContextProvider } from "@client/lib/entry-context";
 import { getContentFilePath } from "@client/lib/asset-utils";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@client/components/ui/button";
-import { Label } from "@client/components/ui/label";
-import { Textarea } from "@client/components/ui/textarea";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
@@ -32,8 +31,6 @@ function EntryEditor() {
   const schema = collections?.[collection]?.schema;
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [editBody, setEditBody] = useState("");
-  const [rawJson, setRawJson] = useState("");
-  const [showRaw, setShowRaw] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [isDirty, setIsDirty] = useState(false);
@@ -42,7 +39,6 @@ function EntryEditor() {
     if (entry) {
       setFormData(entry.data);
       setEditBody(entry.body);
-      setRawJson(JSON.stringify(entry.data, null, 2));
       setIsDirty(false);
     }
   }, [entry]);
@@ -54,22 +50,6 @@ function EntryEditor() {
     withResolver: true,
   });
 
-  // Sync rawJson back to formData on blur
-  const syncRawToForm = useCallback(() => {
-    try {
-      setFormData(JSON.parse(rawJson) as Record<string, unknown>);
-    } catch {
-      // ignore invalid JSON
-    }
-  }, [rawJson]);
-
-  // Sync formData to rawJson when switching to raw mode
-  useEffect(() => {
-    if (showRaw) {
-      setRawJson(JSON.stringify(formData, null, 2));
-    }
-  }, [showRaw]); // intentionally only on toggle, not formData
-
   const handleFieldChange = useCallback((key: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -78,18 +58,8 @@ function EntryEditor() {
   const saveRef = useRef<() => void>(() => {});
   saveRef.current = () => {
     if (!entry) return;
-    // If in raw mode, sync JSON first
-    let data = formData;
-    if (showRaw) {
-      try {
-        data = JSON.parse(rawJson) as Record<string, unknown>;
-      } catch {
-        toast(t($ => $.entry.invalidJson), "error");
-        return;
-      }
-    }
     saveMutation.mutate(
-      { data, body: editBody, format: entry.format },
+      { data: formData, body: editBody, format: entry.format },
       {
         onSuccess: () => {
           setIsDirty(false);
@@ -101,6 +71,16 @@ function EntryEditor() {
   };
 
   const handleSave = useCallback(() => saveRef.current(), []);
+
+  const [editorKey, setEditorKey] = useState(0);
+
+  const handleCancel = useCallback(() => {
+    if (!entry) return;
+    setFormData(entry.data);
+    setEditBody(entry.body);
+    setIsDirty(false);
+    setEditorKey((k) => k + 1);
+  }, [entry]);
 
   const handleDelete = () => {
     deleteMutation.mutate(entryId, {
@@ -157,7 +137,7 @@ function EntryEditor() {
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mb-4 flex shrink-0 items-center justify-between">
+        <div className="mb-3 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-semibold">
             {entryId}
             <span className="ml-2 text-sm font-normal text-muted-foreground">.{entry.format}</span>
@@ -165,9 +145,10 @@ function EntryEditor() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => setShowRaw(!showRaw)}
+              onClick={handleCancel}
+              disabled={!isDirty}
             >
-              {showRaw ? t($ => $.entry.form) : t($ => $.entry.raw)}
+              {t($ => $.common.cancel)}
             </Button>
             <Button
               onClick={handleSave}
@@ -190,49 +171,34 @@ function EntryEditor() {
           onChangeCapture={() => setIsDirty(true)}
           className="min-h-0 flex-1 overflow-y-auto"
         >
-          {showRaw ? (
-            <div className="space-y-4">
-              <div>
-                <Label>{t($ => $.entry.dataJson)}</Label>
-                <Textarea
-                  value={rawJson}
-                  onChange={(e) => setRawJson(e.target.value)}
-                  onBlur={syncRawToForm}
-                  className="font-mono"
-                  rows={12}
+          <div className="space-y-4">
+            {schema?.shape && (
+              <CollapsibleSection title={t($ => $.entry.fields)}>
+                <div className="space-y-3">
+                  {Object.entries(schema.shape).map(([key, fieldSchema]) => (
+                    <FieldRenderer
+                      key={key}
+                      schema={fieldSchema}
+                      value={formData[key]}
+                      onChange={(v) => handleFieldChange(key, v)}
+                      name={key}
+                      required={fieldSchema.def.type !== "optional"}
+                    />
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+            {isContentFormat && (
+              <CollapsibleSection title={t($ => $.entry.body)} defaultOpen>
+                <MdxEditor
+                  key={editorKey}
+                  markdown={editBody}
+                  onChange={handleBodyChange}
+                  format={entry.format as "md" | "mdx"}
                 />
-              </div>
-              {isContentFormat && (
-                <div>
-                  <Label>{t($ => $.entry.body)}</Label>
-                  <Textarea
-                    value={editBody}
-                    onChange={(e) => setEditBody(e.target.value)}
-                    className="font-mono"
-                    rows={16}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <FieldsSection
-                schema={schema}
-                formData={formData}
-                onFieldChange={handleFieldChange}
-              />
-              {isContentFormat && (
-                <div>
-                  <Label>{t($ => $.entry.body)}</Label>
-                  <MdxEditor
-                    markdown={editBody}
-                    onChange={handleBodyChange}
-                    format={entry.format as "md" | "mdx"}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+              </CollapsibleSection>
+            )}
+          </div>
         </div>
 
         <ConfirmDialog
@@ -259,34 +225,31 @@ function EntryEditor() {
   );
 }
 
-function FieldsSection({
-  schema,
-  formData,
-  onFieldChange,
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  children,
 }: {
-  schema?: ZodFieldSchema;
-  formData: Record<string, unknown>;
-  onFieldChange: (key: string, value: unknown) => void;
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
 }) {
-  const { t } = useTranslation();
-  const shape = schema?.shape ?? {};
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{t($ => $.entry.fields)}</h2>
-      {Object.entries(shape).map(([key, fieldSchema]) => (
-        <FieldRenderer
-          key={key}
-          schema={fieldSchema}
-          value={formData[key]}
-          onChange={(v) => onFieldChange(key, v)}
-          name={key}
-          required={fieldSchema.def.type !== "optional"}
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none"
+      >
+        <ChevronRight
+          className={`size-4 transition-transform ${open ? "rotate-90" : ""}`}
         />
-      ))}
-      {Object.keys(shape).length === 0 && (
-        <p className="text-sm text-muted-foreground">{t($ => $.entry.noSchema)}</p>
-      )}
+        {title}
+      </button>
+      {open && <div className="pt-2">{children}</div>}
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-@import "@mdxeditor/editor/style.css" layer(mdxeditor);
+@import "@mdxeditor/editor/style.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -182,7 +182,7 @@
 
   border: 1px solid var(--input);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: clip;
   transition-property: border-color, box-shadow;
   transition-duration: 150ms;
 }
@@ -199,4 +199,32 @@
 .mdxeditor .mdxeditor-toolbar {
   border-bottom: 1px solid var(--border);
   border-radius: 0;
+}
+
+/* Strip nested editor padding — the parent card body provides it. */
+.mdxeditor [class*="_nestedEditor_"] {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+/* Tighten code block (CodeMirror) spacing inside the editor. */
+.mdxeditor [class*="_codeMirrorWrapper_"] {
+  margin-bottom: 0;
+  padding: 0.25rem;
+}
+
+.mdxeditor [class*="_sandPackWrapper_"] {
+  margin-bottom: 0;
+}
+
+.mdxeditor .cm-editor {
+  padding: 0.25rem 0;
+}
+
+/* The toolbar is sticky in the library CSS but needs a scroll context.
+   overflow:clip on the root prevents scroll, so scope scrolling to the
+   wrapper below the toolbar. */
+.mdxeditor .mdxeditor-root-contenteditable {
+  overflow-y: auto;
 }

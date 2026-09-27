@@ -13,6 +13,7 @@ import {
   tablePlugin,
   codeBlockPlugin,
   codeMirrorPlugin,
+  CodeMirrorEditor,
   diffSourcePlugin,
   toolbarPlugin,
   jsxPlugin,
@@ -24,6 +25,7 @@ import {
   InsertImage,
   InsertTable,
   InsertThematicBreak,
+  UndoRedo,
   DiffSourceToggleWrapper,
 } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
@@ -71,12 +73,22 @@ export function MdxEditor({ markdown, onChange, format }: MdxEditorProps) {
       linkDialogPlugin(),
       imagePlugin({ ImageDialog: CmsImageDialog }),
       tablePlugin(),
-      codeBlockPlugin({ defaultCodeBlockLanguage: "" }),
+      codeBlockPlugin({
+        defaultCodeBlockLanguage: "",
+        codeBlockEditorDescriptors: [
+          {
+            priority: 0,
+            match: () => true,
+            Editor: CodeMirrorEditor,
+          },
+        ],
+      }),
       codeMirrorPlugin({ codeBlockLanguages: {} }),
       diffSourcePlugin({ viewMode: "rich-text" }),
       toolbarPlugin({
         toolbarContents: () => (
           <DiffSourceToggleWrapper options={["rich-text", "source"]}>
+            <UndoRedo />
             <BoldItalicUnderlineToggles />
             <CodeToggle />
             <ListsToggle />
@@ -107,7 +119,7 @@ export function MdxEditor({ markdown, onChange, format }: MdxEditorProps) {
       markdown={markdown}
       onChange={handleChange}
       plugins={plugins}
-      contentEditableClassName="prose dark:prose-invert min-h-48 max-w-none"
+      contentEditableClassName="prose dark:prose-invert min-h-48 max-w-none p-3"
     />
   );
 }
