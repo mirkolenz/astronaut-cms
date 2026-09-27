@@ -10,6 +10,7 @@ import {
   useReorderFileEntries,
 } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
+import { useWriteError } from "@client/lib/write-error";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { isRequired, objectShape, type FieldSchema } from "@shared/field-schema";
 import { schemaDefaults } from "@shared/collection-schema";
@@ -33,12 +34,14 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const meta = collectionMeta[collection];
   const format =
     (meta?.loaderFileName && asEntryFormat(getFileExtension(meta.loaderFileName))) || "json";
-  const { data: layout } = useFileLayout(collection);
+  const { data: file } = useFileLayout(collection);
+  const layout = file?.layout;
   // Every entry of a file collection lives in the same file, so a relative asset
   // reference in any of them resolves against that one path.
   const contentFilePath = meta?.loaderFileName;
   const isOrderable = layout === "array";
 
+  const writeError = useWriteError();
   const deleteMutation = useDeleteEntry(collection);
   const reorderMutation = useReorderFileEntries(collection);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -69,12 +72,15 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     if (targetIndex < 0 || targetIndex >= sortedEntries.length) return;
     const ids = sortedEntries.map((e) => e.id);
     [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
-    reorderMutation.mutate(ids, { onError: (err) => toast(err.message, "error") });
+    reorderMutation.mutate(
+      { ids, expectedVersion: file?.version },
+      { onError: (err) => toast(writeError(err), "error") },
+    );
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget, {
+    deleteMutation.mutate({ id: deleteTarget, expectedVersion: file?.version }, {
       onSuccess: () => {
         toast(
           t(($) => $.collection.entryDeleted),
@@ -82,7 +88,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         );
         setDeleteTarget(null);
       },
-      onError: (err) => toast(err.message, "error"),
+      onError: (err) => toast(writeError(err), "error"),
     });
   };
 
@@ -213,6 +219,7 @@ function FileEntryCard({
     enabled: expanded && !draft,
   });
   const saveMutation = useSaveEntry(collection, entryId);
+  const writeError = useWriteError();
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
     draft ? schemaDefaults(objectShape(schema)) : {},
   );
@@ -236,14 +243,16 @@ function FileEntryCard({
     if (!entryFormat) return;
 
     saveMutation.mutate(
-      { data: formData, body: "", format: entryFormat },
+      // In a file collection this is the container's version, which every entry
+      // in it shares, so the guard covers a sibling saved while this one was open.
+      { data: formData, body: "", format: entryFormat, expectedVersion: entry?.version },
       {
         onSuccess: () => {
           setIsDirty(false);
           toast(draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved), "success");
           onCreated?.();
         },
-        onError: (err) => toast(err.message, "error"),
+        onError: (err) => toast(writeError(err), "error"),
       },
     );
   };

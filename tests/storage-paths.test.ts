@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { StorageBase } from "@server/storage/base";
+import { StubStorage } from "./fixtures/storage";
 import type { CollectionManifest } from "@shared/types";
 
 // A concrete StorageBase that exposes the protected path helpers, so we can pin
 // that glob-collection storage paths come from the loader's `base`
 // (content.config.ts) rather than being hard-coded from the collection key.
-class TestStorage extends StorageBase {
+class TestStorage extends StubStorage {
   collectionPath(collection: string) {
     return this.getCollectionPath(collection);
   }
@@ -14,46 +14,6 @@ class TestStorage extends StorageBase {
   }
   entries(collection: string, paths: string[]) {
     return this.entriesFromTreePaths(collection, paths);
-  }
-
-  listEntries() {
-    return Promise.resolve([]);
-  }
-  listMedia() {
-    return Promise.resolve([]);
-  }
-  writeMedia() {
-    return Promise.reject(new Error("n/a"));
-  }
-  moveMedia() {
-    return Promise.reject(new Error("n/a"));
-  }
-  removeMedia() {
-    return Promise.resolve();
-  }
-  readMedia() {
-    return Promise.reject(new Error("n/a"));
-  }
-  commitFile() {
-    return Promise.resolve();
-  }
-  removeFile() {
-    return Promise.resolve();
-  }
-  publish() {
-    return Promise.resolve();
-  }
-  update() {
-    return Promise.resolve();
-  }
-  discard() {
-    return Promise.resolve();
-  }
-  getStatus() {
-    return Promise.resolve({ branch: "", behind: 0 });
-  }
-  getChanges() {
-    return Promise.resolve([]);
   }
 }
 

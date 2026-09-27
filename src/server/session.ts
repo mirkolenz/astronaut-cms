@@ -57,6 +57,15 @@ export type Session = {
   expiresAt?: number;
   /** Provider username. Cached here so the draft branch costs no round trip. */
   login: string;
+  /**
+   * When the editor's repository access was last confirmed, in epoch
+   * milliseconds. Carried in the cookie rather than in instance memory so the
+   * check is made once per editor per window across the whole deployment, not
+   * once per warm instance — on a serverless host most requests land somewhere
+   * cold, and the check is an outbound round trip on the critical path of every
+   * one of them. See `revoked` in `handler.ts`.
+   */
+  checkedAt?: number;
 };
 
 /**

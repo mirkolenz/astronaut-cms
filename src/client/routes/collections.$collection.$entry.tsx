@@ -16,6 +16,7 @@ import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { EntryIdDialog } from "@client/components/entry-id-dialog";
 import { toast } from "@client/components/toast";
+import { useWriteError } from "@client/lib/write-error";
 import { ErrorBanner } from "@client/components/error-banner";
 import { DATA_FORMATS, entryFilePath } from "@shared/types";
 import { EntryContextProvider } from "@client/lib/entry-context";
@@ -45,6 +46,7 @@ function EntryEditor() {
   const { new: newFormat } = Route.useSearch();
   const isNew = newFormat !== undefined;
   const navigate = useNavigate();
+  const writeError = useWriteError();
   const { data: entry, isLoading, error } = useEntry(collection, entryId, { enabled: !isNew });
   const { data: entries } = useEntries(collection);
   const saveMutation = useSaveEntry(collection, entryId);
@@ -94,7 +96,10 @@ function EntryEditor() {
   saveRef.current = () => {
     if (!format) return;
     saveMutation.mutate(
-      { data: formData, body: editBody, format },
+      // The version this edit was made against, so a save cannot silently
+      // discard one that landed while the editor was open. A new entry has none:
+      // there is nothing yet for it to have been based on.
+      { data: formData, body: editBody, format, expectedVersion: entry?.version },
       {
         onSuccess: () => {
           setIsDirty(false);
@@ -113,7 +118,7 @@ function EntryEditor() {
             });
           }
         },
-        onError: (err) => toast(err.message, "error"),
+        onError: (err) => toast(writeError(err), "error"),
       },
     );
   };
@@ -131,7 +136,7 @@ function EntryEditor() {
   }, [entry]);
 
   const handleDelete = () => {
-    deleteMutation.mutate(entryId, {
+    deleteMutation.mutate({ id: entryId, expectedVersion: entry?.version }, {
       onSuccess: () => {
         toast(
           t(($) => $.collection.entryDeleted),
@@ -142,7 +147,7 @@ function EntryEditor() {
           params: { collection },
         });
       },
-      onError: (err) => toast(err.message, "error"),
+      onError: (err) => toast(writeError(err), "error"),
     });
     setShowDeleteConfirm(false);
   };
@@ -163,7 +168,7 @@ function EntryEditor() {
   const handleRename = (newId: string) => {
     setShowRename(false);
     renameMutation.mutate(
-      { oldId: entryId, newId },
+      { oldId: entryId, newId, expectedVersion: entry?.version },
       onMoved(
         newId,
         t(($) => $.entry.entryRenamed),

@@ -2,7 +2,7 @@ import type {
   EntryMeta,
   EntryContent,
   FileChange,
-  FileEntryLayout,
+  FileCollectionInfo,
   MediaFile,
   SaveEntryRequest,
   TrashedFile,
@@ -30,6 +30,41 @@ export interface ChangeRequestSummary {
   title: string;
   url: string;
 }
+
+/**
+ * A file as it was read, with whatever the backend calls that state.
+ *
+ * The token a write hands back to say which state it was based on: a commit id
+ * on GitLab, a blob hash on GitHub, a content digest against the working tree.
+ * Opaque, and compared only against itself — a backend with nothing to name a
+ * state by returns none, and the write then takes the last word as it always
+ * did. ({@link MediaFile.version} serves the other purpose a version can, naming
+ * bytes so a URL can address them; the two are read from the same listings but
+ * are not interchangeable.)
+ */
+export interface VersionedContent {
+  content: string;
+  version?: string;
+}
+
+/**
+ * A write refused because the file moved under it: what the caller read is no
+ * longer what is there.
+ *
+ * Distinct from {@link MergeConflictError}, which is the provider declining to
+ * merge a branch. Both are the editor's to resolve, but only one of them is
+ * resolved by reloading the entry, so the admin has to be able to tell them
+ * apart — and the copy it shows is its own, translated, rather than a sentence
+ * composed here.
+ */
+export class StaleWriteError extends Error {
+  constructor(what: string) {
+    super(`${what} changed since it was read.`);
+    this.name = "StaleWriteError";
+  }
+}
+
+export const staleWrite = (what: string): StaleWriteError => new StaleWriteError(what);
 
 export class MergeConflictError extends Error {
   constructor(message?: string) {
@@ -76,9 +111,17 @@ export function mapMergeError(err: unknown): Error {
  * URL the browser may load itself does; the rest return the bytes and let the
  * route stream them.
  */
-export type MediaContent =
-  | { redirect: string }
-  | { bytes: Uint8Array<ArrayBuffer>; contentType: string };
+export type MediaContent = {
+  /**
+   * What this file's contents are, where the backend knows it without asking for
+   * it. The route serves an immutable cache only when the URL's version matches
+   * this one, so the policy comes from the file rather than from whatever a
+   * caller appended, and a backend that cannot say degrades to the short cache
+   * rather than to a wrong one. It is also the answer's entity tag, which is
+   * what makes that short cache end in a 304 rather than in the bytes again.
+   */
+  version?: string;
+} & ({ redirect: string } | { bytes: Uint8Array<ArrayBuffer>; contentType: string });
 
 /**
  * Content storage, as the operation registry addresses it. The media library is
@@ -89,12 +132,28 @@ export interface StorageBackend {
   listEntries(collection: string): Promise<EntryMeta[]>;
   /** `format` is a hint from a listing, saving the fallback search over extensions. */
   getEntry(collection: string, id: string, format?: string): Promise<EntryContent>;
-  saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
-  deleteEntry(collection: string, id: string): Promise<void>;
-  renameEntry(collection: string, oldId: string, newId: string): Promise<void>;
+  /**
+   * Answers with the version the entry now has, so the editor that saved can
+   * keep editing without its next write looking stale. Absent for a backend that
+   * names no versions.
+   */
+  saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<string | undefined>;
+  /**
+   * Each takes the {@link VersionedContent} version its caller read, so a write
+   * cannot silently discard one that landed in between. Absent means "whatever
+   * is there now", which is what a caller with nothing to compare against can
+   * honestly claim.
+   */
+  deleteEntry(collection: string, id: string, expectedVersion?: string): Promise<void>;
+  renameEntry(
+    collection: string,
+    oldId: string,
+    newId: string,
+    expectedVersion?: string,
+  ): Promise<void>;
   duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
-  reorderEntries(collection: string, ids: string[]): Promise<void>;
-  getFileLayout(collection: string): Promise<FileEntryLayout>;
+  reorderEntries(collection: string, ids: string[], expectedVersion?: string): Promise<void>;
+  getFileLayout(collection: string): Promise<FileCollectionInfo>;
 
   publish(): Promise<void>;
   update(): Promise<void>;

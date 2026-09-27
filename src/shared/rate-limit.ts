@@ -42,15 +42,23 @@ export class RateLimiter {
    * Claims a slot for `caller`, or names why it could not. A granted slot must
    * be released with the returned callback once the request is done, whether it
    * succeeded or not.
+   *
+   * `cost` is what the request spends of the per-window budget, for a request
+   * that carries more than one thing to do: a batch of operations occupies one
+   * slot but must not count as one operation, or batching would be a way around
+   * the budget rather than a way to spend fewer invocations on it.
    */
-  acquire(caller: string): { ok: true; release: () => void } | { ok: false; reason: RateLimitDenial } {
+  acquire(
+    caller: string,
+    cost = 1,
+  ): { ok: true; release: () => void } | { ok: false; reason: RateLimitDenial } {
     const now = Date.now();
     const window = this.window(caller, now);
 
     if (window.inFlight >= this.config.concurrency) return { ok: false, reason: "concurrency" };
-    if (window.count >= this.config.requests) return { ok: false, reason: "rate" };
+    if (window.count + cost > this.config.requests) return { ok: false, reason: "rate" };
 
-    window.count++;
+    window.count += cost;
     window.inFlight++;
 
     let released = false;
@@ -103,8 +111,9 @@ export async function limited<T>(
   caller: string,
   denied: () => Error,
   work: () => Promise<T>,
+  cost = 1,
 ): Promise<T> {
-  const slot = limiter.acquire(caller);
+  const slot = limiter.acquire(caller, cost);
 
   if (!slot.ok) throw denied();
 

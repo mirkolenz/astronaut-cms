@@ -29,6 +29,7 @@ import { MediaImage } from "@client/components/media-image";
 import { dirSegments, listDirectory } from "@client/lib/entry-tree";
 import { optimizeImage } from "@client/lib/image-utils";
 import { mediaUrl } from "@client/lib/media";
+import type { MediaFile } from "@shared/types";
 import { isTransactionalMedia } from "@shared/media";
 import {
   Dialog,
@@ -64,7 +65,7 @@ function MediaLibrary() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
-  const [lightboxPath, setLightboxPath] = useState<string | null>(null);
+  const [lightboxFile, setLightboxFile] = useState<MediaFile | null>(null);
   const [duplicateFile, setDuplicateFile] = useState<{ path: string; file: File } | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [unusedOnly, setUnusedOnly] = useState(false);
@@ -320,15 +321,15 @@ function MediaLibrary() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setLightboxPath(file.path)}
+                  onClick={() => setLightboxFile(file)}
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${getFileName(file.path)}`}
                 >
-                  <MediaImage path={file.path} className="h-full w-full object-contain" />
+                  <MediaImage file={file} className="h-full w-full object-contain" />
                 </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-muted">
-                  <MediaImage path={file.path} />
+                  <MediaImage file={file} />
                 </div>
               )}
               {/* Hover action buttons */}
@@ -440,9 +441,9 @@ function MediaLibrary() {
       )}
 
       <ImageLightbox
-        open={lightboxPath !== null}
-        src={lightboxPath ? mediaUrl(lightboxPath) : ""}
-        onClose={() => setLightboxPath(null)}
+        open={lightboxFile !== null}
+        src={lightboxFile ? mediaUrl(lightboxFile.path, lightboxFile.version) : ""}
+        onClose={() => setLightboxFile(null)}
       />
     </div>
   );

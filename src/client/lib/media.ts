@@ -9,6 +9,11 @@
  * goes through `GET .../media/<path>`, which answers with the bytes or redirects
  * to wherever they really live. Either way an `<img>` addresses a library file
  * the same way, with no fetch, no object URL and no lifetime to manage.
+ *
+ * A proxied URL carries the file's version where the listing knows one, which is
+ * what makes a grid of thumbnails cost function invocations once rather than on
+ * every visit: the URL changes when the bytes do, so the answer can be cached
+ * for good instead of for minutes.
  */
 import config from "@client/lib/config";
 import { API_MEDIA, API_UPLOAD } from "@shared/auth";
@@ -16,15 +21,23 @@ import { assertWithinSizeLimit, encodeKeyPath, remoteMediaUrl } from "@shared/me
 import { call, unwrap } from "@client/lib/api";
 import { apiFetch, apiUrl } from "@client/lib/routes";
 
-/** Where the admin loads one library file from. */
-export function mediaUrl(path: string): string {
+/**
+ * Where the admin loads one library file from. `version` comes from the listing
+ * and is what allows the answer to be cached indefinitely; without it the file
+ * is still served, just cached for minutes.
+ */
+export function mediaUrl(path: string, version?: string): string {
   const backend = config.mediaBackend;
+  // A public base is a CDN, and a CDN holds what it was given until it expires:
+  // without the version, replacing a file leaves every editor looking at the old
+  // one. So the version goes on both kinds of URL, and means the same thing on
+  // each — this address is these bytes.
+  const url =
+    backend.type === "remote" && !backend.local && backend.publicUrl
+      ? remoteMediaUrl(path, backend.publicUrl)
+      : apiUrl(`${API_MEDIA}/${encodeKeyPath(path)}`);
 
-  if (backend.type === "remote" && !backend.local && backend.publicUrl) {
-    return remoteMediaUrl(path, backend.publicUrl);
-  }
-
-  return apiUrl(`${API_MEDIA}/${encodeKeyPath(path)}`);
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
 }
 
 /**

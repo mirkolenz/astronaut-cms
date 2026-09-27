@@ -70,23 +70,58 @@ export interface EntryMeta {
   format: EntryFormat;
 }
 
+/** A file collection's container, as the admin needs to know it. */
+export interface FileCollectionInfo {
+  layout: FileEntryLayout;
+  /**
+   * The container's version, which every entry in it shares — reordering is a
+   * rewrite of the whole file, so this is what a reorder is based on.
+   */
+  version?: string;
+}
+
 export interface EntryContent {
   id: string;
   data: Record<string, unknown>;
   body: string;
   format: EntryFormat;
+  /**
+   * What this read saw, as the backend names it. Opaque, and the only thing a
+   * caller may do with it is hand it back to the save that follows (see
+   * {@link SaveEntryRequest.expectedVersion}).
+   */
+  version?: string;
 }
 
 export interface SaveEntryRequest {
   data: Record<string, unknown>;
   body: string;
   format: EntryFormat;
+  /**
+   * The {@link EntryContent.version} this edit was made against, so a write
+   * cannot silently discard one that landed while the editor was open. Absent
+   * means "whatever is there now", which is what a write with nothing to compare
+   * against can honestly claim.
+   *
+   * Deliberately opaque: it is compared, never dereferenced, so it stays a token
+   * the caller echoes back rather than the repository ref that the operation
+   * registry exists to keep out of a caller's hands.
+   */
+  expectedVersion?: string;
 }
 
 /** One file in the media library, addressed relative to the library root. */
 export interface MediaFile {
   path: string;
   size: number;
+  /**
+   * What this file's contents are, as the backend names them: the blob hash for
+   * a repository library. It makes the file's URL change when the bytes do,
+   * which is what lets the admin cache one forever instead of asking the server
+   * again for every thumbnail. Absent for a library whose backend has no such
+   * name, and then the URL is simply cached for minutes rather than for good.
+   */
+  version?: string;
 }
 
 /**

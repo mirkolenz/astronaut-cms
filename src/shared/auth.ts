@@ -27,6 +27,14 @@ export const API_LOGIN = `${API_BASE}/login`;
 export const API_CALLBACK = `${API_BASE}/callback`;
 export const API_LOGOUT = `${API_BASE}/logout`;
 export const API_RPC = `${API_BASE}/rpc`;
+
+/**
+ * Operations one {@link API_RPC} request may carry. Part of the protocol rather
+ * than either side's preference: the browser fills batches up to it and the
+ * server refuses one over it, so a disagreement would turn a client convenience
+ * into a refusal of calls that had nothing wrong with them.
+ */
+export const MAX_BATCH_OPS = 20;
 /** Media bytes, addressed as `${API_MEDIA}/<library path>`. */
 export const API_MEDIA = `${API_BASE}/media`;
 /** Upload bytes, for a store the server cannot hand the browser a URL to. */

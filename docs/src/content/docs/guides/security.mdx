@@ -79,7 +79,8 @@ What it grants can be, though.
 
 A call that carries the editor's own token is re-decided by the provider every time, so a collaborator removed from the repository fails it immediately.
 Two things in the CMS do not work that way: the assistant relay and an object-store media library both spend the deployment's own credentials, and neither asks the provider anything.
-So the server re-checks repository access before it serves any request, caching the answer for five minutes.
+So the server re-checks repository access before it serves any request, and records the confirmation in the session cookie so it stands for five minutes.
+It lives in the cookie rather than in memory because a serverless deployment answers most requests from an instance that has never seen this editor before, and an in-memory window would mean an outbound round trip on the critical path of nearly every request.
 Removing someone's access therefore stops them spending your AI budget and rewriting your bucket within that window, not in thirty days.
 
 Signing out is not only local either.
@@ -133,7 +134,7 @@ Moving the work server-side moved the cost with it: what an editor's browser use
 | Surface | Budget | What it stops |
 | --- | --- | --- |
 | Sign-in (`/login`, `/callback`) | 20/min, 4 at once, per caller address | An unauthenticated flood of code exchanges, each an outbound request to the provider |
-| Everything else (`/rpc`) | 300/min, 12 at once, per editor | A runaway assistant loop or a compromised tab |
+| Everything else (`/rpc`) | 300 operations/min, 12 requests at once, per editor | A runaway assistant loop or a compromised tab |
 | The reference scan | 10/min, **1 at once**, per editor | The one operation that reads every entry in the repository |
 
 The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations *and* risks the provider rate-limiting your deployment's address, which would break sign-in for everyone. PKCE narrows what can reach that call at all: a callback is checked against the sign-in cookie first, so only a caller who started a real sign-in gets as far as spending one.
@@ -146,7 +147,27 @@ The sign-in cap matters more than its size suggests. Redeeming a code means call
   access proxy is the single most effective thing you can do about it.
 </Aside>
 
+The admin sends whatever it needs in the same tick as one request, so a navigation is one invocation rather than five.
+The budget is charged per operation rather than per request, and a batch is capped at twenty, so batching spends fewer invocations on the same budget instead of working around it.
+
 The one amplification left is reading an entry whose format the caller did not name: the server tries each extension the collection allows, so up to four provider requests for one call. It is bounded and charged to the editor's own provider quota rather than to a shared one.
+
+## Concurrent edits
+
+Every write carries the version of the file it was based on — saving, deleting, renaming and reordering alike — so a write cannot silently discard one that landed while the editor was open.
+The version is opaque — the server compares it, never dereferences it — so it stays a token the caller echoes back rather than the repository ref the operation registry exists to keep out of a caller's hands.
+
+Each backend lowers it to a precondition the provider enforces: `last_commit_id` on GitLab's commit API, a blob-hash check against the very commit the write will name as its parent on GitHub (where the branch is then advanced without `force`, so a branch that moved in between fails as a non-fast-forward), and a content digest against the working tree in development.
+A mismatch is a `412`, kept distinct from the `409` a provider returns when it cannot merge a branch: both are the editor's to resolve, but only one of them is resolved by reloading the entry.
+
+For a file collection the version is the *container's*, so editing one entry conflicts with a concurrent edit to any other.
+That is correct rather than strict: they are the same file, and the save rewrites all of them. Reordering carries that same container version.
+
+Renaming is two writes, of which only the first is based on what the caller read — the second is based on what the request has just done. Which one that is depends on the layout: in a file collection both entries share a container, so the version guards the write that adds the new entry; in a glob collection they are separate files, so it guards the removal of the old one.
+
+The assistant's partial-edit tools carry the version of the read they derived the edit from, so a human saving the same entry mid-run refuses the agent's write rather than losing their own.
+A full overwrite carries none, because there is nothing it was based on — that tool is documented as replacing whatever is there.
+Duplicating carries none either: the copy lands at an id nothing has read, so there is no version a caller could honestly name, and what a duplicate has to be safe against is an occupied destination, which the backend checks.
 
 ## What a session entitles you to
 
@@ -202,9 +223,22 @@ Those uploads, and any store that cannot hand out URLs at all (an R2 Workers bin
 
 ### Reading
 
-The admin never proxies library bytes through the CMS server.
-A library with a public base is addressed at that base directly, so a page of thumbnails costs no function invocations and leaks nothing the base does not already serve.
-A library without one is read through short-lived signed URLs the server mints per request, so the bucket stays closed and the credential stays on the server either way.
+An object-store library never sends its bytes through the CMS server.
+One with a public base is addressed at that base directly, so a page of thumbnails costs no function invocations and leaks nothing the base does not already serve.
+One without a public base is read through short-lived signed URLs the server mints per request, so the bucket stays closed and the credential stays on the server either way.
+
+Every library URL carries the file's version, whichever way it is served, and it always means the same thing: this address is these bytes.
+On a public base that is what stops a CDN from serving a replaced file to every editor until it expires.
+Through the CMS it is what lets the answer be cached indefinitely — but only when the version matches what the backend just read back.
+The policy comes from the file rather than from whatever a caller appended, so a `?v` the file does not have gets the short cache rather than pinning the wrong bytes in a browser for a year.
+
+That version is also the response's `ETag`, so the short cache ends in a `304` with no body rather than in the file again.
+A backend that cannot name its bytes gets the short cache and no entity tag, which is the honest answer rather than a wrong one.
+
+A redirect cannot carry the long cache, because where it points is the provider's to expire.
+So where a backend would rather redirect and the caller named a version — a GitHub repository library, whose contents API hands out a short-lived download URL — the bytes are served from the CMS instead.
+That is the only way the address can mean what it says, and it is the cheaper answer too: the browser keeps that version for good rather than coming back for a fresh redirect every few minutes.
+A request that names no version still redirects.
 
 The bucket does not have to be public for the first case: a CDN holding the credential (CloudFront with an origin access control, an R2 custom domain) is a public base as far as the CMS is concerned, and is the setup to prefer.
 See [Reading the library](/astronaut-cms/guides/media-library/#reading-the-library).

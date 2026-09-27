@@ -24,6 +24,7 @@ import {
   type S3Credentials,
   type S3Target,
   type StoredObject,
+  versionOf,
 } from "./store.ts";
 
 export class S3Store implements MediaStore {
@@ -62,7 +63,7 @@ export class S3Store implements MediaStore {
       for (const object of page.Contents ?? []) {
         if (!object.Key || !isFileKey(object.Key)) continue;
 
-        objects.push({ key: object.Key, size: object.Size ?? 0 });
+        objects.push({ key: object.Key, size: object.Size ?? 0, version: versionOf(object.ETag) });
       }
 
       cursor = page.IsTruncated ? page.NextContinuationToken : undefined;
@@ -77,7 +78,7 @@ export class S3Store implements MediaStore {
         new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
       );
 
-      return { key, size: object.ContentLength ?? 0 };
+      return { key, size: object.ContentLength ?? 0, version: versionOf(object.ETag) };
     } catch (err) {
       if ((err as { name?: string }).name === "NotFound") return null;
 

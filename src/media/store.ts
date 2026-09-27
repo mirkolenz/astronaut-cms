@@ -40,7 +40,18 @@ export interface PresignedUpload {
 export interface StoredObject {
   key: string;
   size: number;
+  /**
+   * The store's entity tag for these bytes, which is what lets the library
+   * address a file by its contents: the URL changes when the object is
+   * replaced, so a browser or a CDN holding the old one stops being asked for
+   * it. Absent when the store does not report one.
+   */
+  version?: string;
 }
+
+/** An entity tag as a version: unquoted, and absent rather than empty. */
+export const versionOf = (etag: string | undefined): string | undefined =>
+  etag?.replace(/^(W\/)?"|"$/g, "") || undefined;
 
 export interface MediaStore {
   list(prefix: string): Promise<StoredObject[]>;
@@ -97,11 +108,11 @@ export interface R2Binding {
     cursor?: string;
     limit?: number;
   }): Promise<{
-    objects: Array<{ key: string; size: number }>;
+    objects: Array<{ key: string; size: number; etag?: string }>;
     truncated: boolean;
     cursor?: string;
   }>;
-  head(key: string): Promise<{ key: string; size: number } | null>;
+  head(key: string): Promise<{ key: string; size: number; etag?: string } | null>;
   get(
     key: string,
   ): Promise<{
@@ -138,7 +149,11 @@ export class BindingStore implements MediaStore {
     do {
       const page = await this.bucket.list({ prefix, cursor, limit: MAX_KEYS });
 
-      objects.push(...page.objects.filter((o) => isFileKey(o.key)));
+      objects.push(
+        ...page.objects
+          .filter((o) => isFileKey(o.key))
+          .map(({ key, size, etag }) => ({ key, size, version: versionOf(etag) })),
+      );
       cursor = page.truncated ? page.cursor : undefined;
     } while (cursor);
 
@@ -146,7 +161,9 @@ export class BindingStore implements MediaStore {
   }
 
   async head(key: string): Promise<StoredObject | null> {
-    return this.bucket.head(key);
+    const object = await this.bucket.head(key);
+
+    return object && { key: object.key, size: object.size, version: versionOf(object.etag) };
   }
 
   /** A binding signs nothing, so the route moves the bytes in both directions. */

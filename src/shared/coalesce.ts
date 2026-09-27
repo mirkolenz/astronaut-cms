@@ -6,6 +6,11 @@
  * request path. What it buys is that the several requests one admin navigation
  * fires make a single provider call between them — and, where that call spends
  * something single-use, that they cannot race each other for it.
+ *
+ * A TTL of zero joins callers to a call already on its way and keeps nothing
+ * after it settles, which is what a caller wants when the answer's own lifetime
+ * is recorded somewhere else. Anything larger also answers from the result for
+ * that long.
  */
 
 interface Entry<T> {
@@ -17,9 +22,13 @@ interface Entry<T> {
 /** How many tracked keys it takes before expiry is worth scanning for. */
 const SWEEP_THRESHOLD = 64;
 
+/** And how rarely, so a burst of misses does not each pay for the scan. */
+const SWEEP_INTERVAL_MS = 10_000;
+
 export class Coalesced<T> {
   private readonly ttlMs: number;
   private readonly entries = new Map<string, Entry<T>>();
+  private lastSweep = 0;
 
   constructor(ttlMs: number) {
     this.ttlMs = ttlMs;
@@ -38,23 +47,31 @@ export class Coalesced<T> {
 
     // Expired entries are dropped here, so the map stays bounded by what is
     // currently in use rather than by everything the instance has served. Only
-    // once it has grown, since the sweep is O(entries) and every miss would
-    // otherwise pay for it.
-    if (this.entries.size > SWEEP_THRESHOLD) {
+    // once it has grown and only now and then, since the scan is O(entries).
+    if (this.entries.size > SWEEP_THRESHOLD && now - this.lastSweep >= SWEEP_INTERVAL_MS) {
+      this.lastSweep = now;
+
       for (const [other, entry] of this.entries) {
         if (entry.expiry <= now) this.entries.delete(other);
       }
     }
 
-    const entry: Entry<T> = { expiry: now + this.ttlMs, value: work() };
+    // Held for the window, or — with none — for as long as the call is on its
+    // way, which is what `forget` below then ends.
+    const entry: Entry<T> = { expiry: this.ttlMs > 0 ? now + this.ttlMs : Infinity, value: work() };
 
     this.entries.set(key, entry);
 
-    // A failure must not become what every later caller reads: the entry is
-    // dropped so the next one retries rather than inheriting the rejection.
-    entry.value.catch(() => {
+    const forget = () => {
       if (this.entries.get(key) === entry) this.entries.delete(key);
-    });
+    };
+
+    // A failure must not become what every later caller reads, and without a
+    // window neither must a success: the next caller asks again rather than
+    // inheriting either.
+    entry.value.then(() => {
+      if (this.ttlMs <= 0) forget();
+    }, forget);
 
     return entry.value;
   }

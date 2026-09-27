@@ -110,7 +110,7 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
                 className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
               >
                 <div className="flex h-20 items-center justify-center bg-muted">
-                  <MediaImage path={file.path} className="h-full w-full object-contain" />
+                  <MediaImage file={file} className="h-full w-full object-contain" />
                 </div>
                 <div className="border-t border-border px-2 py-1">
                   <p className="truncate text-xs text-muted-foreground" title={file.path}>

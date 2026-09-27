@@ -14,7 +14,8 @@ import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/p
 import { dirname, join, relative } from "pathe";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { StorageBase, type StorageOptions } from "./base.ts";
-import type { BranchStatus, MediaContent } from "./types.ts";
+import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
+import { staleWrite } from "./types.ts";
 import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
 
@@ -97,19 +98,54 @@ export class LocalStorage extends StorageBase {
     );
   }
 
-  protected async fetchFileContent(path: string): Promise<string> {
-    return readFile(this.resolve(path), "utf-8");
+  protected async fetchFileContent(path: string): Promise<VersionedContent> {
+    const content = await readFile(this.resolve(path), "utf-8");
+
+    return { content, version: await digest(content) };
   }
 
-  protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
+  protected async fetchRawEntry(
+    collection: string,
+    id: string,
+    ext: string,
+  ): Promise<VersionedContent> {
     return this.fetchFileContent(this.getEntryPath(collection, id, ext));
   }
 
-  protected async commitFile(path: string, content: string): Promise<void> {
-    return this.writeFileAt(path, content);
+  /**
+   * The working tree has nothing that names a file's state, so the state is
+   * named by its contents. A dev run is one editor, but the assistant writes
+   * here too, and the check being exercised in development is how it is known to
+   * work in production.
+   */
+  protected async commitFile(
+    path: string,
+    content: string,
+    _message?: string,
+    expectedVersion?: string,
+  ): Promise<string> {
+    if (expectedVersion !== undefined) {
+      const current = await this.fetchFileContent(path).catch(() => null);
+
+      if (current?.version !== expectedVersion) throw staleWrite(path);
+    }
+
+    await this.writeFileAt(path, content);
+
+    return digest(content);
   }
 
-  protected async removeFile(path: string): Promise<void> {
+  protected async removeFile(
+    path: string,
+    _message?: string,
+    expectedVersion?: string,
+  ): Promise<void> {
+    if (expectedVersion !== undefined) {
+      const current = await this.fetchFileContent(path).catch(() => null);
+
+      if (current?.version !== expectedVersion) throw staleWrite(path);
+    }
+
     await rm(this.resolve(path), { force: true });
   }
 
@@ -135,7 +171,11 @@ export class LocalStorage extends StorageBase {
   async readMedia(path: string): Promise<MediaContent> {
     const bytes = await readFile(this.resolve(this.mediaRepoPath(path)));
 
-    return { bytes: new Uint8Array(bytes), contentType: this.contentTypeOf(path) };
+    return {
+      bytes: new Uint8Array(bytes),
+      contentType: this.contentTypeOf(path),
+      version: await digest(bytes),
+    };
   }
 
   // Nothing to publish into: the working tree is the published state. Discard is
@@ -154,4 +194,12 @@ export class LocalStorage extends StorageBase {
   async getChanges(): Promise<FileChange[]> {
     return readChanges(this.rootDir, this.managed);
   }
+}
+
+/** A file's contents, named. Not a git hash: nothing here compares it to one. */
+async function digest(content: string | Uint8Array): Promise<string> {
+  const input = typeof content === "string" ? new TextEncoder().encode(content) : content;
+  const hashed = await crypto.subtle.digest("SHA-256", input as BufferSource);
+
+  return Array.from(new Uint8Array(hashed), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }

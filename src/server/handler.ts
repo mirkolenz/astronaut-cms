@@ -16,21 +16,23 @@ import {
   API_CALLBACK,
   API_LOGIN,
   CF_ACCESS_HEADER,
+  MAX_BATCH_OPS,
   SESSION_SECRET_ENV,
   type SessionState,
 } from "../shared/auth.ts";
+import { isWriteOperation } from "../shared/operations.ts";
 import { ContentValidationError, type Diagnostic } from "../shared/diagnostics.ts";
 import { BodyTooLargeError, HARDENING_HEADERS, readBody, readBytes } from "../shared/http.ts";
-import { isActiveContentType } from "../shared/media.ts";
+import { isActiveContentType, mediaContentType } from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
 import { Coalesced } from "../shared/coalesce.ts";
 import { relay } from "../ai/handler.ts";
-import { createContext } from "./context.ts";
+import { createContext, type RequestContext } from "./context.ts";
 import { HttpError } from "./errors.ts";
-import { MergeConflictError } from "./storage/types.ts";
-import { dispatch } from "./operations.ts";
+import { MergeConflictError, StaleWriteError } from "./storage/types.ts";
+import { dispatch, type OperationError, type OperationResult } from "./operations.ts";
 import {
   authorizationUrl,
   challengeFor,
@@ -231,6 +233,14 @@ type Authenticated =
   | { kind: "revoked"; error: string; session: Session }
   | { kind: "misconfigured"; error: string };
 
+/**
+ * Who a request is from, and whether they may still act.
+ *
+ * Linear on purpose: the session is read, renewed if its token has lapsed, and
+ * re-checked against the provider if that has not been done lately. Each step
+ * replaces the session rather than branching, so the cookie is re-issued once at
+ * the end for whatever actually changed.
+ */
 async function authenticate(
   request: Request,
   url: URL,
@@ -255,41 +265,45 @@ async function authenticate(
     return { kind: "misconfigured", error: describeFailure(err) };
   }
 
-  const session = await verify<Session>("session", raw, secret);
+  const stored = await verify<Session>("session", raw, secret);
 
-  if (!session || session.provider !== provider.provider) return { kind: "anonymous" };
+  if (!stored || stored.provider !== provider.provider) return { kind: "anonymous" };
 
-  if (!needsRefresh(session)) return revocable(provider, session);
+  let session = stored;
 
-  const { refreshToken } = session;
+  if (needsRefresh(session)) {
+    const { refreshToken } = session;
 
-  if (!refreshToken) return { kind: "anonymous" };
+    if (!refreshToken) return { kind: "anonymous" };
 
-  // Shared, because both providers rotate the refresh token: the several
-  // requests one navigation fires would otherwise each spend the same one, the
-  // first would win, and the rest would be handed a token already invalidated.
-  const renewed = await refreshes.run(refreshToken, () =>
-    refreshSession(provider, getEnv, refreshToken, session.login),
-  );
+    // Shared, because both providers rotate the refresh token: the several
+    // requests one navigation fires would otherwise each spend the same one, the
+    // first would win, and the rest would be handed a token already invalidated.
+    const renewed = await refreshes.run(refreshToken, () =>
+      refreshSession(provider, getEnv, refreshToken, session.login),
+    );
 
-  if (!renewed) return { kind: "anonymous" };
+    if (!renewed) return { kind: "anonymous" };
 
-  return revocable(provider, renewed, sessionCookie(url, await issueSession(renewed, secret)));
-}
+    // The confirmation carries over: it says this editor still has repository
+    // access, which a new token for the same editor does not change.
+    session = { ...renewed, ...(session.checkedAt != null && { checkedAt: session.checkedAt }) };
+  }
 
-/**
- * The session, unless the editor behind it has lost repository access.
- *
- * Here rather than at a route, so a route added later cannot forget it.
- */
-async function revocable(
-  provider: ProviderConfig,
-  session: Session,
-  cookie?: string,
-): Promise<Authenticated> {
-  const error = await revoked(provider, session.token);
+  if (session.checkedAt == null || session.checkedAt + ACCESS_TTL_MS <= Date.now()) {
+    const error = await revoked(provider, session.token);
 
-  return error ? { kind: "revoked", error, session } : { kind: "session", session, cookie };
+    if (error) return { kind: "revoked", error, session };
+
+    session = { ...session, checkedAt: Date.now() };
+  }
+
+  // Only when something actually changed, which is a renewed token, a fresh
+  // confirmation, or both.
+  const cookie =
+    session === stored ? undefined : sessionCookie(url, await issueSession(session, secret));
+
+  return { kind: "session", session, cookie };
 }
 
 const describeFailure = (err: unknown): string =>
@@ -299,11 +313,12 @@ const describeFailure = (err: unknown): string =>
 const ACCESS_TTL_MS = 5 * 60_000;
 
 /**
- * Token to the check that cleared it. The *promise* is shared, not just its
- * result, so the several requests one admin navigation fires make one provider
- * call between them rather than each starting their own on a cold instance.
+ * Token to the check on its way, so the requests one navigation fires against a
+ * cold instance make one provider call between them rather than each starting
+ * their own. Nothing is kept once it answers: the window belongs to the session
+ * (see `Session.checkedAt`), and a second one here would silently double it.
  */
-const checks = new Coalesced<string | undefined>(ACCESS_TTL_MS);
+const checks = new Coalesced<string | undefined>(0);
 
 /**
  * How long a completed refresh answers for the token it consumed. Long enough to
@@ -325,6 +340,9 @@ const refreshes = new Coalesced<Session | null>(REFRESH_TTL_MS);
  * the provider nothing, so without this, losing access would still leave someone
  * able to spend the AI account and rewrite the bucket until their cookie expired
  * thirty days later.
+ *
+ * Called from `authenticate` rather than from a route, so a route added later
+ * cannot forget it.
  */
 function revoked(provider: ProviderConfig, token: string): Promise<string | undefined> {
   // Fails closed: a provider outage reads as "no longer permitted", which is the
@@ -449,34 +467,46 @@ async function route(
   if (path === "/rpc" && request.method === "POST") {
     const body = await readBody(request, MAX_RPC_BYTES);
 
-    let call: { op?: unknown; input?: unknown };
+    let calls: unknown;
     try {
-      call = JSON.parse(body) as typeof call;
+      calls = JSON.parse(body);
     } catch {
       // A body this server could not parse is a malformed request, not a failure
       // of its own, and saying so keeps the parser's message out of the answer.
       return fail("Malformed request body.", 400);
     }
 
-    const { op, input } = call;
+    if (!Array.isArray(calls) || calls.length === 0) {
+      return fail("A batch of operations is required.", 400);
+    }
 
-    if (typeof op !== "string") return fail("An operation name is required.", 400);
+    if (calls.length > MAX_BATCH_OPS) {
+      return fail(`A batch may carry at most ${MAX_BATCH_OPS} operations.`, 400);
+    }
 
-    const result = await limited(
+    const results = await limited(
       rpc,
       session.login,
       tooMany("Too many requests. Wait a moment and try again."),
-      () => dispatch(ctx, op, input ?? {}),
+      () => runBatch(ctx, calls as BatchCall[]),
+      calls.length,
     );
 
-    return json(result, 200, extra);
+    return json(results, 200, extra);
   }
 
   if (path.startsWith("/media/") && request.method === "GET") {
+    const filePath = decodeURIComponent(path.slice("/media/".length));
     const library = await ctx.media();
-    const content = await library.readMedia(decodeURIComponent(path.slice("/media/".length)));
+    const content = await library.readMedia(filePath);
+    // Kept for good only when the URL names the bytes that came back. The
+    // version is what makes the address change with the file, so honouring a `v`
+    // the file does not have would pin the wrong bytes in a browser for a year —
+    // and a backend that cannot name its bytes gets the short cache rather than
+    // a policy resting on the caller's word.
+    const addressed = content.version != null && url.searchParams.get("v") === content.version;
 
-    if ("redirect" in content) {
+    if ("redirect" in content && !addressed) {
       return new Response(null, {
         status: 302,
         headers: {
@@ -491,20 +521,44 @@ async function route(
       });
     }
 
-    return new Response(content.bytes, {
+    // The version is an entity tag in the word's exact sense: two answers
+    // carrying the same one are the same bytes. Sending it is what makes the
+    // short cache cheap as well, since the revalidation it ends in comes back
+    // as a 304 with no body rather than as the file again.
+    const etag = content.version == null ? undefined : `"${content.version}"`;
+    const caching = {
+      // The library is the editor's own repository or bucket, so it is cached
+      // per browser and never by a shared proxy.
+      "cache-control": addressed ? "private, max-age=31536000, immutable" : "private, max-age=300",
+      ...(etag && { etag }),
+    };
+
+    if (etag && request.headers.get("if-none-match") === etag) {
+      return new Response(null, { status: 304, headers: { ...caching, ...extra } });
+    }
+
+    // An addressed request a backend would rather redirect is served from here
+    // instead: a redirect cannot carry the immutable promise, since where it
+    // points is the provider's to expire. It is also the cheaper answer, because
+    // the browser then keeps this version for good rather than coming back for a
+    // fresh redirect every few minutes.
+    const source =
+      "bytes" in content
+        ? { body: content.bytes as BodyInit, contentType: content.contentType }
+        : await proxyMedia(content.redirect, filePath);
+
+    return new Response(source.body, {
       headers: {
-        "content-type": content.contentType,
+        "content-type": source.contentType,
         // These bytes are served same-origin with the admin's own cookie, so a
         // type a browser would run as a document is stored XSS waiting for an
         // editor to open it. An object store is told the same thing at upload
         // (see `UploadTerms.attachment`); bytes proxied from a repository have
         // no such record, so the decision is remade from the type here.
-        ...(isActiveContentType(content.contentType) && {
+        ...(isActiveContentType(source.contentType) && {
           "content-disposition": "attachment",
         }),
-        // The library is the editor's own repository or bucket, so it is cached
-        // per browser and never by a shared proxy.
-        "cache-control": "private, max-age=300",
+        ...caching,
         ...HARDENING_HEADERS,
         ...extra,
       },
@@ -546,6 +600,24 @@ async function route(
   }
 
   return fail("Not found.", 404);
+}
+
+/**
+ * The bytes behind a URL a backend would rather hand the browser directly, read
+ * here because the caller named a version and only an answer from this origin can
+ * promise to keep being that one. Streamed rather than buffered, so a large file
+ * costs the function no more memory than a small one.
+ */
+async function proxyMedia(source: string, path: string): Promise<{ body: BodyInit; contentType: string }> {
+  const response = await fetch(source);
+
+  if (!response.ok || !response.body) {
+    throw new HttpError(`Could not read the media file (${response.status}).`, 502);
+  }
+
+  // Derived from the name rather than taken from the answer, so a file served
+  // this way is typed exactly as one the library stored itself.
+  return { body: response.body, contentType: mediaContentType(path) };
 }
 
 async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
@@ -625,14 +697,84 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
   return redirect(admin, sessionCookie(url, await issueSession(session, secret)));
 }
 
-function toResponse(err: unknown): Response {
-  if (err instanceof HttpError) return fail(err.message, err.status);
-  if (err instanceof MergeConflictError) return fail(err.message, 409);
-  if (err instanceof ContentValidationError) return fail(err.message, 422, err.diagnostics);
-  if (err instanceof BodyTooLargeError) return fail(err.message, 413);
-  if (err instanceof OAuthError) return fail(err.message, 400);
+/** One operation of a batch, before anything has been checked about it. */
+interface BatchCall {
+  op?: unknown;
+  input?: unknown;
+}
+
+/**
+ * Every operation of a batch, against the one context the request built — which
+ * is what makes batching worth doing: the repository tree, the file collection
+ * containers and whether the draft branch exists are each resolved once for the
+ * whole batch rather than once per invocation.
+ *
+ * Reads run at once. The admin only ever groups calls that were already in
+ * flight together, and every one of those caches is a *promise*, so concurrent
+ * reads share the lookups instead of repeating them — batching would otherwise
+ * buy an invocation by turning a navigation's latency from the slowest call into
+ * the sum of them. A write makes order matter, so a batch carrying one runs in
+ * the order it was sent.
+ *
+ * Each operation is answered on its own either way. A batch is a way to spend
+ * one invocation instead of five, not a transaction, and one failing does not
+ * mean the rest should not run.
+ */
+function runBatch(ctx: RequestContext, calls: BatchCall[]): Promise<OperationResult[]> {
+  if (calls.every(({ op }) => typeof op === "string" && !isWriteOperation(op))) {
+    return Promise.all(calls.map((call) => runOne(ctx, call)));
+  }
+
+  return serially(ctx, calls);
+}
+
+async function serially(ctx: RequestContext, calls: BatchCall[]): Promise<OperationResult[]> {
+  const results: OperationResult[] = [];
+
+  for (const call of calls) results.push(await runOne(ctx, call));
+
+  return results;
+}
+
+async function runOne(ctx: RequestContext, { op, input }: BatchCall): Promise<OperationResult> {
+  if (typeof op !== "string") {
+    return { ok: false, error: { status: 400, message: "An operation name is required." } };
+  }
+
+  try {
+    return { ok: true, data: await dispatch(ctx, op, input ?? {}) };
+  } catch (err) {
+    return { ok: false, error: errorOf(err) };
+  }
+}
+
+/**
+ * How a thrown failure reads, whether it ends the request or one operation
+ * inside a batch. The status is part of it either way: it is what the admin
+ * branches on (a merge conflict, a lapsed session), and inside a batch there is
+ * no HTTP status left to carry it.
+ */
+function errorOf(err: unknown): OperationError {
+  if (err instanceof HttpError) return { status: err.status, message: err.message };
+  // 412 rather than 409: the caller sent a precondition and it did not hold,
+  // which is a different thing from a branch the provider could not merge.
+  if (err instanceof StaleWriteError) return { status: 412, message: err.message };
+  if (err instanceof MergeConflictError) return { status: 409, message: err.message };
+
+  if (err instanceof ContentValidationError) {
+    return { status: 422, message: err.message, validation: err.diagnostics };
+  }
+
+  if (err instanceof BodyTooLargeError) return { status: 413, message: err.message };
+  if (err instanceof OAuthError) return { status: 400, message: err.message };
 
   console.error("[astronaut-cms] Request failed:", err);
 
-  return fail(err instanceof Error ? err.message : "Request failed", 500);
+  return { status: 500, message: err instanceof Error ? err.message : "Request failed" };
+}
+
+function toResponse(err: unknown): Response {
+  const { status, message, validation } = errorOf(err);
+
+  return fail(message, status, validation);
 }

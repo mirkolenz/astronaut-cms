@@ -54,6 +54,8 @@ const en = {
     deleteEntry: "Delete entry",
     deleteEntryMessage: 'Are you sure you want to delete "{{id}}"? This cannot be undone.',
     changesSaved: "Changes saved",
+    staleWrite:
+      "This entry changed since you opened it. Reload to see the current version, then apply your edit again.",
     duplicate: "Duplicate",
     renameEntry: "Rename entry",
     duplicateEntry: "Duplicate entry",

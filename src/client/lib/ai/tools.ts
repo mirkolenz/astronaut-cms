@@ -137,10 +137,13 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
       execute: async ({ id, data: patch }) => {
         const current = await call("getEntry", { collection: name, id });
 
+        // The read this edit is derived from, so a human saving the same entry
+        // mid-run refuses the agent's write rather than losing their own.
         return saveEntry(name, id, {
           data: applyDataPatch(current.data, patch),
           body: current.body,
           format: current.format,
+          expectedVersion: current.version,
         });
       },
     });
@@ -159,6 +162,7 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
         data: patch ? applyDataPatch(current.data, patch) : current.data,
         body: edited.body,
         format: current.format,
+        expectedVersion: current.version,
       });
     },
   });

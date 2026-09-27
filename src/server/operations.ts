@@ -78,12 +78,21 @@ const collection = collectionNames.length
   : z.string();
 
 const entryRef = z.object({ collection, id: z.string() });
+
+/**
+ * The version the caller read, echoed back so a write cannot silently discard
+ * one that landed in between. Opaque here: it is handed straight to the backend,
+ * which compares it, so nothing in between ever treats it as a ref.
+ */
+const expectedVersion = z.string().optional();
+
 const rename = entryRef.extend({ newId: z.string() });
 
 const saveRequest = z.object({
   data: z.record(z.string(), z.unknown()),
   body: z.string(),
   format: z.enum(ALL_FORMATS),
+  expectedVersion,
 });
 
 const mediaPathSchema = z.string().min(1);
@@ -171,24 +180,36 @@ export const operations = {
     ctx.storage.getEntry(collection, id, format),
   ),
 
+  /**
+   * Answers with the entry's new version rather than a bare acknowledgement, so
+   * the editor that saved can save again without re-reading: without it, its
+   * next write would carry the version from before this one and be refused as
+   * stale.
+   */
   saveEntry: op(entryRef.extend({ entry: saveRequest }), async (ctx, { collection, id, entry }) => {
-    await ctx.storage.saveEntry(collection, id, entry);
+    const version = await ctx.storage.saveEntry(collection, id, entry);
+
+    return { ...ok, ...(version && { version }) };
+  }),
+
+  deleteEntry: op(entryRef.extend({ expectedVersion }), async (ctx, input) => {
+    await ctx.storage.deleteEntry(input.collection, input.id, input.expectedVersion);
 
     return ok;
   }),
 
-  deleteEntry: op(entryRef, async (ctx, { collection, id }) => {
-    await ctx.storage.deleteEntry(collection, id);
+  renameEntry: op(rename.extend({ expectedVersion }), async (ctx, input) => {
+    await ctx.storage.renameEntry(input.collection, input.id, input.newId, input.expectedVersion);
 
     return ok;
   }),
 
-  renameEntry: op(rename, async (ctx, { collection, id, newId }) => {
-    await ctx.storage.renameEntry(collection, id, newId);
-
-    return ok;
-  }),
-
+  /**
+   * No `expectedVersion`: the copy lands at an id nothing has read, so there is
+   * no version a caller could honestly name. What a duplicate has to be safe
+   * against is an occupied destination, which the backend checks. (A rename is
+   * the case where one *is* meaningful, and it carries its own.)
+   */
   duplicateEntry: op(rename, async (ctx, { collection, id, newId }) => {
     await ctx.storage.duplicateEntry(collection, id, newId);
 
@@ -196,13 +217,13 @@ export const operations = {
   }),
 
   reorderEntries: op(
-    z.object({ collection, ids: z.array(z.string()) }),
-    async (ctx, { collection, ids }) => {
-      const existing = (await ctx.storage.listEntries(collection)).map((entry) => entry.id);
+    z.object({ collection, ids: z.array(z.string()), expectedVersion }),
+    async (ctx, input) => {
+      const existing = (await ctx.storage.listEntries(input.collection)).map((entry) => entry.id);
 
-      assertValid(validateReorder(existing, ids));
+      assertValid(validateReorder(existing, input.ids));
 
-      await ctx.storage.reorderEntries(collection, ids);
+      await ctx.storage.reorderEntries(input.collection, input.ids, input.expectedVersion);
 
       return ok;
     },
@@ -292,6 +313,21 @@ export const operations = {
   /** Every entry read once, so the admin can show what reaches each library file. */
   getReferences: op(none, scan),
 };
+
+/**
+ * Why one operation could not run. Carries the status the admin branches on,
+ * because inside a batch there is no HTTP status left to carry it.
+ */
+export interface OperationError {
+  status: number;
+  message: string;
+  validation?: Diagnostic[];
+}
+
+/** What one operation of a batch answers with. */
+export type OperationResult =
+  | { ok: true; data: unknown }
+  | { ok: false; error: OperationError };
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;

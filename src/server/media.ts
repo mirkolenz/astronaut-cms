@@ -129,7 +129,11 @@ export class ObjectStoreLibrary implements MediaBackend {
     const objects = await this.store.list(this.config.prefix);
 
     return objects
-      .map(({ key, size }) => ({ path: key.slice(this.config.prefix.length), size }))
+      .map(({ key, size, version }) => ({
+        path: key.slice(this.config.prefix.length),
+        size,
+        ...(version && { version }),
+      }))
       .filter((file) => !isReserved(file.path) && hasAllowedExtension(file.path, this.extensions));
   }
 

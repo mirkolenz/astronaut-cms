@@ -1,7 +1,8 @@
 import type { ChangeKind, EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
-import { BranchedStorage, toBase64, type StorageOptions } from "./base.ts";
+import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
 import type { ChangeRequestSummary, MediaContent, PublishMode } from "./types.ts";
-import { MergeConflictError, exists, getErrorStatus } from "./types.ts";
+import { MergeConflictError, exists, getErrorStatus, staleWrite } from "./types.ts";
+import type { VersionedContent } from "./types.ts";
 import { ApiClient } from "./api.ts";
 import { encodeKeyPath } from "../../shared/media.ts";
 
@@ -49,6 +50,8 @@ const FILE_STATUS: Record<string, ChangeKind> = {
 interface TreeFile {
   path: string;
   size: number;
+  /** The blob hash, which names the contents and so can address them. */
+  version: string;
 }
 
 interface RepoFile {
@@ -101,14 +104,14 @@ export class GitHubStorage extends BranchedStorage {
     const cache = {
       ref,
       entries: this.api
-        .json<{ tree: Array<{ type: string; path: string; size?: number }> }>({
+        .json<{ tree: Array<{ type: string; path: string; size?: number; sha: string }> }>({
           path: `${this.repo}/git/trees/${ref}`,
           query: { recursive: "1" },
         })
         .then(({ tree }) =>
           tree
             .filter((item) => item.type === "blob")
-            .map((item) => ({ path: item.path, size: item.size ?? 0 })),
+            .map((item) => ({ path: item.path, size: item.size ?? 0, version: item.sha })),
         )
         .catch((): TreeFile[] => {
           // A failed listing must not become what every later call reads: the
@@ -135,7 +138,11 @@ export class GitHubStorage extends BranchedStorage {
     );
   }
 
-  protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
+  protected async fetchRawEntry(
+    collection: string,
+    id: string,
+    ext: string,
+  ): Promise<VersionedContent> {
     return this.fetchFileContent(this.getEntryPath(collection, id, ext));
   }
 
@@ -144,10 +151,10 @@ export class GitHubStorage extends BranchedStorage {
    * media type is what raises the 1 MB ceiling to 100 MB and guarantees an
    * object rather than a directory array, so it is what a `download_url` needs.
    */
-  private async getRepoFile(path: string, asObject = false): Promise<RepoFile> {
+  private async getRepoFile(path: string, asObject = false, ref?: string): Promise<RepoFile> {
     const file = await this.api.json<RepoFile>({
       path: `${this.repo}/contents/${encodeKeyPath(path)}`,
-      query: { ref: await this.readRef() },
+      query: { ref: ref ?? (await this.readRef()) },
       ...(asObject && { accept: "application/vnd.github.object+json" }),
     });
 
@@ -156,22 +163,52 @@ export class GitHubStorage extends BranchedStorage {
     return file;
   }
 
-  protected async fetchFileContent(path: string): Promise<string> {
-    const { content } = await this.getRepoFile(path);
+  protected async fetchFileContent(path: string): Promise<VersionedContent> {
+    const { content, sha } = await this.getRepoFile(path);
 
-    return decodeBase64(content ?? "");
+    return { content: fromBase64(content ?? ""), version: sha };
+  }
+
+  /**
+   * The blob hash at `path` on one commit, or undefined when it holds no such
+   * file. Read against the commit the write will be based on rather than against
+   * the branch, so what is checked and what is committed cannot be two different
+   * states.
+   */
+  private async blobShaAt(path: string, ref: string): Promise<string | undefined> {
+    try {
+      return (await this.getRepoFile(path, false, ref)).sha;
+    } catch (err) {
+      if (getErrorStatus(err) === 404) return undefined;
+
+      throw err;
+    }
   }
 
   async listMedia(): Promise<MediaFile[]> {
     return this.mediaFiles(await this.tree());
   }
 
-  protected async commitFile(path: string, content: string, message: string): Promise<void> {
-    await this.commitBlob(path, content, "utf-8", message);
+  protected async commitFile(
+    path: string,
+    content: string,
+    message: string,
+    expectedVersion?: string,
+  ): Promise<string | undefined> {
+    return this.commitBlob(path, content, "utf-8", message, expectedVersion);
   }
 
-  protected async removeFile(path: string, message: string): Promise<void> {
-    await this.commitTree([{ path, mode: "100644", type: "blob", sha: null }], message);
+  protected async removeFile(
+    path: string,
+    message: string,
+    expectedVersion?: string,
+  ): Promise<void> {
+    await this.commitTree(
+      [{ path, mode: "100644", type: "blob", sha: null }],
+      message,
+      undefined,
+      expectedVersion === undefined ? undefined : { path, expected: expectedVersion },
+    );
   }
 
   protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
@@ -181,14 +218,17 @@ export class GitHubStorage extends BranchedStorage {
   /**
    * A repository file has no public URL. The contents API answers with a
    * `download_url` carrying its own short-lived token for a private repository,
-   * so the browser loads the bytes itself rather than through this server.
+   * so the browser loads the bytes itself rather than through this server —
+   * except when the caller addressed a version, which a redirect cannot promise
+   * to keep and which the route therefore serves itself. The blob hash comes
+   * back from the same call, so naming it costs nothing.
    */
   async readMedia(path: string): Promise<MediaContent> {
-    const { download_url } = await this.getRepoFile(this.mediaRepoPath(path), true);
+    const { download_url, sha } = await this.getRepoFile(this.mediaRepoPath(path), true);
 
     if (!download_url) throw new Error(`No download URL for ${path}`);
 
-    return { redirect: download_url };
+    return { redirect: download_url, version: sha };
   }
 
   protected async moveMedia(from: string, to: string): Promise<void> {
@@ -311,7 +351,8 @@ export class GitHubStorage extends BranchedStorage {
     content: string,
     encoding: "utf-8" | "base64",
     message: string,
-  ): Promise<void> {
+    expectedVersion?: string,
+  ): Promise<string> {
     const [blob, parentSha] = await Promise.all([
       this.api.json<{ sha: string }>({
         path: `${this.repo}/git/blobs`,
@@ -321,7 +362,16 @@ export class GitHubStorage extends BranchedStorage {
       this.parentSha(),
     ]);
 
-    await this.commitTree([{ path, mode: "100644", type: "blob", sha: blob.sha }], message, parentSha);
+    await this.commitTree(
+      [{ path, mode: "100644", type: "blob", sha: blob.sha }],
+      message,
+      parentSha,
+      expectedVersion === undefined ? undefined : { path, expected: expectedVersion },
+    );
+
+    // The blob that was just committed, which is exactly what a read of this
+    // path would now report as its version.
+    return blob.sha;
   }
 
   /** The commit the next one builds on: the draft branch's tip, or the default branch's. */
@@ -339,11 +389,21 @@ export class GitHubStorage extends BranchedStorage {
     treeEntries: TreeEntry[],
     message: string,
     knownParent?: string,
+    precondition?: { path: string; expected: string },
   ): Promise<void> {
     const parentSha = knownParent ?? (await this.parentSha());
-    const parentCommit = await this.api.json<{ tree: { sha: string } }>({
-      path: `${this.repo}/git/commits/${parentSha}`,
-    });
+
+    // The precondition is checked against the very commit this one will name as
+    // its parent, and the ref below is advanced without `force` — so a branch
+    // that moved in between makes the update a non-fast-forward and the write
+    // fails rather than landing on top of whatever arrived. It depends on
+    // nothing the parent commit does, so the two are read together.
+    const [current, parentCommit] = await Promise.all([
+      precondition && this.blobShaAt(precondition.path, parentSha),
+      this.api.json<{ tree: { sha: string } }>({ path: `${this.repo}/git/commits/${parentSha}` }),
+    ]);
+
+    if (precondition && current !== precondition.expected) throw staleWrite(precondition.path);
     const tree = await this.api.json<{ sha: string }>({
       path: `${this.repo}/git/trees`,
       method: "POST",
@@ -380,10 +440,3 @@ const summarize = (pull: PullRequest): ChangeRequestSummary => ({
   url: pull.html_url,
 });
 
-/** The contents API returns base64 wrapped at 60 columns. */
-function decodeBase64(content: string): string {
-  const binary = atob(content.replace(/\s/g, ""));
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-
-  return new TextDecoder().decode(bytes);
-}

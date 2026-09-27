@@ -59,6 +59,8 @@ const de: TranslationShape<typeof en> = {
     deleteEntryMessage:
       'Sind Sie sicher, dass Sie "{{id}}" löschen möchten? Dies kann nicht rückgängig gemacht werden.',
     changesSaved: "Änderungen gespeichert",
+    staleWrite:
+      "Dieser Eintrag hat sich seit dem Öffnen geändert. Lade neu, um die aktuelle Fassung zu sehen, und wende deine Änderung erneut an.",
     duplicate: "Duplizieren",
     renameEntry: "Eintrag umbenennen",
     duplicateEntry: "Eintrag duplizieren",

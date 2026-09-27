@@ -8,7 +8,7 @@ import type {
   StorageBackend,
   UploadTicket,
 } from "./types.ts";
-import { mapMergeError } from "./types.ts";
+import { mapMergeError, type VersionedContent } from "./types.ts";
 import type {
   CollectionManifest,
   EntryMeta,
@@ -17,6 +17,7 @@ import type {
   SaveEntryRequest,
   MediaFile,
   FileEntryLayout,
+  FileCollectionInfo,
   FileChange,
   TrashedFile,
 } from "../../shared/types.ts";
@@ -52,12 +53,21 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/** Both providers hand file contents back this way, whitespace and all. */
+export function fromBase64(content: string): string {
+  const binary = atob(content.replace(/\s/g, ""));
+
+  return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
+}
+
 /** A file collection's container, parsed. */
 interface FileCollection {
   path: string;
   format: EntryFormat;
   entries: Record<string, Record<string, unknown>>;
   layout: FileEntryLayout;
+  /** The container's version, which is every one of its entries' version too. */
+  version?: string;
 }
 
 /** Everything a backend needs that is not the provider credential itself. */
@@ -114,18 +124,39 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected abstract moveMedia(from: string, to: string): Promise<void>;
   protected abstract removeMedia(repoPath: string): Promise<void>;
   /** A content write, after which the container this request read is stale. */
-  private async persist(path: string, content: string, message: string): Promise<void> {
-    await this.commitFile(path, content, message);
+  private async persist(
+    path: string,
+    content: string,
+    message: string,
+    expectedVersion?: string,
+  ): Promise<string | undefined> {
+    const version = await this.commitFile(path, content, message, expectedVersion);
+
     this.containers.clear();
+
+    return version;
   }
 
   /**
    * The two file primitives every content write comes down to. Which file and
    * what goes in it is decided here, uniformly, so a backend only has to know
    * how to persist one.
+   *
+   * `expectedVersion` is the state the write was based on. A backend that can
+   * make the provider enforce it does; one that cannot ignores it, and the write
+   * takes the last word as it always did.
    */
-  protected abstract commitFile(path: string, content: string, message: string): Promise<void>;
-  protected abstract removeFile(path: string, message: string): Promise<void>;
+  protected abstract commitFile(
+    path: string,
+    content: string,
+    message: string,
+    expectedVersion?: string,
+  ): Promise<string | undefined>;
+  protected abstract removeFile(
+    path: string,
+    message: string,
+    expectedVersion?: string,
+  ): Promise<void>;
 
   abstract publish(): Promise<void>;
   abstract update(): Promise<void>;
@@ -139,7 +170,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * at an asset or reference that does not exist) breaks the site's content sync,
    * so it never reaches storage. Every other write composes this one.
    */
-  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
+  async saveEntry(
+    collection: string,
+    id: string,
+    data: SaveEntryRequest,
+  ): Promise<string | undefined> {
     const col = this.schemas[collection];
 
     if (!col) throw new Error(`Unknown collection: ${collection}`);
@@ -155,10 +190,13 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
           content: serializeContent(data.data, data.body, data.format),
         };
 
-    await this.persist(path, content, `Update ${collection}/${id}`);
+    // For a file collection this is the container's version, so an edit to one
+    // entry conflicts with a concurrent edit to any other — which is right,
+    // because they are the same file and the rewrite carries all of them.
+    return this.persist(path, content, `Update ${collection}/${id}`, data.expectedVersion);
   }
 
-  async deleteEntry(collection: string, id: string): Promise<void> {
+  async deleteEntry(collection: string, id: string, expectedVersion?: string): Promise<void> {
     const message = `Delete ${collection}/${id}`;
 
     if (this.isFileCollection(collection)) {
@@ -166,14 +204,16 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
         delete entries[id];
       });
 
-      return this.persist(path, content, message);
+      await this.persist(path, content, message, expectedVersion);
+
+      return;
     }
 
     const format = await this.storedFormat(collection, id);
 
     if (!format) throw new Error(`Entry not found: ${collection}/${id}`);
 
-    return this.removeFile(this.getEntryPath(collection, id, format), message);
+    return this.removeFile(this.getEntryPath(collection, id, format), message, expectedVersion);
   }
 
   /**
@@ -182,7 +222,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * than attempted, because a glob collection has no container file and the
    * rewrite would otherwise write to the directory the collection lives in.
    */
-  async reorderEntries(collection: string, ids: string[]): Promise<void> {
+  async reorderEntries(
+    collection: string,
+    ids: string[],
+    expectedVersion?: string,
+  ): Promise<void> {
     if (!this.isFileCollection(collection)) {
       throw new Error(`Collection is not ordered: ${collection}`);
     }
@@ -195,7 +239,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       ),
     );
 
-    return this.persist(path, content, `Reorder ${collection}`);
+    await this.persist(path, content, `Reorder ${collection}`, expectedVersion);
   }
 
   async getEntry(collection: string, id: string, format?: string): Promise<EntryContent> {
@@ -204,11 +248,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     if (!col) throw new Error(`Unknown collection: ${collection}`);
 
     if (this.isFileCollection(collection)) {
-      const { format, entries } = await this.readFileCollection(collection);
+      const { format, entries, version } = await this.readFileCollection(collection);
 
       if (!entries[id]) throw new Error(`Entry not found: ${collection}/${id}`);
 
-      return { id, data: entries[id], body: "", format };
+      return { id, data: entries[id], body: "", format, ...(version && { version }) };
     }
 
     const known: readonly EntryFormat[] = col.type === "content" ? CONTENT_FORMATS : DATA_FORMATS;
@@ -222,10 +266,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     for (const ext of extensions) {
       try {
-        const raw = await this.fetchRawEntry(collection, id, ext);
-        const { data, body } = parseContent(raw, ext);
+        const { content, version } = await this.fetchRawEntry(collection, id, ext);
+        const { data, body } = parseContent(content, ext);
 
-        return { id, data, body, format: ext };
+        return { id, data, body, format: ext, ...(version && { version }) };
       } catch {
         continue;
       }
@@ -236,7 +280,17 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
   // Rename and duplicate compose the storage primitives, so they work uniformly
   // for glob and file collections (saveEntry/deleteEntry already branch on layout).
-  async duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void> {
+  /**
+   * `expectedVersion` constrains the write that creates the target, which is only
+   * the caller's to state when the target shares a file with the source — see
+   * {@link renameEntry}, its one caller that passes it.
+   */
+  async duplicateEntry(
+    collection: string,
+    sourceId: string,
+    targetId: string,
+    expectedVersion?: string,
+  ): Promise<void> {
     const [source, targetExists] = await Promise.all([
       this.getEntry(collection, sourceId),
       this.entryExists(collection, targetId),
@@ -248,14 +302,30 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       data: source.data,
       body: source.body,
       format: source.format,
+      ...(expectedVersion !== undefined && { expectedVersion }),
     });
   }
 
-  async renameEntry(collection: string, oldId: string, newId: string): Promise<void> {
+  /**
+   * Two writes, of which only the first is based on what the caller read — the
+   * second is based on what this request has just done. Which one that is
+   * depends on the layout: in a file collection both entries live in the same
+   * container, so the version describes the write that adds the new entry; in a
+   * glob collection they are separate files, so it describes the removal of the
+   * old one.
+   */
+  async renameEntry(
+    collection: string,
+    oldId: string,
+    newId: string,
+    expectedVersion?: string,
+  ): Promise<void> {
     if (oldId === newId) return;
 
-    await this.duplicateEntry(collection, oldId, newId);
-    await this.deleteEntry(collection, oldId);
+    const shared = this.isFileCollection(collection);
+
+    await this.duplicateEntry(collection, oldId, newId, shared ? expectedVersion : undefined);
+    await this.deleteEntry(collection, oldId, shared ? undefined : expectedVersion);
   }
 
   /** The format the listing reports for an entry, or null when it holds no such entry. */
@@ -275,12 +345,16 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     }
   }
 
-  protected async fetchRawEntry(_collection: string, _id: string, _ext: string): Promise<string> {
+  protected async fetchRawEntry(
+    _collection: string,
+    _id: string,
+    _ext: string,
+  ): Promise<VersionedContent> {
     throw new Error("Not implemented");
   }
 
   /** The raw content of a repository file, by project-relative path. */
-  protected async fetchFileContent(_path: string): Promise<string> {
+  protected async fetchFileContent(_path: string): Promise<VersionedContent> {
     throw new Error("Not implemented");
   }
 
@@ -372,14 +446,16 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * directory. Takes the backend's own listing shape rather than `MediaFile`s, so
    * a whole-repository tree costs no allocation for the paths it discards.
    */
-  protected mediaFiles(files: Iterable<{ path: string; size?: number }>): MediaFile[] {
+  protected mediaFiles(
+    files: Iterable<{ path: string; size?: number; version?: string }>,
+  ): MediaFile[] {
     const result: MediaFile[] = [];
 
     for (const file of files) {
       const path = stripMediaPrefix(file.path, this.mediaDirectory);
 
       if (path != null && hasAllowedExtension(path, this.options.mediaExtensions)) {
-        result.push({ path, size: file.size ?? 0 });
+        result.push({ path, size: file.size ?? 0, ...(file.version && { version: file.version }) });
       }
     }
 
@@ -430,15 +506,22 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     if (!path) return empty;
 
     try {
-      return { path, format, ...parseMultiEntryFile(await this.fetchFileContent(path), format) };
+      const { content, version } = await this.fetchFileContent(path);
+
+      return { path, format, version, ...parseMultiEntryFile(content, format) };
     } catch {
       return empty;
     }
   }
 
-  /** How a file collection stores its entries, which decides whether they can be reordered. */
-  async getFileLayout(collection: string): Promise<FileEntryLayout> {
-    return (await this.readFileCollection(collection)).layout;
+  /**
+   * How a file collection stores its entries, which decides whether they can be
+   * reordered, and the version a reorder has to be based on.
+   */
+  async getFileLayout(collection: string): Promise<FileCollectionInfo> {
+    const { layout, version } = await this.readFileCollection(collection);
+
+    return { layout, ...(version && { version }) };
   }
 
   protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
@@ -509,7 +592,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
  * cache: an instance may be reused by a different editor, or not reused at all.
  */
 export abstract class BranchedStorage extends StorageBase {
-  private branchExistsCache: boolean | null = null;
+  /**
+   * The *lookup*, not its answer, so the several reads one batched request makes
+   * share it rather than each firing their own before the first resolves.
+   */
+  private branchExistsCache: Promise<boolean> | null = null;
 
   protected readonly publishMode: PublishMode;
   protected readonly branch: string;
@@ -541,11 +628,17 @@ export abstract class BranchedStorage extends StorageBase {
   }
 
   protected markBranchExists(exists: boolean): void {
-    this.branchExistsCache = exists;
+    this.branchExistsCache = Promise.resolve(exists);
   }
 
-  protected async branchExists(): Promise<boolean> {
-    this.branchExistsCache ??= await this.checkBranchExists(this.branch);
+  protected branchExists(): Promise<boolean> {
+    // A failed lookup must not become what every later call reads: it is dropped
+    // so the next one asks again rather than inheriting the rejection.
+    this.branchExistsCache ??= this.checkBranchExists(this.branch).catch((err: unknown) => {
+      this.branchExistsCache = null;
+
+      throw err;
+    });
 
     return this.branchExistsCache;
   }
