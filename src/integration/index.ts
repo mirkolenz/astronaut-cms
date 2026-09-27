@@ -37,7 +37,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         logger,
       }) => {
         const rootDir = fileURLToPath(astroConfig.root);
-        const basePath = astroConfig.base;
 
         const overrideToLocal =
           command === "dev" &&
@@ -116,7 +115,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
               // Dev-only filesystem API for the local storage backend, plus the
               // reload suppression that keeps the admin's state across its own saves.
               ...(command === "dev"
-                ? [cmsDevPlugin({ basePath, mediaDir, rootDir, collections })]
+                ? [cmsDevPlugin({ mediaDir, rootDir, collections })]
                 : []),
             ],
           },

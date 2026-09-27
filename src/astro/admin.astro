@@ -3,10 +3,19 @@ import "astronaut-cms/styles.css";
 import config from "virtual:astronaut-cms/config";
 
 // Restrict where the admin (which holds a Git provider token in the browser) may
-// load code from and connect to, so an injected script cannot exfiltrate it.
-// `connect-src` is limited to the configured provider's API origins. Emitted
-// only in production builds — the dev server is local-storage only and needs
-// looser connections for HMR.
+// load code from and connect to. `script-src 'self'` with no inline scripts is
+// the part that carries real weight: it keeps injected markup from becoming
+// script in the first place. `connect-src` is limited to the configured
+// provider's API origins.
+//
+// This narrows the blast radius, it does not seal it: `img-src https:` (needed
+// for remote images in previews) and `style-src 'unsafe-inline'` both remain
+// usable as exfiltration channels by a script that already runs here. Treat it
+// as defense in depth behind "the admin renders no untrusted HTML", not as a
+// containment guarantee.
+//
+// Emitted only in production builds — the dev server is local-storage only and
+// needs looser connections for HMR.
 function providerConnectSrc(): string {
   if (config.storageType === "github") return "https://github.com https://api.github.com";
   if (config.storageType === "gitlab") return new URL(config.gitlab!.instanceUrl).origin;

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readdir, readFile, writeFile, unlink, stat, mkdir, rename } from "node:fs/promises";
 import { join, dirname, relative } from "pathe";
-import type { Plugin, ViteDevServer } from "vite";
+import type { Plugin } from "vite";
 import type { CollectionManifest, MediaFile } from "../shared/types.ts";
 import { readChanges, discardChanges, managedPaths } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
@@ -10,6 +10,8 @@ type NextFn = () => void;
 
 const MUTATING_METHODS = new Set(["PUT", "POST", "PATCH", "DELETE"]);
 
+const API_PREFIX = "/__cms";
+
 // How long after a CMS write to keep suppressing the dev-server reload it
 // triggers. It has to outlast the whole chain — write, content-layer sync, data
 // store rewrite, reload broadcast — while staying short enough that a manual
@@ -17,7 +19,6 @@ const MUTATING_METHODS = new Set(["PUT", "POST", "PATCH", "DELETE"]);
 const SUPPRESS_WINDOW_MS = 5000;
 
 export interface DevMiddlewareOptions {
-  basePath: string;
   mediaDir: string;
   rootDir: string;
   collections: CollectionManifest;
@@ -72,13 +73,11 @@ async function listFiles(rootDir: string, dir: string): Promise<MediaFile[]> {
  * GitHub and GitLab ones instead of from a second implementation here.
  */
 function createDevMiddleware(
-  server: ViteDevServer,
   options: DevMiddlewareOptions,
   markWrite: () => void,
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
-  const { basePath, mediaDir, rootDir, collections } = options;
+  const { mediaDir, rootDir, collections } = options;
 
-  const apiPrefix = `${basePath}__cms`;
   // The CMS may only read and write inside these, and git may only restore
   // them, so neither can reach the developer's own files.
   const managed = managedPaths({ rootDir, mediaDir, collections });
@@ -100,27 +99,39 @@ function createDevMiddleware(
   return async (req, res, next) => {
     const url = req.url ?? "";
 
-    if (!url.startsWith(`${apiPrefix}/`)) {
+    if (!url.startsWith(`${API_PREFIX}/`)) {
       next();
       return;
     }
 
-    // CSRF protection: block cross-origin requests
+    const host = req.headers.host;
     const origin = req.headers.origin;
-    if (origin) {
-      const serverUrl = server.resolvedUrls?.local[0];
-      if (serverUrl && new URL(origin).origin !== new URL(serverUrl).origin) {
-        sendError(res, "Cross-origin request blocked", 403);
-        return;
-      }
+    const mutating = MUTATING_METHODS.has(req.method ?? "");
+
+    // Vite's own host validation runs before this middleware and rejects the
+    // rebound hostname a DNS-rebinding page would arrive under, so the only
+    // check left to make here is the one Vite has no equivalent of: CSRF.
+    // Comparing against the Host header rather than a resolved server URL keeps
+    // it correct however the server is bound, `--host` on a LAN address
+    // included.
+    if (origin && origin !== `http://${host}` && origin !== `https://${host}`) {
+      sendError(res, "Cross-origin request blocked", 403);
+      return;
+    }
+
+    // Browsers always send an Origin on a mutating request, so a missing one
+    // never comes from the admin talking to its own dev server.
+    if (!origin && mutating) {
+      sendError(res, "Missing origin", 403);
+      return;
     }
 
     // A mutating request below writes a file the dev server watches; arm the
     // reload-suppression window now, before that write, so the reload it would
     // trigger is dropped and the admin keeps its state across its own saves.
-    if (req.method && MUTATING_METHODS.has(req.method)) markWrite();
+    if (mutating) markWrite();
 
-    const [path, query] = url.slice(apiPrefix.length).split("?");
+    const [path, query] = url.slice(API_PREFIX.length).split("?");
 
     try {
       if (path === "/files" && req.method === "GET") {
@@ -224,13 +235,18 @@ function suppressReloads(
 
 // One plugin, two jobs sharing a suppression window:
 //
-//   1. The dev API middleware. Registered as a Vite plugin instead of via
-//      `astro:server:setup` because Astro unshifts its own trailing-slash
-//      middleware to the front of the connect stack from a configureServer
-//      post-hook, and under trailingSlash: "always" it rejects our extensionless
-//      `/__cms/*` requests with a 404 before an appended middleware would run.
-//      `enforce: "post"` makes our post-hook run after Astro's, so the unshift
-//      here places the CMS API ahead of that trailing-slash check.
+//   1. The dev API middleware, appended from the configureServer body. That
+//      position matters in both directions: Vite registers its host-validation
+//      and CORS middlewares before any plugin hook runs, so appending leaves
+//      the CMS API behind them and DNS-rebinding protection applies to it for
+//      free; and Astro registers everything of its own (including the catch-all
+//      dev handler) from a post-hook, which all run after every body, so the
+//      CMS API is still reached first.
+//
+//      The API lives at the origin root rather than under `base`, so its path
+//      always starts with `/_` — a prefix Astro classifies as internal and
+//      passes through its trailing-slash and prerender middlewares untouched.
+//      Prefixing with `base` instead would 404 under trailingSlash: "always".
 //
 //   2. Reload suppression for the window a CMS write opens. Without it every
 //      save reloads the admin and wipes its state, the open assistant
@@ -251,15 +267,11 @@ export function cmsDevPlugin(options: DevMiddlewareOptions): Plugin {
     enforce: "post",
 
     configureServer(server) {
-      const handle = createDevMiddleware(server, options, markWrite);
+      server.middlewares.use(createDevMiddleware(options, markWrite));
 
       for (const environment of Object.values(server.environments)) {
         suppressReloads(environment.hot, () => Date.now() < suppressReloadUntil);
       }
-
-      return () => {
-        server.middlewares.stack.unshift({ route: "", handle });
-      };
     },
   };
 }

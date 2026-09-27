@@ -46,6 +46,11 @@ function bearer(token: string | undefined): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
+/** Compile-time exhaustiveness for a closed union, and a fail-closed throw if one grows. */
+function unreachable(value: never, message: string): never {
+  throw new Error(`${message}: ${JSON.stringify(value)}`);
+}
+
 function joinUrl(base: string, path: string): string {
   return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
@@ -93,7 +98,7 @@ function resolveGateway(gateway: AiGateway, getEnv: (name: string) => string | u
     }
 
     default:
-      throw new Error(`Unknown AI gateway: ${(gateway as { type: string }).type}`);
+      return unreachable(gateway, "Unknown AI gateway");
   }
 }
 
@@ -107,10 +112,23 @@ async function verifyAccess(token: string | undefined, config: RelayConfig): Pro
   const cached = accessCache.get(token);
   if (cached != null && cached > now) return;
 
-  if (config.storageType === "github" && config.github) {
-    await verifyGitHubWriteAccess(token, config.github.repo);
-  } else if (config.storageType === "gitlab" && config.gitlab) {
-    await verifyGitLabWriteAccess(token, config.gitlab.project, config.gitlab.instanceUrl);
+  // Exhaustive on purpose: a storage type with no verification of its own must
+  // fail closed rather than fall through and cache the token as valid.
+  switch (config.storageType) {
+    case "github":
+      if (!config.github) throw new Error("GitHub storage is not configured");
+
+      await verifyGitHubWriteAccess(token, config.github.repo);
+      break;
+
+    case "gitlab":
+      if (!config.gitlab) throw new Error("GitLab storage is not configured");
+
+      await verifyGitLabWriteAccess(token, config.gitlab.project, config.gitlab.instanceUrl);
+      break;
+
+    default:
+      unreachable(config.storageType, "Cannot verify access for storage type");
   }
 
   // Evict expired entries so the cache stays bounded by currently-valid tokens,
