@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { Plugin } from "vite";
+import { esmExternalRequirePlugin, type Plugin } from "vite";
 
 interface Package {
   dir: string;
@@ -48,11 +48,13 @@ interface DependencyPolicy {
  * import resolves to rather than from how the specifier is spelled, so subpaths,
  * aliases and type packages are all judged by the package that owns them.
  * Specifiers with a scheme (`node:`, `virtual:`, `astro:`) are the host's.
+ * The CommonJS packages compiled in then import the externals they require,
+ * since an ES module has no `require`.
  */
-export function dependencyPolicy({ self, external, strict = false }: DependencyPolicy): Plugin {
+export function dependencyPolicy({ self, external, strict = false }: DependencyPolicy) {
   const externals = new Set(external);
 
-  return {
+  const policy: Plugin = {
     name: "dependency-policy",
     resolveId: {
       // Ahead of the dts plugin, so declarations are judged by the same policy.
@@ -80,6 +82,12 @@ export function dependencyPolicy({ self, external, strict = false }: DependencyP
       },
     },
   };
+
+  const requires = esmExternalRequirePlugin({
+    external: [...externals].map((name) => new RegExp(`^${RegExp.escape(name)}(/|$)`)),
+  });
+
+  return [policy, requires];
 }
 
 /**

@@ -36,7 +36,7 @@
     "./content": "./dist/server/content.js",
     "./editor": "./dist/admin/editor.js",
     "./*.astro": "./src/astro/*.astro",
-    "./styles.css": "./dist/admin/styles.css",
+    "./styles.css": "./dist/styles/styles.css",
     "./bootstrap": "./dist/admin/bootstrap.js",
     "./internal": "./dist/server/internal.js",
     "./endpoint": "./dist/server/endpoint.js",

@@ -80,21 +80,39 @@ export default defineConfig({
         },
       },
     },
-    // Named `client`, the environment Vite always builds.
+    // An app build rather than a library one, which would inline every font.
+    styles: {
+      consumer: "client",
+      build: {
+        outDir: "dist/styles",
+        copyPublicDir: false,
+        license: licenses.option,
+        rolldownOptions: {
+          input: { styles: src("astro/styles.css") },
+          plugins: [licenses.plugin],
+          output: {
+            assetFileNames: ({ names }) =>
+              names.includes("styles.css") ? "[name][extname]" : "assets/[name]-[hash][extname]",
+          },
+        },
+      },
+    },
+    // Named `client`, the environment Vite always builds. A library build, since the
+    // site bundles it again, which leaves preloading its chunks to the site's build.
     client: {
       build: {
         outDir: "dist/admin",
         copyPublicDir: false,
         // The licenses of the packages compiled in, which their terms require to travel with them.
         license: licenses.option,
-        rolldownOptions: {
-          input: {
+        lib: {
+          entry: {
             bootstrap: src("client/bootstrap.ts"),
             editor: src("client/editor.ts"),
-            styles: src("astro/styles.css"),
           },
-          // An app build rather than a library one, which would inline every font.
-          preserveEntrySignatures: "strict",
+          formats: ["es"],
+        },
+        rolldownOptions: {
           // Worker builds take these too, where the license plugin lists their packages.
           plugins: [
             // React is the site's, and the editor's declarations use the mdast types
@@ -105,10 +123,9 @@ export default defineConfig({
             licenses.plugin,
           ],
           output: {
-            entryFileNames: "[name].js",
-            // The stylesheet is an entry, so it keeps its name like the scripts do.
-            assetFileNames: ({ names }) =>
-              names.includes("styles.css") ? "[name][extname]" : "assets/[name]-[hash][extname]",
+            // Vite keeps a library's whitespace, which a bundle nobody reads only pays for.
+            minify: true,
+            chunkFileNames: "assets/[name]-[hash].js",
           },
         },
       },

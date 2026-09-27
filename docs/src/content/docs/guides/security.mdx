@@ -216,7 +216,7 @@ The session cookie is `HttpOnly`, every write is validated on the server, and pu
 Attached documents are the one place the admin parses bytes from outside the repository.
 A PDF or Word file is read in a worker of its own that has no DOM and no admin state, runs under the admin's policy and is terminated after that one file.
 
-The licenses of the bundled packages ship in the package as `dist/admin/THIRD_PARTY_LICENSES.md`.
+The licenses of the bundled packages ship in the package as `THIRD_PARTY_LICENSES.md` in `dist/admin` for the scripts and in `dist/styles` for the stylesheet and its fonts.
 A deployment that serves the admin also distributes that code, so keep the notices available the way you do for the rest of your site's bundled dependencies.
 
 ## Media
