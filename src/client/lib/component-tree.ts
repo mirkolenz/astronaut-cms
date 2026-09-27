@@ -9,10 +9,10 @@ import type { MdxJsxFlowElement, MdxJsxTextElement } from "mdast-util-mdx";
 import type { ClientComponentDef } from "@/internal/user-config";
 import type { MdxJsxAttribute, MdxJsxElement, MdxJsxExpressionAttribute } from "@/shared/jsx-editor";
 import { childComponents } from "@/shared/component-lookup";
-import { isRequired, objectShape } from "@/shared/field-schema";
+import { objectShape } from "@/shared/field-schema";
 import { attributeValue, valueToAttribute } from "@/shared/mdx-attributes";
-import { arrayMove } from "@/client/lib/arrays";
-import { fieldLabel, getDefaultValue, textSummary } from "@/client/lib/field-values";
+import { arrayMove, movedIndex } from "@/client/lib/arrays";
+import { getDefaultValue, missingFields, textSummary } from "@/client/lib/field-values";
 
 declare module "mdast" {
   interface Data {
@@ -164,9 +164,7 @@ export function missingProps(def: ClientComponentDef | undefined, element: MdxJs
   const props = readProps(element);
   const written = new Set(element.attributes.filter((attr) => isAttribute(attr)).map((attr) => attr.name));
 
-  return Object.entries(shape)
-    .filter(([key, field]) => isRequired(field) && (!written.has(key) || props[key] === ""))
-    .map(([key, field]) => fieldLabel(key, field));
+  return missingFields(shape, (key) => !written.has(key) || props[key] === "");
 }
 
 /** The first image an instance shows, for its thumbnail. */
@@ -236,9 +234,8 @@ export function moveChild(
 ): MdxJsxElement {
   return editChildren(root, parentPath, (children) => {
     const from = children.findIndex((c) => childKey(c) === key);
-    const to = Math.min(Math.max(from + offset, 0), children.length - 1);
 
-    return from < 0 ? children : arrayMove(children, from, to);
+    return from < 0 ? children : arrayMove(children, from, movedIndex(children.length, from, offset));
   });
 }
 

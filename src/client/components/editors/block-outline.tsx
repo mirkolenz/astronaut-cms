@@ -21,9 +21,9 @@ import { findComponent } from "@/shared/component-lookup";
 import { labelOf, summaryOf } from "@/client/lib/component-tree";
 import { isJsxNode, useEditorValue } from "@/client/lib/block-editing";
 import { $isEmptyLine } from "@/client/lib/empty-lines";
-import { selectBlock } from "@/client/stores/inspector-store";
-import { BlockList } from "./block-controls";
-import { BLOCK_ICONS, HEADING_ICONS } from "./block-icons";
+import { select } from "@/client/stores/inspector-store";
+import { BlockList } from "@/client/components/editors/block-controls";
+import { BLOCK_ICONS, HEADING_ICONS } from "@/client/components/editors/block-icons";
 
 interface OutlineItem {
   key: string;
@@ -116,7 +116,7 @@ export function BlockOutline({ editor }: { editor: LexicalEditor }) {
 
   const open = ({ key, isComponent }: OutlineItem) => {
     if (isComponent) {
-      selectBlock({ editor, nodeKey: key, path: [], trail: [] }, { reveal: true });
+      select({ editor, nodeKey: key, path: [], trail: [] }, { reveal: true });
 
       return;
     }
@@ -140,7 +140,7 @@ export function BlockOutline({ editor }: { editor: LexicalEditor }) {
 
         if (item && target) moveBlock(editor, item.key, target.key, to > from);
       }}
-      row={(item) => ({ ...item, onOpen: () => open(item) })}
+      row={(item) => ({ ...item, onOpen: () => open(item), inspects: item.isComponent })}
     >
       {items.length === 0 && <p className="text-sm text-muted-foreground">{t(($) => $.editors.outlineEmpty)}</p>}
     </BlockList>

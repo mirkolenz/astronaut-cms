@@ -32,6 +32,8 @@ import {
   addExportVisitor$,
   addToMarkdownExtension$,
   createActiveEditorSubscription$,
+  createRootEditorSubscription$,
+  historyState$,
   rootEditor$,
   setMarkdown$,
   realmPlugin,
@@ -55,7 +57,6 @@ import {
   ListsToggle,
   BlockTypeSelect,
   CreateLink,
-  UndoRedo,
   DiffSourceToggleWrapper,
 } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
@@ -64,10 +65,12 @@ import { $caretBlock, $isEmptyLine, $isSkippedLine, pruneEmptyLines } from "@/cl
 import { isComponentMdx, parseMdx, pasteText } from "@/client/lib/editor-content";
 import { createSourcePreserver } from "@/client/lib/markdown-source";
 import { blockActions, blockMdx } from "@/client/lib/block-editing";
-import { getSelectedBlock, selectBlock, setBodyRealm } from "@/client/stores/inspector-store";
-import { CmsImageDialog } from "./cms-image-dialog";
-import { GapInserter } from "./gap-inserter";
-import { InsertButton, InsertMenu, insertTarget$ } from "./insert-menu";
+import { getSelectedBlock, select, setBodyRealm } from "@/client/stores/inspector-store";
+import { syncHistory } from "@/client/stores/form-store";
+import { pageHistory, registerSkipUnchanged } from "@/client/lib/page-history";
+import { CmsImageDialog } from "@/client/components/editors/cms-image-dialog";
+import { GapInserter } from "@/client/components/editors/gap-inserter";
+import { InsertButton, InsertMenu, insertTarget$ } from "@/client/components/editors/insert-menu";
 
 // The style edited blocks are written in. The others keep their source text.
 const MARKDOWN_STYLE: MDXEditorProps["toMarkdownOptions"] = {
@@ -198,7 +201,7 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
       target.closest(".mdxeditor-root-contenteditable") &&
       !target.closest("[data-cms-block]")
     ) {
-      selectBlock(null);
+      select(null);
     }
   }, []);
 
@@ -249,7 +252,6 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
       toolbarPlugin({
         toolbarContents: () => (
           <DiffSourceToggleWrapper options={["rich-text", "source"]}>
-            <UndoRedo />
             <BoldItalicUnderlineToggles />
             <CodeToggle />
             <ListsToggle />
@@ -285,7 +287,15 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
                 preserveSource(sourceRef.current, defaultHandlers.root(node, parent, state, info)),
             },
           });
+          // The body's editors share the page's history with its forms, and the
+          // buttons follow it, which also changes as a nested editor writes itself back.
+          realm.pub(historyState$, pageHistory);
+          realm.pub(createRootEditorSubscription$, (editor: LexicalEditor) =>
+            editor.registerUpdateListener(syncHistory),
+          );
           realm.pub(createActiveEditorSubscription$, [
+            registerSkipUnchanged,
+            (editor: LexicalEditor) => editor.registerUpdateListener(syncHistory),
             // The root editor reports its edits through `onChange` right away.
             (editor: LexicalEditor) =>
               editor.registerUpdateListener(({ dirtyElements, dirtyLeaves }) => {

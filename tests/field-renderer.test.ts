@@ -2,7 +2,7 @@ import { Children, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { FieldSchema } from "@/shared/field-schema";
 import { FieldRenderer } from "@/client/components/editors/field-renderer";
-import { getDefaultValue } from "@/client/lib/field-values";
+import { fieldsAlong, getDefaultValue, setAt } from "@/client/lib/field-values";
 
 // FieldRenderer dispatches each FieldSchema variant to a dedicated editor and
 // uses no hooks itself, so we can call it as a plain function and read which
@@ -28,9 +28,11 @@ describe("FieldRenderer dispatch", () => {
     ["date", { type: "date" }, "DateField"],
     ["enum", { type: "enum", options: ["a", "b"] }, "EnumField"],
     ["array", { type: "array", element: { type: "string" } }, "ArrayField"],
+    ["array (structured)", { type: "array", element: { type: "object", shape: {} } }, "CollectionRow"],
     ["tuple", { type: "tuple", items: [{ type: "string" }, { type: "number" }] }, "TupleField"],
     ["object", { type: "object", shape: { a: { type: "string" } } }, "ObjectField"],
     ["record", { type: "record", value: { type: "string" } }, "RecordField"],
+    ["record (structured)", { type: "record", value: { type: "object", shape: {} } }, "CollectionRow"],
     [
       "discriminated union",
       {
@@ -134,5 +136,32 @@ describe("getDefaultValue", () => {
     expect(
       getDefaultValue({ type: "union", variants: [{ type: "number" }, { type: "string" }] }),
     ).toBe(0);
+  });
+});
+
+describe("value paths", () => {
+  const shape: Record<string, FieldSchema> = {
+    links: {
+      type: "array",
+      element: { type: "object", shape: { tags: { type: "record", value: { type: "string" } } } },
+    },
+  };
+  const values = { links: [{ tags: { a: "x" } }] };
+
+  it("follows a path through lists and records, and nowhere past them", () => {
+    expect(fieldsAlong(shape, values, ["links", 0, "tags", "a"])?.map((step) => step.value)).toEqual([
+      values.links,
+      values.links[0],
+      { a: "x" },
+      "x",
+    ]);
+    expect(fieldsAlong(shape, values, ["links", 1])).toBeUndefined();
+  });
+
+  it("sets a value at a path, copying only what lies on the way", () => {
+    const next = setAt(values.links, [0, "tags", "a"], "y");
+
+    expect(next).toEqual([{ tags: { a: "y" } }]);
+    expect(values.links[0]?.tags.a).toBe("x");
   });
 });

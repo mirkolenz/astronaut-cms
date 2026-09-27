@@ -19,6 +19,8 @@ const de: TranslationShape<typeof en> = {
     create: "Erstellen",
     signOut: "Abmelden",
     overwrite: "Überschreiben",
+    undo: "Rückgängig",
+    redo: "Wiederholen",
   },
   layout: {
     appName: "Astronaut CMS",
@@ -49,8 +51,6 @@ const de: TranslationShape<typeof en> = {
     entryDeleted: "Eintrag gelöscht",
   },
   entry: {
-    fields: "Felder",
-    body: "Inhalt",
     unsavedChanges: "Ungespeicherte Änderungen",
     unsavedChangesMessage:
       "Sie haben ungespeicherte Änderungen. Möchten Sie diese verwerfen und die Seite verlassen?",
@@ -178,12 +178,6 @@ const de: TranslationShape<typeof en> = {
     setValue: "Wert setzen",
     addItem: "Element hinzufügen",
     add: "Hinzufügen",
-    removeItem: "Element entfernen",
-    removeItemMessage:
-      "Sind Sie sicher, dass Sie Element {{index}} entfernen möchten? Alle verschachtelten Daten gehen verloren.",
-    removeField: "Feld entfernen",
-    removeFieldMessage:
-      'Sind Sie sicher, dass Sie "{{key}}" entfernen möchten? Alle verschachtelten Daten gehen verloren.',
     newKey: "Neuer Schlüssel",
     variant: "Variante",
     raw: "roh",
@@ -194,6 +188,7 @@ const de: TranslationShape<typeof en> = {
     file: "Datei",
     selectFrom: "Auswählen aus {{collection}}",
     loading: "Laden...",
+    items: "Elemente: {{count}}",
     item: "Element {{index}}",
     required: "Pflichtfeld",
     choose: "Auswählen",

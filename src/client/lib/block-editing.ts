@@ -5,14 +5,10 @@
  */
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  $addUpdateTag,
   $copyNode,
   $getNodeByKey,
   $setSelection,
-  HISTORY_MERGE_TAG,
-  HISTORY_PUSH_TAG,
   SKIP_DOM_SELECTION_TAG,
-  type EditorState,
   type LexicalEditor,
   type LexicalNode,
 } from "lexical";
@@ -21,7 +17,7 @@ import type { MdxJsxElement } from "@/shared/jsx-editor";
 import type { ClientComponentDef } from "@/internal/user-config";
 import {
   getBodyRealm,
-  selectBlock,
+  select,
   type BlockNode,
   type BlockRef,
   type BlockSelection,
@@ -38,6 +34,7 @@ import {
   type JsxChild,
 } from "@/client/lib/component-tree";
 import { $isEmptyLine } from "@/client/lib/empty-lines";
+import { historicUpdate } from "@/client/lib/page-history";
 import { pastedChildren, readClipboard, toMdx, writeClipboard } from "@/client/lib/editor-content";
 
 interface JsxNode extends LexicalNode {
@@ -50,51 +47,29 @@ export function isJsxNode(node: LexicalNode | null): node is JsxNode {
   return node?.getType() === "jsx";
 }
 
-function editNode({ editor, nodeKey }: BlockNode, edit: (node: JsxNode) => void): void {
-  editor.update(
+// Every edit is an undo step of its own, or merges into the last one by `mergeKey`.
+function editNode({ editor, nodeKey }: BlockNode, edit: (node: JsxNode) => void, mergeKey?: string): void {
+  historicUpdate(
+    editor,
     () => {
-      // An edit made from outside the text must not pull focus back into it.
-      $addUpdateTag(SKIP_DOM_SELECTION_TAG);
-
       const node = $getNodeByKey(nodeKey);
 
       if (isJsxNode(node)) edit(node);
     },
-    { discrete: true },
+    mergeKey,
   );
 
   // An enclosing nested editor writes itself back to its own element in turn.
   editor.dispatchCommand(NESTED_EDITOR_UPDATED_COMMAND, undefined);
 }
 
-// Keystrokes in one field within this window make a single undo step.
-const MERGE_WINDOW = 1000;
-
-let lastEdit: { key: string; at: number; state: EditorState } | undefined;
-
-/**
- * Replaces a block's element. Edits sharing a `mergeKey`, such as typing into
- * one field, merge into one undo step while they follow each other closely,
- * and only right on top of each other, never across another change or an undo.
- */
+/** Replaces a block's element, merging edits that share a `mergeKey`, such as typing into one field. */
 export function updateBlock(
   block: BlockNode,
   update: (element: MdxJsxElement) => MdxJsxElement,
   mergeKey?: string,
 ): void {
-  const now = Date.now();
-  const merge =
-    mergeKey !== undefined &&
-    lastEdit?.key === mergeKey &&
-    now - lastEdit.at < MERGE_WINDOW &&
-    lastEdit.state === block.editor.getEditorState();
-
-  editNode(block, (node) => {
-    $addUpdateTag(merge ? HISTORY_MERGE_TAG : HISTORY_PUSH_TAG);
-    node.setMdastNode(update(node.getMdastNode()));
-  });
-
-  lastEdit = mergeKey === undefined ? undefined : { key: mergeKey, at: now, state: block.editor.getEditorState() };
+  editNode(block, (node) => node.setMdastNode(update(node.getMdastNode())), mergeKey);
 }
 
 /**
@@ -190,13 +165,15 @@ function structureActions(block: BlockRef): Omit<BlockActions, "copy" | "cut"> {
   };
 }
 
-/** What can be done to a block as a whole. */
-export function blockActions(block: BlockRef): BlockActions {
-  const actions = structureActions(block);
+/** Completes how something moves and goes with copying it as `text`, and cutting it. */
+export function clipboardActions(
+  actions: Omit<BlockActions, "copy" | "cut">,
+  text: () => string | undefined,
+): BlockActions {
   const copy = async () => {
-    const mdx = blockMdx(block);
+    const copied = text();
 
-    return mdx !== undefined && (await writeClipboard(mdx));
+    return copied !== undefined && (await writeClipboard(copied));
   };
 
   return {
@@ -206,6 +183,11 @@ export function blockActions(block: BlockRef): BlockActions {
   };
 }
 
+/** What can be done to a block as a whole. */
+export function blockActions(block: BlockRef): BlockActions {
+  return clipboardActions(structureActions(block), () => blockMdx(block));
+}
+
 // The added children are selected, so their props can be filled in.
 function addAndSelect(parent: BlockSelection, children: JsxChild[]): void {
   const [first] = children;
@@ -213,7 +195,7 @@ function addAndSelect(parent: BlockSelection, children: JsxChild[]): void {
   if (!first) return;
 
   updateBlock(parent, (root) => addChildren(root, parent.path, children));
-  selectBlock({ ...parent, path: [...parent.path, childKey(first)] }, { reveal: true });
+  select({ ...parent, path: [...parent.path, childKey(first)] }, { reveal: true });
 }
 
 export function insertChild(parent: BlockSelection, name: string, def: ClientComponentDef): void {

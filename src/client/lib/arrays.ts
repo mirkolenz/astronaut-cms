@@ -6,3 +6,7 @@ export function arrayMove<T>(items: readonly T[], from: number, to: number): T[]
 
   return next;
 }
+
+/** Where the item at `from` ends up moved by `offset` places, stopping at either end. */
+export const movedIndex = (length: number, from: number, offset: number): number =>
+  Math.min(Math.max(from + offset, 0), length - 1);

@@ -11,7 +11,7 @@ import { Plus } from "lucide-react";
 import { $getNearestNodeFromDOMNode, getNearestEditorFromDOMNode, type LexicalEditor } from "lexical";
 import { contentEditableRef$, useCellValue, usePublisher } from "@mdxeditor/editor";
 import { isInlineRoot } from "@/client/lib/editor-content";
-import { insertTarget$ } from "./insert-menu";
+import { insertTarget$ } from "@/client/components/editors/insert-menu";
 
 interface HoveredBlock {
   editor: LexicalEditor;

@@ -39,7 +39,7 @@ import {
   CommandList,
 } from "@/client/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/client/components/ui/dialog";
-import { BLOCK_ICONS, HEADING_ICONS } from "./block-icons";
+import { BLOCK_ICONS, HEADING_ICONS } from "@/client/components/editors/block-icons";
 
 /** Where the open insert menu inserts, or `null` while it is closed. */
 export const insertTarget$ = Cell<InsertTarget | null>(null);

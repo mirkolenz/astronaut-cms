@@ -25,9 +25,9 @@ import {
   type ChildPath,
 } from "@/client/lib/component-tree";
 import { blockActions } from "@/client/lib/block-editing";
-import { selectBlock, useIsSelected, type BlockNode, type Crumb } from "@/client/stores/inspector-store";
+import { select, useIsSelected, type BlockNode, type Crumb } from "@/client/stores/inspector-store";
 import { useAssetUrl } from "@/client/queries/use-media";
-import { BlockMenu, ChildListControls, MissingProps } from "./block-controls";
+import { BlockMenu, ChildListControls, MissingProps } from "@/client/components/editors/block-controls";
 
 /** The components enclosing a nested editor, for the breadcrumbs of those written in it. */
 const TrailContext = createContext<readonly Crumb[]>([]);
@@ -58,7 +58,7 @@ export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
   // which a nested editor claims for itself. Without one, the component is
   // selected instead, so its props can be filled in right away.
   useEffect(() => {
-    if (!hasSlot) focusEmitter.subscribe(() => selectBlock({ ...node, path: [], trail }));
+    if (!hasSlot) focusEmitter.subscribe(() => select({ ...node, path: [], trail }));
   }, [focusEmitter, hasSlot, node, trail]);
 
   if (mdastNode.type === "mdxJsxTextElement") {
@@ -93,8 +93,8 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
   const Icon = def?.icon;
   const inner = [...crumbs, { label: summary ?? label, selection: { ...block, trail: outer } }];
 
-  const select = (event: SyntheticEvent<HTMLElement>) => {
-    if (ownsEvent(event)) selectBlock({ ...block, trail: outer });
+  const claim = (event: SyntheticEvent<HTMLElement>) => {
+    if (ownsEvent(event)) select({ ...block, trail: outer });
   };
 
   useEffect(() => {
@@ -107,8 +107,8 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
       data-cms-block
       // Focused, the body editor gives it the clipboard and delete keys.
       tabIndex={-1}
-      onClickCapture={select}
-      onFocusCapture={select}
+      onClickCapture={claim}
+      onFocusCapture={claim}
       className={cn(
         "rounded-md border bg-card outline-none transition-[border-color,box-shadow]",
         selected ? "border-ring ring-3 ring-ring/30" : "border-border hover:border-ring/60",
@@ -212,16 +212,16 @@ function InlineBlock({
   const summary = summaryOf(def, element);
   const Icon = def?.icon;
 
-  const select = (event: SyntheticEvent<HTMLElement>) => {
-    if (ownsEvent(event)) selectBlock({ ...block, trail });
+  const claim = (event: SyntheticEvent<HTMLElement>) => {
+    if (ownsEvent(event)) select({ ...block, trail });
   };
 
   return (
     <span
       data-cms-block
       tabIndex={-1}
-      onClickCapture={select}
-      onFocusCapture={select}
+      onClickCapture={claim}
+      onFocusCapture={claim}
       className={cn(
         "not-prose inline-flex max-w-full items-baseline gap-1 rounded border bg-card px-1.5 align-baseline outline-none",
         selected ? "border-ring ring-2 ring-ring/30" : "border-border",

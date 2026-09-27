@@ -16,3 +16,12 @@ export function stripMediaPrefix(path: string, mediaDirectory: string): string |
 
   return rel.startsWith("..") ? null : rel;
 }
+
+/** `name`, or the first of `name-2`, `name-3` and so on that is not taken. */
+export function uniqueName(name: string, taken: (candidate: string) => boolean): string {
+  let candidate = name;
+
+  for (let count = 2; taken(candidate); count++) candidate = `${name}-${count}`;
+
+  return candidate;
+}

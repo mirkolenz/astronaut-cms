@@ -1,6 +1,7 @@
 import mime from "mime/lite";
 import { dirname, extname, relative } from "pathe";
 import { assetKey } from "./asset-path.ts";
+import { uniqueName } from "./paths.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
 import type { ResolvedImageOptimization } from "../integration/types.ts";
 
@@ -275,13 +276,8 @@ export function markdownImageUrl(
  */
 export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): string {
   const ext = extname(path);
-  const stem = path.slice(0, path.length - ext.length);
 
-  for (let n = 1; ; n++) {
-    const candidate = n === 1 ? path : `${stem}-${n}${ext}`;
-
-    if (!taken.has(candidate)) return candidate;
-  }
+  return uniqueName(path.slice(0, path.length - ext.length), (stem) => taken.has(`${stem}${ext}`)) + ext;
 }
 
 /** A bucket's S3 API: where requests go, and the region they are signed for. */

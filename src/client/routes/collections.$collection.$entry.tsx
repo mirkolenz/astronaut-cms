@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -9,11 +9,20 @@ import {
   useRenameEntry,
   useDuplicateEntry,
 } from "@/client/queries/use-entries";
-import { FieldList } from "@/client/components/editors/field-renderer";
+import { EntryFields } from "@/client/components/editors/field-inspector";
 import { objectShape } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { MdxEditor, type MdxEditorHandle } from "@/client/components/editors/mdx-editor";
 import { InspectorPanel } from "@/client/components/editors/component-inspector";
+import { HistoryControls } from "@/client/components/editors/history-controls";
+import {
+  clearHistory,
+  getForm,
+  markSaved,
+  openForm,
+  resetForms,
+  useFormDirty,
+} from "@/client/stores/form-store";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
 import { EntryIdDialog } from "@/client/components/entry-id-dialog";
@@ -26,9 +35,7 @@ import { baseName } from "@/client/lib/entry-tree";
 import { splitLocale } from "@/shared/i18n";
 import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { TranslationSwitcher } from "@/client/components/translation-switcher";
-import { ChevronRight } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
 import config from "@/client/lib/config";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 import { Skeleton } from "@/client/components/ui/skeleton";
@@ -61,9 +68,8 @@ function EntryEditor() {
   const meta = config.collections[collection];
   const shape = objectShape(meta?.schema);
   const format = entry?.format ?? newFormat;
-  const [formData, setFormData] = useState<Record<string, unknown>>(() =>
-    isNew ? schemaDefaults(shape) : {},
-  );
+  const form = `${collection}/${entryId}`;
+  const label = baseName(entryId);
   const [editBody, setEditBody] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRename, setShowRename] = useState(false);
@@ -74,24 +80,29 @@ function EntryEditor() {
   const i18n = useCollectionI18n(entries);
   const { locale: entryLocale, slug } = splitLocale(entryId, i18n?.locales ?? []);
 
+  const [bodyDirty, setBodyDirty] = useState(false);
+  const formDirty = useFormDirty(form);
   // A draft has nothing saved yet, so it starts dirty: Save is what creates it.
-  const [isDirty, setIsDirty] = useState(isNew);
+  const isDirty = isNew || formDirty || bodyDirty;
   const baselineVersion = useRef<string | undefined>(undefined);
+
+  // The fields and their history start over with each entry.
+  useEffect(() => () => resetForms(), [form]);
+
+  useEffect(() => {
+    if (isNew) openForm(form, { values: schemaDefaults(shape), saved: null, shape: shape ?? {}, label });
+  }, [form, isNew, shape, label]);
 
   useEffect(() => {
     if (entry && !isDirty) {
-      setFormData(entry.data);
+      openForm(form, { values: entry.data, saved: entry.data, shape: shape ?? {}, label });
       setEditBody(entry.body);
       baselineVersion.current = entry.version;
     }
-  }, [entry, isDirty]);
+  }, [entry, isDirty, form, shape, label]);
 
+  // Leaving the page drops the history, so unsaved changes are confirmed first.
   const blocker = useUnsavedChangesBlocker(isDirty);
-
-  const handleFieldChange = useCallback((key: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    setIsDirty(true);
-  }, []);
 
   const bodyRef = useRef<MdxEditorHandle>(null);
 
@@ -100,6 +111,7 @@ function EntryEditor() {
   saveRef.current = () => {
     // Read from the editor, which holds an edit inside a component before `editBody` does.
     const body = bodyRef.current?.flush() ?? editBody;
+    const data = getForm(form)?.values ?? {};
 
     if (!format || !isDirty) return;
 
@@ -108,7 +120,7 @@ function EntryEditor() {
       // discard one that landed while the editor was open. A new entry has none:
       // there is nothing yet for it to have been based on.
       {
-        data: formData,
+        data,
         body,
         format,
         createOnly: isNew,
@@ -117,7 +129,8 @@ function EntryEditor() {
       {
         onSuccess: ({ version }) => {
           baselineVersion.current = version;
-          setIsDirty(false);
+          markSaved(form, data);
+          setBodyDirty(false);
           toast(
             isNew ? t(($) => $.collection.entryCreated) : t(($) => $.entry.changesSaved),
             "success",
@@ -156,12 +169,13 @@ function EntryEditor() {
     }
 
     if (!entry) return;
-    setFormData(entry.data);
+    openForm(form, { values: entry.data, saved: entry.data, shape: shape ?? {}, label });
+    clearHistory();
     setEditBody(entry.body);
     baselineVersion.current = entry.version;
-    setIsDirty(false);
+    setBodyDirty(false);
     setEditorKey((k) => k + 1);
-  }, [collection, entry, isNew, navigate]);
+  }, [collection, entry, isNew, navigate, form, shape, label]);
 
   const handleDelete = () => {
     deleteMutation.mutate(
@@ -216,10 +230,10 @@ function EntryEditor() {
 
   const handleBodyChange = useCallback((value: string) => {
     setEditBody(value);
-    setIsDirty(true);
+    setBodyDirty(true);
   }, []);
 
-  const markDirty = useCallback(() => setIsDirty(true), []);
+  const markDirty = useCallback(() => setBodyDirty(true), []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -279,6 +293,7 @@ function EntryEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <HistoryControls />
             <Button variant="outline" onClick={handleCancel} disabled={(!isNew && !isDirty) || saveMutation.isPending}>
               {t(($) => $.common.cancel)}
             </Button>
@@ -314,28 +329,23 @@ function EntryEditor() {
         </div>
 
         <div inert={saveMutation.isPending} className="flex min-h-0 flex-1 gap-6">
-          <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto">
+          <div className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto">
             {shape && (
-              <CollapsibleSection title={t(($) => $.entry.fields)}>
-                <div className="space-y-3">
-                  <FieldList shape={shape} values={formData} onChange={handleFieldChange} />
-                </div>
-              </CollapsibleSection>
+              <EntryFields form={form} />
             )}
             {isContentFormat && (
-              <CollapsibleSection title={t(($) => $.entry.body)} defaultOpen>
-                <MdxEditor
-                  key={editorKey}
-                  ref={bodyRef}
-                  markdown={editBody}
-                  onChange={handleBodyChange}
-                  onDirty={markDirty}
-                  format={format as "md" | "mdx"}
-                />
-              </CollapsibleSection>
+              <MdxEditor
+                // Each entry has an editor, and a history, of its own.
+                key={`${form}/${editorKey}`}
+                ref={bodyRef}
+                markdown={editBody}
+                onChange={handleBodyChange}
+                onDirty={markDirty}
+                format={format as "md" | "mdx"}
+              />
             )}
           </div>
-          {isContentFormat && <InspectorPanel />}
+          <InspectorPanel />
         </div>
 
         <ConfirmDialog
@@ -376,25 +386,5 @@ function EntryEditor() {
         <UnsavedChangesDialog blocker={blocker} />
       </div>
     </EntryContextProvider>
-  );
-}
-
-function CollapsibleSection({
-  title,
-  defaultOpen = true,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Collapsible defaultOpen={defaultOpen}>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none">
-        <ChevronRight className="size-4 transition-transform group-data-[state=open]:rotate-90" />
-        {title}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
-    </Collapsible>
   );
 }

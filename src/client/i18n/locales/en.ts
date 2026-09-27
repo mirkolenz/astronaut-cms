@@ -16,6 +16,8 @@ const en = {
     create: "Create",
     signOut: "Sign out",
     overwrite: "Overwrite",
+    undo: "Undo",
+    redo: "Redo",
   },
   layout: {
     appName: "Astronaut CMS",
@@ -46,8 +48,6 @@ const en = {
     entryDeleted: "Entry deleted",
   },
   entry: {
-    fields: "Fields",
-    body: "Body",
     unsavedChanges: "Unsaved changes",
     unsavedChangesMessage: "You have unsaved changes. Do you want to discard them and leave?",
     deleteEntry: "Delete entry",
@@ -170,12 +170,6 @@ const en = {
     setValue: "Set value",
     addItem: "Add item",
     add: "Add",
-    removeItem: "Remove item",
-    removeItemMessage:
-      "Are you sure you want to remove item {{index}}? This will discard all nested data.",
-    removeField: "Remove field",
-    removeFieldMessage:
-      'Are you sure you want to remove "{{key}}"? This will discard all nested data.',
     newKey: "New key",
     variant: "Variant",
     raw: "raw",
@@ -186,6 +180,7 @@ const en = {
     file: "file",
     selectFrom: "Select from {{collection}}",
     loading: "Loading...",
+    items: "Items: {{count}}",
     item: "Item {{index}}",
     required: "Required",
     choose: "Choose",

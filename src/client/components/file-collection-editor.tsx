@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ChevronUp, FileText, Trash2 } from "lucide-react";
 import { Card } from "@/client/components/ui/card";
@@ -12,7 +12,18 @@ import {
   useReorderFileEntries,
 } from "@/client/queries/use-entries";
 import { useWriteError } from "@/client/lib/write-error";
-import { FieldList } from "@/client/components/editors/field-renderer";
+import { EntryFields } from "@/client/components/editors/field-inspector";
+import { InspectorPanel } from "@/client/components/editors/component-inspector";
+import { HistoryControls } from "@/client/components/editors/history-controls";
+import {
+  closeForm,
+  getForm,
+  markSaved,
+  openForm,
+  resetForms,
+  useAnyFormDirty,
+  useFormDirty,
+} from "@/client/stores/form-store";
 import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { asEntryFormat, sortByIds, type EntryFormat } from "@/shared/types";
@@ -28,6 +39,8 @@ import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
 import config from "@/client/lib/config";
 import { Skeleton } from "@/client/components/ui/skeleton";
+
+const NO_FIELDS: Record<string, FieldSchema> = {};
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
@@ -56,21 +69,11 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   // A new entry is held here until its first save creates it, so an abandoned
   // one never lands in the file as an empty (schema-invalid) record.
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [dirtyEntries, setDirtyEntries] = useState<Set<string>>(new Set());
-  const blocker = useUnsavedChangesBlocker(dirtyEntries.size > 0);
+  // Leaving the page drops the history, so unsaved changes are confirmed first.
+  const blocker = useUnsavedChangesBlocker(useAnyFormDirty());
 
-  const onDirtyChange = useCallback((id: string, dirty: boolean) => {
-    setDirtyEntries((previous) => {
-      if (previous.has(id) === dirty) return previous;
-
-      const next = new Set(previous);
-
-      if (dirty) next.add(id);
-      else next.delete(id);
-
-      return next;
-    });
-  }, []);
+  // The entries and their history start over with each collection.
+  useEffect(() => () => resetForms(), [collection]);
 
   const sortedEntries = useMemo(() => entries && sortByIds(entries, sort), [entries, sort]);
 
@@ -134,88 +137,92 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {t(($) => $.collection.fileCollection)} &middot;{" "}
-              {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
-            </p>
+      <div className="flex min-h-0 flex-1 gap-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {t(($) => $.collection.fileCollection)} &middot;{" "}
+                {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <HistoryControls />
+              <Button onClick={() => setShowAddDialog(true)} disabled={draftId !== null}>
+                {t(($) => $.collection.addEntry)}
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => setShowAddDialog(true)} disabled={draftId !== null}>
-            {t(($) => $.collection.addEntry)}
-          </Button>
-        </div>
 
-        {(!sortedEntries || sortedEntries.length === 0) && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <FileText />
-              </EmptyMedia>
-              <EmptyTitle>{t(($) => $.collection.noEntries)}</EmptyTitle>
-            </EmptyHeader>
-          </Empty>
-        )}
-
-        <div className="space-y-2">
-          {sortedEntries?.map((entry, index) => (
-            <FileEntryCard
-              key={entry.id}
-              collection={collection}
-              entryId={entry.id}
-              schema={schema}
-              onDirtyChange={onDirtyChange}
-              expanded={expandedEntries.has(entry.id)}
-              onToggle={() => toggleEntry(entry.id)}
-              onDelete={(expectedVersion) => setDeleteTarget({ id: entry.id, expectedVersion })}
-              orderable={isOrderable}
-              onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
-              onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
-            />
-          ))}
-          {draftId && (
-            <FileEntryCard
-              key={`draft:${draftId}`}
-              collection={collection}
-              entryId={draftId}
-              schema={schema}
-              onDirtyChange={onDirtyChange}
-              format={format}
-              draft
-              expanded
-              onToggle={() => setDraftId(null)}
-              onDelete={() => setDraftId(null)}
-              onCreated={() => setDraftId(null)}
-              orderable={false}
-            />
+          {(!sortedEntries || sortedEntries.length === 0) && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileText />
+                </EmptyMedia>
+                <EmptyTitle>{t(($) => $.collection.noEntries)}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           )}
+
+          <div className="space-y-2">
+            {sortedEntries?.map((entry, index) => (
+              <FileEntryCard
+                key={entry.id}
+                collection={collection}
+                entryId={entry.id}
+                schema={schema}
+                expanded={expandedEntries.has(entry.id)}
+                onToggle={() => toggleEntry(entry.id)}
+                onDelete={(expectedVersion) => setDeleteTarget({ id: entry.id, expectedVersion })}
+                orderable={isOrderable}
+                onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
+                onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
+              />
+            ))}
+            {draftId && (
+              <FileEntryCard
+                key={`draft:${draftId}`}
+                collection={collection}
+                entryId={draftId}
+                schema={schema}
+                format={format}
+                draft
+                expanded
+                onToggle={() => setDraftId(null)}
+                onDelete={() => setDraftId(null)}
+                onCreated={() => setDraftId(null)}
+                orderable={false}
+              />
+            )}
+          </div>
+
+          <NewEntryDialog
+            open={showAddDialog}
+            collection={collection}
+            collectionType="data"
+            allowedFormats={[format]}
+            onSubmit={(id) => {
+              setShowAddDialog(false);
+              setDraftId(id);
+            }}
+            onCancel={() => setShowAddDialog(false)}
+          />
+
+          <ConfirmDialog
+            open={deleteTarget !== null}
+            title={t(($) => $.editors.removeEntry)}
+            message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget?.id ?? "" })}
+            confirmLabel={t(($) => $.common.remove)}
+            variant="danger"
+            onConfirm={handleDelete}
+            onCancel={() => setDeleteTarget(null)}
+          />
+
+          <UnsavedChangesDialog blocker={blocker} />
         </div>
-
-        <NewEntryDialog
-          open={showAddDialog}
-          collection={collection}
-          collectionType="data"
-          allowedFormats={[format]}
-          onSubmit={(id) => {
-            setShowAddDialog(false);
-            setDraftId(id);
-          }}
-          onCancel={() => setShowAddDialog(false)}
-        />
-
-        <ConfirmDialog
-          open={deleteTarget !== null}
-          title={t(($) => $.editors.removeEntry)}
-          message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget?.id ?? "" })}
-          confirmLabel={t(($) => $.common.remove)}
-          variant="danger"
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-
-        <UnsavedChangesDialog blocker={blocker} />
+        <InspectorPanel />
       </div>
     </EntryContextProvider>
   );
@@ -225,7 +232,6 @@ function FileEntryCard({
   collection,
   entryId,
   schema,
-  onDirtyChange,
   format,
   draft,
   expanded,
@@ -239,7 +245,6 @@ function FileEntryCard({
   collection: string;
   entryId: string;
   schema?: FieldSchema;
-  onDirtyChange: (id: string, dirty: boolean) => void;
   /** File format, needed for a draft that has nothing stored to read it from. */
   format?: EntryFormat;
   /** This entry does not exist yet; saving creates it. */
@@ -258,20 +263,18 @@ function FileEntryCard({
   });
   const saveMutation = useSaveEntry(collection, entryId);
   const writeError = useWriteError();
-  const [formData, setFormData] = useState<Record<string, unknown>>(() =>
-    draft ? schemaDefaults(objectShape(schema)) : {},
-  );
-  const [isDirty, setIsDirty] = useState(!!draft);
+  const shape = objectShape(schema) ?? NO_FIELDS;
+  const form = `${collection}/${draft ? "draft:" : ""}${entryId}`;
+  const isDirty = useFormDirty(form);
   const baselineVersion = useRef<string | undefined>(undefined);
   const baselineData = useRef<string | undefined>(undefined);
 
+  // A draft opens with the defaults, saved as nothing yet.
   useEffect(() => {
-    const dirtyKey = draft ? `draft:${entryId}` : entryId;
+    if (draft) openForm(form, { values: schemaDefaults(shape), saved: null, shape, label: entryId });
 
-    onDirtyChange(dirtyKey, isDirty);
-
-    return () => onDirtyChange(dirtyKey, false);
-  }, [draft, entryId, isDirty, onDirtyChange]);
+    return () => closeForm(form);
+  }, [form, draft, shape, entryId]);
 
   useEffect(() => {
     if (!entry) return;
@@ -279,7 +282,7 @@ function FileEntryCard({
     const serialized = JSON.stringify(entry.data);
 
     if (!isDirty) {
-      setFormData(entry.data);
+      openForm(form, { values: entry.data, saved: entry.data, shape, label: entryId });
       baselineData.current = serialized;
       baselineVersion.current = entry.version;
 
@@ -289,15 +292,11 @@ function FileEntryCard({
     // A sibling changed the container, but this entry still matches the data
     // the edit began from. The next save may use the container's new version.
     if (serialized === baselineData.current) baselineVersion.current = entry.version;
-  }, [entry, isDirty]);
-
-  const handleFieldChange = useCallback((key: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    setIsDirty(true);
-  }, []);
+  }, [entry, isDirty, form, shape, entryId]);
 
   const handleSave = () => {
     const entryFormat = entry?.format ?? format;
+    const data = getForm(form)?.values ?? {};
 
     if (!entryFormat) return;
 
@@ -305,7 +304,7 @@ function FileEntryCard({
       // In a file collection this is the container's version, which every entry
       // in it shares, so the guard covers a sibling saved while this one was open.
       {
-        data: formData,
+        data,
         body: "",
         format: entryFormat,
         createOnly: !!draft,
@@ -314,7 +313,7 @@ function FileEntryCard({
       {
         onSuccess: ({ version }) => {
           baselineVersion.current = version;
-          setIsDirty(false);
+          markSaved(form, data);
           toast(draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved), "success");
           onCreated?.();
         },
@@ -322,8 +321,6 @@ function FileEntryCard({
       },
     );
   };
-
-  const shape = objectShape(schema) ?? {};
 
   return (
     <Card className="gap-0 py-0">
@@ -383,7 +380,7 @@ function FileEntryCard({
             <Skeleton className="h-24" />
           ) : (
             <div className="space-y-3">
-              <FieldList shape={shape} values={formData} onChange={handleFieldChange} />
+              <EntryFields form={form} />
               {Object.keys(shape).length === 0 && (
                 <p className="text-sm text-muted-foreground">{t(($) => $.entry.noSchemaShort)}</p>
               )}

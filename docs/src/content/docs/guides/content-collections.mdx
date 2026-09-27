@@ -136,7 +136,15 @@ The CMS admin panel generates appropriate form controls based on the Zod schema 
 | `file()`                  | File picker (from media library)  |
 | `reference("collection")` | Reference dropdown                |
 
-Arrays of objects list their items collapsed under a summary and can be reordered by dragging.
+The fields of an entry are listed above its body, each label next to its control once the page is wide enough.
+An object is shown in place as a framed section, and an optional field left empty is left out of the file.
+
+### Lists of Objects
+
+A list or record of objects is shown as one row that names its items, and clicking it opens them in the panel next to the content.
+There, the items are reordered by dragging and added at the end, and clicking one opens its fields, with breadcrumbs leading back.
+An open item has the same menu as a component, to move, duplicate, copy, cut or delete it.
+The clipboard holds an item as JSON, so pasting takes it into any list its fields fit.
 
 ### Labels and Groups
 
@@ -177,6 +185,12 @@ Dragging a row reorders the body, and clicking one jumps to its block.
 To move a component within the body or to another entry, copy or cut it from its menu, or with the keyboard while it is selected, and paste it where it belongs.
 The clipboard holds the component as MDX, so it can also be pasted into the source view or another editor.
 Pasting checks where the content goes: a structured child only fits into its parent, and a line of text only takes inline components.
+
+### Undo
+
+Undo and redo, from the buttons next to Save or with the usual keys, take back the latest change of the page, whether in its fields, its body or the props of a component.
+Typing into one field in quick succession is one step.
+The history starts over with each page, so leaving a page with unsaved changes asks first.
 
 ## Supported Content Formats
 
