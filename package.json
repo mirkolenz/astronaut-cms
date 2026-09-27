@@ -32,6 +32,11 @@
       "source": "./src/runtime/index.ts",
       "default": "./dist/runtime.js"
     },
+    "./ai-endpoint": {
+      "types": "./dist/runtime/ai-endpoint.d.ts",
+      "source": "./src/runtime/ai-endpoint.ts",
+      "default": "./dist/ai-endpoint.js"
+    },
     "./client": {
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
@@ -51,28 +56,40 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2",
+    "@ai-sdk/react": "^3",
     "@gitbeaker/rest": "^43",
     "@mdxeditor/editor": "^4",
     "@octokit/rest": "^22",
+    "@streamdown/cjk": "^1",
+    "@streamdown/code": "^1",
+    "@streamdown/math": "^1",
+    "@streamdown/mermaid": "^1",
     "@tailwindcss/typography": "^0.5",
     "@tailwindcss/vite": "^4",
     "@tanstack/react-query": "^5",
     "@tanstack/react-router": "^1",
+    "ai": "^6",
     "class-variance-authority": "^0.7",
     "clsx": "^2",
+    "cmdk": "^1",
     "es-module-lexer": "^2",
     "i18next": "^26",
     "jiti": "^2",
     "lucide-react": "^1",
+    "nanoid": "^5",
     "openid-client": "^6",
     "pathe": "^2",
     "radix-ui": "^1",
     "react-i18next": "^17",
+    "shiki": "^4",
     "smol-toml": "^1",
     "sonner": "^2",
+    "streamdown": "^2",
     "tailwind-merge": "^3",
     "tailwind-scrollbar-hide": "^4",
     "tailwindcss": "^4",
+    "use-stick-to-bottom": "^1",
     "yaml": "^2",
     "zustand": "^5"
   },

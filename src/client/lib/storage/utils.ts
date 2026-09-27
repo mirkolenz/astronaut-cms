@@ -1,8 +1,12 @@
 import { relative } from "pathe";
 import { useAuthStore } from "@client/stores/auth-store";
 
+export function tryGetToken(): string | undefined {
+  return useAuthStore.getState().session?.accessToken;
+}
+
 export function getToken(): string {
-  const token = useAuthStore.getState().session?.accessToken;
+  const token = tryGetToken();
   if (!token) throw new Error("Not authenticated");
   return token;
 }

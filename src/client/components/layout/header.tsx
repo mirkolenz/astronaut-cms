@@ -1,10 +1,15 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { Bot } from "lucide-react";
 import { toLabel } from "@client/lib/to-label";
+import { Button } from "@client/components/ui/button";
+import { aiEnabled } from "@client/lib/ai/config";
+import { useAiPanelStore } from "@client/stores/ai-panel-store";
 
 export function Header() {
   const { t } = useTranslation();
   const params = useParams({ strict: false });
+  const toggleAi = useAiPanelStore((state) => state.toggle);
 
   const segments: { label: string; to?: string; params?: Record<string, string> }[] = [
     { label: t($ => $.layout.breadcrumbRoot), to: "/" },
@@ -40,6 +45,18 @@ export function Header() {
           </span>
         ))}
       </nav>
+      {aiEnabled && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto"
+          onClick={toggleAi}
+          aria-label={t($ => $.ai.open)}
+          title={t($ => $.ai.open)}
+        >
+          <Bot className="size-4" />
+        </Button>
+      )}
     </header>
   );
 }

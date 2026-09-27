@@ -149,6 +149,14 @@ const de: TranslationShape<typeof en> = {
     loading: "Laden...",
     ref: "Ref: {{collection}}",
   },
+  ai: {
+    title: "Assistent",
+    open: "KI-Assistent",
+    close: "Assistent schließen",
+    emptyTitle: "Wie kann ich helfen?",
+    emptyDescription: "Bitte mich, Inhalte zu erstellen, zu bearbeiten oder zu ordnen.",
+    placeholder: "Bitte den Assistenten, deine Inhalte zu ändern...",
+  },
 } as const;
 
 export default de;

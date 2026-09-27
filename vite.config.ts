@@ -40,6 +40,7 @@ export default defineConfig({
         config: "src/config.ts",
         client: "src/client/index.tsx",
         runtime: "src/runtime/index.ts",
+        "ai-endpoint": "src/runtime/ai-endpoint.ts",
         internal: "src/internal/index.ts",
       },
       formats: ["es"],

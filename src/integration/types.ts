@@ -22,6 +22,48 @@ export interface CmsConfig {
    * - Vercel: `https://my-site-git-{slug}-team.vercel.app`
    */
   previewUrl?: string;
+  /** Agentic AI assistant configuration */
+  ai?: AiConfig;
+}
+
+/**
+ * AI gateway, selected statically in the config. Only non-secret structure lives
+ * here. Credentials come exclusively from the environment, so an API key can
+ * never be committed:
+ *
+ * - `netlify` / `vercel`: the platform injects credentials automatically, so the
+ *   bare `{ type }` is enough on those hosts.
+ * - `cloudflare`: provide `accountId` (and optionally `gatewayId`). A Cloudflare
+ *   API token with AI Gateway permission comes from the `CLOUDFLARE_API_TOKEN`
+ *   environment variable.
+ * - `custom`: any OpenAI-compatible gateway via `baseUrl`. The key comes from the
+ *   `ASTRONAUT_CMS_AI_API_KEY` environment variable.
+ */
+export type AiGateway =
+  | { type: "netlify" }
+  | { type: "vercel" }
+  | { type: "cloudflare"; accountId: string; gatewayId?: string }
+  | { type: "custom"; baseUrl: string };
+
+/**
+ * Agentic AI assistant. The browser runs the agent loop and executes content
+ * tools with the user's Git token; only raw model inference is proxied through
+ * an injected, stateless relay that adds the gateway credential and gates access
+ * by re-validating that same token. Everything is declared statically here.
+ */
+export interface AiConfig {
+  /** Enable the assistant and inject the relay route (default: false). */
+  enabled?: boolean;
+  /** AI gateway and (optional) credentials. See {@link AiGateway}. */
+  gateway: AiGateway;
+  /**
+   * Gateway-qualified model ids the assistant may use (e.g.
+   * `"anthropic/claude-opus-4.7"`). The first entry is the default; the relay
+   * rejects any model not in this list.
+   */
+  models: string[];
+  /** Maximum model/tool round-trips per turn (default: 24). */
+  maxSteps?: number;
 }
 
 export type SupportedLocale = "en" | "de";
@@ -83,6 +125,10 @@ export interface CmsClientConfig {
   mediaDirectory: string;
   locale: SupportedLocale;
   previewUrl?: string;
+  ai?: {
+    models: string[];
+    maxSteps: number;
+  };
   github?: {
     repo: string;
     branch: string;

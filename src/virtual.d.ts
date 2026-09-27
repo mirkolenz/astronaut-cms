@@ -9,6 +9,11 @@ declare module "virtual:astronaut-cms/config" {
   export default config;
 }
 
+declare module "virtual:astronaut-cms/ai-server" {
+  const gateway: import("./integration/types").AiGateway | null;
+  export default gateway;
+}
+
 declare module "virtual:astronaut-cms/assets" {
   /** Lazy media-directory glob maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
   export const images: Record<string, () => Promise<import("astro").ImageMetadata>>;

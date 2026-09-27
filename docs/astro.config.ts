@@ -44,6 +44,16 @@ export default defineConfig({
         branch: "main",
         clientId: "Ov23liO6YlidLM2gkKBv",
       },
+      // Enable the dev AI assistant only when AI_GATEWAY_URL points at a local
+      // OpenAI-compatible server (e.g. llama.cpp's `llama-server`). AI_GATEWAY_MODEL
+      // selects the model id it serves.
+      ...(process.env.AI_GATEWAY_URL && {
+        ai: {
+          enabled: true,
+          gateway: { type: "custom", baseUrl: process.env.AI_GATEWAY_URL },
+          models: [process.env.AI_GATEWAY_MODEL ?? "local"],
+        },
+      }),
     }),
   ],
 });

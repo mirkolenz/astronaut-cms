@@ -5,6 +5,7 @@ import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
+import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { createDevMiddleware } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
@@ -148,6 +149,23 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.info(
             `Admin panel disabled for "${command}" with local storage (only available via "astro dev")`,
           );
+        }
+
+        if (config.ai?.enabled) {
+          if (!config.ai.models?.length) {
+            throw new Error("AI assistant: 'models' must list at least one gateway model id.");
+          }
+
+          if (!config.ai.gateway) {
+            throw new Error('AI assistant: \'gateway\' is required (e.g. { type: "netlify" }).');
+          }
+
+          injectRoute({
+            pattern: AI_CHAT_COMPLETIONS_PATTERN,
+            entrypoint: "astronaut-cms/ai-endpoint",
+            prerender: false,
+          });
+          logger.info(`AI assistant relay will be available at ${AI_CHAT_COMPLETIONS_PATTERN}`);
         }
       },
 

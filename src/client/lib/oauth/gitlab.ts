@@ -1,10 +1,8 @@
 import * as client from "openid-client";
-import { Gitlab } from "@gitbeaker/rest";
+
+export { verifyGitLabWriteAccess as verifyProjectWriteAccess } from "@shared/access";
 
 const PKCE_SESSION_KEY = "astronaut-cms:gitlab-pkce";
-
-// GitLab access levels: 30 = Developer (can push to non-protected branches and open MRs).
-const MIN_WRITE_ACCESS_LEVEL = 30;
 
 interface PkceState {
   codeVerifier: string;
@@ -70,20 +68,6 @@ export async function startGitLabLogin(
   });
 
   window.location.href = authUrl.href;
-}
-
-export async function verifyProjectWriteAccess(
-  token: string,
-  project: string,
-  instanceUrl: string,
-): Promise<void> {
-  const api = new Gitlab({ host: instanceUrl, oauthToken: token });
-  const data = await api.Projects.show(project);
-  const projectAccess = data.permissions?.project_access?.access_level ?? 0;
-  const groupAccess = data.permissions?.group_access?.access_level ?? 0;
-  if (Math.max(projectAccess, groupAccess) < MIN_WRITE_ACCESS_LEVEL) {
-    throw new Error(`You need write access to ${project} to use this CMS.`);
-  }
 }
 
 export async function handleGitLabCallback(

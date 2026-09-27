@@ -143,6 +143,14 @@ const en = {
     loading: "Loading...",
     ref: "ref: {{collection}}",
   },
+  ai: {
+    title: "Assistant",
+    open: "AI assistant",
+    close: "Close assistant",
+    emptyTitle: "How can I help?",
+    emptyDescription: "Ask me to create, edit, or organize your content.",
+    placeholder: "Ask the assistant to change your content...",
+  },
 } as const;
 
 export default en;

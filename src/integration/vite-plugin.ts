@@ -45,6 +45,13 @@ export function cmsVitePlugin(
     mediaDirectory: config.media?.directory ?? "src/assets",
     locale: config.locale ?? "en",
     previewUrl: config.previewUrl,
+    ...(config.ai?.enabled
+      && config.ai.models?.length && {
+        ai: {
+          models: config.ai.models,
+          maxSteps: config.ai.maxSteps ?? 24,
+        },
+      }),
     ...(storage.type === "github" && {
       github: {
         repo: storage.repo,
@@ -67,8 +74,13 @@ export function cmsVitePlugin(
     }),
   };
 
+  // Server-only: the gateway config (and any credentials) is imported solely by
+  // the relay route, so it is bundled into the SSR output and never the client.
+  const aiGateway = config.ai?.enabled ? (config.ai.gateway ?? null) : null;
+
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
+    "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiGateway)};`,
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections ?? {})};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(clientConfig.mediaDirectory),

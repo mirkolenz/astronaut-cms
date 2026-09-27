@@ -1,0 +1,164 @@
+---
+title: AI Assistant
+description: Enable an agentic AI assistant that creates and edits content from a chat interface.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+The AI assistant adds a chat panel to the admin where you can ask an agent to create, edit, reorder, or remove content.
+The agent runs entirely in the browser and calls the same storage backend the UI uses, so it inherits exactly your permissions and routes every change through your draft branch and pull/merge request.
+
+## How it works
+
+Only raw model inference leaves the browser.
+The agent loop, the content tools, and the chat UI all run client-side, so the assistant keeps the CMS fully client-side in spirit.
+
+Model requests go to a small relay route that the integration injects at `/_astronaut-cms/ai/chat/completions`.
+The relay holds no secret of its own.
+It re-validates the caller's existing GitHub or GitLab token against your configured repository (the same write-access check the CMS already performs) and then forwards the request to your AI gateway using credentials the hosting platform injects.
+
+This means no new secret is added to your app, and access to the models is gated by your existing login.
+
+## Requirements
+
+The relay is an on-demand route, so the consuming site needs an Astro server adapter (`@astrojs/netlify`, `@astrojs/vercel`, or `@astrojs/cloudflare`).
+You configure it statically in `astro.config.ts`, and the rest of your site can stay static.
+
+## Runtime and limits
+
+The relay is a pure Fetch-API streaming proxy with negligible CPU use, so its cost depends on where it runs, not on how long the model takes.
+Because the agent loop runs in the browser, each relay call handles a single model round-trip, never the whole multi-step conversation, so its duration is just one response.
+
+- **Cloudflare**: runs on Workers (the edge). Billed on CPU time, which excludes time spent waiting on the model, so a long generation is effectively free and there is no duration cap to worry about.
+- **Vercel**: runs as a serverless function. The default max duration (300s) comfortably covers a single model response.
+- **Netlify**: runs as a serverless function, capped at 10s on the free plan. Most edits finish well within that, but one very long single-shot generation can hit it. Raise it with a paid plan, or keep per-step output modest.
+
+The Astro adapters run on-demand routes on the edge only for Cloudflare; on Netlify and Vercel they run in serverless functions (edge is available for middleware only), which is why the durations above differ.
+
+## Enable it
+
+Everything is declared statically in the integration config: the gateway, the model list, and (via your adapter) the host.
+There is nothing to set at deploy or run time.
+The first model is the default, and the relay rejects any model not in the list.
+
+<Tabs>
+  <TabItem label="Netlify">
+    ```ts title="astro.config.ts"
+    import netlify from "@astrojs/netlify";
+
+    export default defineConfig({
+      adapter: netlify(),
+      integrations: [
+        cms({
+          storage: { type: "github", repo: "owner/repo", clientId: "..." },
+          ai: {
+            enabled: true,
+            gateway: { type: "netlify" },
+            models: ["anthropic/claude-opus-4.7", "openai/gpt-5.2"],
+          },
+        }),
+      ],
+    });
+    ```
+  </TabItem>
+  <TabItem label="Vercel">
+    ```ts title="astro.config.ts"
+    import vercel from "@astrojs/vercel";
+
+    export default defineConfig({
+      adapter: vercel(),
+      integrations: [
+        cms({
+          storage: { type: "github", repo: "owner/repo", clientId: "..." },
+          ai: {
+            enabled: true,
+            gateway: { type: "vercel" },
+            models: ["anthropic/claude-opus-4.7"],
+          },
+        }),
+      ],
+    });
+    ```
+  </TabItem>
+  <TabItem label="Cloudflare">
+    ```ts title="astro.config.ts"
+    import cloudflare from "@astrojs/cloudflare";
+
+    export default defineConfig({
+      adapter: cloudflare(),
+      integrations: [
+        cms({
+          storage: { type: "github", repo: "owner/repo", clientId: "..." },
+          ai: {
+            enabled: true,
+            // A Cloudflare API token with AI Gateway permission comes from the
+            // CLOUDFLARE_API_TOKEN environment variable.
+            gateway: { type: "cloudflare", accountId: "..." },
+            models: ["anthropic/claude-opus-4.7"],
+          },
+        }),
+      ],
+    });
+    ```
+  </TabItem>
+  <TabItem label="Custom">
+    ```ts title="astro.config.ts"
+    cms({
+      storage: { type: "github", repo: "owner/repo", clientId: "..." },
+      ai: {
+        enabled: true,
+        // Any OpenAI-compatible gateway. The key comes from the
+        // ASTRONAUT_CMS_AI_API_KEY environment variable.
+        gateway: { type: "custom", baseUrl: "https://your-gateway.example.com/v1" },
+        models: ["anthropic/claude-opus-4.7"],
+      },
+    })
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="note">
+  With `netlify` and `vercel`, credentials are injected by the platform, so no secret appears in your config or environment.
+  Configure unified billing on the platform so all model usage lands on a single invoice.
+</Aside>
+
+<Aside type="note">
+  The gateway config holds no secrets, so an API key can never be committed.
+  Credentials come only from the environment: `CLOUDFLARE_API_TOKEN` for Cloudflare, `ASTRONAUT_CMS_AI_API_KEY` for a custom gateway, and automatic injection for Netlify and Vercel.
+</Aside>
+
+## Safety
+
+Every change the agent makes is written to your per-user draft branch (`cms/<username>`) and surfaces as a pull or merge request, just like edits made by hand.
+Destructive actions (delete, publish, discard) pause and ask you to confirm in a dialog before they run.
+
+<Aside type="caution">
+  Any user with write access to the repository can use the assistant, and its usage counts against your unified bill.
+  Keep the `models` list small and set per-user rate or credit limits in your gateway dashboard.
+</Aside>
+
+## Local development
+
+During `astro dev` the CMS uses local storage and the relay skips token verification, so you can try the assistant without a provider login.
+For `netlify` and `vercel` gateways, run the dev server through the platform CLI (`netlify dev` or `vercel dev`) so credentials are injected; `cloudflare` and `custom` gateways work directly from the config.
+
+### Testing against a local model
+
+The `custom` gateway points at any OpenAI-compatible server, so you can develop entirely offline against [llama.cpp](https://github.com/ggml-org/llama.cpp).
+Start `llama-server`, which exposes `/v1/chat/completions` on port 8080, then enable the assistant with a matching `custom` gateway:
+
+```sh
+llama-server -hf ggml-org/Qwen3-4B-GGUF --jinja --port 8080
+```
+
+```ts title="astro.config.ts"
+ai: {
+  enabled: true,
+  gateway: { type: "custom", baseUrl: "http://localhost:8080/v1" },
+  models: ["local"],
+}
+```
+
+No secret is needed: local storage skips token verification and `llama-server` requires no API key.
+The model id is arbitrary because `llama-server` serves whichever model it loaded, so any value in `models` works as long as the agent picks it.
+Use `--jinja` so the server applies the model's tool-calling chat template, which the agent relies on.
