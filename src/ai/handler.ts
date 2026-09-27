@@ -16,6 +16,9 @@ import { RateLimiter } from "../shared/rate-limit.ts";
 import { getSecret } from "astro:env/server";
 import { joinUrl } from "../shared/url.ts";
 import { errorMessage } from "../shared/errors.ts";
+import { z } from "zod";
+
+const requestBodySchema = z.record(z.string(), z.unknown());
 
 /** The `Authorization` header for a gateway credential, or none when it has none. */
 const bearer = (token: string | undefined): Record<string, string> =>
@@ -134,7 +137,7 @@ export async function relay(options: RelayRequest): Promise<Response> {
     throw err;
   }
 
-  if (!response.body) {
+  if (!response.ok || !response.body) {
     slot.release();
 
     return response;
@@ -142,24 +145,54 @@ export async function relay(options: RelayRequest): Promise<Response> {
 
   // A streaming answer occupies the gateway until its last token, which is what
   // the concurrency limit is meant to bound — so the slot is held until the body
-  // ends, not until its headers arrive.
-  return new Response(
-    response.body.pipeThrough(new TransformStream({ flush: slot.release })),
-    response,
-  );
+  // ends or is cancelled, not until its headers arrive.
+  const reader = response.body.getReader();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          slot.release();
+          controller.close();
+
+          return;
+        }
+
+        controller.enqueue(value);
+      } catch (err) {
+        slot.release();
+        controller.error(err);
+      }
+    },
+    async cancel(reason) {
+      slot.release();
+      await reader.cancel(reason);
+    },
+  });
+
+  return new Response(body, response);
 }
 
 async function forward({ request, ai, models, fail }: RelayRequest): Promise<Response> {
   const { limits } = ai;
 
-  let body: Record<string, unknown>;
+  let parsed: unknown;
   try {
-    body = JSON.parse(await readBody(request, limits.maxRequestBytes)) as Record<string, unknown>;
+    parsed = JSON.parse(await readBody(request, limits.maxRequestBytes));
   } catch (err) {
     if (err instanceof BodyTooLargeError) return fail(err.message, 413);
 
     return fail("Malformed request body.", 400);
   }
+
+  const result = requestBodySchema.safeParse(parsed);
+
+  if (!result.success) {
+    return fail("A request object is required.", 400);
+  }
+
+  const body = result.data;
 
   const model = body.model;
 

@@ -127,6 +127,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatRevision = useRef(0);
 
   const addFiles = (list: FileList | File[]) => {
     const incoming = [...list].map((file) => ({ id: nanoid(), file, save: false }));
@@ -158,6 +159,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
 
   const handleSubmit = async (message: PromptInputMessage) => {
     const text = message.text?.trim() ?? "";
+    const revision = chatRevision.current;
 
     if (!text && attachments.length === 0) return;
 
@@ -167,11 +169,15 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     try {
       prepared = await prepareMessage(text, attachments);
     } catch (error) {
+      if (revision !== chatRevision.current) return;
+
       toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
       throw error;
     } finally {
       setPreparing(false);
     }
+
+    if (revision !== chatRevision.current) return;
 
     setAttachments([]);
     void sendMessage({ text: prepared.text, files: prepared.files });
@@ -222,6 +228,8 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
             tooltip={t(($) => $.ai.newChat)}
             aria-label={t(($) => $.ai.newChat)}
             onClick={() => {
+              chatRevision.current++;
+              setAttachments([]);
               void stop();
               clearChat();
             }}
