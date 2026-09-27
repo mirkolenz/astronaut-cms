@@ -1,6 +1,8 @@
-import { basename, dirname, join, relative } from "pathe";
+import { basename, dirname, extname, join, relative } from "pathe";
 
-const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|avif|svg)$/i;
+// Browser-renderable image extensions for <img> thumbnails in the media picker.
+// Deliberately not astro's input list: excludes tiff (browsers can't display it).
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"]);
 
 /**
  * Compute the path of an asset relative to a content file's directory.
@@ -29,7 +31,7 @@ export function getContentFilePath(loaderBase: string, entryId: string, format: 
 
 /** Check if a path points to an image (used by media picker for thumbnail logic). */
 export function isImagePath(path: string): boolean {
-  return IMAGE_EXT_RE.test(path);
+  return IMAGE_EXTENSIONS.has(extname(path).toLowerCase());
 }
 
 /** Extract the filename from a path, stripping any directory prefix. */

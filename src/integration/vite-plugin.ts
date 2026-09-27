@@ -6,6 +6,7 @@ import { init, parse } from "es-module-lexer";
 import type { Plugin } from "vite";
 import type { CmsClientConfig, CmsConfig } from "./types.ts";
 import { CLIENT_REDIRECTS } from "./client-redirects.ts";
+import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 
 const DEFAULT_CLIENT_STUBS = ["@astrojs/starlight/loaders"];
 const STUB_PREFIX = "virtual:cms-stub/";
@@ -188,7 +189,7 @@ export default processCollections(collections);`;
 function generateAssetsModule(mediaDirectory: string): string {
   // join normalizes any leading/trailing slashes into a single root-absolute base.
   const base = join("/", mediaDirectory);
-  const imagesGlob = JSON.stringify(`${base}/**/*.{png,jpg,jpeg,webp,avif,gif,svg,tiff}`);
+  const imagesGlob = JSON.stringify(`${base}/**/*.{${ASTRO_IMAGE_FORMATS.join(",")}}`);
   const filesGlob = JSON.stringify(`${base}/**/*`);
   return `\
 export const images = import.meta.glob(${imagesGlob}, { import: "default" });

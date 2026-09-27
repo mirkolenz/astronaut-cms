@@ -1,18 +1,27 @@
+import { extname } from "pathe";
+import type { AstroImageFormat } from "@shared/image-formats";
+
 const MAX_DIMENSION = 2048;
 const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8 MB
-const OPTIMIZABLE_RE = /\.(jpe?g|png|webp|avif)$/i;
 
-const MIME_MAP: Record<string, string> = {
+// Single source of truth coupling each Canvas-optimizable extension to its MIME type.
+// Keys are constrained to astro's accepted formats; Canvas handles a strict subset.
+const MIME_TYPES = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
   avif: "image/avif",
-};
+} as const satisfies Partial<Record<AstroImageFormat, string>>;
 
-/** Whether the file name refers to an image type that can be optimized via Canvas. */
-export function isOptimizableImage(fileName: string): boolean {
-  return OPTIMIZABLE_RE.test(fileName);
+type OptimizableExtension = keyof typeof MIME_TYPES;
+
+function getExtension(fileName: string): string {
+  return extname(fileName).slice(1).toLowerCase();
+}
+
+function isOptimizableExtension(ext: string): ext is OptimizableExtension {
+  return Object.hasOwn(MIME_TYPES, ext);
 }
 
 /**
@@ -25,7 +34,8 @@ export function isOptimizableImage(fileName: string): boolean {
  * - If AVIF canvas export is unsupported by the browser, the original is returned.
  */
 export async function optimizeImage(file: File): Promise<File> {
-  if (!isOptimizableImage(file.name)) return file;
+  const ext = getExtension(file.name);
+  if (!isOptimizableExtension(ext)) return file;
 
   const img = await loadImage(file);
   const needsResize = img.naturalWidth > MAX_DIMENSION || img.naturalHeight > MAX_DIMENSION;
@@ -40,7 +50,7 @@ export async function optimizeImage(file: File): Promise<File> {
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, width, height);
 
-  const mimeType = getMimeType(file.name);
+  const mimeType = MIME_TYPES[ext];
 
   if (mimeType === "image/png") {
     const blob = await canvasToBlob(canvas, mimeType);
@@ -99,10 +109,6 @@ function canvasToBlob(
   });
 }
 
-function getMimeType(fileName: string): string {
-  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-  return MIME_MAP[ext] ?? "image/jpeg";
-}
 
 function scaledDimensions(width: number, height: number): { width: number; height: number } {
   if (width <= MAX_DIMENSION && height <= MAX_DIMENSION) {
