@@ -6,6 +6,7 @@ import cms from "../src/integration/index.ts";
 export default defineConfig({
   site: process.env.SITE_URL ?? "https://mirkolenz.github.io",
   base: process.env.BASE_PATH ?? "/astronaut-cms",
+  trailingSlash: "always",
   integrations: [
     starlight({
       title: "Astronaut CMS",
