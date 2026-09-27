@@ -1,7 +1,7 @@
+import { basename } from "pathe";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMedia } from "@/client/queries/use-media";
-import { getFileName } from "@/client/lib/asset-utils";
 import { listDirectory } from "@/client/lib/entry-tree";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { MediaThumbnail } from "@/client/components/media-thumbnail";
@@ -101,7 +101,7 @@ export function MediaPickerDialog({ open, kind, onSelect, onCancel }: MediaPicke
               </div>
               <div className="border-t border-border px-2 py-1">
                 <p className="truncate text-xs text-muted-foreground" title={file.path}>
-                  {query ? file.path : getFileName(file.path)}
+                  {query ? file.path : basename(file.path)}
                 </p>
               </div>
             </button>

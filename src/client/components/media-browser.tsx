@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { join } from "pathe";
-import { getFileName } from "@/client/lib/asset-utils";
+import { basename, join } from "pathe";
 import { useUploadMedia } from "@/client/queries/use-media";
 import { dirSegments } from "@/client/lib/entry-tree";
 import { optimizeImage } from "@/client/lib/image-utils";
@@ -201,7 +200,7 @@ export function UploadButton({
         open={duplicate !== null}
         title={t(($) => $.media.fileExists)}
         message={t(($) => $.media.fileExistsMessage, {
-          name: duplicate ? getFileName(duplicate.path) : "",
+          name: duplicate ? basename(duplicate.path) : "",
         })}
         confirmLabel={t(($) => $.common.overwrite)}
         variant="danger"

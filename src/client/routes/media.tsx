@@ -23,8 +23,7 @@ import { ErrorBanner } from "@/client/components/error-banner";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { MediaLightbox } from "@/client/components/media-lightbox";
 import { PathDialog } from "@/client/components/path-dialog";
-import { dirname, join } from "pathe";
-import { getFileName } from "@/client/lib/asset-utils";
+import { basename, dirname, join } from "pathe";
 import { MediaThumbnail } from "@/client/components/media-thumbnail";
 import {
   FolderCard,
@@ -250,7 +249,7 @@ function MediaLibrary() {
                   variant="ghost"
                   onClick={() => setLightboxFile(file)}
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
-                  aria-label={`Preview ${getFileName(file.path)}`}
+                  aria-label={`Preview ${basename(file.path)}`}
                 >
                   <MediaThumbnail file={file} className="h-full w-full object-contain" />
                 </Button>
@@ -294,7 +293,7 @@ function MediaLibrary() {
               </div>
               <div className="border-t border-border px-3 py-2">
                 <p className="truncate text-xs font-medium text-foreground" title={file.path}>
-                  {getFileName(file.path)}
+                  {basename(file.path)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatSize(file.size)}
@@ -340,8 +339,8 @@ function MediaLibrary() {
       {renameTarget !== null && (
         <PathDialog
           title={t(($) => $.media.renameFile)}
-          description={t(($) => $.media.current, { name: getFileName(renameTarget) })}
-          initial={getFileName(renameTarget)}
+          description={t(($) => $.media.current, { name: basename(renameTarget) })}
+          initial={basename(renameTarget)}
           confirmLabel={t(($) => $.common.rename)}
           pendingLabel={t(($) => $.media.renaming)}
           isPending={renameMutation.isPending}
