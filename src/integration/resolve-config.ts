@@ -162,7 +162,6 @@ function resolveClientMedia(config: CmsConfig, s3DevDirectory: string | null): C
     repo: {
       ...resolveLibrary(repo),
       directory: repo?.directory ?? DEFAULT_MEDIA_DIRECTORY,
-      alwaysInclude: repo?.alwaysInclude ?? [],
     },
     s3: s3
       ? {

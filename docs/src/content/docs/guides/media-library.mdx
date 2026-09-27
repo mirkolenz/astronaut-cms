@@ -50,7 +50,7 @@ Every library takes these:
 | `maxFileSize`       | `number`                           | unlimited | Largest upload in bytes, refused by the admin and again by the server               |
 | `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled   | How an image is reshaped in the browser before it is uploaded to this library       |
 
-The repository library (`media.repo`) adds `directory` (default `"src/assets"`) and `alwaysInclude`.
+The repository library (`media.repo`) adds `directory` (default `"src/assets"`) and `prune`.
 The object store (`media.s3`) is described in [Where files are stored](#where-files-are-stored).
 
 The size is checked against the file as it is uploaded, so after image optimization where that is enabled.
@@ -361,7 +361,7 @@ reason enough to keep a file but not to call an entry broken. For the repository
 catches these, for the object store nothing else does.
 
 <Aside type="note">
-  A file referenced only from site code is invisible to this scan, since the admin reads content and
-  not your `.astro` files. List those under `media.repo.alwaysInclude` (you already have to, for the
-  build to bundle them) and they are excluded from the unused list too.
+  Files your own code uses count as used too, read off the build
+  ([Files your own code uses](/astronaut-cms/guides/asset-handling/#files-your-own-code-uses)).
+  The deployed admin knows the code it was built from, the one under `astro dev` counts content alone.
 </Aside>

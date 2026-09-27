@@ -2,11 +2,10 @@
  * Host-facing asset resolver.
  *
  * Resolves CMS asset path strings to optimized assets via lazy loader maps the CMS
- * Vite plugin generates per project: in a build only for the assets content
- * actually references, in dev a glob over the whole media directory so a freshly
- * uploaded file resolves without a restart. Paths are root-absolute (e.g.
- * "/src/assets/hero.png"); relative paths (e.g. "./hero.png") resolve against a
- * `base` argument (the referencing content file, such as `entry.filePath`).
+ * Vite plugin generates per project, a glob over each library directory, so any
+ * file resolves, in dev a freshly uploaded one without a restart. Paths are
+ * root-absolute (e.g. "/src/assets/hero.png"), relative paths (e.g. "./hero.png")
+ * resolve against a `base` argument (the referencing content file, such as `entry.filePath`).
  *
  * An object-store reference is its public URL already, so there is no map and
  * nothing to bundle: `resolveImage` hands the URL back rather than
@@ -31,7 +30,7 @@ import type { ImageMetadata } from "astro";
 import { join } from "pathe";
 import { assetKey } from "../shared/asset-path.ts";
 import { mediaPath } from "../shared/media.ts";
-import { images, files, media, referencedOnly } from "virtual:astronaut-cms/assets";
+import { images, files, media } from "virtual:astronaut-cms/assets";
 
 /**
  * Filled in for each site by the types the integration generates, with whether
@@ -73,30 +72,9 @@ async function resolve<T>(
 function load<T>(map: Record<string, () => Promise<T>>, kind: AssetKind, key: string): Promise<T> {
   const loader = map[key];
 
-  if (!loader) throw new Error(`CMS ${kind} not found: ${key}${hint(kind, key)}`);
+  if (!loader) throw new Error(`CMS ${kind} not found: ${key}`);
 
   return loader();
-}
-
-// In a build the maps are narrowed to what content references and to how its
-// schema declares it, so a file plainly sitting on disk can still be missing
-// here. Both narrowings are undone the same way, by naming the file in
-// `media.repo.alwaysInclude`; the hint says which one was hit.
-function hint(kind: AssetKind, key: string): string {
-  if (!referencedOnly) return "";
-
-  // A key in the other map is a mismatch between how content declares the asset
-  // and which resolver the site calls on it, which the generic hint would send
-  // the user to fix in the wrong place.
-  if (kind === "file" && key in images) {
-    return ". Content only declares it with image(), so it is bundled as optimized images and its original is not kept; declare it with file() or add it to media.repo.alwaysInclude to bundle the file itself.";
-  }
-
-  if (kind === "image" && key in files) {
-    return ". Content only declares it with file(), so it is bundled as the original file; declare it with image() to get optimized images.";
-  }
-
-  return ". A build only bundles assets referenced by content; list it in media.repo.alwaysInclude if this path comes from site code. A collection image() field is astro's to import, so read it straight off entry.data instead of resolving it here.";
 }
 
 /**

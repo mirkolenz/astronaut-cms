@@ -27,8 +27,6 @@ declare module "virtual:astronaut-cms/assets" {
   /** Lazy asset loader maps, keyed by root-absolute path. */
   export const images: Record<string, () => Promise<ImageMetadata>>;
   export const files: Record<string, () => Promise<string>>;
-  /** Whether the maps hold only content-referenced assets (a build) or the whole media directory (dev). */
-  export const referencedOnly: boolean;
 }
 
 /** The collections whose `sort` is not astro's own, and the file order of those sorted by file. */

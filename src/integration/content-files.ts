@@ -10,9 +10,8 @@ import {
 } from "../shared/types.ts";
 
 /**
- * One entry as it is on disk, parsed and its body walked once for every
- * build-time pass over content: the check that refuses what the admin could not
- * save, and the collection of the assets a build bundles.
+ * One entry as it is on disk, parsed and its body walked once for the check
+ * that refuses what the admin could not save.
  */
 export interface ContentEntry {
   collection: CollectionManifestEntry;

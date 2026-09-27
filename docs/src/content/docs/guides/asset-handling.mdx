@@ -160,12 +160,17 @@ synchronously and cannot await, so resolve in an `.astro` wrapper and pass the a
 
 ```astro title="src/components/Gallery.astro"
 ---
+import { getImage } from "astro:assets";
 import Carousel from "@/components/Carousel.tsx";
 import { resolveImage } from "astronaut-cms/assets";
-const images = await Promise.all(Astro.props.srcs.map((s) => resolveImage(s)));
+
+// getImage takes a repository image and an object-store URL alike, and returns an optimized URL for both.
+const images = await Promise.all(
+  Astro.props.srcs.map(async (src) => (await getImage({ src: await resolveImage(src), inferSize: true })).src),
+);
 ---
 
-<Carousel client:visible images={images.map((i) => i.src)} />
+<Carousel client:visible images={images} />
 ```
 
 ## Assets live in the media directory
@@ -256,80 +261,48 @@ it names, which is the same rule, applied when the content is written rather tha
 
 ## What a build bundles
 
-A `dev` server resolves the whole media directory, so a file you have just uploaded works without a restart.
-A production build is narrower: it bundles only the assets your content actually references, and leaves the rest of the library out of `dist/` entirely.
+Dev and build resolve the same way: every file of the media directory resolves, so a path works whether content, a component or your own code wrote it.
+A build therefore emits the whole library, and then removes unlinked copies it can identify as library assets.
 
-This matters because an unreferenced asset is not merely copied, it is copied _unoptimized_.
-Astro only discards an original once it has produced a transformed version, which never happens for an image nothing renders.
-A library that is mostly archive would otherwise ship at full size on every deploy.
+Once the build is done, the CMS looks at the finished output.
+It deletes Vite outputs whose recorded sources are library files and which no delivered page, stylesheet, script or data file links.
+The build log reports the files and bytes removed.
+Astro image originals without source metadata remain, because their ownership cannot be established safely.
 
-The referenced set is worked out before the build, by reading your collections off disk. Every path
-in it is one a schema declared to be an asset:
+A file that a page does link stays: a `resolveFile()` download, an image shown with its `src`, an Open Graph image in a `<meta>` tag.
+Since the decision is taken on the output, it holds however a path got there, a template literal and a path assembled at render time included.
 
-- Every `file()` value in frontmatter and in data collections, including inside arrays, records, tuples and discriminated unions.
-- Every `image()` / `file()` prop of a CMS component in an MDX body, read against the prop schema in your `cms.config`, however deeply the value is nested in the prop.
-- Relative paths, normalized against the entry that holds them, exactly as `resolveImage(src, base)` would.
+### Pages rendered on demand
 
-Nothing is inferred from the shape of a string, so a prop that merely looks path-shaped
-(`href="/src/assets/x.png"`) is left alone, and so is any quoted text in your prose.
+An on-demand page may link any library file its code reaches at request time, and with `imageService: "compile"` on Cloudflare it serves such an image as the original.
+By default the build keeps the whole library when an on-demand route or server island can reach content or library media.
+An on-demand page that does not touch either lets the build prune unused copies.
+The CMS routes, Astro actions and the image endpoint do not trigger this rule, since they answer with data or serve what pages already link.
 
-Collection `image()` fields are not in that list, because Astro imports them into `entry.data`
-itself and bundling them again would ship a second copy.
-Markdown bodies are skipped for the same kind of reason: their relative images are Astro's own to resolve.
-A Markdoc body is skipped because the CMS has no schema for its tags, so an asset a Markdoc tag names belongs in `media.repo.alwaysInclude`.
+A contact form therefore costs nothing when its page is prerendered and posts to an action, which is the pattern to prefer.
+An on-demand page importing a logo keeps the whole library by default.
+An on-demand page reading a collection does too.
+Set `media.repo.prune` to `true` if your on-demand code reaches media but never renders library files, or to `false` if it constructs library URLs at request time without importing the files.
 
-Content the CMS or the AI assistant writes is committed before a build runs, so it is read like any other entry.
-The same goes for a translation an i18n fallback renders in place of a missing one, since that is a real entry in another language directory.
+Every `image()` or `file()` value your content declares is checked when you build: a repository path the media directory does not hold fails the build, naming the entry and the field or prop it came from, rather than turning into a broken image at render time.
 
-<Aside type="caution">
-  An `image()` or `file()` repository path the media directory does not hold fails the **build**, naming the
-  entry and the field or prop it came from, rather than turning into a broken image at render time.
-</Aside>
+### Files your own code uses
 
-### Images keep only their optimized forms
-
-Knowing _how_ content reaches an asset is worth as much as knowing _that_ it does.
-An `image()` prop is going to `astro:assets`, which replaces the file with the transformed variants
-each `<Image>` asked for, so the untouched original is never served and is not bundled.
-
-A `file()` value is bundled as the file itself, since that is the whole point of `resolveFile()`.
-
-If you want the original of an image the CMS only sees as an `image()`, for a "download the
-full-size photo" link say, add it to `media.repo.alwaysInclude`.
-The build tells you so by name if you forget.
-
-## Bundling a file nothing references
-
-One kind of reference is invisible to the scan: a path written in your own code rather than in an entry.
+A path written in site code rather than in an entry, the default Open Graph image of a layout say, needs no configuration:
 
 ```astro
 ---
-// Nothing in src/content mentions this file, so the build does not know to keep it.
 const og = await resolveImage("/src/assets/og-default.png");
 ---
 ```
 
-List those under `media.repo.alwaysInclude`, as globs relative to your media directory:
+The build keeps it because the page links it, as for any other file.
+The admin only knows the references your content holds, so it does not warn before deleting or renaming a file only site code uses.
+Such a deletion fails the next build of a prerendered page, or the request of an on-demand one, naming the missing file.
 
-```ts title="astro.config.ts"
-cms({
-  media: {
-    repo: {
-      alwaysInclude: ["og-default.png", "brand/**"],
-    },
-  },
-});
-```
-
-The same applies to a path a body only assembles at render time, such as a template literal or any
-other value the prop does not spell out as a literal.
-
-Forgetting one is loud rather than silent: the build stops with `CMS image not found`, and the message points at `alwaysInclude`.
-
-The media library itself is unaffected.
-It lists files through the storage backend, not through the bundle, so every upload stays visible and pickable in the admin panel whether or not any entry references it yet.
+The media library lists files through the storage backend, not through the bundle, so every upload stays visible and pickable in the admin panel whether or not anything references it yet.
 
 ## Downloadable files
 
-A file editors manage (a PDF, an archive) belongs in the media library, declared with `file()` and resolved with `resolveFile()`, which content-hashes it and bundles only what content references.
+A file editors manage (a PDF, an archive) belongs in the media library, declared with `file()` and resolved with `resolveFile()`, which content-hashes it, and a build keeps it wherever a page links it.
 A file only site code links to can equally sit in `public/` and be referenced by URL (e.g. `/files/report.pdf`), served verbatim with no bundling step.

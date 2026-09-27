@@ -10,7 +10,6 @@
  * path into {@link dispatch}, so the reachable surface is the operation registry
  * rather than one route per thing the CMS happens to do.
  */
-import { withoutTrailingSlash } from "ufo";
 import { z } from "zod";
 import { client as clientConfig, server as serverConfig } from "virtual:astronaut-cms/server";
 import {
@@ -39,7 +38,7 @@ import {
   mediaLibrary,
   parseMediaLibrary,
 } from "../shared/media.ts";
-import { conformTrailingSlash } from "../shared/url.ts";
+import { conformTrailingSlash, withoutTrailingSlash } from "../shared/url.ts";
 import { getSecret } from "astro:env/server";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
 import { Coalesced } from "../shared/coalesce.ts";

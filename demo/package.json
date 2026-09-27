@@ -10,7 +10,7 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/mdx": "^7",
+    "@astrojs/mdx": "^8",
     "@astrojs/react": "^6",
     "@fontsource-variable/geist": "^5",
     "astro": "^7",

@@ -92,7 +92,6 @@ const de: TranslationShape<typeof en> = {
     unusedOnly: "Nur unbenutzte",
     checkUsage: "Verwendung prüfen",
     unused: "Unbenutzt",
-    alwaysIncluded: "Per Konfiguration behalten",
     uses: "Verwendungen: {{count}}",
     unusedCount: "Unbenutzt: {{count}} / {{total}}",
     staleTitle: "Referenzen auf fehlende Dateien: {{count}}",

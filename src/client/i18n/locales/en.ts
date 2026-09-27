@@ -87,7 +87,6 @@ const en = {
     unusedOnly: "Unused only",
     checkUsage: "Check usage",
     unused: "Unused",
-    alwaysIncluded: "Kept by config",
     uses: "Uses: {{count}}",
     unusedCount: "Unused: {{count}} / {{total}}",
     staleTitle: "References to missing files: {{count}}",

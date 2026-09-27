@@ -4,12 +4,20 @@
  * they live in one place: a join that disagrees about slashes produces a URL
  * that resolves to the wrong thing rather than failing outright.
  */
-import { withoutTrailingSlash, withTrailingSlash } from "ufo";
-
-export { joinURL as joinUrl } from "ufo";
-
-// ufo keeps a lone "/" as the root, which would turn a bare origin's path into a segment.
 export const trimSlashes = (value: string): string => value.replace(/^\/+|\/+$/g, "");
+
+/** Drops one trailing slash, keeping a lone "/" as the root. */
+export const withoutTrailingSlash = (path: string): string => path.replace(/\/$/, "") || "/";
+
+const withTrailingSlash = (path: string): string => (path.endsWith("/") ? path : `${path}/`);
+
+/** Joins URL segments with exactly one slash between each, keeping the last one's trailing slash. */
+export const joinUrl = (base: string, ...segments: string[]): string =>
+  segments.reduce(
+    (url, segment) =>
+      !segment ? url : url ? withTrailingSlash(url) + segment.replace(/^\/+/, "") : segment,
+    base,
+  );
 
 /** Whether a value carries its own scheme rather than resolving against a base. */
 export const isAbsoluteUrl = (value: string): boolean => URL.canParse(value);

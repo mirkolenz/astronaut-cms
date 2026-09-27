@@ -67,7 +67,6 @@
     "mime": "^4",
     "pathe": "^2",
     "smol-toml": "^1",
-    "ufo": "^1",
     "yaml": "^2"
   },
   "devDependencies": {

@@ -1,6 +1,5 @@
 import mime from "mime/lite";
 import { dirname, extname, relative } from "pathe";
-import { withoutLeadingSlash } from "ufo";
 import { assetKey } from "./asset-path.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
 import type { ResolvedImageOptimization } from "../integration/types.ts";
@@ -52,11 +51,6 @@ export interface ClientLibrary extends SizeLimits {
 /** A library whose bytes are files of the project, as the storage backends serve one. */
 export type WorkingTreeLibrary = ClientLibrary & { directory: string };
 
-export interface ClientRepoLibrary extends WorkingTreeLibrary {
-  /** `media.repo.alwaysInclude` globs, so the admin knows which files site code reaches. */
-  alwaysInclude: string[];
-}
-
 /** What the admin bundle may know of the object store: never an endpoint, a bucket or a credential. */
 export interface ClientS3Library extends ClientLibrary {
   /** The base the library's keys are publicly served under. */
@@ -80,7 +74,7 @@ export interface ClientS3Library extends ClientLibrary {
 
 /** Both libraries as the admin, the site and the server read them. */
 export interface ClientMediaConfig {
-  repo: ClientRepoLibrary;
+  repo: WorkingTreeLibrary;
   /** Null when no object store is configured. */
   s3: ClientS3Library | null;
 }
@@ -90,7 +84,7 @@ export interface ClientMediaConfig {
  * resolver is handed, so a page resolving an asset carries no more of the config.
  */
 export interface MediaRefConfig {
-  repo: Pick<ClientRepoLibrary, "directory">;
+  repo: Pick<WorkingTreeLibrary, "directory">;
   s3: Pick<ClientS3Library, "publicUrl" | "directory"> | null;
 }
 
@@ -133,7 +127,7 @@ export function isTransactionalMedia(media: ClientMediaConfig, library: MediaLib
   return mediaLibrary(media, library).directory != null;
 }
 
-const megabytes = (bytes: number): string => `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
+export const megabytes = (bytes: number): string => `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
 
 /** Why a file of `size` bytes is refused by a library, or null when it fits. */
 export function sizeLimitError(size: number, limits: SizeLimits): string | null {
@@ -235,7 +229,7 @@ export function mediaPath(
 
   const project = base && !ref.startsWith("/") ? assetKey(ref, base) : ref;
   const prefix = `${trimSlashes(media.repo.directory)}/`;
-  const normalized = withoutLeadingSlash(project);
+  const normalized = project.replace(/^\//, "");
 
   return normalized.startsWith(prefix)
     ? { library: "repo", path: normalized.slice(prefix.length) }

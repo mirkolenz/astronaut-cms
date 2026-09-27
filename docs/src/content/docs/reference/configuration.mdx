@@ -137,12 +137,21 @@ The bounds of the two libraries may overlap.
 
 The library in the repository. Its uploads are commits on the draft branch, published with content.
 
-| Property        | Type       | Default        | Description                                               |
-| --------------- | ---------- | -------------- | --------------------------------------------------------- |
-| `directory`     | `string`   | `"src/assets"` | Media directory relative to the project root              |
-| `alwaysInclude` | `string[]` | `[]`           | Globs, relative to `directory`, to bundle regardless      |
+| Property    | Type      | Default        | Description                                                        |
+| ----------- | --------- | -------------- | ------------------------------------------------------------------ |
+| `directory` | `string`  | `"src/assets"` | Media directory relative to the project root                       |
+| `prune`     | `boolean` | automatic      | Whether a build deletes the library files nothing delivered links  |
 
 Its uploads pass through the CMS route, which holds each one in memory, so `maxFileSize` is also that route's body limit.
+
+### `prune`
+
+A build emits the whole library and then deletes unlinked copies whose source can be identified.
+Astro image originals without source metadata remain in the output.
+By default it keeps the whole library when on-demand code can reach content or library media, since such a page may link any file at request time.
+On-demand routes with no path to either allow pruning by default.
+`true` prunes anyway, `false` always keeps every file.
+See [Asset Handling](../../guides/asset-handling/#what-a-build-bundles) for the details.
 
 ## `S3MediaConfig`
 
@@ -184,24 +193,6 @@ type S3MediaConfig =
 | `devDirectory`   | both       | Where `astro dev` keeps the library instead of the bucket (default: `".astronaut-cms/s3"`), `false` for the bucket |
 
 See the [Media Library](../../guides/media-library/#where-files-are-stored) guide for the setup an object store needs.
-
-### `alwaysInclude`
-
-A production build bundles only the assets your content references, so a media library full of archive material costs nothing to keep.
-Anything referenced from site code rather than from an entry is invisible to that scan and has to be listed here.
-
-```ts title="astro.config.ts"
-cms({
-  media: {
-    repo: {
-      alwaysInclude: ["og/**", "brand/logo.svg"],
-    },
-  },
-});
-```
-
-Patterns are relative to `directory`, so `"og/**"` means `src/assets/og/**` under the default.
-See [Asset Handling](../../guides/asset-handling/#what-a-build-bundles) for how the referenced set is worked out.
 
 ## `ImageOptimizationConfig`
 

@@ -166,7 +166,7 @@ async function assertUnreferenced(
   if (references.length === 0) return;
 
   refuse(
-    `"${location.path}" is still referenced by ${references.length} entries: ${references.map(describeReference).join(", ")}. Update them first.`,
+    `"${location.path}" is still referenced by ${references.map(describeReference).join(", ")}. Update them first.`,
   );
 }
 

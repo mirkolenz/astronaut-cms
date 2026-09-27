@@ -1,13 +1,11 @@
 /**
- * Which entries reach which library file.
+ * What reaches which library file.
  *
- * The authoritative half is the same schema-driven walk the build does
- * (`collect-assets.ts`): a value is an asset because its schema says so, never
- * because the string looks like a path. That walk deliberately ignores markdown
- * bodies and Markdoc tags, which is right for deciding what to bundle and wrong
- * for deciding what is safe to delete, so a textual pass covers those too. A hit
- * there is reported as undeclared: it means "something mentions this", which is
- * all that is needed to stop a deletion.
+ * The authoritative half is schema-driven: a value is an asset because its
+ * schema says so, never because the string looks like a path. That misses prose
+ * and Markdoc tags, which a textual pass covers too.
+ * A hit there is reported as undeclared: it means "something mentions this",
+ * which is all that is needed to stop a deletion.
  *
  * It runs here rather than in the admin because it is what a rename or a
  * deletion is refused on. A precondition only the caller checks is caller
@@ -18,7 +16,7 @@ import { isLibraryFile, mediaLibrary, mediaPath } from "../shared/media.ts";
 import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
-import type { IndexedFile, ReferenceIndex } from "../shared/references.ts";
+import { fileKey, type IndexedFile, type ReferenceIndex } from "../shared/references.ts";
 import type { StorageBackend } from "./storage/types.ts";
 
 /** How many entry reads may be in flight at once. */
@@ -45,9 +43,6 @@ async function inParallel<T>(items: T[], fn: (item: T) => Promise<void>): Promis
 function* textualPaths(body: string): Generator<string> {
   for (const [match] of body.matchAll(/(?:https?:)?[\w@.%/-]{1,200}\.[a-zA-Z0-9]+/g)) yield match;
 }
-
-/** Library and path, as one key. */
-const fileKey = (library: string, path: string): string => `${library}:${path}`;
 
 export function indexEntry(
   index: Map<string, IndexedFile>,

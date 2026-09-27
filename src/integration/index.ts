@@ -6,12 +6,14 @@ import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
 import { gatewayAddress } from "../shared/ai.ts";
 import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
+import { megabytes } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
 import { secretsSchema } from "./env-schema.ts";
 import { sitemapListsAdmin } from "./sitemap-check.ts";
 import { checkContent } from "./check-content.ts";
+import { mediaGraph, type MediaGraph } from "./media-graph.ts";
 import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
 import {
@@ -153,6 +155,7 @@ export {};
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   let hasS3 = false;
   let adminPath = "/";
+  let graph: MediaGraph | null = null;
 
   return {
     name: "astronaut-cms",
@@ -256,8 +259,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
-        // Read once for every pass over content: the check below and, in a build,
-        // the assets it bundles.
+        // Read once, for the check below and the components the server validates against.
         const loaded = await loadConfigs(rootDir, {
           content: contentConfigPath,
           cms: userConfigPath,
@@ -291,7 +293,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Content the admin would refuse to save fails a build, where whoever
         // committed it sees it, rather than surfacing later at an editor's save.
-        const problems = checkContent(entries);
+        const problems = checkContent(entries, rootDir, clientConfig.media);
 
         if (problems.length > 0) {
           const report = `Content the CMS cannot save:\n${problems.map((p) => `- ${p}`).join("\n")}`;
@@ -332,6 +334,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const { s3: s3Library } = clientConfig.media;
 
         hasS3 = s3Library != null;
+        graph = mediaGraph({
+          rootDir,
+          srcDir: fileURLToPath(astroConfig.srcDir),
+          media: clientConfig.media,
+          ignore: [mountPoint, API_PATTERN],
+        });
 
         updateConfig({
           ...(s3Library && {
@@ -345,10 +353,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 serverConfig,
                 userConfigPath,
                 components,
-                entries,
-                command,
                 rootDir,
               }),
+              ...graph.plugins,
               // The admin writes files the dev server watches; without this every
               // save reloads the page and wipes its state.
               ...(command === "dev"
@@ -421,14 +428,38 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         injectTypes({ filename: "types.d.ts", content: mediaTypes(hasS3) });
       },
 
-      // The sitemap lists every page route, the injected admin included, and
-      // exposes no way for another integration to take one out.
+      "astro:routes:resolved": ({ routes }) => graph?.setRoutes(routes),
+
       "astro:build:done": ({ dir, logger }) => {
-        if (sitemapListsAdmin(fileURLToPath(dir), adminPath)) {
+        const clientDir = fileURLToPath(dir);
+
+        // The sitemap lists every page route, the injected admin included, and
+        // exposes no way for another integration to take one out.
+        if (sitemapListsAdmin(clientDir, adminPath)) {
           logger.warn(
             `The sitemap lists the admin at ${adminPath}. Exclude it with sitemap({ filter: (page) => !new URL(page).pathname.startsWith("${adminPath}") }).`,
           );
         }
+
+        const prune = config.media?.repo?.prune;
+
+        if (!graph || prune === false) return;
+
+        const removed = graph.prune(clientDir, prune === true);
+
+        if (!removed) {
+          logger.info(
+            `Kept media library files because on-demand code (${graph.onDemand.join(", ") || "server islands"}) may render them. Set media.repo.prune to true if it never does.`,
+          );
+
+          return;
+        }
+
+        if (removed.size === 0) return;
+
+        const size = [...removed.values()].reduce((sum, bytes) => sum + bytes, 0);
+
+        logger.info(`Removed ${removed.size} media library files no delivered file links (${megabytes(size)}).`);
       },
     },
   };

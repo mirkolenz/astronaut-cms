@@ -230,14 +230,12 @@ export interface RepoMediaConfig extends MediaLibraryConfig {
   /** Repository directory holding the library (default: "src/assets"). */
   directory?: string;
   /**
-   * Glob patterns, relative to `directory`, for files to bundle even when no
-   * content references them (e.g. `["og/**", "brand/logo.svg"]`).
-   *
-   * A production build only emits the assets it can reach from content, so a
-   * path that appears solely in site code, `resolveImage("/src/assets/og.png")`
-   * in a layout, say, has to be listed here.
+   * Whether a build deletes the library files no delivered page, stylesheet or
+   * script names, where their source is known. By default it keeps the library
+   * when on-demand code can reach content or library media, since that code may
+   * link any file at request time. `true` prunes regardless.
    */
-  alwaysInclude?: string[];
+  prune?: boolean;
 }
 
 /** The formats a browser canvas can encode to, and therefore convert into. */

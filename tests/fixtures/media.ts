@@ -10,7 +10,7 @@ const library = (extensions: string[] | null = null): ClientLibrary => ({
 
 /** A site with only the repository library. */
 export const repoMedia = (extensions?: string[]): ClientMediaConfig => ({
-  repo: { ...library(extensions), directory: "src/assets", alwaysInclude: [] },
+  repo: { ...library(extensions), directory: "src/assets" },
   s3: null,
 });
 

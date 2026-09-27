@@ -12,12 +12,11 @@ import {
 } from "@/client/queries/use-media";
 import config from "@/client/lib/config";
 import {
-  classifyUsage,
   describeReference,
+  referencedPaths,
   referencesFor,
   staleReferences,
   type AssetReference,
-  type Usage,
 } from "@/shared/references";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
@@ -106,11 +105,11 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
   };
 
   // Library-wide, so it survives folder navigation and filter toggles.
-  const { usage, stale } = useMemo(() => {
+  const { used, stale } = useMemo(() => {
     const paths = files?.map((file) => file.path) ?? [];
 
     return {
-      usage: index && classifyUsage(library, paths, index, config.media),
+      used: index && referencedPaths(index, library),
       stale: index ? staleReferences(index, library, paths) : [],
     };
   }, [library, files, index]);
@@ -123,17 +122,14 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
 
   const currentFiles = useMemo(
     () =>
-      unusedOnly && usage ? dirFiles.filter((file) => usage.get(file.path) === "orphan") : dirFiles,
-    [dirFiles, unusedOnly, usage],
+      unusedOnly && used ? dirFiles.filter((file) => !used.has(file.path)) : dirFiles,
+    [dirFiles, unusedOnly, used],
   );
 
   const usageLabel = (path: string): string => {
-    const kind: Usage = usage?.get(path) ?? "orphan";
+    const count = referencesOf(path).length;
 
-    if (kind === "always-included") return t(($) => $.media.alwaysIncluded);
-    if (kind === "orphan") return t(($) => $.media.unused);
-
-    return t(($) => $.media.uses, { count: referencesOf(path).length });
+    return count === 0 ? t(($) => $.media.unused) : t(($) => $.media.uses, { count });
   };
 
   const handleDelete = () => {
@@ -190,12 +186,12 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {usage ? (
+          {used && files ? (
             <>
               <span className="text-xs text-muted-foreground">
                 {t(($) => $.media.unusedCount, {
-                  count: usage.values().filter((kind) => kind === "orphan").reduce((count) => count + 1, 0),
-                  total: usage.size,
+                  count: files.filter((file) => !used.has(file.path)).length,
+                  total: files.length,
                 })}
               </span>
               <Toggle variant="outline" size="sm" pressed={unusedOnly} onPressedChange={setUnusedOnly}>
@@ -324,7 +320,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatSize(file.size)}
-                  {usage && ` · ${usageLabel(file.path)}`}
+                  {used && ` · ${usageLabel(file.path)}`}
                 </p>
               </CardContent>
             </Card>

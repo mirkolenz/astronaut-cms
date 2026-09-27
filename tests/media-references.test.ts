@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { indexEntry } from "@/server/references";
 import {
-  classifyUsage,
+  referencedPaths,
   referencesFor,
   staleReferences,
   type IndexedFile,
   type ReferenceIndex,
 } from "@/shared/references";
-import { client as config } from "virtual:astronaut-cms/server";
 import type { CollectionManifestEntry } from "@/shared/types";
 
 // What may be deleted is decided by two different kinds of evidence: a schema
 // field or a markdown image that declares a value to be an asset, and a body
 // that merely mentions a path.
-// The build only trusts the first, because it decides what to bundle; deletion
-// has to trust both, or an image used in markdown prose looks unused.
+// Deletion has to trust both, or an image used in markdown prose looks unused.
 
 const posts: CollectionManifestEntry = {
   name: "posts",
@@ -58,20 +56,8 @@ describe("asset references", () => {
     });
   });
 
-  it("treats only unreferenced files as orphans", () => {
-    const usage = classifyUsage(
-      "repo",
-      ["cover.png", "inline.png", "brief.pdf", "stray.png"],
-      index(),
-      config.media,
-    );
-
-    expect([...usage]).toEqual([
-      ["cover.png", "used"],
-      ["inline.png", "used"],
-      ["brief.pdf", "used"],
-      ["stray.png", "orphan"],
-    ]);
+  it("counts every kind of reference as use", () => {
+    expect(referencedPaths(index(), "repo")).toEqual(new Set(["cover.png", "inline.png", "brief.pdf"]));
   });
 
   // The two reports weigh the same evidence differently: prose is enough to keep

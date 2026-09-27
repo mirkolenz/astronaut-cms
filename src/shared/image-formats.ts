@@ -1,5 +1,4 @@
 import type { ImageMetadata } from "astro";
-import { extname } from "pathe";
 
 /**
  * astro:assets' input formats. The values have to be written out because astro
@@ -24,9 +23,5 @@ const FORMATS = {
 
 export type AstroImageFormat = keyof typeof FORMATS;
 
-/** The same formats as a list, for the dev glob's `{png,jpg,…}` brace pattern. */
+/** The same formats as a list, for the library glob's `{png,jpg,…}` brace pattern. */
 export const ASTRO_IMAGE_FORMATS = Object.keys(FORMATS) as AstroImageFormat[];
-
-/** Whether astro:assets can load this path as an image. */
-export const isAstroImage = (path: string): boolean =>
-  Object.hasOwn(FORMATS, extname(path).slice(1).toLowerCase());
