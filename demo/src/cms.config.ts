@@ -13,8 +13,8 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 
-// A small, curated palette of blocks. Editors compose pages by dragging these
-// in and filling short forms, so the set stays intentionally tight: a hero, a
+// A small, curated palette of blocks. Editors compose pages by inserting these
+// and filling short forms, so the set stays intentionally tight: a hero, a
 // feature grid, a call to action, a pull quote, and a captioned figure. Each
 // block points at its rendering `.astro` component via `source`, so the editor
 // wires up the import automatically.
@@ -31,12 +31,13 @@ export const components = {
         title: z.string(),
         subtitle: z.string().optional(),
         image: image().optional(),
-        ctaText: z.string().optional(),
-        ctaHref: link().optional(),
+        ctaText: z.string().optional().meta({ title: "Button text", group: "Button" }),
+        ctaHref: link().optional().meta({ title: "Button link", group: "Button" }),
       }),
     source: "@/components/Hero.astro",
     defaultExport: true,
     label: "Hero",
+    description: "A large page opener with a headline, an image and a button.",
     icon: Sparkles,
   }),
 
@@ -60,6 +61,7 @@ export const components = {
     source: "@/components/FeatureGrid.astro",
     defaultExport: true,
     label: "Feature Grid",
+    description: "A grid of features, each with an icon and a short text.",
     icon: LayoutGrid,
   }),
 
@@ -74,6 +76,7 @@ export const components = {
     source: "@/components/CallToAction.astro",
     defaultExport: true,
     label: "Call to Action",
+    description: "A closing prompt with a button.",
     icon: MousePointerClick,
   }),
 
@@ -86,6 +89,7 @@ export const components = {
     source: "@/components/Quote.astro",
     defaultExport: true,
     label: "Quote",
+    description: "A pull quote with its author.",
     icon: QuoteIcon,
   }),
 
@@ -99,6 +103,7 @@ export const components = {
     source: "@/components/Figure.astro",
     defaultExport: true,
     label: "Figure",
+    description: "An image with a caption.",
     icon: ImageIcon,
   }),
 };

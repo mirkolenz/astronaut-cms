@@ -136,6 +136,24 @@ The CMS admin panel generates appropriate form controls based on the Zod schema 
 | `file()`                  | File picker (from media library)  |
 | `reference("collection")` | Reference dropdown                |
 
+Arrays of objects list their items collapsed under a summary and can be reordered by dragging.
+
+### Labels and Groups
+
+A field is labeled with its key in words, such as "Cta Href" for `ctaHref`.
+Zod's `.meta()` changes how the form presents it:
+
+```ts
+z.object({
+  ctaHref: z.string().meta({ title: "Button link", description: "Where the button leads." }),
+  theme: z.enum(["light", "dark"]).meta({ group: "Appearance" }),
+});
+```
+
+`title` replaces the label, and `description` (or `.describe()`) is shown below the field.
+Fields that share a `group` are listed together in a section that opens on demand, after the fields without one.
+The same keys work for the props of a component.
+
 <Aside type="tip">
   In a collection schema, `image()` is the helper the schema function parameter gives you. Astro
   imports that one for you, so the field arrives as `ImageMetadata`. Astro has no `file()`, so a

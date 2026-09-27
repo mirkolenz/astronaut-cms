@@ -227,6 +227,13 @@
   border-radius: 0;
 }
 
+/* The text children of an inline component flow within its chip. */
+.mdxeditor .cms-inline-slot [class*="_nestedEditor_"],
+.mdxeditor .cms-inline-slot p {
+  display: inline;
+  margin: 0;
+}
+
 /* Tighten code block (CodeMirror) spacing inside the editor. */
 .mdxeditor [class*="_codeMirrorWrapper_"] {
   margin-bottom: 0;

@@ -26,12 +26,23 @@ export interface FieldMods {
   catch?: true;
 }
 
+/** How the form presents a field, read from Zod `.meta()`. */
+export interface FieldMeta {
+  /** `.meta({ title })`, shown in place of the humanized key. */
+  label?: string;
+  /** `.meta({ description })` or `.describe()`, shown below the label. */
+  description?: string;
+  /** `.meta({ group })`, the collapsible section the field is listed in. */
+  group?: string;
+}
+
 // Declarative Zod checks that lower losslessly (a serializable number / string /
 // regex source). Capturing them keeps the browser-reconstructed validator as
 // faithful as possible without shipping the original schema. Arbitrary
 // `.refine()` / `.transform()` predicates are functions and cannot be serialized,
 // so they remain the one residual gap.
 export type FieldSchema = FieldMods &
+  FieldMeta &
   (
     | {
         type: "string";

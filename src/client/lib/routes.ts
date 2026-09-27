@@ -23,7 +23,7 @@ export function apiUrl(path: string): string {
 const ACCESS_PROXY_MESSAGE =
   "The request never reached the CMS. If an access proxy protects this site " +
   "(Cloudflare Access, Vercel Deployment Protection, Netlify SSO), its session " +
-  "has expired — reload the page to sign in again.";
+  "has expired. Reload the page to sign in again.";
 
 // A proxy that answers inline rather than redirecting sends its login page as
 // HTML; the CMS routes only ever answer JSON or an event stream.

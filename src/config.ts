@@ -43,6 +43,13 @@ export interface ComponentDefinition<
   source?: string;
   defaultExport?: boolean;
   label?: string;
+  /** What the component is for, shown when inserting and editing it. */
+  description?: string;
+  /**
+   * The prop that names an instance in the admin, such as `"title"`. Defaults to
+   * the first required text prop with a value, then to any text prop with one.
+   */
+  summary?: string;
   icon?: ComponentIcon;
   editor?: JsxEditor;
 }

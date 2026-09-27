@@ -15,6 +15,7 @@ import {
   CMS_FILE,
   CMS_REFERENCE,
   CMS_LINK,
+  type FieldMeta,
   type FieldMods,
   type FieldSchema,
 } from "./field-schema.ts";
@@ -33,6 +34,7 @@ function lower(input: unknown, depth: number): FieldSchema {
   if (depth > MAX_DEPTH) return { type: "unknown" };
 
   const mods: FieldMods = {};
+  const meta: FieldMeta = {};
   let schema: unknown = input;
 
   // Peel wrappers via their public accessors, outermost first: every modifier
@@ -41,6 +43,8 @@ function lower(input: unknown, depth: number): FieldSchema {
   // `.optional()` further in, which is why it writes the same flag. Only
   // `readonly` is fully transparent; `pipe` keeps its output side.
   while (schema instanceof z.ZodType) {
+    readMeta(schema, meta);
+
     if (schema instanceof z.ZodOptional) {
       if (!("optional" in mods)) mods.optional = true;
       schema = schema.unwrap();
@@ -71,7 +75,18 @@ function lower(input: unknown, depth: number): FieldSchema {
   if ("default" in mods) base.default = mods.default;
   if (mods.catch) base.catch = true;
 
-  return base;
+  return Object.assign(base, meta);
+}
+
+// The presentation keys of `.meta()`, outermost first like the modifiers, so
+// `z.string().meta({ title }).optional()` and `z.string().optional().meta({ title })`
+// read the same.
+function readMeta(schema: z.ZodType, meta: FieldMeta): void {
+  const data = schema.meta();
+
+  if (typeof data?.title === "string") meta.label ??= data.title;
+  if (typeof data?.description === "string") meta.description ??= data.description;
+  if (typeof data?.group === "string") meta.group ??= data.group;
 }
 
 // Coerces a Zod literal value into the JSON-safe subset `FieldSchema` allows.

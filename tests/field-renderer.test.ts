@@ -1,7 +1,8 @@
 import { Children, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { FieldSchema } from "@/shared/field-schema";
-import { FieldRenderer, getDefaultValue } from "@/client/components/editors/field-renderer";
+import { FieldRenderer } from "@/client/components/editors/field-renderer";
+import { getDefaultValue } from "@/client/lib/field-values";
 
 // FieldRenderer dispatches each FieldSchema variant to a dedicated editor and
 // uses no hooks itself, so we can call it as a plain function and read which
@@ -9,7 +10,7 @@ import { FieldRenderer, getDefaultValue } from "@/client/components/editors/fiel
 // without a matching case silently falls through to the raw FallbackField, and
 // that regression shows up here as the wrong component name.
 function dispatch(schema: FieldSchema): string {
-  const element = FieldRenderer({ schema, value: undefined, onChange: () => {}, name: "field" });
+  const element = FieldRenderer({ schema, value: undefined, onChange: () => {}, label: "Field" });
 
   return ((element as ReactElement).type as { name: string }).name;
 }
@@ -65,7 +66,7 @@ it("keeps enum options with identical labels distinct and preserves their value 
     schema: { type: "enum", options } satisfies FieldSchema,
     value: 1,
     onChange: (value: unknown) => selected.push(value),
-    name: "choice",
+    label: "Choice",
   };
   const editor = FieldRenderer(props) as ReactElement<typeof props>;
   const render = editor.type as (value: typeof editor.props) => ReactElement<{ children: ReactNode }>;
@@ -73,7 +74,7 @@ it("keeps enum options with identical labels distinct and preserves their value 
     const element = FieldRenderer({ ...props, value }) as ReactElement<typeof props>;
     const field = render(element.props);
 
-    return Children.toArray(field.props.children)[1] as ReactElement<{
+    return Children.toArray(field.props.children)[0] as ReactElement<{
       value: string;
       onValueChange: (index: string) => void;
       children: ReactNode;

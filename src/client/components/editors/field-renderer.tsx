@@ -1,12 +1,26 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import {
+  Asterisk,
+  Braces,
+  ChevronRight,
+  File as FileIcon,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Plus,
+  Trash2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
 import { activeVariant } from "@/shared/field-to-zod";
 import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
+import { arrayMove } from "@/client/lib/arrays";
+import { fieldLabel, getDefaultValue, textSummary } from "@/client/lib/field-values";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { SortableList } from "@/client/components/sortable-list";
 import { useEntries } from "@/client/queries/use-entries";
 import { useAssetUrl } from "@/client/queries/use-media";
 import { Input } from "@/client/components/ui/input";
@@ -14,6 +28,7 @@ import { Textarea } from "@/client/components/ui/textarea";
 import { Switch } from "@/client/components/ui/switch";
 import { Label } from "@/client/components/ui/label";
 import { Button } from "@/client/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -25,8 +40,8 @@ import {
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
-function asNumber(value: unknown): number {
-  return typeof value === "number" ? value : 0;
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
 }
 function asBoolean(value: unknown): boolean {
   return typeof value === "boolean" ? value : false;
@@ -40,29 +55,37 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+/** What every field is shown with: its label, whether it is required, and its description. */
+interface FieldProps<V> {
+  value: V;
+  onChange: (value: unknown) => void;
+  /** Left out for a field whose container already names it, such as an array item. */
+  label?: string;
+  required?: boolean;
+  description?: string;
+}
+
 interface FieldRendererProps {
   schema: FieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
-  name: string;
+  label?: string;
   required?: boolean;
 }
 
-export function FieldRenderer({ schema, value, onChange, name, required }: FieldRendererProps) {
+export function FieldRenderer({ schema, value, onChange, label, required }: FieldRendererProps) {
+  const common = { onChange, label, required, description: schema.description };
+
   if (schema.nullable) {
     const inner: FieldSchema = { ...schema, nullable: false };
+
     if (value === null || value === undefined) {
-      return <NullableToggle name={name} onEnable={() => onChange(getDefaultValue(inner))} />;
+      return <NullableToggle {...common} value={null} onChange={() => onChange(getDefaultValue(inner))} />;
     }
+
     return (
-      <NullableWrapper name={name} onClear={() => onChange(null)}>
-        <FieldRenderer
-          schema={inner}
-          value={value}
-          onChange={onChange}
-          name={name}
-          required={required}
-        />
+      <NullableWrapper label={label} onClear={() => onChange(null)}>
+        <FieldRenderer schema={inner} value={value} onChange={onChange} />
       </NullableWrapper>
     );
   }
@@ -71,221 +94,188 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
 
   switch (schema.type) {
     case "image":
-      return (
-        <ImageField
-          name={name}
-          value={asString(resolved)}
-          onChange={onChange}
-          required={required}
-          repoOnly={schema.repoOnly}
-        />
-      );
+      return <ImageField {...common} value={asString(resolved)} repoOnly={schema.repoOnly} />;
 
     case "file":
-      return (
-        <FileField name={name} value={asString(resolved)} onChange={onChange} required={required} />
-      );
+      return <FileField {...common} value={asString(resolved)} />;
 
     case "reference":
-      return (
-        <ReferenceField
-          name={name}
-          value={asString(resolved)}
-          onChange={onChange}
-          required={required}
-          collection={schema.collection}
-        />
-      );
+      return <ReferenceField {...common} value={asString(resolved)} collection={schema.collection} />;
 
     case "string":
       if (schema.format === "email" || schema.format === "url") {
-        return (
-          <StringField
-            name={name}
-            value={asString(resolved)}
-            onChange={onChange}
-            required={required}
-            format={schema.format}
-          />
-        );
+        return <StringField {...common} value={asString(resolved)} format={schema.format} />;
       }
+
       if (schema.maxLength && schema.maxLength > 200) {
-        return (
-          <TextareaField
-            name={name}
-            value={asString(resolved)}
-            onChange={onChange}
-            required={required}
-          />
-        );
+        return <TextareaField {...common} value={asString(resolved)} />;
       }
-      return (
-        <StringField
-          name={name}
-          value={asString(resolved)}
-          onChange={onChange}
-          required={required}
-        />
-      );
+
+      return <StringField {...common} value={asString(resolved)} />;
 
     case "number":
-      return (
-        <NumberField
-          name={name}
-          value={asNumber(resolved)}
-          onChange={onChange}
-          required={required}
-          integer={schema.integer}
-        />
-      );
+      return <NumberField {...common} value={asNumber(resolved)} integer={schema.integer} />;
 
     case "boolean":
-      return <BooleanField name={name} value={asBoolean(resolved)} onChange={onChange} />;
+      return <BooleanField {...common} value={asBoolean(resolved)} />;
 
     case "date":
-      return (
-        <DateField name={name} value={asString(resolved)} onChange={onChange} required={required} />
-      );
+      return <DateField {...common} value={asString(resolved)} />;
 
     case "enum":
-      return (
-        <EnumField
-          options={schema.options}
-          name={name}
-          value={value === null ? null : resolved}
-          onChange={onChange}
-          required={required}
-        />
-      );
+      return <EnumField {...common} options={schema.options} value={value === null ? null : resolved} />;
 
     case "array":
-      return (
-        <ArrayField
-          element={schema.element}
-          name={name}
-          value={asArray(resolved)}
-          onChange={onChange}
-        />
-      );
+      return <ArrayField {...common} element={schema.element} value={asArray(resolved)} />;
 
     case "tuple":
-      return (
-        <TupleField
-          items={schema.items}
-          name={name}
-          value={asArray(resolved)}
-          onChange={onChange}
-        />
-      );
+      return <TupleField {...common} items={schema.items} value={asArray(resolved)} />;
 
     case "object":
-      return (
-        <ObjectField
-          shape={schema.shape}
-          name={name}
-          value={asRecord(resolved)}
-          onChange={onChange}
-        />
-      );
+      return <ObjectField {...common} shape={schema.shape} value={asRecord(resolved)} />;
 
     case "record":
-      return (
-        <RecordField
-          valueSchema={schema.value}
-          name={name}
-          value={asRecord(resolved)}
-          onChange={onChange}
-        />
-      );
+      return <RecordField {...common} valueSchema={schema.value} value={asRecord(resolved)} />;
 
     case "union":
       // Only discriminated unions get the variant selector; a plain union has no
       // selector key, so it degrades to the raw editor.
       if (schema.discriminator === undefined) {
-        return <FallbackField name={name} value={resolved} onChange={onChange} />;
+        return <FallbackField {...common} value={resolved} />;
       }
 
       return (
         <UnionField
+          {...common}
           schema={schema}
           discriminator={schema.discriminator}
-          name={name}
           value={asRecord(resolved)}
-          onChange={onChange}
         />
       );
 
     default:
-      return <FallbackField name={name} value={resolved} onChange={onChange} />;
+      return <FallbackField {...common} value={resolved} />;
   }
 }
 
-function StringField({
-  name,
-  value,
+/**
+ * The fields of an object, those without a `group` first and each group after
+ * them as a section that opens on demand.
+ */
+export function FieldList({
+  shape,
+  values,
   onChange,
-  required,
-  format,
 }: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-  format?: "email" | "url";
+  shape: Record<string, FieldSchema>;
+  values: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
 }) {
-  const type = format === "url" ? "url" : format === "email" ? "email" : "text";
+  const groups = Map.groupBy(Object.entries(shape), ([, field]) => field.group ?? "");
+  const render = ([key, field]: [string, FieldSchema]) => (
+    <FieldRenderer
+      key={key}
+      schema={field}
+      value={values[key]}
+      onChange={(value) => onChange(key, value)}
+      label={fieldLabel(key, field)}
+      required={isRequired(field)}
+    />
+  );
+
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
-      <Input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
+    <div className="space-y-4">
+      {groups.get("")?.map(render)}
+      {[...groups].flatMap(([group, fields]) =>
+        group
+          ? [
+              <Collapsible key={group} className="rounded-md border border-border">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1 px-3 py-2 text-sm font-medium">
+                  <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                  {group}
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">{fields.length}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 border-t border-border p-3">
+                  {fields.map(render)}
+                </CollapsibleContent>
+              </Collapsible>,
+            ]
+          : [],
+      )}
     </div>
   );
 }
 
-function TextareaField({
-  name,
+function FieldShell({
+  label,
+  required,
+  hint,
+  description,
+  children,
+}: {
+  label?: string;
+  required?: boolean;
+  /** What kind of value the field takes, where its input does not show it. */
+  hint?: { icon: LucideIcon; text: string };
+  description?: string;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-1.5">
+      {label && (
+        <Label>
+          {label}
+          {required && (
+            <span className="-ml-1.5 text-destructive">
+              <Asterisk className="size-3" />
+              <span className="sr-only">{t(($) => $.editors.required)}</span>
+            </span>
+          )}
+          {hint && (
+            <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+              <hint.icon className="size-3" />
+              {hint.text}
+            </span>
+          )}
+        </Label>
+      )}
+      {children}
+      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+    </div>
+  );
+}
+
+function StringField({
   value,
   onChange,
-  required,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-}) {
+  format,
+  ...shell
+}: FieldProps<string> & { format?: "email" | "url" }) {
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
-      <Textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={4} />
-    </div>
+    <FieldShell {...shell}>
+      <Input type={format ?? "text"} value={value} onChange={(e) => onChange(e.target.value)} />
+    </FieldShell>
+  );
+}
+
+function TextareaField({ value, onChange, ...shell }: FieldProps<string>) {
+  return (
+    <FieldShell {...shell}>
+      <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={4} />
+    </FieldShell>
   );
 }
 
 function NumberField({
-  name,
   value,
   onChange,
-  required,
   integer,
-}: {
-  name: string;
-  value: number;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-  integer?: boolean;
-}) {
+  ...shell
+}: FieldProps<number | undefined> & { integer?: boolean }) {
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
+    <FieldShell {...shell}>
       <Input
         type="number"
         value={value ?? ""}
@@ -295,79 +285,49 @@ function NumberField({
         }}
         step={integer ? 1 : "any"}
       />
-    </div>
+    </FieldShell>
   );
 }
 
-function BooleanField({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: boolean;
-  onChange: (v: unknown) => void;
-}) {
+function BooleanField({ value, onChange, label, description }: FieldProps<boolean>) {
   return (
-    <div className="flex items-center gap-2">
-      <Switch checked={!!value} onCheckedChange={(checked) => onChange(checked)} />
-      <Label>{name}</Label>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Switch checked={value} onCheckedChange={(checked) => onChange(checked)} />
+        {label && <Label>{label}</Label>}
+      </div>
+      {description && <p className="text-xs text-muted-foreground">{description}</p>}
     </div>
   );
 }
 
-function DateField({
-  name,
-  value,
-  onChange,
-  required,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-}) {
+function DateField({ value, onChange, ...shell }: FieldProps<string>) {
   const date = new Date(value);
   // Shifted by the offset, since the input shows and returns local wall time.
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   const dateStr = value && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 16) : "";
 
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
+    <FieldShell {...shell}>
       <Input
         type="datetime-local"
         value={dateStr}
         onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : "")}
       />
-    </div>
+    </FieldShell>
   );
 }
 
 function EnumField({
   options,
-  name,
   value,
   onChange,
-  required,
-}: {
-  options: (string | number | boolean | null)[];
-  name: string;
-  value: unknown;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-}) {
+  ...shell
+}: FieldProps<unknown> & { options: (string | number | boolean | null)[] }) {
   const selected = options.findIndex((option) => Object.is(option, value));
 
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-      </Label>
+    <FieldShell {...shell}>
       <Select
         value={selected < 0 ? undefined : String(selected)}
         onValueChange={(index) => {
@@ -377,7 +337,7 @@ function EnumField({
         }}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="--" />
+          <SelectValue placeholder={<ChoosePlaceholder />} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option, index) => (
@@ -387,29 +347,31 @@ function EnumField({
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </FieldShell>
   );
 }
 
+// A component of its own, so the fields that show it need no hooks themselves.
+function ChoosePlaceholder() {
+  const { t } = useTranslation();
+
+  return t(($) => $.editors.choose);
+}
+
 function AssetField({
-  name,
   value,
   onChange,
-  required,
   assetType,
   repoOnly,
   children,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
+  ...shell
+}: FieldProps<string> & {
   assetType: "image" | "file";
   repoOnly?: boolean;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const label = assetType === "image" ? t(($) => $.editors.image) : t(($) => $.editors.file);
+  const kind = assetType === "image" ? t(($) => $.editors.image) : t(($) => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
 
   // The picker yields a library file; `mediaRef` spells it the way content
@@ -422,18 +384,13 @@ function AssetField({
   };
 
   return (
-    <div>
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-        <span className="ml-1 text-xs text-muted-foreground">({label})</span>
-      </Label>
+    <FieldShell {...shell} hint={{ icon: assetType === "image" ? ImageIcon : FileIcon, text: kind }}>
       <div className="flex gap-2">
         <Input
           type="text"
-          value={value ?? ""}
+          value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={label}
+          placeholder={kind}
           className="flex-1"
         />
         <Button type="button" variant="outline" onClick={() => setShowPicker(true)}>
@@ -453,37 +410,17 @@ function AssetField({
         onSelect={handleSelect}
         onCancel={() => setShowPicker(false)}
       />
-    </div>
+    </FieldShell>
   );
 }
 
-function ImageField({
-  name,
-  value,
-  onChange,
-  required,
-  repoOnly,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-  /** Astro's plain collection `image()`, which only a repository file satisfies. */
-  repoOnly?: boolean;
-}) {
-  const previewSrc = useAssetUrl(value);
+function ImageField(props: FieldProps<string> & { repoOnly?: boolean }) {
+  const previewSrc = useAssetUrl(props.value);
 
   return (
-    <AssetField
-      name={name}
-      value={value}
-      onChange={onChange}
-      required={required}
-      assetType="image"
-      repoOnly={repoOnly}
-    >
+    <AssetField {...props} assetType="image">
       {previewSrc && (
-        <div className="mt-2 h-24 w-24 overflow-hidden rounded border border-border">
+        <div className="h-24 w-24 overflow-hidden rounded border border-border">
           <img
             src={previewSrc}
             alt=""
@@ -498,41 +435,16 @@ function ImageField({
   );
 }
 
-function FileField({
-  name,
-  value,
-  onChange,
-  required,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-}) {
-  return (
-    <AssetField
-      name={name}
-      value={value}
-      onChange={onChange}
-      required={required}
-      assetType="file"
-    />
-  );
+function FileField(props: FieldProps<string>) {
+  return <AssetField {...props} assetType="file" />;
 }
 
 function ReferenceField({
-  name,
   value,
   onChange,
-  required,
   collection,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: unknown) => void;
-  required?: boolean;
-  collection: string;
-}) {
+  ...shell
+}: FieldProps<string> & { collection: string }) {
   const { t } = useTranslation();
   const { data: entries, isLoading } = useEntries(collection);
   const [query, setQuery] = useState("");
@@ -552,25 +464,18 @@ function ReferenceField({
   };
 
   return (
-    <div className="relative">
-      <Label>
-        {name}
-        {required && <span className="text-destructive"> *</span>}
-        <span className="ml-1 text-xs text-muted-foreground">
-          ({t(($) => $.editors.ref, { collection })})
-        </span>
-      </Label>
+    <FieldShell {...shell} hint={{ icon: LinkIcon, text: collection }}>
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Input
             type="text"
-            value={isOpen ? query : (value ?? "")}
+            value={isOpen ? query : value}
             onChange={(e) => {
               setQuery(e.target.value);
               if (!isOpen) setIsOpen(true);
             }}
             onFocus={() => {
-              setQuery(value ?? "");
+              setQuery(value);
               setIsOpen(true);
             }}
             onBlur={() => {
@@ -601,116 +506,179 @@ function ReferenceField({
             </ul>
           )}
         </div>
-        {value && !required && (
+        {value && !shell.required && (
           <Button type="button" variant="ghost" size="icon-xs" onClick={() => onChange("")}>
             <X className="size-4" />
           </Button>
         )}
       </div>
-    </div>
+    </FieldShell>
   );
 }
 
 function isComplexSchema(schema?: FieldSchema): boolean {
-  return schema?.type === "object" || schema?.type === "array" || schema?.type === "record";
+  return (
+    schema?.type === "object" ||
+    schema?.type === "array" ||
+    schema?.type === "record" ||
+    schema?.type === "tuple" ||
+    schema?.type === "union"
+  );
 }
 
 // A tuple is a fixed-length, heterogeneous list: each position has its own
 // schema, so there is no add/remove, only per-slot editing.
-function TupleField({
-  items,
-  name,
-  value,
-  onChange,
-}: {
-  items: FieldSchema[];
-  name: string;
-  value: unknown[];
-  onChange: (v: unknown) => void;
-}) {
-  const current = Array.isArray(value) ? value : [];
-
+function TupleField({ items, value, onChange, ...shell }: FieldProps<unknown[]> & { items: FieldSchema[] }) {
   const updateItem = (index: number, newValue: unknown) => {
-    const updated = items.map((item, i) =>
-      i === index ? newValue : (current[i] ?? getDefaultValue(item)),
-    );
-    onChange(updated);
+    onChange(items.map((item, i) => (i === index ? newValue : (value[i] ?? getDefaultValue(item)))));
   };
 
   return (
-    <div>
-      <Label>{name}</Label>
-      <div className="space-y-2 rounded-md border border-border p-3">
+    <FieldShell {...shell}>
+      <div className="space-y-3 rounded-md border border-border p-3">
         {items.map((item, i) => (
           <FieldRenderer
             key={i}
             schema={item}
-            value={current[i]}
+            value={value[i]}
             onChange={(v) => updateItem(i, v)}
-            name={`${i}`}
+            label={`${i + 1}`}
           />
         ))}
       </div>
-    </div>
+    </FieldShell>
   );
 }
 
-function ArrayField({
-  element,
-  name,
-  value,
-  onChange,
-}: {
-  element: FieldSchema;
-  name: string;
-  value: unknown[];
-  onChange: (v: unknown) => void;
-}) {
+// Keys that follow array items through moves, so their local state and open
+// sections stay with them. Items added or dropped elsewhere, such as by a
+// reset, get fresh keys at the end.
+function useItemKeys(length: number): [string[], (keys: string[]) => void] {
+  const [keys, setKeys] = useState<string[]>(() => Array.from({ length }, () => crypto.randomUUID()));
+
+  if (keys.length === length) return [keys, setKeys];
+
+  const synced = [
+    ...keys.slice(0, length),
+    ...Array.from({ length: Math.max(0, length - keys.length) }, () => crypto.randomUUID()),
+  ];
+
+  setKeys(synced);
+
+  return [synced, setKeys];
+}
+
+// The text that names a structured item in its collapsed header.
+function itemSummary(schema: FieldSchema, value: unknown): string | undefined {
+  if (schema.type === "object") return textSummary(schema.shape, asRecord(value));
+
+  if (schema.type === "union") {
+    const variant = activeVariant(schema, value);
+
+    return variant?.type === "object" ? textSummary(variant.shape, asRecord(value)) : undefined;
+  }
+
+  return undefined;
+}
+
+function ArrayField({ element, value, onChange, ...shell }: FieldProps<unknown[]> & { element: FieldSchema }) {
   const { t } = useTranslation();
-  const items = Array.isArray(value) ? value : [];
-  const needsConfirm = isComplexSchema(element);
+  const [keys, setKeys] = useItemKeys(value.length);
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState<number | null>(null);
+  const complex = isComplexSchema(element);
 
   const updateItem = (index: number, newValue: unknown) => {
-    const updated = [...items];
-    updated[index] = newValue;
-    onChange(updated);
+    onChange(value.map((item, i) => (i === index ? newValue : item)));
   };
 
-  const addItem = () => {
-    onChange([...items, getDefaultValue(element)]);
+  const moveItem = (from: number, to: number) => {
+    onChange(arrayMove(value, from, to));
+    setKeys(arrayMove(keys, from, to));
   };
 
   const removeItem = (index: number) => {
-    onChange(items.filter((_, i) => i !== index));
+    onChange(value.filter((_, i) => i !== index));
+    setKeys(keys.filter((_, i) => i !== index));
   };
 
+  const addItem = () => {
+    const key = crypto.randomUUID();
+
+    onChange([...value, getDefaultValue(element)]);
+    setKeys([...keys, key]);
+    setOpen(new Set(open).add(key));
+  };
+
+  const toggle = (key: string, isOpen: boolean) => {
+    const next = new Set(open);
+
+    if (isOpen) next.add(key);
+    else next.delete(key);
+
+    setOpen(next);
+  };
+
+  const removeButton = (index: number) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={t(($) => $.common.remove)}
+      onClick={() => (complex ? setConfirmRemoveIndex(index) : removeItem(index))}
+    >
+      <Trash2 className="size-3.5" />
+    </Button>
+  );
+
   return (
-    <div>
-      <Label>{name}</Label>
-      <div className="space-y-2 rounded-md border border-border p-3">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-start gap-2">
-            <div className="flex-1">
-              <FieldRenderer
-                schema={element}
-                value={item}
-                onChange={(v) => updateItem(i, v)}
-                name={`${i}`}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="destructive"
-              size="xs"
-              className="mt-6"
-              onClick={() => (needsConfirm ? setConfirmRemoveIndex(i) : removeItem(i))}
-            >
-              {t(($) => $.common.remove)}
-            </Button>
-          </div>
-        ))}
+    <FieldShell {...shell}>
+      <div className="space-y-2">
+        <SortableList
+          items={value}
+          getKey={(_, index) => keys[index] ?? String(index)}
+          onMove={moveItem}
+          className="space-y-2"
+        >
+          {(item, index, handle) => {
+            const key = keys[index] ?? String(index);
+            const field = (
+              <FieldRenderer schema={element} value={item} onChange={(v) => updateItem(index, v)} />
+            );
+
+            if (!complex) {
+              return (
+                <div className="flex items-center gap-2">
+                  {handle}
+                  <div className="min-w-0 flex-1">{field}</div>
+                  {removeButton(index)}
+                </div>
+              );
+            }
+
+            return (
+              <Collapsible
+                open={open.has(key)}
+                onOpenChange={(isOpen) => toggle(key, isOpen)}
+                className="rounded-md border border-border"
+              >
+                <div className="flex items-center gap-2 px-2 py-1.5">
+                  {handle}
+                  <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-1 text-left text-sm">
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                    <span className="truncate">
+                      {itemSummary(element, item) ?? t(($) => $.editors.item, { index: String(index + 1) })}
+                    </span>
+                  </CollapsibleTrigger>
+                  {removeButton(index)}
+                </div>
+                <CollapsibleContent className="border-t border-border p-3">{field}</CollapsibleContent>
+              </Collapsible>
+            );
+          }}
+        </SortableList>
         <Button type="button" variant="outline" size="xs" onClick={addItem}>
+          <Plus className="size-3" />
           {t(($) => $.editors.addItem)}
         </Button>
       </div>
@@ -728,63 +696,43 @@ function ArrayField({
         }}
         onCancel={() => setConfirmRemoveIndex(null)}
       />
-    </div>
+    </FieldShell>
   );
 }
 
 function ObjectField({
   shape,
-  name,
   value,
   onChange,
-}: {
-  shape: Record<string, FieldSchema>;
-  name: string;
-  value: Record<string, unknown>;
-  onChange: (v: unknown) => void;
-}) {
-  const updateField = (key: string, newValue: unknown) => {
-    onChange({ ...value, [key]: newValue });
-  };
+  label,
+  description,
+}: FieldProps<Record<string, unknown>> & { shape: Record<string, FieldSchema> }) {
+  const fields = (
+    <FieldList shape={shape} values={value} onChange={(key, v) => onChange({ ...value, [key]: v })} />
+  );
+
+  // Unlabelled, the object is an item its container already frames.
+  if (!label) return fields;
 
   return (
-    <fieldset className="rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
-      <div className="space-y-3">
-        {Object.entries(shape).map(([key, fieldSchema]) => (
-          <FieldRenderer
-            key={key}
-            schema={fieldSchema}
-            value={value[key]}
-            onChange={(v) => updateField(key, v)}
-            name={key}
-            required={isRequired(fieldSchema)}
-          />
-        ))}
-      </div>
+    <fieldset className="space-y-3 rounded-md border border-border p-3">
+      <legend className="px-1 text-sm font-medium text-foreground">{label}</legend>
+      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      {fields}
     </fieldset>
   );
 }
 
 function RecordField({
   valueSchema,
-  name,
   value,
   onChange,
-}: {
-  valueSchema: FieldSchema;
-  name: string;
-  value: Record<string, unknown>;
-  onChange: (v: unknown) => void;
-}) {
+  ...shell
+}: FieldProps<Record<string, unknown>> & { valueSchema: FieldSchema }) {
   const { t } = useTranslation();
   const needsConfirm = isComplexSchema(valueSchema);
   const [confirmRemoveKey, setConfirmRemoveKey] = useState<string | null>(null);
   const [newKey, setNewKey] = useState("");
-
-  const updateField = (key: string, newValue: unknown) => {
-    onChange({ ...value, [key]: newValue });
-  };
 
   const removeField = (key: string) => {
     const next = { ...value };
@@ -799,28 +747,26 @@ function RecordField({
   };
 
   return (
-    <fieldset className="rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
-      <div className="space-y-3">
+    <FieldShell {...shell}>
+      <div className="space-y-3 rounded-md border border-border p-3">
         {Object.entries(value).map(([key, val]) => (
           <div key={key} className="flex items-start gap-2">
-            <span className="mt-1.5 shrink-0 text-xs font-mono text-muted-foreground">{key}</span>
-            <div className="flex-1">
+            <span className="mt-1.5 shrink-0 font-mono text-xs text-muted-foreground">{key}</span>
+            <div className="min-w-0 flex-1">
               <FieldRenderer
                 schema={valueSchema}
                 value={val}
-                onChange={(v) => updateField(key, v)}
-                name={key}
+                onChange={(v) => onChange({ ...value, [key]: v })}
               />
             </div>
             <Button
               type="button"
-              variant="destructive"
-              size="xs"
-              className="mt-1"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t(($) => $.common.remove)}
               onClick={() => (needsConfirm ? setConfirmRemoveKey(key) : removeField(key))}
             >
-              {t(($) => $.common.remove)}
+              <Trash2 className="size-3.5" />
             </Button>
           </div>
         ))}
@@ -834,6 +780,7 @@ function RecordField({
             className="max-w-48"
           />
           <Button type="button" variant="outline" size="xs" onClick={addField}>
+            <Plus className="size-3" />
             {t(($) => $.editors.add)}
           </Button>
         </div>
@@ -850,22 +797,19 @@ function RecordField({
         }}
         onCancel={() => setConfirmRemoveKey(null)}
       />
-    </fieldset>
+    </FieldShell>
   );
 }
 
 function UnionField({
   schema,
   discriminator,
-  name,
   value,
   onChange,
-}: {
+  ...shell
+}: FieldProps<Record<string, unknown>> & {
   schema: Extract<FieldSchema, { type: "union" }>;
   discriminator: string;
-  name: string;
-  value: Record<string, unknown>;
-  onChange: (v: unknown) => void;
 }) {
   const { t } = useTranslation();
   const { variants } = schema;
@@ -877,68 +821,71 @@ function UnionField({
 
   const selectedVariant = activeVariant(schema, value);
   const selectedIndex = selectedVariant ? variants.indexOf(selectedVariant) : -1;
-
-  const handleVariantChange = (index: number) => {
-    const variant = variants[index];
-    if (variant) onChange(getDefaultValue(variant));
-  };
+  // The selector above already sets the discriminator.
+  const shape = Object.fromEntries(
+    Object.entries(selectedVariant?.type === "object" ? selectedVariant.shape : {}).filter(
+      ([key]) => key !== discriminator,
+    ),
+  );
 
   return (
-    <fieldset className="rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
-      <div className="space-y-3">
-        <div>
-          <Label>{t(($) => $.editors.variant)}</Label>
-          <Select
-            value={selectedIndex >= 0 ? String(selectedIndex) : undefined}
-            onValueChange={(val) => handleVariantChange(Number(val))}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="--" />
-            </SelectTrigger>
-            <SelectContent>
-              {variants.map((variant, i) => (
-                <SelectItem key={i} value={String(i)}>
-                  {variantLabel(variant, i)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <FieldShell {...shell}>
+      <Select
+        value={selectedIndex >= 0 ? String(selectedIndex) : undefined}
+        onValueChange={(index) => {
+          const variant = variants[Number(index)];
+          if (variant) onChange(getDefaultValue(variant));
+        }}
+      >
+        <SelectTrigger className="w-full" aria-label={t(($) => $.editors.variant)}>
+          <SelectValue placeholder={<ChoosePlaceholder />} />
+        </SelectTrigger>
+        <SelectContent>
+          {variants.map((variant, i) => (
+            <SelectItem key={i} value={String(i)}>
+              {variantLabel(variant, i)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {Object.keys(shape).length > 0 && (
+        <div className="rounded-md border border-border p-3">
+          <FieldList shape={shape} values={value} onChange={(key, v) => onChange({ ...value, [key]: v })} />
         </div>
-        {selectedVariant?.type === "object" && (
-          <ObjectField shape={selectedVariant.shape} name="" value={value} onChange={onChange} />
-        )}
-      </div>
-    </fieldset>
+      )}
+    </FieldShell>
   );
 }
 
-function NullableToggle({ name, onEnable }: { name: string; onEnable: () => void }) {
+function NullableToggle({ onChange, ...shell }: FieldProps<null>) {
   const { t } = useTranslation();
+
   return (
-    <div>
-      <Label>{name}</Label>
-      <Button type="button" variant="outline" size="xs" onClick={onEnable}>
-        {t(($) => $.editors.setValue)}
-      </Button>
-    </div>
+    <FieldShell {...shell}>
+      <div>
+        <Button type="button" variant="outline" size="xs" onClick={() => onChange(undefined)}>
+          {t(($) => $.editors.setValue)}
+        </Button>
+      </div>
+    </FieldShell>
   );
 }
 
 function NullableWrapper({
-  name,
+  label,
   onClear,
   children,
 }: {
-  name: string;
+  label?: string;
   onClear: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const { t } = useTranslation();
+
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">{name}</span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground">{label}</span>
         <Button type="button" variant="ghost" size="xs" onClick={onClear}>
           {t(($) => $.editors.clear)}
         </Button>
@@ -948,25 +895,14 @@ function NullableWrapper({
   );
 }
 
-function FallbackField({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: unknown;
-  onChange: (v: unknown) => void;
-}) {
+function FallbackField({ value, onChange, ...shell }: FieldProps<unknown>) {
   const { t } = useTranslation();
   const [text, setText] = useState(() =>
     typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? ""),
   );
 
   return (
-    <div>
-      <Label>
-        {name} <span className="text-xs text-muted-foreground">{t(($) => $.editors.raw)}</span>
-      </Label>
+    <FieldShell {...shell} hint={{ icon: Braces, text: t(($) => $.editors.raw) }}>
       <Textarea
         value={text}
         onChange={(e) => {
@@ -980,50 +916,6 @@ function FallbackField({
         rows={3}
         className="font-mono"
       />
-    </div>
+    </FieldShell>
   );
-}
-
-export function getDefaultValue(schema?: FieldSchema): unknown {
-  if (!schema) return "";
-
-  if (schema.default !== undefined) return schema.default;
-  if (schema.optional || schema.nullable) return null;
-
-  switch (schema.type) {
-    case "string":
-    case "image":
-    case "file":
-    case "reference":
-      return "";
-    case "number":
-      return 0;
-    case "boolean":
-      return false;
-    case "date":
-      return new Date().toISOString();
-    case "enum":
-      return schema.options.length > 0 ? schema.options[0] : "";
-    case "literal":
-      return schema.value;
-    case "array":
-      return [];
-    case "tuple":
-      return schema.items.map((item) => getDefaultValue(item));
-    case "record":
-      return {};
-    case "object": {
-      const obj: Record<string, unknown> = {};
-      for (const [key, fieldSchema] of Object.entries(schema.shape)) {
-        if (!fieldSchema.optional) {
-          obj[key] = getDefaultValue(fieldSchema);
-        }
-      }
-      return obj;
-    }
-    case "union":
-      return schema.variants[0] ? getDefaultValue(schema.variants[0]) : {};
-    default:
-      return "";
-  }
 }

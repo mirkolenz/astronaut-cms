@@ -29,6 +29,10 @@ export const components = {
 };
 ```
 
+Editors insert a component with the toolbar's Component button, or by typing `/` on an empty line.
+In the body, a component is a compact block that shows its label and summary and holds its children.
+Clicking it selects it, and its props are edited in the inspector next to the body.
+
 ## Collection Options
 
 The `collections` export gives options to collections of `src/content.config.ts`, keyed by name, as `components` holds one `defineComponent()` per component:
@@ -53,7 +57,8 @@ Each component is defined using `defineComponent()` with the following options:
 - **Type:** `z.ZodType`
 
 A Zod schema defining the component's props.
-The admin panel generates a form from this schema.
+The admin panel generates a form from this schema, shown in the inspector next to the body once the component is selected.
+Its fields take the same [labels and groups](/astronaut-cms/guides/content-collections/#labels-and-groups) as a collection's.
 
 ### `children`
 
@@ -70,6 +75,21 @@ Set to an object for components that contain named child components (e.g., tabs 
 - **Default:** the component key name
 
 A human-readable label shown in the admin panel.
+
+### `description`
+
+- **Type:** `string`
+- **Default:** `undefined`
+
+What the component is for, shown when inserting it and in the inspector.
+
+### `summary`
+
+- **Type:** `string`
+- **Default:** the first required text prop with a value, then any text prop with one
+
+The prop whose value names an instance, such as `"title"`.
+The body shows it on the component's block, and the inspector lists structured children by it.
 
 ### `icon`
 
@@ -137,6 +157,13 @@ In MDX content, this renders as:
   <Tab label="Second">Content for the second tab.</Tab>
 </Tabs>
 ```
+
+In the body, each child is a block of its own inside its parent, and its markdown children stay editable in place.
+Only the declared child components can be added there.
+Selecting the parent lists its children in the inspector, where they can be reordered by dragging and opened one by one, with breadcrumbs leading back out.
+
+An MDX body refers to a component by its name alone, so a name may stand for one definition only.
+Two parents may share a child definition under the same name, but two different definitions with one name fail the build.
 
 ## Asset Fields
 

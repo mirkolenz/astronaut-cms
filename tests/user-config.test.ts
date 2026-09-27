@@ -51,4 +51,41 @@ describe("processUserConfig", () => {
       shape: { src: { type: "image" } },
     });
   });
+
+  it("reads a field's title, description and group from either side of its modifiers", () => {
+    const manifest = processUserConfig({
+      Hero: defineComponent({
+        props: z.object({
+          title: z.string().meta({ title: "Headline", group: "Text" }).optional(),
+          href: z.string().optional().describe("Where it leads."),
+        }),
+      }),
+    });
+
+    expect(manifest.Hero?.props).toEqual({
+      type: "object",
+      shape: {
+        title: { type: "string", optional: true, label: "Headline", group: "Text" },
+        href: { type: "string", optional: true, description: "Where it leads." },
+      },
+    });
+  });
+
+  it("refuses two definitions under one name, but not one definition shared by two parents", () => {
+    const Item = defineComponent({ props: z.object({ title: z.string() }) });
+
+    expect(() =>
+      processUserConfig({
+        Tabs: defineComponent({ props: z.object({}), children: { Item } }),
+        List: defineComponent({ props: z.object({}), children: { Item } }),
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      processUserConfig({
+        Tabs: defineComponent({ props: z.object({}), children: { Item } }),
+        Item: defineComponent({ props: z.object({ label: z.string() }) }),
+      }),
+    ).toThrow(/defined twice/);
+  });
 });

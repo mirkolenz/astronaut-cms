@@ -357,7 +357,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     renameMedia: defineTool({
       title: "Rename a media file",
       description:
-        "Rename or move a media file within its library. Refused while content still references the file, since references keep the old path — update the entries first.",
+        "Rename or move a media file within its library. Refused while content still references the file, since references keep the old path. Update the entries first.",
       inputSchema: z.object({
         library: librarySchema,
         oldPath: z.string().describe("Current path of the file, as listMedia reports it."),

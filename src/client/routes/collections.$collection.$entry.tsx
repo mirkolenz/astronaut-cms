@@ -9,10 +9,12 @@ import {
   useRenameEntry,
   useDuplicateEntry,
 } from "@/client/queries/use-entries";
-import { EntryFields } from "@/client/components/editors/entry-fields";
+import { FieldList } from "@/client/components/editors/field-renderer";
 import { objectShape } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
-import { MdxEditor } from "@/client/components/editors/mdx-editor";
+import { MdxEditor, type MdxEditorHandle } from "@/client/components/editors/mdx-editor";
+import { InspectorPanel } from "@/client/components/editors/component-inspector";
+import { components } from "virtual:astronaut-cms/user-config";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
 import { EntryIdDialog } from "@/client/components/entry-id-dialog";
@@ -92,9 +94,14 @@ function EntryEditor() {
     setIsDirty(true);
   }, []);
 
+  const bodyRef = useRef<MdxEditorHandle>(null);
+
   // Use ref for save to avoid event listener churn
   const saveRef = useRef<() => void>(() => {});
   saveRef.current = () => {
+    // Read from the editor, which holds an edit inside a component before `editBody` does.
+    const body = bodyRef.current?.flush() ?? editBody;
+
     if (!format || !isDirty) return;
 
     saveMutation.mutate(
@@ -103,7 +110,7 @@ function EntryEditor() {
       // there is nothing yet for it to have been based on.
       {
         data: formData,
-        body: editBody,
+        body,
         format,
         createOnly: isNew,
         expectedVersion: baselineVersion.current,
@@ -213,6 +220,8 @@ function EntryEditor() {
     setIsDirty(true);
   }, []);
 
+  const markDirty = useCallback(() => setIsDirty(true), []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -242,6 +251,8 @@ function EntryEditor() {
   const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(format);
 
   const contentFilePath = meta && entryFilePath(meta, entryId, format);
+
+  const hasInspector = format === "mdx" && Object.keys(components).length > 0;
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
@@ -305,12 +316,12 @@ function EntryEditor() {
           </div>
         </div>
 
-        <div inert={saveMutation.isPending} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-4">
+        <div inert={saveMutation.isPending} className="flex min-h-0 flex-1 gap-6">
+          <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto">
             {shape && (
               <CollapsibleSection title={t(($) => $.entry.fields)}>
                 <div className="space-y-3">
-                  <EntryFields shape={shape} data={formData} onChange={handleFieldChange} />
+                  <FieldList shape={shape} values={formData} onChange={handleFieldChange} />
                 </div>
               </CollapsibleSection>
             )}
@@ -318,13 +329,16 @@ function EntryEditor() {
               <CollapsibleSection title={t(($) => $.entry.body)} defaultOpen>
                 <MdxEditor
                   key={editorKey}
+                  ref={bodyRef}
                   markdown={editBody}
                   onChange={handleBodyChange}
+                  onDirty={markDirty}
                   format={format as "md" | "mdx"}
                 />
               </CollapsibleSection>
             )}
           </div>
+          {hasInspector && <InspectorPanel />}
         </div>
 
         <ConfirmDialog

@@ -249,7 +249,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           if (userConfigPath) {
             logger.info(`Found CMS config at ${userConfigPath}`);
           } else {
-            logger.info("No cms.config found — using defaults");
+            logger.info("No cms.config found, using defaults");
           }
         }
 
@@ -259,7 +259,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
         } else {
-          logger.warn("No content.config found — collections will be empty");
+          logger.warn("No content.config found, collections will be empty");
         }
 
         // Read once, for the check below and the components the server validates against.

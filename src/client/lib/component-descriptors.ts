@@ -1,43 +1,13 @@
-import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
+import type { JsxComponentDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "@/internal/user-config";
-import { isRequired, type FieldSchema } from "@/shared/field-schema";
 import { componentEntries } from "@/shared/component-lookup";
 import { CmsComponentEditor } from "@/client/components/editors/cms-component-editor";
 
 /**
- * Maps a field type to the closest MDXEditor property type.
- */
-function fieldToJsxType(type: FieldSchema["type"]): "string" | "number" | "expression" {
-  switch (type) {
-    case "string":
-    case "enum":
-    case "literal":
-    case "reference":
-    case "image":
-    case "file":
-      return "string";
-    case "number":
-      return "number";
-    default:
-      return "expression";
-  }
-}
-
-/**
- * Converts an object field schema to an array of JsxPropertyDescriptors.
- */
-function schemaToJsxProps(schema: FieldSchema | null): JsxPropertyDescriptor[] {
-  if (schema?.type !== "object") return [];
-  return Object.entries(schema.shape).map(([name, field]) => ({
-    name,
-    type: fieldToJsxType(field.type),
-    required: isRequired(field),
-  }));
-}
-
-/**
  * Converts a CMS ComponentDefinition map to an array of JsxComponentDescriptors.
- * Recursively includes nested child component descriptors.
+ * Nested child components are included, since MDXEditor writes the import of
+ * every component it finds in the body by its descriptor. Only MDXEditor's
+ * generic editor reads `props`, and every component has an editor of its own.
  */
 export function toJsxDescriptors(
   components: Record<string, ClientComponentDef>,
@@ -47,8 +17,8 @@ export function toJsxDescriptors(
     kind: def.kind,
     source: def.source ?? undefined,
     defaultExport: def.defaultExport,
-    props: schemaToJsxProps(def.props),
-    hasChildren: !!def.children,
+    props: [],
+    hasChildren: def.children !== undefined,
     Editor: def.editor ?? CmsComponentEditor,
   }));
 }

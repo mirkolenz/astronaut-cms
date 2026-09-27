@@ -12,7 +12,7 @@ import {
   useReorderFileEntries,
 } from "@/client/queries/use-entries";
 import { useWriteError } from "@/client/lib/write-error";
-import { EntryFields } from "@/client/components/editors/entry-fields";
+import { FieldList } from "@/client/components/editors/field-renderer";
 import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { asEntryFormat, sortByIds, type EntryFormat } from "@/shared/types";
@@ -383,7 +383,7 @@ function FileEntryCard({
             <Skeleton className="h-24" />
           ) : (
             <div className="space-y-3">
-              <EntryFields shape={shape} data={formData} onChange={handleFieldChange} />
+              <FieldList shape={shape} values={formData} onChange={handleFieldChange} />
               {Object.keys(shape).length === 0 && (
                 <p className="text-sm text-muted-foreground">{t(($) => $.entry.noSchemaShort)}</p>
               )}

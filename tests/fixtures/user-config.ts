@@ -16,6 +16,8 @@ const figure: ClientComponentDef = {
   source: "@/components/Figure.astro",
   defaultExport: false,
   label: "Figure",
+  description: null,
+  summary: null,
   icon: null,
   editor: null,
 };

@@ -43,7 +43,8 @@ import { Card, CardContent } from "@/client/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
 import { Toggle } from "@/client/components/ui/toggle";
-import { ArrowRight, ChevronRight, FileWarning, ImageOff } from "lucide-react";
+import { ArrowRight, ChevronRight, Dot, FileWarning, ImageOff } from "lucide-react";
+import { Badge } from "@/client/components/ui/badge";
 import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/media/$library")({
@@ -326,7 +327,12 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatSize(file.size)}
-                  {used && ` · ${usageLabel(file.path)}`}
+                  {used && (
+                    <>
+                      <Dot className="inline size-4" />
+                      {usageLabel(file.path)}
+                    </>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -417,7 +423,10 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
       <Collapsible>
         <CollapsibleTrigger asChild>
           <Button type="button" variant="ghost" className="w-full justify-between">
-            <span>{t(($) => $.media.trashCount, { count: trashed.length })}</span>
+            <span className="flex items-center gap-2">
+              {t(($) => $.media.trash)}
+              <Badge variant="secondary">{trashed.length}</Badge>
+            </span>
             <ChevronRight className="transition-transform group-data-[state=open]/button:rotate-90" />
           </Button>
         </CollapsibleTrigger>
@@ -433,7 +442,8 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
                     {file.path}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatSize(file.size)} ·{" "}
+                    {formatSize(file.size)}
+                    <Dot className="inline size-4" />
                     {t(($) => $.media.deletedAt, {
                       when: new Date(file.deletedAt).toLocaleString(config.locale),
                     })}

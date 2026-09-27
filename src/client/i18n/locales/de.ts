@@ -102,7 +102,6 @@ const de: TranslationShape<typeof en> = {
     renameReferenced: "Ein Umbenennen macht sie ungültig, da Referenzen den alten Pfad behalten.",
     referencesUnavailable: "Referenzen konnten nicht geprüft werden: {{message}}",
     trash: "Papierkorb",
-    trashCount: "Papierkorb ({{count}})",
     trashEmpty: "Nichts kürzlich gelöscht.",
     trashHint:
       "Gelöschte Dateien bleiben hier, bis die Lifecycle-Regel des Buckets sie entfernt. Bis dahin sind sie weiterhin über ihre öffentliche URL lesbar.",
@@ -132,7 +131,7 @@ const de: TranslationShape<typeof en> = {
     stale:
       "Die Änderungen wurden nach Ihrer Prüfung aktualisiert. Prüfen Sie sie erneut, bevor Sie veröffentlichen.",
     mergeConflict:
-      "Merge-Konflikt – Ihr Branch und der Standard-Branch sind auseinandergelaufen. Bitte wenden Sie sich an einen Administrator.",
+      "Merge-Konflikt. Ihr Branch und der Standard-Branch sind auseinandergelaufen. Bitte wenden Sie sich an einen Administrator.",
   },
   changes: {
     title: "Änderungen",
@@ -177,8 +176,8 @@ const de: TranslationShape<typeof en> = {
     browse: "Durchsuchen",
     clear: "Leeren",
     setValue: "Wert setzen",
-    addItem: "+ Element hinzufügen",
-    add: "+ Hinzufügen",
+    addItem: "Element hinzufügen",
+    add: "Hinzufügen",
     removeItem: "Element entfernen",
     removeItemMessage:
       "Sind Sie sicher, dass Sie Element {{index}} entfernen möchten? Alle verschachtelten Daten gehen verloren.",
@@ -187,7 +186,7 @@ const de: TranslationShape<typeof en> = {
       'Sind Sie sicher, dass Sie "{{key}}" entfernen möchten? Alle verschachtelten Daten gehen verloren.',
     newKey: "Neuer Schlüssel",
     variant: "Variante",
-    raw: "(roh)",
+    raw: "roh",
     removeEntry: "Eintrag entfernen",
     removeEntryMessage:
       'Sind Sie sicher, dass Sie "{{id}}" entfernen möchten? Dies wird beim Veröffentlichen angewendet.',
@@ -195,7 +194,25 @@ const de: TranslationShape<typeof en> = {
     file: "Datei",
     selectFrom: "Auswählen aus {{collection}}",
     loading: "Laden...",
-    ref: "Ref: {{collection}}",
+    item: "Element {{index}}",
+    required: "Pflichtfeld",
+    choose: "Auswählen",
+    reorder: "Zum Umsortieren ziehen",
+    actions: "Aktionen",
+    moveUp: "Nach oben",
+    moveDown: "Nach unten",
+    addNamed: "{{label}} hinzufügen",
+    addChild: "Hinzufügen",
+    missingProps: "Fehlt: {{props}}",
+    sourceOnly: "Enthält außerdem Inhalte, die nur in der Quelltextansicht bearbeitet werden können.",
+    contents: "Inhalt",
+    noProps: "Diese Komponente hat keine Eigenschaften.",
+    inspectorEmpty: "Wählen Sie eine Komponente aus, um ihre Eigenschaften zu bearbeiten.",
+    inspectorHint: "Tippen Sie / in einer leeren Zeile, um eine einzufügen.",
+    component: "Komponente",
+    insertComponent: "Komponente einfügen",
+    searchComponents: "Komponenten suchen...",
+    noComponents: "Keine Komponenten gefunden.",
   },
   ai: {
     title: "KI-Assistent",

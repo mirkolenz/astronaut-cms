@@ -13,7 +13,7 @@ const collectionsOverview = JSON.stringify(contentModel(config).collections, nul
 // translation. Omitted entirely for a single-language site.
 const i18nGuidelines = config.contentI18n
   ? [
-      `- The site is multilingual: locales ${config.contentI18n.locales.join(", ")}, default ${config.contentI18n.defaultLocale}. In a localized collection every entry id starts with its locale ("${config.contentI18n.defaultLocale}/about"), and the rest of the id is the same across all translations of one entry — that is how translations are paired, so never rename a translation's slug on its own.`,
+      `- The site is multilingual: locales ${config.contentI18n.locales.join(", ")}, default ${config.contentI18n.defaultLocale}. In a localized collection every entry id starts with its locale ("${config.contentI18n.defaultLocale}/about"), and the rest of the id is the same across all translations of one entry. That is how translations are paired, so never rename a translation's slug on its own.`,
       "- To translate an entry, getEntry the source and writeEntry the same slug under the target locale, translating the `body` and every human-readable `data` field. Keep the structure identical: component names and non-text props, media paths, references, dates and ids stay exactly as they are.",
       "- Not every collection is localized. Check with listEntries before assuming an id needs a locale segment.",
     ]
