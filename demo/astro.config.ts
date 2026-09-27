@@ -8,6 +8,9 @@ import cms from "../src/integration/index.ts";
 // serves a schema-driven admin panel at `/admin`. Local storage keeps the demo
 // zero-config — `npm run dev` and open `/admin`, no OAuth required. Swap in a
 // `{ type: "github", repo, clientId }` backend to publish edits as commits.
+//
+// There is no server adapter: the demo exists to be run locally, so it builds
+// as a static site and the admin is reachable through `astro dev` alone.
 export default defineConfig({
   site: "https://example.com",
   integrations: [
