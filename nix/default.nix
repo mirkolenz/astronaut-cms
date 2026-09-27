@@ -16,7 +16,8 @@
       ...
     }:
     let
-      site = pkgs.callPackage ./site.nix { };
+      nodejs = pkgs.nodejs_26;
+      site = pkgs.callPackage ./site.nix { inherit nodejs; };
     in
     {
       packages = {
@@ -24,14 +25,15 @@
         demo = site { workspace = "demo"; };
         release-env = pkgs.buildEnv {
           name = "release-env";
-          paths = [ pkgs.nodejs ];
+          paths = [ nodejs ];
         };
       };
       checks = {
         inherit (config.packages) docs demo;
       }
-      // pkgs.callPackages ./ci.nix { };
+      // pkgs.callPackages ./ci.nix { inherit nodejs; };
       devShells.default = pkgs.callPackage ./shell.nix {
+        inherit nodejs;
         treefmt = config.treefmt.build.wrapper;
       };
       treefmt = {

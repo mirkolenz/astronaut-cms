@@ -9,6 +9,7 @@
  * path into {@link dispatch}, so the reachable surface is the operation registry
  * rather than one route per thing the CMS happens to do.
  */
+import { withoutTrailingSlash } from "ufo";
 import { z } from "zod";
 import { client as clientConfig, server as serverConfig } from "virtual:astronaut-cms/server";
 import {
@@ -392,7 +393,7 @@ export async function handle(
   const url = new URL(request.url);
   // The same split the cookie scope uses, so a site base that itself contains
   // the API segment cannot be read one way here and another way there.
-  const path = url.pathname.slice(sitePath(url).length + API_BASE.length).replace(/\/+$/, "");
+  const path = withoutTrailingSlash(url.pathname.slice(sitePath(url).length + API_BASE.length));
 
   try {
     return await route(path, request, url, getEnv, getBinding);

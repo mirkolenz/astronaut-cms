@@ -65,20 +65,8 @@ const untrashable =
 
 const BRANCH_PREFIX = "cms/";
 
-export function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-
-  return btoa(binary);
-}
-
 /** Both providers hand file contents back this way, whitespace and all. */
-export function fromBase64(content: string): string {
-  const binary = atob(content.replace(/\s/g, ""));
-
-  return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
-}
+export const fromBase64 = (content: string): string => new TextDecoder().decode(Uint8Array.fromBase64(content));
 
 /** A file collection's container, parsed. */
 interface FileCollection extends MultiEntryFile {

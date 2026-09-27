@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
+import { z } from "zod";
 import { globFiles } from "./content-files.ts";
 import { isWithin } from "../server/storage/paths.ts";
-import { parseXml } from "../shared/xml.ts";
+import { parseXml, xmlList } from "../shared/xml.ts";
+
+/** A page sitemap. An index lists sitemaps rather than pages, so it reads as empty. */
+const Sitemap = z.object({
+  urlset: z.object({ url: xmlList(z.object({ loc: z.string() })) }).optional(),
+});
 
 /**
  * Whether a built sitemap lists a page under `adminPath`. Reading the output
@@ -11,8 +17,8 @@ import { parseXml } from "../shared/xml.ts";
  */
 export function sitemapListsAdmin(outDir: string, adminPath: string): boolean {
   return globFiles(outDir, "sitemap-*.xml").some((file) =>
-    Array.from(parseXml(readFileSync(file, "utf-8")).getElementsByTagNameNS("*", "loc")).some((element) => {
-      const pathname = URL.parse(element.textContent ?? "")?.pathname;
+    (parseXml(readFileSync(file, "utf-8"), Sitemap).urlset?.url ?? []).some(({ loc }) => {
+      const pathname = URL.parse(loc.trim())?.pathname;
 
       return pathname !== undefined && isWithin(pathname, adminPath);
     }),

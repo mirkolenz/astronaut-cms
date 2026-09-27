@@ -3,9 +3,10 @@
  * with `aws4fetch`, which is small enough to load with the route itself.
  */
 import { AwsClient } from "aws4fetch";
+import { z } from "zod";
 import { ApiError } from "../server/errors.ts";
 import { encodeKeyPath, remoteMediaUrl, s3BaseUrl } from "../shared/media.ts";
-import { parseXml } from "../shared/xml.ts";
+import { parseXml, xmlList } from "../shared/xml.ts";
 import {
   isFileKey,
   MAX_KEYS,
@@ -19,8 +20,16 @@ import {
   versionOf,
 } from "./store.ts";
 
-const xmlText = (element: Element, name: string): string | undefined =>
-  element.getElementsByTagNameNS("*", name).item(0)?.textContent ?? undefined;
+const ListBucketResult = z.object({
+  ListBucketResult: z.object({
+    Contents: xmlList(z.object({ Key: z.string(), Size: z.coerce.number(), ETag: z.string().optional() })),
+    IsTruncated: z.string().optional(),
+    NextContinuationToken: z.string().optional(),
+  }),
+});
+
+/** A copy answers with either its result or, even after a 200, an error. */
+const CopyResponse = z.object({ Error: z.unknown().optional() });
 
 /** The response itself, or an error carrying what the store said. */
 async function ensureOk(response: Response, action: string): Promise<Response> {
@@ -64,20 +73,13 @@ export class S3Store implements MediaStore {
         .join("&");
 
       const response = await ensureOk(await this.client.fetch(url), `list of "${prefix}"`);
-      const xml = parseXml(await response.text());
+      const { ListBucketResult: result } = parseXml(await response.text(), ListBucketResult);
 
-      for (const entry of Array.from(xml.getElementsByTagNameNS("*", "Contents"))) {
-        const key = xmlText(entry, "Key");
-
-        if (!key || !isFileKey(key)) continue;
-
-        objects.push({ key, size: Number(xmlText(entry, "Size") ?? 0), version: versionOf(xmlText(entry, "ETag")) });
+      for (const { Key: key, Size: size, ETag: etag } of result.Contents) {
+        if (key && isFileKey(key)) objects.push({ key, size, version: versionOf(etag) });
       }
 
-      const root = xml.documentElement;
-      cursor = root && xmlText(root, "IsTruncated") === "true"
-        ? xmlText(root, "NextContinuationToken")
-        : undefined;
+      cursor = result.IsTruncated === "true" ? result.NextContinuationToken : undefined;
     } while (cursor);
 
     return objects;
@@ -167,7 +169,7 @@ export class S3Store implements MediaStore {
     const body = await (await ensureOk(response, `copy of ${from} to ${to}`)).text();
 
     // A copy can fail after the store has already answered 200.
-    if (body && parseXml(body).getElementsByTagNameNS("*", "Error").length > 0) {
+    if (body && parseXml(body, CopyResponse).Error !== undefined) {
       throw new Error(`S3 copy of ${from} to ${to} failed: ${body}`);
     }
   }

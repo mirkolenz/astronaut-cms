@@ -1,4 +1,4 @@
-import { join } from "pathe";
+import { extname, join } from "pathe";
 import type { FieldSchema } from "./field-schema.ts";
 
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
@@ -197,7 +197,8 @@ export function extractFormatsFromLoader(
   fileName: string | null,
 ): string[] | null {
   if (fileName != null) {
-    const ext = fileName.match(/\.([a-zA-Z0-9]+)$/)?.[1];
+    const ext = extname(fileName).slice(1);
+
     return ext ? [ext] : null;
   }
 
@@ -207,17 +208,12 @@ export function extractFormatsFromLoader(
   const formats = new Set<string>();
 
   for (const p of patterns) {
-    // Match *.{ext1,ext2,...} or *.ext
-    const braceMatch = p.match(/\.\{([^}]+)\}\s*$/)?.[1];
-    if (braceMatch) {
-      for (const ext of braceMatch.split(",")) {
-        formats.add(ext.trim());
-      }
-      continue;
-    }
-    const singleMatch = p.match(/\.([a-zA-Z0-9]+)\s*$/)?.[1];
-    if (singleMatch) {
-      formats.add(singleMatch);
+    const ext = extname(p.trim()).slice(1);
+    // A brace list such as `*.{md,mdx}` names several.
+    const list = ext.startsWith("{") && ext.endsWith("}") ? ext.slice(1, -1).split(",") : [ext];
+
+    for (const format of list) {
+      if (format.trim()) formats.add(format.trim());
     }
   }
 

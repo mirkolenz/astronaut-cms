@@ -3,11 +3,13 @@
 {
   buildNpmPackage,
   importNpmLock,
+  nodejs,
 }:
 { workspace }:
 buildNpmPackage (finalAttrs: {
   pname = "astronaut-cms-${workspace}";
   inherit (finalAttrs.npmDeps) version;
+  inherit nodejs;
   inherit (importNpmLock) npmConfigHook;
   npmDeps = importNpmLock { npmRoot = finalAttrs.src; };
 

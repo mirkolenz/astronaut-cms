@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
-import { conformTrailingSlash } from "../shared/url.ts";
+import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
@@ -60,12 +60,12 @@ function findConfig(rootDir: string, base: string): string | null {
  */
 function mediaRemotePattern(publicUrl: string) {
   const url = new URL(publicUrl);
-  const pathname = url.pathname.replace(/\/+$/, "");
+  const pathname = trimSlashes(url.pathname);
 
   return {
-    protocol: url.protocol.replace(":", ""),
+    protocol: url.protocol.slice(0, -1),
     hostname: url.hostname,
-    ...(pathname && { pathname: `${pathname}/**` }),
+    ...(pathname && { pathname: `/${pathname}/**` }),
   };
 }
 

@@ -9,5 +9,6 @@ function slugify(value: string): string {
 }
 
 export function buildPreviewUrl(pattern: string, branch: string): string {
-  return pattern.replace(/\{branch\}/g, branch).replace(/\{slug\}/g, slugify(branch));
+  // Replacer functions, so a `$` in a branch name is not read as a replacement pattern.
+  return pattern.replaceAll("{branch}", () => branch).replaceAll("{slug}", () => slugify(branch));
 }

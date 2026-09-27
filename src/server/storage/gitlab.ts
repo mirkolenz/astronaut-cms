@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
-import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
+import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
 import type {
   ChangeRequestSummary,
   MediaContent,
@@ -204,7 +204,7 @@ export class GitLabStorage extends BranchedStorage {
   protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
     // An upload replaces whatever is at the path, which GitLab's commit API
     // spells as two different actions; `commitUpsert` is what knows which.
-    await this.commitUpsert(repoPath, toBase64(bytes), `Upload ${repoPath}`, "base64");
+    await this.commitUpsert(repoPath, bytes.toBase64(), `Upload ${repoPath}`, "base64");
   }
 
   /**
@@ -248,7 +248,9 @@ export class GitLabStorage extends BranchedStorage {
 
   protected async doUpdate(branch: string): Promise<void> {
     // GitLab has no direct branch-to-branch merge endpoint; open a transient MR
-    // from default into the draft and accept it.
+    // from default into the draft and accept it. An MR with nothing to merge is refused.
+    if ((await this.computeBehind(branch)) === 0) return;
+
     let iid: number;
 
     try {
@@ -261,7 +263,8 @@ export class GitLabStorage extends BranchedStorage {
 
       iid = created.iid;
     } catch (err) {
-      if (this.isNoCommitsError(err)) return;
+      // A transient MR from a concurrent update already covers this one.
+      if (getErrorStatus(err) === 409) return;
 
       throw err;
     }
@@ -461,11 +464,5 @@ export class GitLabStorage extends BranchedStorage {
 
       throw err;
     }
-  }
-
-  private isNoCommitsError(err: unknown): boolean {
-    if (getErrorStatus(err) === 409) return true;
-
-    return /no\s+commits|nothing to merge/i.test(err instanceof Error ? err.message : String(err));
   }
 }

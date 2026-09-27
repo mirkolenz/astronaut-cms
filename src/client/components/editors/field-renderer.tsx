@@ -325,7 +325,10 @@ function DateField({
   onChange: (v: unknown) => void;
   required?: boolean;
 }) {
-  const dateStr = value ? new Date(value).toISOString().slice(0, 16) : "";
+  const date = new Date(value);
+  // Shifted by the offset, since the input shows and returns local wall time.
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  const dateStr = value && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 16) : "";
 
   return (
     <div>

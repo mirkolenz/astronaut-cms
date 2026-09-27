@@ -1,5 +1,5 @@
 import type { ChangeKind, EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
-import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
+import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
 import type {
   ChangeRequestSummary,
   MediaContent,
@@ -227,7 +227,7 @@ export class GitHubStorage extends BranchedStorage {
   }
 
   protected async writeMedia(repoPath: string, bytes: Uint8Array): Promise<void> {
-    await this.commitBlob(repoPath, toBase64(bytes), "base64", `Upload ${repoPath}`);
+    await this.commitBlob(repoPath, bytes.toBase64(), "base64", `Upload ${repoPath}`);
   }
 
   /**

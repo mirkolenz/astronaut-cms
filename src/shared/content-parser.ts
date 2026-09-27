@@ -9,6 +9,9 @@ import {
   type Document,
 } from "yaml";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
+import { frontmatter } from "micromark-extension-frontmatter";
 import type { FileEntryLayout } from "./types";
 
 /**
@@ -20,7 +23,19 @@ export function getFileExtension(fileName: string): string {
 
 const isYaml = (format: string): boolean => format === "yaml" || format === "yml";
 
-const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+/** The YAML frontmatter a Markdown file opens with, and the body on the lines after it. */
+function splitFrontmatter(raw: string): { frontmatter?: string; body: string } {
+  const [node] = fromMarkdown(raw, {
+    extensions: [frontmatter()],
+    mdastExtensions: [frontmatterFromMarkdown()],
+  }).children;
+
+  if (node?.type !== "yaml" || !node.position) return { body: raw };
+
+  const newline = raw.indexOf("\n", node.position.end.offset);
+
+  return { frontmatter: node.value, body: newline === -1 ? "" : raw.slice(newline + 1) };
+}
 
 export function parseContent(
   rawContent: string,
@@ -30,10 +45,12 @@ export function parseContent(
     case "md":
     case "mdx":
     case "mdoc": {
-      const match = FRONTMATTER_RE.exec(rawContent);
-      if (!match) return { data: {}, body: rawContent };
-      const [, frontmatter = "", body = ""] = match;
+      const { frontmatter, body } = splitFrontmatter(rawContent);
+
+      if (frontmatter === undefined) return { data: {}, body };
+
       const data = (parseYaml(frontmatter) as Record<string, unknown>) ?? {};
+
       return { data, body };
     }
     case "json": {

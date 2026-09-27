@@ -206,10 +206,10 @@ function validateProps(
     const result = fieldSchemaToZod(field).safeParse(attr.value);
 
     if (!result.success) {
+      const reason = result.error.issues[0]?.message ?? "type mismatch";
+
       ctx.diagnostics.push(
-        diagnostic(
-          `<${name}> prop "${prop}" is invalid: ${(result.error.issues[0]?.message ?? "type mismatch").replace(/\.?$/, ".")}`,
-        ),
+        diagnostic(`<${name}> prop "${prop}" is invalid: ${reason.endsWith(".") ? reason : `${reason}.`}`),
       );
     }
   }

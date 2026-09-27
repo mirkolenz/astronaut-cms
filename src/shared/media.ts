@@ -1,5 +1,6 @@
 import mime from "mime/lite";
 import { dirname, extname, relative } from "pathe";
+import { withoutLeadingSlash } from "ufo";
 import { assetKey } from "./asset-path.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
 
@@ -138,21 +139,22 @@ export function mediaPath(ref: string, config: MediaRefConfig, base?: string): s
 
   const project = base && !ref.startsWith("/") ? assetKey(ref, base) : ref;
   const prefix = `${trimSlashes(config.mediaDirectory)}/`;
-  const normalized = project.replace(/^\/+/, "");
+  const normalized = withoutLeadingSlash(project);
 
   return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : null;
 }
 
 /** The key a URL under the public base serves. Inverse of {@link remoteMediaUrl}. */
 function publicKey(url: string, publicUrl: string): string | null {
-  const prefix = `${publicUrl}/`;
+  const location = URL.parse(url);
+  const base = URL.parse(`${publicUrl}/`);
 
-  if (!url.startsWith(prefix)) return null;
+  if (!location || !base || location.origin !== base.origin || !location.pathname.startsWith(base.pathname)) {
+    return null;
+  }
 
   try {
-    const [path = ""] = url.slice(prefix.length).split(/[?#]/);
-
-    return decodeURIComponent(path);
+    return decodeURIComponent(location.pathname.slice(base.pathname.length));
   } catch {
     return null;
   }

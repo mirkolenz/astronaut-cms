@@ -4,14 +4,14 @@
  * they live in one place: a join that disagrees about slashes produces a URL
  * that resolves to the wrong thing rather than failing outright.
  */
+import { withoutLeadingSlash, withoutTrailingSlash, withTrailingSlash } from "ufo";
 
-export const trimSlashes = (value: string): string => value.replace(/^\/+|\/+$/g, "");
+export { joinURL as joinUrl } from "ufo";
 
-export const isAbsoluteUrl = (value: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(value);
+export const trimSlashes = (value: string): string => withoutLeadingSlash(withoutTrailingSlash(value));
 
-/** Joins a base and a path with exactly one slash between them. */
-export const joinUrl = (base: string, path: string): string =>
-  `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+/** Whether a value carries its own scheme rather than resolving against a base. */
+export const isAbsoluteUrl = (value: string): boolean => URL.canParse(value);
 
 /**
  * Rewrites a URL path into the form the host site's `trailingSlash` policy makes
@@ -26,8 +26,7 @@ export function conformTrailingSlash(
 
   const url = new URL(rawUrl);
 
-  url.pathname =
-    policy === "always" ? url.pathname.replace(/\/?$/, "/") : url.pathname.replace(/(.)\/+$/, "$1");
+  url.pathname = policy === "always" ? withTrailingSlash(url.pathname) : withoutTrailingSlash(url.pathname);
 
   return url.href;
 }

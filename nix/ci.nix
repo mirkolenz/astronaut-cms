@@ -5,6 +5,7 @@
   buildNpmPackage,
   gitMinimal,
   importNpmLock,
+  nodejs,
   oxlint,
 }:
 let
@@ -17,6 +18,7 @@ let
     buildNpmPackage (finalAttrs: {
       pname = "astronaut-cms-${name}";
       inherit (finalAttrs.npmDeps) version;
+      inherit nodejs;
       inherit (importNpmLock) npmConfigHook;
       npmDeps = importNpmLock { npmRoot = finalAttrs.src; };
 
