@@ -49,3 +49,22 @@ export function validateFormat(format: string, name = "format"): void {
     throw new Error(`Invalid ${name} "${format}": must be one of ${ALL_FORMATS.join(", ")}`);
   }
 }
+
+/**
+ * Validates a media library path. Unlike an entry id, a file name carries an
+ * extension and often a dot or a space, so this is a rejection list rather than
+ * an allowlist: no absolute path, no traversal, no backslash or control
+ * character, no empty segment. It runs in the admin before a write and again in
+ * the media route before a key is built from it.
+ */
+export function validateMediaPath(value: string, name = "media path"): void {
+  if (!value) throw new Error(`${name} must not be empty`);
+
+  if (value.startsWith("/") || /\\|\p{Cc}/u.test(value)) {
+    throw new Error(`Invalid ${name} "${value}": must be a relative path without backslashes`);
+  }
+
+  if (value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new Error(`Invalid ${name} "${value}": must not contain empty or traversing segments`);
+  }
+}

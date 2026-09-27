@@ -59,6 +59,11 @@
       "source": "./src/auth/endpoint.ts",
       "default": "./dist/auth-endpoint.js"
     },
+    "./media-endpoint": {
+      "types": "./dist/media/endpoint.d.ts",
+      "source": "./src/media/endpoint.ts",
+      "default": "./dist/media-endpoint.js"
+    },
     "./client": {
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
@@ -128,6 +133,8 @@
   },
   "devDependencies": {
     "@astrojs/react": "^6",
+    "@aws-sdk/client-s3": "^3",
+    "@aws-sdk/s3-request-presigner": "^3",
     "@fontsource-variable/geist": "^5",
     "@tanstack/router-plugin": "^1",
     "@types/node": "^26",
@@ -145,6 +152,8 @@
   },
   "peerDependencies": {
     "@astrojs/react": "^6",
+    "@aws-sdk/client-s3": "^3",
+    "@aws-sdk/s3-request-presigner": "^3",
     "astro": "^7",
     "react": "^19",
     "react-dom": "^19",
@@ -153,6 +162,14 @@
   "overrides": {
     "@streamdown/code": {
       "shiki": "^4"
+    }
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "@aws-sdk/s3-request-presigner": {
+      "optional": true
     }
   }
 }

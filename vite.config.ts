@@ -54,6 +54,7 @@ export default defineConfig({
         assets: "src/assets/index.ts",
         "ai-endpoint": "src/ai/endpoint.ts",
         "auth-endpoint": "src/auth/endpoint.ts",
+        "media-endpoint": "src/media/endpoint.ts",
         internal: "src/internal/index.ts",
       },
       formats: ["es"],

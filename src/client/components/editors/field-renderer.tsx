@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { join } from "pathe";
 import type { FieldSchema } from "@shared/field-schema";
-import { toPreviewUrl } from "@client/lib/asset-utils";
+import { mediaRef } from "@shared/media";
+import config from "virtual:astronaut-cms/config";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { useEntries } from "@client/queries/use-entries";
+import { useAssetUrl } from "@client/queries/use-media";
 import { Input } from "@client/components/ui/input";
 import { Textarea } from "@client/components/ui/textarea";
 import { Switch } from "@client/components/ui/switch";
@@ -395,11 +396,12 @@ function AssetField({
   const label = assetType === "image" ? t(($) => $.editors.image) : t(($) => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
 
-  // Store root-absolute paths (e.g. "/src/assets/x.png"). The picker yields the
-  // full media-dir path; these are resolved at render time by the host via
-  // `astronaut-cms/assets`, so no per-file relative resolution is needed.
+  // The picker yields a library path; `mediaRef` spells it the way this site's
+  // library is referenced — a root-absolute project path ("/src/assets/x.png"),
+  // or a bare key for an object store. Either is resolved at render time by the
+  // host via `astronaut-cms/assets`, so a picked file never needs a relative one.
   const handleSelect = (assetPath: string) => {
-    onChange(join("/", assetPath));
+    onChange(mediaRef(assetPath, config));
     setShowPicker(false);
   };
 
@@ -448,7 +450,7 @@ function ImageField({
   onChange: (v: unknown) => void;
   required?: boolean;
 }) {
-  const previewSrc = value ? toPreviewUrl(value) : undefined;
+  const previewSrc = useAssetUrl(value);
 
   return (
     <AssetField name={name} value={value} onChange={onChange} required={required} assetType="image">

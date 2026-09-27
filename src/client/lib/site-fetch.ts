@@ -17,6 +17,7 @@
  * rule applies to every request that addresses a CMS route, and this is by
  * definition the only thing that makes one.
  */
+import { bearer } from "@shared/access";
 import { tryGetToken } from "@client/lib/storage/utils";
 import { conformTrailingSlash } from "@client/lib/site-url";
 
@@ -58,13 +59,13 @@ export const siteFetch: typeof fetch = async (input, init) => {
 
 /**
  * The same, with the editor's Git token attached — which every injected route
- * except the auth relay gates on.
+ * except the auth relay gates on (see `denyUnlessWritable`).
  */
 export const authedSiteFetch: typeof fetch = (input, init) => {
-  const token = tryGetToken();
   const headers = new Headers(init?.headers);
 
-  if (token) headers.set("authorization", `Bearer ${token}`);
+  // One header, or none at all while the editor has no session yet.
+  for (const [name, value] of Object.entries(bearer(tryGetToken()))) headers.set(name, value);
 
   return siteFetch(input, { ...init, headers });
 };

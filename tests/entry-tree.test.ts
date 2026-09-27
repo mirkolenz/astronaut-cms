@@ -12,7 +12,7 @@ const entries: EntryMeta[] = [
 
 describe("listDirectory", () => {
   it("groups the root into immediate folders and files", () => {
-    const { folders, files } = listDirectory(entries, "");
+    const { folders, files } = listDirectory(entries, "", (e) => e.id);
 
     expect(folders).toEqual([
       { name: "guides", path: "guides" },
@@ -22,14 +22,14 @@ describe("listDirectory", () => {
   });
 
   it("drills into a nested folder one level at a time", () => {
-    const { folders, files } = listDirectory(entries, "guides");
+    const { folders, files } = listDirectory(entries, "guides", (e) => e.id);
 
     expect(folders).toEqual([{ name: "advanced", path: "guides/advanced" }]);
     expect(files.map((f) => f.id)).toEqual(["guides/asset-handling", "guides/deployment"]);
   });
 
   it("lists the leaf files of a deep folder", () => {
-    const { folders, files } = listDirectory(entries, "guides/advanced");
+    const { folders, files } = listDirectory(entries, "guides/advanced", (e) => e.id);
 
     expect(folders).toEqual([]);
     expect(files.map((f) => f.id)).toEqual(["guides/advanced/caching"]);

@@ -6,7 +6,15 @@
  * them being present rather than re-defaulting.
  */
 import type { AstroConfig } from "astro";
-import type { AiGateway, CmsClientConfig, CmsConfig } from "./types.ts";
+import type {
+  AiGateway,
+  CmsClientConfig,
+  CmsConfig,
+  MediaBackendConfig,
+  MediaServerConfig,
+} from "./types.ts";
+import type { ClientMediaBackend } from "../shared/media.ts";
+import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
 import { DEFAULT_AI_MAX_STEPS } from "../shared/ai.ts";
 
@@ -59,6 +67,7 @@ export function resolveClientConfig(
   config: CmsConfig,
   trailingSlash: "always" | "never" | "ignore",
   astroI18n: AstroI18n | undefined,
+  localMedia: boolean,
 ): CmsClientConfig {
   const storage = config.storage ?? { type: "local" as const };
 
@@ -67,7 +76,13 @@ export function resolveClientConfig(
     storageType: storage.type,
     trailingSlash,
     mediaDirectory: config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY,
-    mediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
+    // Lower-cased once here, so `hasAllowedExtension` never re-normalizes the list.
+    mediaExtensions: (config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS).map((ext) =>
+      ext.toLowerCase(),
+    ),
+    maxFileSize: config.media?.maxFileSize ?? null,
+    mediaAlwaysInclude: resolveAlwaysInclude(config),
+    mediaBackend: resolveClientMediaBackend(config, localMedia),
     locale: config.locale ?? "en",
     contentI18n: resolveContentI18n(config, astroI18n),
     previewUrl: config.previewUrl,
@@ -104,10 +119,68 @@ export function resolveClientConfig(
   };
 }
 
+const DEFAULT_MEDIA_BACKEND: MediaBackendConfig = { type: "repo" };
+
+function mediaBackend(config: CmsConfig): MediaBackendConfig {
+  return config.media?.backend ?? DEFAULT_MEDIA_BACKEND;
+}
+
+/**
+ * Enough for the admin to address a file, and nothing an object store could be
+ * reached with. `localMedia` only says where the bytes are: the reference format
+ * is the configured backend's either way, so it cannot differ between a dev run
+ * and the build.
+ */
+function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): ClientMediaBackend {
+  const backend = mediaBackend(config);
+
+  return backend.type === "repo"
+    ? { type: "repo" }
+    : {
+        type: "remote",
+        publicUrl: trimSlashes(backend.publicUrl),
+        ...(localMedia && { local: true }),
+      };
+}
+
+/**
+ * Server-only, imported by the injected route alone, so a bucket, endpoint or
+ * binding name never reaches the client. The R2 preset is the S3 backend with
+ * Cloudflare's endpoint filled in.
+ */
+export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null {
+  const backend = mediaBackend(config);
+
+  if (backend.type === "repo") return null;
+
+  // An R2 bucket reached only through a Workers binding has no S3 target at all.
+  const s3 =
+    backend.type === "r2"
+      ? backend.accountId
+        ? {
+            endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
+            region: "auto",
+            pathStyle: true,
+          }
+        : null
+      : {
+          endpoint: trimSlashes(backend.endpoint),
+          region: backend.region ?? "auto",
+          pathStyle: backend.forcePathStyle ?? false,
+        };
+
+  return {
+    bucket: backend.bucket,
+    prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
+    s3,
+    binding: backend.type === "r2" ? backend.binding ?? null : null,
+  };
+}
+
 /**
  * Media-directory-relative globs the build bundles even when no content
- * references them. Build-only, like {@link resolveAiGateway}, so it stays out of
- * the client config the admin bundle carries.
+ * references them. The admin reads them too, to tell a file site code uses from
+ * one nothing reaches.
  */
 export function resolveAlwaysInclude(config: CmsConfig): string[] {
   return config.media?.alwaysInclude ?? [];

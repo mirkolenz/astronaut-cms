@@ -1,5 +1,4 @@
 import { Octokit } from "@octokit/rest";
-import { join } from "pathe";
 import type {
   ChangeKind,
   CollectionManifest,
@@ -12,7 +11,7 @@ import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
 import type { ChangeRequestSummary, PublishMode } from "./types";
 import { MergeConflictError, getErrorStatus } from "./types";
-import { getToken, fileToBase64, stripMediaPrefix } from "./utils";
+import { getToken, fileToBase64 } from "./utils";
 
 interface GitHubConfig {
   owner: string;
@@ -40,10 +39,17 @@ const FILE_STATUS: Record<string, ChangeKind> = {
   unchanged: "modified",
 };
 
+/** One blob of the repository tree, reduced to what a listing needs. */
+interface TreeFile {
+  path: string;
+  size: number;
+}
+
 export class GitHubStorage extends BranchedStorage {
   private config: GitHubConfig;
   private cachedOctokit: Octokit | null = null;
   private cachedOctokitToken: string | null = null;
+  private treeCache: { ref: string; entries: Promise<TreeFile[]> } | null = null;
 
   constructor(config: GitHubConfig, schemas: CollectionManifest, mediaDirectory: string) {
     super(schemas, mediaDirectory, config.publishMode);
@@ -81,60 +87,88 @@ export class GitHubStorage extends BranchedStorage {
     }
   }
 
+  /**
+   * The recursive tree of the current ref. It is the whole repository listing,
+   * and every collection and the media library are filtered out of the same one,
+   * so it is fetched once per ref rather than once per caller.
+   */
+  private async tree(): Promise<TreeFile[]> {
+    const ref = await this.readRef();
+
+    if (this.treeCache?.ref === ref) return this.treeCache.entries;
+
+    const cache = {
+      ref,
+      entries: this.octokit.rest.git
+        .getTree({
+          owner: this.config.owner,
+          repo: this.config.repo,
+          tree_sha: ref,
+          recursive: "1",
+        })
+        .then(({ data }) =>
+          data.tree
+            .filter((item) => item.type === "blob" && !!item.path)
+            .map((item) => ({ path: item.path!, size: item.size ?? 0 })),
+        )
+        .catch((): TreeFile[] => {
+          // A failed listing must not become what every later call reads: the
+          // cache is dropped so the next caller retries instead of seeing an
+          // empty repository until the next commit.
+          if (this.treeCache === cache) this.treeCache = null;
+
+          return [];
+        }),
+    };
+
+    this.treeCache = cache;
+
+    return cache.entries;
+  }
+
   async listEntries(collection: string): Promise<EntryMeta[]> {
     if (!this.schemas[collection]) return [];
     if (this.isFileCollection(collection)) return this.listFileCollectionEntries(collection);
 
-    try {
-      const { data } = await this.octokit.rest.git.getTree({
-        owner: this.config.owner,
-        repo: this.config.repo,
-        tree_sha: await this.readRef(),
-        recursive: "1",
-      });
-      const paths = data.tree
-        .filter((item) => item.type === "blob" && !!item.path)
-        .map((item) => item.path!);
-      return this.entriesFromTreePaths(collection, paths);
-    } catch {
-      return [];
-    }
+    return this.entriesFromTreePaths(
+      collection,
+      (await this.tree()).map((item) => item.path),
+    );
   }
 
   protected async fetchRawEntry(collection: string, id: string, ext: string): Promise<string> {
     return this.fetchFileContent(this.getEntryPath(collection, id, ext));
   }
 
-  protected async fetchFileContent(path: string): Promise<string> {
+  /**
+   * The contents API narrowed to the one file it was asked for. `mediaType`
+   * selects the representation: the default JSON form carries the base64 body
+   * and stops at 1 MB, `object` reaches 100 MB and is what a `download_url` needs.
+   */
+  private async getRepoFile(path: string, format?: "object") {
     const { data } = await this.octokit.rest.repos.getContent({
       owner: this.config.owner,
       repo: this.config.repo,
       path,
       ref: await this.readRef(),
+      ...(format && { mediaType: { format } }),
     });
+
     if (Array.isArray(data) || data.type !== "file") {
       throw new Error(`Expected file at ${path}`);
     }
-    return atob(data.content.replace(/\n/g, ""));
+
+    return data;
+  }
+
+  protected async fetchFileContent(path: string): Promise<string> {
+    const { content } = await this.getRepoFile(path);
+
+    return atob(content.replace(/\n/g, ""));
   }
 
   async listMedia(): Promise<MediaFile[]> {
-    const prefix = `${this.mediaDirectory}/`;
-    try {
-      const { data } = await this.octokit.rest.git.getTree({
-        owner: this.config.owner,
-        repo: this.config.repo,
-        tree_sha: await this.readRef(),
-        recursive: "1",
-      });
-      return this.mediaFiles(
-        data.tree
-          .filter((item) => item.type === "blob" && item.path?.startsWith(prefix))
-          .map((item) => ({ path: item.path!, size: item.size ?? 0, lastModified: "" })),
-      );
-    } catch {
-      return [];
-    }
+    return this.mediaFiles(await this.tree());
   }
 
   protected async writeEntry(
@@ -166,39 +200,42 @@ export class GitHubStorage extends BranchedStorage {
     await this.commitTree([{ path, mode: "100644", type: "blob", sha: null }], message);
   }
 
-  async uploadMedia(path: string, file: File): Promise<MediaFile> {
-    const repoPath = join(this.mediaDirectory, path);
+  protected async writeMedia(repoPath: string, file: File): Promise<void> {
     const content = await fileToBase64(file);
+
     await this.commitBlobs([{ path: repoPath, content, encoding: "base64" }], `Upload ${repoPath}`);
-    return { path: repoPath, size: file.size, lastModified: "" };
   }
 
-  async replaceMedia(path: string, file: File): Promise<MediaFile> {
-    return this.uploadMedia(stripMediaPrefix(path, this.mediaDirectory), file);
+  /**
+   * A repository file has no public URL. The contents API answers with a
+   * `download_url` carrying its own short-lived token for a private repository,
+   * which is the one form an `<img>` can load without sending headers.
+   */
+  async readUrl(path: string): Promise<string> {
+    const { download_url } = await this.getRepoFile(this.mediaRepoPath(path), "object");
+
+    if (!download_url) throw new Error(`No download URL for ${path}`);
+
+    return download_url;
   }
 
-  async renameMedia(oldPath: string, newPath: string): Promise<MediaFile> {
-    const { data } = await this.octokit.rest.repos.getContent({
-      owner: this.config.owner,
-      repo: this.config.repo,
-      path: oldPath,
-      ref: await this.readRef(),
-    });
-    if (Array.isArray(data) || data.type !== "file") {
-      throw new Error(`Expected file at ${oldPath}`);
-    }
+  protected async moveMedia(from: string, to: string): Promise<void> {
+    const { sha } = await this.getRepoFile(from);
+
     await this.commitTree(
       [
-        { path: newPath, mode: "100644", type: "blob", sha: data.sha },
-        { path: oldPath, mode: "100644", type: "blob", sha: null },
+        { path: to, mode: "100644", type: "blob", sha },
+        { path: from, mode: "100644", type: "blob", sha: null },
       ],
-      `Rename ${oldPath} to ${newPath}`,
+      `Rename ${from} to ${to}`,
     );
-    return { path: newPath, size: data.size, lastModified: "" };
   }
 
-  async deleteMedia(path: string): Promise<void> {
-    await this.commitTree([{ path, mode: "100644", type: "blob", sha: null }], `Delete ${path}`);
+  protected async removeMedia(repoPath: string): Promise<void> {
+    await this.commitTree(
+      [{ path: repoPath, mode: "100644", type: "blob", sha: null }],
+      `Delete ${repoPath}`,
+    );
   }
 
   async reorderEntries(collection: string, ids: string[]): Promise<void> {
@@ -210,6 +247,9 @@ export class GitHubStorage extends BranchedStorage {
   }
 
   protected async doUpdate(branch: string): Promise<void> {
+    // Merging rewrites the branch this reads from, so the cached listing goes too.
+    this.treeCache = null;
+
     try {
       await this.octokit.rest.repos.merge({
         owner: this.config.owner,
@@ -348,6 +388,7 @@ export class GitHubStorage extends BranchedStorage {
     await this.finalizeCommit(branch, exists, parentRef.object.sha, treeEntries, message);
   }
 
+  /** The commit funnel, and therefore where the cached tree stops being current. */
   private async finalizeCommit(
     branch: string,
     exists: boolean,
@@ -391,5 +432,7 @@ export class GitHubStorage extends BranchedStorage {
       });
       this.markBranchExists(true);
     }
+
+    this.treeCache = null;
   }
 }

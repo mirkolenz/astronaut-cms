@@ -33,6 +33,7 @@ import {
 } from "@client/lib/ai/attachments";
 import { REASONING_EFFORTS, type ReasoningEffort } from "@client/lib/ai/reasoning";
 import { clearChat } from "@client/lib/ai/chat";
+import { MEDIA_KEY } from "@client/queries/use-media";
 import { toast } from "@client/components/toast";
 import type { CmsChat } from "@client/components/ai/chat-view";
 import type { TFunction } from "i18next";
@@ -178,7 +179,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     }
 
     if (prepared.savedPaths.length > 0) {
-      void queryClient.invalidateQueries({ queryKey: ["cms", "media"] });
+      void queryClient.invalidateQueries({ queryKey: MEDIA_KEY });
     }
 
     setAttachments([]);

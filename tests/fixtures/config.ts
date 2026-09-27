@@ -8,6 +8,9 @@ const config: CmsClientConfig = {
   trailingSlash: "ignore",
   mediaDirectory: "src/assets",
   mediaExtensions: [".png", ".jpg", ".svg", ".pdf"],
+  mediaBackend: { type: "repo" },
+  maxFileSize: null,
+  mediaAlwaysInclude: [],
   locale: "en",
   contentI18n: { locales: ["en", "de"], defaultLocale: "en" },
 };

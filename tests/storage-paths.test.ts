@@ -24,16 +24,13 @@ class TestStorage extends StorageBase {
   listMedia() {
     return Promise.resolve([]);
   }
-  uploadMedia() {
+  writeMedia() {
     return Promise.reject(new Error("n/a"));
   }
-  replaceMedia() {
+  moveMedia() {
     return Promise.reject(new Error("n/a"));
   }
-  renameMedia() {
-    return Promise.reject(new Error("n/a"));
-  }
-  deleteMedia() {
+  removeMedia() {
     return Promise.resolve();
   }
   writeEntry() {

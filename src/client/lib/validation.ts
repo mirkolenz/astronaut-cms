@@ -1,7 +1,8 @@
 import config from "virtual:astronaut-cms/config";
 import { collectionDataSchema, normalizeDates } from "@client/lib/schema";
 import { validatePath } from "@shared/validation";
-import type { CollectionManifestEntry } from "@shared/types";
+import { describeMediaRef, mediaPath } from "@shared/media";
+import { entryFilePath, type CollectionManifestEntry } from "@shared/types";
 import { dataLeaves, type ResolvableLeaf } from "@shared/resolvable-leaves";
 import { components } from "virtual:astronaut-cms/user-config";
 import { validateMdx } from "@shared/mdx-validation";
@@ -14,9 +15,17 @@ export * from "@shared/diagnostics";
  * rather than taken from `getStorage()` so that the backend itself can validate
  * its own writes without depending on the module that constructs it.
  */
-export interface ContentSource {
-  listEntries(collection: string): Promise<{ id: string }[]>;
+export interface MediaSource {
   listMedia(): Promise<{ path: string }[]>;
+}
+
+export interface ContentSource extends MediaSource {
+  listEntries(collection: string): Promise<{ id: string }[]>;
+}
+
+/** Every library path the backend reports, as the checks below compare against it. */
+async function libraryPaths(source: MediaSource): Promise<Set<string>> {
+  return new Set((await source.listMedia()).map((m) => m.path));
 }
 
 /** An entry id must be a safe, slug-like path (the same rule the storage layer enforces). */
@@ -91,33 +100,36 @@ async function checkReferences(
 }
 
 /**
- * An `image`/`file` field must name a file in the media directory, and nothing
- * else. This is not a house rule: the site resolves these paths through a map
- * rooted at the media directory (see the generated `virtual:astronaut-cms/assets`
- * module), so a path outside it cannot resolve at render time no matter what the
- * file system holds, and a path inside it that does not exist fails the same way.
- * A build takes it further and refuses to start, since the same walk decides
- * which assets are bundled at all.
+ * An `image`/`file` field must name a file in the media library, and nothing
+ * else. This is not a house rule: the site resolves these values through the
+ * library alone — a map rooted at the media directory, or a URL under the
+ * configured public base (see `virtual:astronaut-cms/assets`) — so a value that
+ * addresses anything else cannot resolve at render time no matter what the file
+ * system or the bucket holds. With a repository library a build takes it
+ * further and refuses to start, since the same walk decides what is bundled.
  */
-async function checkAssets(source: ContentSource, assets: ResolvableLeaf[]): Promise<Diagnostic[]> {
+async function checkAssets(
+  source: MediaSource,
+  assets: ResolvableLeaf[],
+  base?: string,
+): Promise<Diagnostic[]> {
   if (assets.length === 0) return [];
 
-  const mediaDirectory = config.mediaDirectory.replace(/^\/|\/$/g, "");
-  const paths = new Set((await source.listMedia()).map((m) => m.path));
+  const paths = await libraryPaths(source);
 
   return assets.flatMap((asset) => {
-    const normalized = asset.value.replace(/^\//, "");
+    const path = mediaPath(asset.value, config, base);
 
-    if (!normalized.startsWith(`${mediaDirectory}/`)) {
+    if (path == null) {
       return diagnostic(
-        `"${asset.value}" is outside the media directory ("${mediaDirectory}"). Assets must live in the media library; upload the file there and use the path listMedia reports.`,
+        `"${asset.value}" does not address the media library. An asset value must be ${describeMediaRef(config)}; upload the file there and use the path the media library reports.`,
         asset.path,
       );
     }
 
-    if (!paths.has(normalized)) {
+    if (!paths.has(path)) {
       return diagnostic(
-        `"${asset.value}" is not in the media library. Use a path listMedia reports.`,
+        `"${asset.value}" is not in the media library. Use a path the media library reports.`,
         asset.path,
       );
     }
@@ -126,9 +138,21 @@ async function checkAssets(source: ContentSource, assets: ResolvableLeaf[]): Pro
   });
 }
 
-/** A media path names an existing file in the media library, by the same rule. */
-export function validateMediaExists(source: ContentSource, path: string): Promise<Diagnostic[]> {
-  return checkAssets(source, [{ kind: "file", value: path, path: "" }]);
+/**
+ * A media path names an existing file in the media library. It is already
+ * library-relative — what `listMedia` reports — so it is compared to the listing
+ * directly rather than through {@link checkAssets}, which lowers the *reference*
+ * content stores and would reject every library path under a `repo` backend.
+ */
+export async function validateMediaExists(
+  source: MediaSource,
+  path: string,
+): Promise<Diagnostic[]> {
+  const paths = await libraryPaths(source);
+
+  return paths.has(path)
+    ? []
+    : [diagnostic(`"${path}" is not in the media library. Use a path listMedia reports.`)];
 }
 
 /**
@@ -164,6 +188,7 @@ export function validateAgainstSchema(
 async function checkResolvableLeaves(
   source: ContentSource,
   leaves: ResolvableLeaf[],
+  base?: string,
 ): Promise<Diagnostic[]> {
   if (leaves.length === 0) return [];
 
@@ -175,6 +200,7 @@ async function checkResolvableLeaves(
     checkAssets(
       source,
       leaves.filter((l) => l.kind !== "reference"),
+      base,
     ),
   ]);
 
@@ -209,7 +235,11 @@ async function validateEntryWrite(
     ...validateEntryId(id),
     ...validateAgainstSchema(col, data),
     ...mdx.diagnostics,
-    ...(await checkResolvableLeaves(source, [...dataLeaves(col.schema, data), ...mdx.leaves])),
+    ...(await checkResolvableLeaves(
+      source,
+      [...dataLeaves(col.schema, data), ...mdx.leaves],
+      entryFilePath(col, id, format),
+    )),
   ];
 }
 

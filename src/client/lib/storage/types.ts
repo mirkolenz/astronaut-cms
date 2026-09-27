@@ -4,7 +4,6 @@ import type {
   FileChange,
   FileEntryLayout,
   SaveEntryRequest,
-  MediaFile,
 } from "@shared/types";
 
 export type PublishMode = "direct" | "pull-request";
@@ -65,21 +64,23 @@ export interface StorageCapabilities {
   update: boolean;
 }
 
+/**
+ * Content storage. The media library used to be part of this, and for a Git
+ * backend still is in practice (see `MediaBackend`), but it is configured
+ * separately: a site can keep its content in Git and its media in an object
+ * store.
+ */
 export interface StorageBackend {
   readonly capabilities: StorageCapabilities;
   listEntries(collection: string): Promise<EntryMeta[]>;
-  getEntry(collection: string, id: string): Promise<EntryContent>;
+  /** `format` is a hint from a listing, saving the fallback search over extensions. */
+  getEntry(collection: string, id: string, format?: string): Promise<EntryContent>;
   saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
   deleteEntry(collection: string, id: string): Promise<void>;
   renameEntry(collection: string, oldId: string, newId: string): Promise<void>;
   duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
   reorderEntries(collection: string, ids: string[]): Promise<void>;
   getFileLayout(collection: string): Promise<FileEntryLayout>;
-  listMedia(): Promise<MediaFile[]>;
-  uploadMedia(path: string, file: File): Promise<MediaFile>;
-  replaceMedia(path: string, file: File): Promise<MediaFile>;
-  renameMedia(oldPath: string, newPath: string): Promise<MediaFile>;
-  deleteMedia(path: string): Promise<void>;
 
   publish(): Promise<void>;
   update(): Promise<void>;

@@ -21,36 +21,20 @@
  *      handle the same path.
  */
 import type { AiGateway } from "../integration/types.ts";
-import { verifyGitHubWriteAccess, verifyGitLabWriteAccess } from "../shared/access.ts";
+import { bearer, denyUnlessWritable, type AccessConfig } from "../shared/access.ts";
+import { jsonError } from "../shared/response.ts";
+import { unreachable } from "../shared/unreachable.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 import { joinUrl } from "../shared/url.ts";
 
-export interface RelayConfig {
-  storageType: "local" | "github" | "gitlab";
-  github?: { repo: string };
-  gitlab?: { project: string; instanceUrl: string };
+export interface RelayConfig extends AccessConfig {
   gateway: AiGateway | null;
   models?: string[];
 }
 
-const ACCESS_CACHE_TTL = 5 * 60 * 1000;
-
-// Per-token write-access results, so streaming turns don't re-hit the Git API on
-// every model round-trip. Bounded by token count and a short TTL.
-const accessCache = new Map<string, number>();
-
 interface Gateway {
   url: string;
   headers: Record<string, string>;
-}
-
-function bearer(token: string | undefined): Record<string, string> {
-  return token ? { authorization: `Bearer ${token}` } : {};
-}
-
-/** Compile-time exhaustiveness for a closed union, and a fail-closed throw if one grows. */
-function unreachable(value: never, message: string): never {
-  throw new Error(`${message}: ${JSON.stringify(value)}`);
 }
 
 // The gateway type comes from static config; credentials come from the config
@@ -100,63 +84,14 @@ function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
   }
 }
 
-async function verifyAccess(token: string | undefined, config: RelayConfig): Promise<void> {
-  // Local storage is dev-only and carries no provider identity to verify against.
-  if (config.storageType === "local") return;
-
-  if (!token) throw new Error("Not authenticated");
-
-  const now = Date.now();
-  const cached = accessCache.get(token);
-  if (cached != null && cached > now) return;
-
-  // Exhaustive on purpose: a storage type with no verification of its own must
-  // fail closed rather than fall through and cache the token as valid.
-  switch (config.storageType) {
-    case "github":
-      if (!config.github) throw new Error("GitHub storage is not configured");
-
-      await verifyGitHubWriteAccess(token, config.github.repo);
-      break;
-
-    case "gitlab":
-      if (!config.gitlab) throw new Error("GitLab storage is not configured");
-
-      await verifyGitLabWriteAccess(token, config.gitlab.project, config.gitlab.instanceUrl);
-      break;
-
-    default:
-      unreachable(config.storageType, "Cannot verify access for storage type");
-  }
-
-  // Evict expired entries so the cache stays bounded by currently-valid tokens,
-  // not every token the warm instance has ever seen.
-  for (const [key, expiry] of accessCache) {
-    if (expiry <= now) accessCache.delete(key);
-  }
-
-  accessCache.set(token, now + ACCESS_CACHE_TTL);
-}
-
-function jsonError(message: string, status: number): Response {
-  return new Response(JSON.stringify({ error: { message } }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
 export async function handle(
   request: Request,
   getEnv: EnvReader,
   config: RelayConfig,
 ): Promise<Response> {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const denied = await denyUnlessWritable(request, config);
 
-  try {
-    await verifyAccess(token, config);
-  } catch (err) {
-    return jsonError(err instanceof Error ? err.message : "Forbidden", 403);
-  }
+  if (denied) return denied;
 
   let body: { model?: string };
   try {

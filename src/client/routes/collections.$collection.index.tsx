@@ -68,7 +68,7 @@ function GlobCollectionPage({
   const { activeLocale, subDir, browseDir } = browseLocation(i18n, dir);
 
   const { folders, files } = useMemo(
-    () => listDirectory(filteredEntries ?? [], browseDir),
+    () => listDirectory(filteredEntries ?? [], browseDir, (entry) => entry.id),
     [filteredEntries, browseDir],
   );
   const isEmpty = folders.length === 0 && files.length === 0;

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertDialog,
@@ -13,7 +14,7 @@ import {
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
   variant?: "danger" | "default";
   onConfirm: () => void;

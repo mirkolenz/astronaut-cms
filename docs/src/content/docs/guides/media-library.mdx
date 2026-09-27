@@ -3,7 +3,9 @@ title: Media Library
 description: Manage images and files in the CMS admin panel.
 ---
 
-import { Aside } from "@astrojs/starlight/components";
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import Steps from "@/components/Steps.astro";
+import StepItem from "@/components/StepItem.astro";
 
 The admin panel includes a media library for uploading, renaming, replacing, and deleting media files.
 
@@ -27,13 +29,134 @@ cms({
 | ------------------- | ---------- | -------------- | -------------------------------------------------------------------- |
 | `directory`         | `string`   | `"src/assets"` | Directory where media files are stored, relative to the project root |
 | `allowedExtensions` | `string[]` | See below      | List of allowed file extensions                                      |
-| `maxFileSize`       | `number`   | unlimited      | Maximum file size in bytes                                           |
+| `maxFileSize`       | `number`   | unlimited      | Maximum upload size in bytes, refused by the admin and by the media route |
 
 ### Default Allowed Extensions
 
 If `allowedExtensions` is not set, the following extensions are allowed by default:
 
 `.jpg`, `.jpeg`, `.png`, `.webp`, `.avif`, `.svg`, `.gif`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.csv`
+
+## Where files are stored
+
+By default the library is a directory in your repository (`media.backend: { type: "repo" }`).
+Uploads are commits on the same draft branch as content, so an image and the entry that uses it publish together, and discarding a draft takes both back.
+
+A library can also live in an object store, which is what you want when the media outgrows the repository: large or numerous files, editors uploading originals, or assets you would rather serve from a CDN than bundle into `dist/`.
+Content then stores library keys instead of project paths, and the site loads them from `publicUrl`.
+
+<Tabs>
+  <TabItem label="S3-compatible">
+    ```ts title="astro.config.ts"
+    cms({
+      media: {
+        backend: {
+          type: "s3",
+          bucket: "my-media",
+          endpoint: "https://s3.eu-central-1.amazonaws.com",
+          region: "eu-central-1",
+          publicUrl: "https://cdn.example.com",
+        },
+      },
+    });
+    ```
+
+    Works with AWS S3, MinIO, Backblaze B2, Hetzner and anything else speaking the S3 API.
+    Add `forcePathStyle: true` for a store that addresses objects as `<endpoint>/<bucket>/<key>`.
+  </TabItem>
+
+  <TabItem label="Cloudflare R2">
+    ```ts title="astro.config.ts"
+    cms({
+      media: {
+        backend: {
+          type: "r2",
+          bucket: "my-media",
+          accountId: "<cloudflare-account-id>",
+          publicUrl: "https://cdn.example.com",
+        },
+      },
+    });
+    ```
+
+    R2 speaks the S3 API, so this is the same backend with Cloudflare's endpoint filled in.
+  </TabItem>
+
+  <TabItem label="R2 via Workers binding">
+    ```ts title="astro.config.ts"
+    cms({
+      media: {
+        backend: {
+          type: "r2",
+          bucket: "my-media",
+          binding: "MEDIA",
+          publicUrl: "https://cdn.example.com",
+        },
+      },
+    });
+    ```
+
+    On `@astrojs/cloudflare`, an R2 binding needs no credentials at all.
+    A binding cannot hand out a presigned URL, so uploads are proxied through the Worker rather than going straight to the bucket.
+    Add `accountId` as well to fall back to the S3 API wherever the binding is absent.
+  </TabItem>
+</Tabs>
+
+### What an object store needs
+
+<Steps>
+  <StepItem title="Install the AWS SDK">
+    It is an optional peer dependency, so only sites using an object store download it:
+
+    ```sh
+    npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+    ```
+  </StepItem>
+
+  <StepItem title="Set the credentials on the server">
+    Not needed for a Workers binding:
+
+    ```sh
+    ASTRONAUT_CMS_S3_ACCESS_KEY_ID=...
+    ASTRONAUT_CMS_S3_SECRET_ACCESS_KEY=...
+    # optional, for temporary credentials
+    ASTRONAUT_CMS_S3_SESSION_TOKEN=...
+    ```
+
+    They are read by the injected media route alone and never reach the browser.
+  </StepItem>
+
+  <StepItem title="Add an SSR adapter">
+    The media route is an on-demand route, like the AI relay, so the site needs `@astrojs/netlify`,
+    `@astrojs/vercel` or `@astrojs/cloudflare`.
+  </StepItem>
+
+  <StepItem title="Make the bucket publicly readable under publicUrl">
+    Content stores plain keys, so a signed, expiring URL can never be written into an entry. On R2
+    that means a custom domain: the `*.r2.dev` hostname is rate-limited and not meant for production.
+  </StepItem>
+
+  <StepItem title="Allow browser uploads in the bucket's CORS policy">
+    A `PUT` from your admin's origin. Uploads go straight from the browser to the store, which is
+    what keeps them clear of the 4.5 MB (Vercel) and 6 MB (Netlify) function body limits.
+  </StepItem>
+</Steps>
+
+### How it differs from a repository library
+
+- **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted object is gone for every visitor at once, even if the entry referencing it is still a draft.
+- **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
+- **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `image()`/`file()` markers for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
+- **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.
+
+<Aside type="note">
+  `astro dev` keeps the library in the working tree rather than the bucket, exactly as it substitutes
+  local storage for content, so running the admin locally needs no bucket credentials and cannot
+  touch what the deployed site serves. Only the bytes move: references are still written as keys, so
+  an entry edited in dev builds unchanged. It needs local storage, since the files are reached
+  through the dev server's own file API. Set `localMediaInDev: false` to point dev at the configured
+  store instead — and note that the dev route skips the write-access check, as the AI relay does.
+</Aside>
 
 ## Using Media in Content
 
@@ -93,3 +216,29 @@ The media library supports the following operations through the admin panel:
 - **Rename** — Change the file name while preserving the extension.
 - **Replace** — Upload a new file to replace an existing one at the same path.
 - **Delete** — Remove a file from the media directory.
+
+## Usage and unused files
+
+**Check usage** reads your content once and then labels every file with how many entries use it, or
+marks it unused. **Unused only** narrows the library to those, which is how an object-store library
+is tidied up: uploads there are immediate, so a discarded draft leaves its uploads behind. The scan
+is not run until you ask for it, since it reads every entry.
+
+Deleting or renaming a referenced file warns first and names every entry that would break, so
+neither can silently produce a broken build. The same check applies to the assistant, which refuses
+both operations while a reference exists.
+
+References are read from your content the way a build reads it — an `image()` or `file()` value is
+an asset because its schema says so — plus a textual pass over bodies, so an image used only in
+markdown prose or in a Markdoc tag still counts as referenced.
+
+The same scan reports the opposite problem: **references pointing at files the library no longer
+holds**. Only schema-declared references are reported there, since a path-shaped string in prose is
+reason enough to keep a file but not to call an entry broken. With a repository library the build
+catches these; with an object store nothing else does.
+
+<Aside type="note">
+  A file referenced only from site code is invisible to this scan, since the admin reads content and
+  not your `.astro` files. List those under `media.alwaysInclude` (you already have to, for the
+  build to bundle them) and they are excluded from the unused list too.
+</Aside>

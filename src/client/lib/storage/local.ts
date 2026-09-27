@@ -1,9 +1,8 @@
-import { join } from "pathe";
 import type { EntryMeta, FileChange, MediaFile, SaveEntryRequest } from "@shared/types";
 import { serializeContent } from "@shared/content-parser";
 import { StorageBase } from "./base";
 import type { BranchStatus, StorageCapabilities } from "./types";
-import { fileToBase64, stripMediaPrefix } from "./utils";
+import { fileToBase64 } from "./utils";
 import { fetchJson } from "@client/lib/api";
 
 const filePath = (path: string) => `/files/${encodeURIComponent(path)}`;
@@ -80,30 +79,20 @@ export class LocalStorage extends StorageBase {
     return this.mediaFiles(await this.listDirectory(this.mediaDirectory));
   }
 
-  async uploadMedia(path: string, file: File): Promise<MediaFile> {
-    const repoPath = join(this.mediaDirectory, path);
-
+  protected async writeMedia(repoPath: string, file: File): Promise<void> {
     await this.writeFile(repoPath, await fileToBase64(file), "base64");
-
-    return { path: repoPath, size: file.size, lastModified: new Date().toISOString() };
   }
 
-  async replaceMedia(path: string, file: File): Promise<MediaFile> {
-    return this.uploadMedia(stripMediaPrefix(path, this.mediaDirectory), file);
-  }
-
-  async renameMedia(oldPath: string, newPath: string): Promise<MediaFile> {
-    await fetchJson(filePath(oldPath), {
+  protected async moveMedia(from: string, to: string): Promise<void> {
+    await fetchJson(filePath(from), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: newPath }),
+      body: JSON.stringify({ to }),
     });
-
-    return { path: newPath, size: 0, lastModified: new Date().toISOString() };
   }
 
-  async deleteMedia(path: string): Promise<void> {
-    await fetchJson(filePath(path), { method: "DELETE" });
+  protected async removeMedia(repoPath: string): Promise<void> {
+    await fetchJson(filePath(repoPath), { method: "DELETE" });
   }
 
   // Discard is meaningful without a branch: it is git restoring the files the

@@ -136,11 +136,67 @@ const images = await Promise.all(Astro.props.srcs.map((s) => resolveImage(s)));
 CMS asset props are resolved through a map rooted at your media directory, so a path outside it can
 never resolve, however real the file is. The CMS enforces this when content is written, by hand or
 by the assistant: an `image()`/`file()` value must name an existing file in the media library, and
-any other path is rejected with the reason. This is what keeps a mistyped or invented asset path
+any other path is rejected with the reason. A relative value is resolved against the entry holding
+it first — the same way the build and `resolveImage(src, base)` resolve it — so it is judged by
+where it points, not by how it is written. This is what keeps a mistyped or invented asset path
 out of your content, where it would otherwise surface as a broken build.
 
 Plain markdown links and `public/` URLs are unaffected, since they are ordinary strings and not
 asset fields.
+
+## Object-store libraries
+
+Everything above describes a library that lives in your repository, where astro's asset pipeline
+resolves and bundles the files. With `media.backend` set to an object store
+([Media Library](/astronaut-cms/guides/media-library/#where-files-are-stored)) the same references
+work, but they resolve differently, and it is worth knowing where the seams are.
+
+Content stores a **library key** rather than a project path:
+
+```json
+{ "cover": "photos/hero.png" }
+```
+
+`resolveImage()` turns that key into a URL under the configured `publicUrl` instead of importing a
+file, so it hands back a `string` rather than `ImageMetadata`:
+
+```astro
+---
+import { resolveImage, resolveFile } from "astronaut-cms/assets";
+
+const cover = await resolveImage("photos/hero.png"); // -> "https://cdn.example.com/photos/hero.png"
+const pdf = await resolveFile("reports/q3.pdf");     // -> "https://cdn.example.com/reports/q3.pdf"
+---
+```
+
+`astronaut-cms/Image.astro` handles both cases, so a component written for a repository library keeps
+working unchanged:
+
+```astro
+---
+import Image from "astronaut-cms/Image.astro";
+---
+
+<Image src={Astro.props.src} alt={Astro.props.alt} />
+```
+
+For a remote image it passes `inferSize` to `astro:assets`, which reads the real dimensions from the
+image itself, at build time for a prerendered page. Pass an explicit `width` and `height` to skip that.
+The integration adds your `publicUrl` to astro's `image.remotePatterns` for you, which is what allows
+astro to fetch and optimize those images at all.
+
+<Aside type="caution">
+  Astro's collection `image()` helper imports a local file, so it cannot hold a library key. For an
+  asset field in a collection schema with an object-store library, use the CMS's own `file()` (or
+  `image()` in a component's props) and resolve it as above. Everything else in this guide — MDX
+  component props, `resolveFile()`, relative-path rules — is unchanged.
+</Aside>
+
+Nothing is bundled, because nothing is in the project to bundle: the build emits no copies, and
+`media.alwaysInclude` has no effect. That also means a build cannot tell you an asset is missing.
+The check moves earlier instead: the admin (and the assistant) refuse to write an `image()` or
+`file()` value that is not in the library, which is the same rule, applied when the content is
+written rather than when it is built.
 
 ## What a build bundles
 

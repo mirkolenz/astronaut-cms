@@ -16,6 +16,7 @@ import { schemaDefaults } from "@client/lib/schema";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
+import { EntryContextProvider } from "@client/lib/entry-context";
 import { toast } from "@client/components/toast";
 import { toLabel } from "@client/lib/to-label";
 import { getFileExtension } from "@shared/content-parser";
@@ -31,6 +32,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const meta = collectionMeta[collection];
   const format = (meta?.loaderFileName && getFileExtension(meta.loaderFileName)) || "json";
   const { data: layout } = useFileLayout(collection);
+  // Every entry of a file collection lives in the same file, so a relative asset
+  // reference in any of them resolves against that one path.
+  const contentFilePath = meta?.loaderFileName;
   const isOrderable = layout === "array";
 
   const deleteMutation = useDeleteEntry(collection);
@@ -97,77 +101,79 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {t(($) => $.collection.fileCollection)} &middot;{" "}
-            {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
-          </p>
+    <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {t(($) => $.collection.fileCollection)} &middot;{" "}
+              {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
+            </p>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)}>{t(($) => $.collection.addEntry)}</Button>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>{t(($) => $.collection.addEntry)}</Button>
-      </div>
 
-      {(!sortedEntries || sortedEntries.length === 0) && (
-        <div className="text-center text-muted-foreground">
-          <p>{t(($) => $.collection.noEntries)}</p>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {sortedEntries?.map((entry, index) => (
-          <FileEntryCard
-            key={entry.id}
-            collection={collection}
-            entryId={entry.id}
-            schema={schema}
-            expanded={expandedEntries.has(entry.id)}
-            onToggle={() => toggleEntry(entry.id)}
-            onDelete={() => setDeleteTarget(entry.id)}
-            orderable={isOrderable}
-            onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
-            onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
-          />
-        ))}
-        {draftId && (
-          <FileEntryCard
-            collection={collection}
-            entryId={draftId}
-            schema={schema}
-            format={format}
-            draft
-            expanded
-            onToggle={() => setDraftId(null)}
-            onDelete={() => setDraftId(null)}
-            onCreated={() => setDraftId(null)}
-            orderable={false}
-          />
+        {(!sortedEntries || sortedEntries.length === 0) && (
+          <div className="text-center text-muted-foreground">
+            <p>{t(($) => $.collection.noEntries)}</p>
+          </div>
         )}
+
+        <div className="space-y-2">
+          {sortedEntries?.map((entry, index) => (
+            <FileEntryCard
+              key={entry.id}
+              collection={collection}
+              entryId={entry.id}
+              schema={schema}
+              expanded={expandedEntries.has(entry.id)}
+              onToggle={() => toggleEntry(entry.id)}
+              onDelete={() => setDeleteTarget(entry.id)}
+              orderable={isOrderable}
+              onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
+              onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
+            />
+          ))}
+          {draftId && (
+            <FileEntryCard
+              collection={collection}
+              entryId={draftId}
+              schema={schema}
+              format={format}
+              draft
+              expanded
+              onToggle={() => setDraftId(null)}
+              onDelete={() => setDraftId(null)}
+              onCreated={() => setDraftId(null)}
+              orderable={false}
+            />
+          )}
+        </div>
+
+        <NewEntryDialog
+          open={showAddDialog}
+          collection={collection}
+          collectionType="data"
+          allowedFormats={[format]}
+          onSubmit={(id) => {
+            setShowAddDialog(false);
+            setDraftId(id);
+          }}
+          onCancel={() => setShowAddDialog(false)}
+        />
+
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          title={t(($) => $.editors.removeEntry)}
+          message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
+          confirmLabel={t(($) => $.common.remove)}
+          variant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </div>
-
-      <NewEntryDialog
-        open={showAddDialog}
-        collection={collection}
-        collectionType="data"
-        allowedFormats={[format]}
-        onSubmit={(id) => {
-          setShowAddDialog(false);
-          setDraftId(id);
-        }}
-        onCancel={() => setShowAddDialog(false)}
-      />
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t(($) => $.editors.removeEntry)}
-        message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
-        confirmLabel={t(($) => $.common.remove)}
-        variant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
-    </div>
+    </EntryContextProvider>
   );
 }
 

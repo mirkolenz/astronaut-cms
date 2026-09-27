@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
-import { useMedia } from "@client/queries/use-media";
-import { getStorage } from "@client/lib/storage";
-import { isImagePath, toPreviewUrl, getFileName } from "@client/lib/asset-utils";
+import { useMedia, useUploadMedia } from "@client/queries/use-media";
+import { getFileName } from "@client/lib/asset-utils";
+import { MediaImage } from "@client/components/media-image";
 import { optimizeImage } from "@client/lib/image-utils";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import {
@@ -25,9 +24,8 @@ interface MediaPickerDialogProps {
 export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialogProps) {
   const { t } = useTranslation();
   const { data: files, isLoading } = useMedia();
-  const queryClient = useQueryClient();
+  const uploadMutation = useUploadMedia();
   const [filter, setFilter] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [duplicateFile, setDuplicateFile] = useState<{ name: string; file: File } | null>(null);
 
   const filtered = open
@@ -44,29 +42,21 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
       e.target.value = "";
       return;
     }
-    setUploading(true);
-    try {
-      const uploaded = await getStorage().uploadMedia(file.name, file);
-      await queryClient.invalidateQueries({ queryKey: ["cms", "media"] });
-      onSelect(uploaded.path);
-    } finally {
-      setUploading(false);
-    }
+    await uploadMutation.mutateAsync({ path: file.name, file });
+    onSelect(file.name);
   };
 
   const handleOverwrite = async () => {
     if (!duplicateFile) return;
-    setUploading(true);
-    try {
-      const existing = files?.find((f) => getFileName(f.path) === duplicateFile.name);
-      if (!existing) return;
-      const replaced = await getStorage().replaceMedia(existing.path, duplicateFile.file);
-      await queryClient.invalidateQueries({ queryKey: ["cms", "media"] });
-      onSelect(replaced.path);
-    } finally {
-      setUploading(false);
-      setDuplicateFile(null);
-    }
+
+    const existing = files?.find((f) => getFileName(f.path) === duplicateFile.name);
+
+    setDuplicateFile(null);
+
+    if (!existing) return;
+
+    await uploadMutation.mutateAsync({ path: existing.path, file: duplicateFile.file });
+    onSelect(existing.path);
   };
 
   return (
@@ -91,8 +81,13 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
           />
           <Button asChild>
             <label className="cursor-pointer">
-              {uploading ? t(($) => $.common.uploading) : t(($) => $.common.upload)}
-              <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
+              {uploadMutation.isPending ? t(($) => $.common.uploading) : t(($) => $.common.upload)}
+              <input
+                type="file"
+                onChange={handleUpload}
+                className="hidden"
+                disabled={uploadMutation.isPending}
+              />
             </label>
           </Button>
         </div>
@@ -103,7 +98,6 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
               <div key={i} className="h-24 animate-pulse rounded-md bg-muted" />
             ))}
           {filtered?.map((file) => {
-            const isImage = isImagePath(file.path);
             return (
               <button
                 key={file.path}
@@ -112,20 +106,7 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
                 className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
               >
                 <div className="flex h-20 items-center justify-center bg-muted">
-                  {isImage ? (
-                    <img
-                      src={toPreviewUrl(file.path)}
-                      alt=""
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <span className="text-lg font-medium text-muted-foreground">
-                      {file.path.split(".").pop()?.toUpperCase()}
-                    </span>
-                  )}
+                  <MediaImage path={file.path} className="h-full w-full object-contain" />
                 </div>
                 <div className="border-t border-border px-2 py-1">
                   <p className="truncate text-xs text-muted-foreground" title={file.path}>

@@ -37,7 +37,5 @@ export function describeChange(change: FileChange): DescribedChange {
     }
   }
 
-  const mediaPath = stripMediaPrefix(path, config.mediaDirectory);
-
-  return { ...change, label: mediaPath };
+  return { ...change, label: stripMediaPrefix(path, config.mediaDirectory) ?? path };
 }

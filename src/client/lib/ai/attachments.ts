@@ -1,7 +1,9 @@
 import type { FileUIPart } from "ai";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import { getStorage } from "@client/lib/storage";
+import config from "virtual:astronaut-cms/config";
+import { hasAllowedExtension, mediaRef } from "@shared/media";
+import { getMedia } from "@client/lib/media";
 import { optimizeImage } from "@client/lib/image-utils";
 
 const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -38,22 +40,18 @@ export function isImageAttachment(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-function hasExtension(file: File, ext: string): boolean {
-  return file.name.toLowerCase().endsWith(ext);
-}
-
 // Extracts readable text from a document entirely client-side: PDFs via pdf.js
 // (bundled by unpdf, no worker setup), Word `.docx` via mammoth, everything else
 // as UTF-8 text.
 async function extractDocumentText(file: File): Promise<string> {
-  if (file.type === "application/pdf" || hasExtension(file, ".pdf")) {
+  if (file.type === "application/pdf" || hasAllowedExtension(file.name, [".pdf"])) {
     const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
     const { text } = await extractText(pdf, { mergePages: true });
 
     return text;
   }
 
-  if (file.type === WORD_MIME || hasExtension(file, ".docx")) {
+  if (file.type === WORD_MIME || hasAllowedExtension(file.name, [".docx"])) {
     const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
 
     return value;
@@ -97,8 +95,10 @@ export async function prepareMessage(
     if (isImageAttachment(file)) {
       if (save) {
         const optimized = await optimizeImage(file);
-        const media = await getStorage().uploadMedia(optimized.name, optimized);
-        savedPaths.push(media.path);
+        await getMedia().uploadMedia(optimized.name, optimized);
+        // The model is handed the reference content stores, not the library path,
+        // since the only thing it does with it is write it into a field.
+        savedPaths.push(mediaRef(optimized.name, config));
         files.push(await imageToFilePart(optimized));
       } else {
         files.push(await imageToFilePart(file));

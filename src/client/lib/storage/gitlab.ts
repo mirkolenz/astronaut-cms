@@ -1,5 +1,4 @@
 import { Gitlab } from "@gitbeaker/rest";
-import { join } from "pathe";
 import type {
   CollectionManifest,
   EntryMeta,
@@ -109,11 +108,7 @@ export class GitLabStorage extends BranchedStorage {
         ref: await this.readRef(),
         recursive: true,
       });
-      return this.mediaFiles(
-        items
-          .filter((item) => item.type === "blob")
-          .map((item) => ({ path: item.path, size: 0, lastModified: "" })),
-      );
+      return this.mediaFiles(items.filter((item) => item.type === "blob"));
     } catch {
       return [];
     }
@@ -148,35 +143,32 @@ export class GitLabStorage extends BranchedStorage {
     await this.commit({ action: "delete", filePath: path }, message);
   }
 
-  async uploadMedia(path: string, file: File): Promise<MediaFile> {
-    const repoPath = join(this.mediaDirectory, path);
-    const content = await fileToBase64(file);
-    await this.commit(
-      { action: "create", filePath: repoPath, content, encoding: "base64" },
-      `Upload ${repoPath}`,
-    );
-    return { path: repoPath, size: file.size, lastModified: "" };
+  protected async writeMedia(repoPath: string, file: File): Promise<void> {
+    // An upload replaces whatever is at the path, which GitLab's commit API
+    // spells as two different actions; `commitUpsert` is what knows which.
+    await this.commitUpsert(repoPath, await fileToBase64(file), `Upload ${repoPath}`, "base64");
   }
 
-  async replaceMedia(path: string, file: File): Promise<MediaFile> {
-    const content = await fileToBase64(file);
-    await this.commit(
-      { action: "update", filePath: path, content, encoding: "base64" },
-      `Replace ${path}`,
+  /** GitLab has no pre-signed download URL, so the caller gets the bytes themselves. */
+  async readUrl(path: string): Promise<Blob> {
+    const raw = await this.api.RepositoryFiles.showRaw(
+      this.config.project,
+      this.mediaRepoPath(path),
+      await this.readRef(),
     );
-    return { path, size: file.size, lastModified: "" };
+
+    return raw instanceof Blob ? raw : new Blob([raw]);
   }
 
-  async renameMedia(oldPath: string, newPath: string): Promise<MediaFile> {
+  protected async moveMedia(from: string, to: string): Promise<void> {
     await this.commit(
-      { action: "move", filePath: newPath, previousPath: oldPath },
-      `Rename ${oldPath} to ${newPath}`,
+      { action: "move", filePath: to, previousPath: from },
+      `Rename ${from} to ${to}`,
     );
-    return { path: newPath, size: 0, lastModified: "" };
   }
 
-  async deleteMedia(path: string): Promise<void> {
-    await this.commit({ action: "delete", filePath: path }, `Delete ${path}`);
+  protected async removeMedia(repoPath: string): Promise<void> {
+    await this.commit({ action: "delete", filePath: repoPath }, `Delete ${repoPath}`);
   }
 
   async reorderEntries(collection: string, ids: string[]): Promise<void> {
@@ -285,7 +277,12 @@ export class GitLabStorage extends BranchedStorage {
     await this.api.Branches.remove(this.config.project, branch);
   }
 
-  private async commitUpsert(path: string, content: string, message: string): Promise<void> {
+  private async commitUpsert(
+    path: string,
+    content: string,
+    message: string,
+    encoding?: "base64",
+  ): Promise<void> {
     // GitLab's commit API requires distinguishing create vs update; resolve
     // upserts by checking whether the file currently exists on `ref`.
     const branch = await this.getUserBranch();
@@ -298,7 +295,7 @@ export class GitLabStorage extends BranchedStorage {
     } catch {
       action = "create";
     }
-    await this.commit({ action, filePath: path, content }, message);
+    await this.commit({ action, filePath: path, content, encoding }, message);
   }
 
   private async commit(action: CommitAction, message: string): Promise<void> {

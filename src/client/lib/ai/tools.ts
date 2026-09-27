@@ -1,7 +1,11 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
+import config from "virtual:astronaut-cms/config";
+import { mediaRef } from "@shared/media";
 import { getStorage } from "@client/lib/storage";
+import { getMedia } from "@client/lib/media";
+import { validateNoReferences } from "@client/lib/media/references";
 import type { CollectionManifestEntry, SaveEntryRequest } from "@shared/types";
 import {
   collectionDataSchema,
@@ -243,21 +247,29 @@ export const cmsTools = {
   }),
 
   listMedia: tool({
-    description: "List all media files (images and documents).",
+    description:
+      "List all media files (images and documents). `path` addresses a file for renameMedia and deleteMedia; `ref` is the value to write into an image or file field.",
     inputSchema: z.object({}),
-    execute: () => getStorage().listMedia(),
+    // The library addresses a file by its own path, while content stores a
+    // reference built from it, so both are reported rather than left to be guessed.
+    execute: async () =>
+      (await getMedia().listMedia()).map((file) => ({ ...file, ref: mediaRef(file.path, config) })),
   }),
 
   renameMedia: tool({
     description:
-      "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path.",
+      "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path. Refused while content still references the file, since references keep the old path.",
     inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
     execute: async ({ oldPath, newPath }) => {
-      const invalid = toErrorResult(await validateMediaExists(getStorage(), oldPath));
+      const invalid = toErrorResult(await validateMediaExists(getMedia(), oldPath));
 
       if (invalid) return invalid;
 
-      await getStorage().renameMedia(oldPath, newPath);
+      const referenced = toErrorResult(await validateNoReferences(oldPath));
+
+      if (referenced) return referenced;
+
+      await getMedia().renameMedia(oldPath, newPath);
 
       return { ok: true };
     },
@@ -289,14 +301,18 @@ export const cmsTools = {
   }),
 
   deleteMedia: tool({
-    description: "Delete a media file.",
+    description: "Delete a media file. Refused while content still references it.",
     inputSchema: z.object({ path: z.string() }),
     execute: async ({ path }) => {
-      const invalid = toErrorResult(await validateMediaExists(getStorage(), path));
+      const invalid = toErrorResult(await validateMediaExists(getMedia(), path));
 
       if (invalid) return invalid;
 
-      await getStorage().deleteMedia(path);
+      const referenced = toErrorResult(await validateNoReferences(path));
+
+      if (referenced) return referenced;
+
+      await getMedia().deleteMedia(path);
 
       return { ok: true };
     },

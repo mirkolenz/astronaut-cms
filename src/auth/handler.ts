@@ -13,17 +13,15 @@
  * AI relay in `../ai/handler.ts` so a true edge runtime can reuse it unchanged.
  */
 import { GITHUB_CLIENT_SECRET_ENV, GITHUB_TOKEN_ENDPOINT } from "../shared/auth.ts";
+import { json } from "../shared/response.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 
 /** A token response is never cacheable, whether it carries a token or an error. */
-const NO_STORE = { "content-type": "application/json", "cache-control": "no-store" };
+const NO_STORE = { "cache-control": "no-store" };
 
 /** An OAuth 2.0 error response, the shape the browser's OAuth client parses. */
 function oauthError(error: string, description: string, status: number): Response {
-  return new Response(JSON.stringify({ error, error_description: description }), {
-    status,
-    headers: NO_STORE,
-  });
+  return json({ error, error_description: description }, status, NO_STORE);
 }
 
 /** `clientId` is the configured GitHub app's; a request naming any other is refused. */
@@ -94,7 +92,10 @@ export async function handle(
   }
 
   // Already a JSON string, so it is passed through rather than re-serialized.
-  return new Response(body, { status: upstream.status, headers: NO_STORE });
+  return new Response(body, {
+    status: upstream.status,
+    headers: { "content-type": "application/json", ...NO_STORE },
+  });
 }
 
 function safeParse(body: string): { error?: string; error_description?: string } | null {

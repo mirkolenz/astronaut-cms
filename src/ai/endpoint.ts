@@ -7,6 +7,7 @@
 import type { APIRoute } from "astro";
 import config from "virtual:astronaut-cms/config";
 import gatewayConfig from "virtual:astronaut-cms/ai-server";
+import { accessConfig } from "../shared/access.ts";
 import { envReader } from "../shared/runtime-env.ts";
 import { handle } from "./handler.ts";
 
@@ -14,9 +15,7 @@ export const prerender = false;
 
 export const POST: APIRoute = (context) =>
   handle(context.request, envReader(context), {
-    storageType: config.storageType,
-    github: config.github,
-    gitlab: config.gitlab,
+    ...accessConfig(config),
     gateway: gatewayConfig,
     models: config.ai?.models,
   });

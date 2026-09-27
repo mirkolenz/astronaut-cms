@@ -1,4 +1,5 @@
 import type { ContentI18n } from "../shared/i18n.ts";
+import type { ClientMediaBackend } from "../shared/media.ts";
 
 export interface CmsConfig {
   /** Path to the CMS config file, relative to the project root (default: auto-discovered from src/cms.config.{ts,mts,js,mjs}) */
@@ -9,6 +10,16 @@ export interface CmsConfig {
   storage?: StorageConfig;
   /** Substitute the local filesystem backend during `astro dev`, even when a remote storage is configured (default: true) */
   localStorageInDev?: boolean;
+  /**
+   * Keep the media library in the working tree during `astro dev`, even when an
+   * object store is configured (default: true). Without it, editing in dev
+   * uploads to — and deletes from — the same bucket the deployed site serves.
+   *
+   * Only the bytes move: an asset reference is still written as the store's key,
+   * so an entry edited in dev builds unchanged. Needs local storage, since the
+   * files are reached through the dev server's own file API.
+   */
+  localMediaInDev?: boolean;
   /** Media file configuration */
   media?: MediaConfig;
   /** Admin panel language, and the default for its language switcher (default: "en") */
@@ -147,6 +158,7 @@ export type StorageConfig =
     };
 
 export interface MediaConfig {
+  /** Repository directory holding the library. `repo` backend only (default: "src/assets"). */
   directory?: string;
   allowedExtensions?: string[];
   maxFileSize?: number;
@@ -156,9 +168,92 @@ export interface MediaConfig {
    *
    * A production build only emits the assets it can reach from content, so a
    * path that appears solely in site code — `resolveImage("/src/assets/og.png")`
-   * in a layout, say — has to be listed here.
+   * in a layout, say — has to be listed here. `repo` backend only: an object
+   * store is never bundled.
    */
   alwaysInclude?: string[];
+  /** Where the library's files live (default: `{ type: "repo" }`). */
+  backend?: MediaBackendConfig;
+}
+
+/**
+ * Where the media library stores its files.
+ *
+ * - `repo`: in the repository, alongside content. Uploads join the pending
+ *   changeset and publish with it, and astro's asset pipeline optimizes and
+ *   bundles what content references.
+ * - `s3` / `r2`: in an object store, addressed by key. Uploads take effect
+ *   immediately rather than joining the changeset, content stores library keys
+ *   instead of project paths, and the site loads them from `publicUrl` (astro
+ *   optimizes them as remote images, which the integration authorizes for you).
+ *
+ * An object store needs the injected media route, and therefore an SSR adapter,
+ * because no bucket credential may ever reach the browser. The bucket must be
+ * publicly readable under `publicUrl`: what content stores is a plain key, so a
+ * signed, expiring URL is never written into an entry.
+ */
+export type MediaBackendConfig = { type: "repo" } | S3MediaConfig | R2MediaConfig;
+
+interface ObjectStoreConfig {
+  /** Bucket holding the library. */
+  bucket: string;
+  /** Key prefix the library is rooted at, e.g. "media" (default: the bucket root). */
+  prefix?: string;
+  /**
+   * Public base URL the library's keys are served under, e.g.
+   * `https://cdn.example.com`. It must serve the same `prefix` root, since a
+   * key is appended to it verbatim.
+   */
+  publicUrl: string;
+}
+
+/**
+ * Any S3-compatible object store (AWS S3, MinIO, Backblaze B2, Hetzner, …).
+ * Credentials come exclusively from the environment of the injected route:
+ * `ASTRONAUT_CMS_S3_ACCESS_KEY_ID`, `ASTRONAUT_CMS_S3_SECRET_ACCESS_KEY` and
+ * optionally `ASTRONAUT_CMS_S3_SESSION_TOKEN`.
+ */
+export interface S3MediaConfig extends ObjectStoreConfig {
+  type: "s3";
+  /** API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`. */
+  endpoint: string;
+  /** Signing region (default: "auto"). */
+  region?: string;
+  /** Address objects as `<endpoint>/<bucket>/<key>` rather than by virtual host. */
+  forcePathStyle?: boolean;
+}
+
+/**
+ * Cloudflare R2, which speaks the S3 API. Reached either through that API with
+ * `accountId` and the `ASTRONAUT_CMS_S3_*` credentials, or — when the site is
+ * deployed with `@astrojs/cloudflare` — through a Workers `binding`, which needs
+ * no credentials at all. A binding proxies uploads through the Worker, where the
+ * S3 API hands the browser a presigned URL and never sees the bytes.
+ *
+ * Public serving needs a custom domain on the bucket: the `*.r2.dev` hostname is
+ * rate-limited and not meant for production traffic.
+ */
+export interface R2MediaConfig extends ObjectStoreConfig {
+  type: "r2";
+  /** Cloudflare account id, for the S3 API endpoint. Required without `binding`. */
+  accountId?: string;
+  /** Workers R2 binding name, e.g. "MEDIA". Preferred when it is available. */
+  binding?: string;
+}
+
+/**
+ * What the injected media route needs to reach the store. Server-only: it is
+ * imported by the route alone, so a bucket name or endpoint never reaches the
+ * admin bundle.
+ */
+export interface MediaServerConfig {
+  bucket: string;
+  /** Normalized to "" or "prefix/". */
+  prefix: string;
+  /** S3 API access. Absent only for a binding-only R2 backend. */
+  s3: { endpoint: string; region: string; pathStyle: boolean } | null;
+  /** Workers R2 binding name, when one is configured. */
+  binding: string | null;
 }
 
 export interface CmsClientConfig {
@@ -170,6 +265,12 @@ export interface CmsClientConfig {
   mediaDirectory: string;
   /** File extensions the media library lists, e.g. [".png", ".pdf"]. */
   mediaExtensions: string[];
+  /** Upload size limit in bytes, or null for unlimited. */
+  maxFileSize: number | null;
+  /** `media.alwaysInclude` globs, so the admin knows which files site code reaches. */
+  mediaAlwaysInclude: string[];
+  /** Where the library's files live, minus everything only the server may know. */
+  mediaBackend: ClientMediaBackend;
   /** Default admin panel UI language. Distinct from `contentI18n`, which is about the site's content. */
   locale: SupportedLocale;
   /** The site's content languages, or null when it is single-language. */

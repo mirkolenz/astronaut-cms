@@ -17,9 +17,8 @@ import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { EntryIdDialog } from "@client/components/entry-id-dialog";
 import { toast } from "@client/components/toast";
 import { ErrorBanner } from "@client/components/error-banner";
-import { DATA_FORMATS } from "@shared/types";
+import { DATA_FORMATS, entryFilePath } from "@shared/types";
 import { EntryContextProvider } from "@client/lib/entry-context";
-import { getContentFilePath } from "@client/lib/asset-utils";
 import { baseName } from "@client/lib/entry-tree";
 import { splitLocale } from "@shared/i18n";
 import { useCollectionI18n } from "@client/lib/content-i18n";
@@ -49,7 +48,8 @@ function EntryEditor() {
   const renameMutation = useRenameEntry(collection);
   const duplicateMutation = useDuplicateEntry(collection);
 
-  const shape = objectShape(collectionMeta[collection]?.schema);
+  const meta = collectionMeta[collection];
+  const shape = objectShape(meta?.schema);
   const format = entry?.format ?? newFormat;
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
     isNew ? schemaDefaults(shape) : {},
@@ -207,8 +207,7 @@ function EntryEditor() {
 
   const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(format);
 
-  const loaderBase = collectionMeta[collection]?.loaderBase;
-  const contentFilePath = loaderBase ? getContentFilePath(loaderBase, entryId, format) : undefined;
+  const contentFilePath = meta && entryFilePath(meta, entryId, format);
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>

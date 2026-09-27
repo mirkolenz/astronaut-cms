@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "pathe";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
-import type { AiGateway, CmsClientConfig } from "./types.ts";
+import type { AiGateway, CmsClientConfig, MediaServerConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
@@ -41,6 +41,8 @@ function buildSourceExports(root: string, pkgPath: string): Record<string, strin
 export interface CmsVitePluginOptions {
   clientConfig: CmsClientConfig;
   aiGateway: AiGateway | null;
+  /** Object-store media config for the injected route, null for a repository library. */
+  mediaServer: MediaServerConfig | null;
   userConfigPath: string | null;
   collections: CollectionManifest;
   command: AstroCommand;
@@ -56,6 +58,7 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
     "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiGateway)};`,
+    "virtual:astronaut-cms/media-server": `export default ${JSON.stringify(options.mediaServer)};`,
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(options),
@@ -106,6 +109,20 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
 // resolves without restarting the server, and the extension list is all it has
 // to go on.
 function generateAssetsModule(options: CmsVitePluginOptions): string {
+  const { mediaBackend } = options.clientConfig;
+
+  // A library outside the repository has nothing to bundle: its files are never
+  // in the project, so the resolver builds a URL under the public base instead
+  // of importing anything, and astro treats the result as a remote image. Unless
+  // this dev run stands in for the store with the working tree, where the maps
+  // are exactly what a repository library gets.
+  if (mediaBackend.type === "remote" && !mediaBackend.local) {
+    return `\
+export const referencedOnly = false;
+export const images = {};
+export const files = {};`;
+  }
+
   // join normalizes any leading/trailing slashes into a single root-absolute base.
   const base = join("/", options.clientConfig.mediaDirectory);
 

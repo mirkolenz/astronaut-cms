@@ -1,20 +1,30 @@
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
-import config from "virtual:astronaut-cms/config";
 import {
   useMedia,
   useDeleteMedia,
   useUploadMedia,
-  useReplaceMedia,
   useRenameMedia,
+  useMediaUrl,
+  useReferenceIndex,
 } from "@client/queries/use-media";
+import {
+  classifyUsage,
+  describeReference,
+  staleReferences,
+  type AssetReference,
+  type Usage,
+} from "@client/lib/media/references";
 import { ErrorBanner } from "@client/components/error-banner";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { ImageLightbox } from "@client/components/image-lightbox";
-import { isImagePath, toPreviewUrl, getFileName } from "@client/lib/asset-utils";
+import { dirname, join } from "pathe";
+import { isImagePath, getFileName } from "@client/lib/asset-utils";
+import { MediaImage } from "@client/components/media-image";
+import { dirSegments, listDirectory } from "@client/lib/entry-tree";
 import { optimizeImage } from "@client/lib/image-utils";
-import { stripMediaPrefix } from "@client/lib/storage/utils";
+import { getMedia } from "@client/lib/media";
 import {
   Dialog,
   DialogContent,
@@ -42,42 +52,65 @@ function MediaLibrary() {
   const { data: files, isLoading, error } = useMedia();
   const deleteMutation = useDeleteMedia();
   const uploadMutation = useUploadMedia();
-  const replaceMutation = useReplaceMedia();
   const renameMutation = useRenameMedia();
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const [currentDir, setCurrentDir] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
   const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxPath, setLightboxPath] = useState<string | null>(null);
   const [duplicateFile, setDuplicateFile] = useState<{ path: string; file: File } | null>(null);
   const [optimizing, setOptimizing] = useState(false);
+  const [unusedOnly, setUnusedOnly] = useState(false);
 
-  // Derive subdirectories and files relative to the media directory root
-  const subdirs = new Set<string>();
-  const currentFiles: typeof files = [];
+  const writeError = uploadMutation.error ?? deleteMutation.error ?? renameMutation.error;
 
-  if (files) {
-    const prefix = currentDir ? `${currentDir}/` : "";
-    for (const file of files) {
-      const relativePath = stripMediaPrefix(file.path, config.mediaDirectory);
-      if (!relativePath.startsWith(prefix)) continue;
-      const rest = relativePath.slice(prefix.length);
-      const slashIdx = rest.indexOf("/");
-      if (slashIdx >= 0) {
-        subdirs.add(rest.slice(0, slashIdx));
-      } else {
-        currentFiles.push(file);
-      }
-    }
-  }
+  const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
+  const referencesOf = (path: string | null): AssetReference[] => (path && index?.get(path)) || [];
 
-  const sortedSubdirs = [...subdirs].sort();
+  // Every destructive action needs to know what it would break, so opening one
+  // asks for the index just as the usage view does.
+  const askFor = (setTarget: (path: string) => void, path: string): void => {
+    scan();
+    setTarget(path);
+  };
 
-  // Breadcrumb segments
-  const breadcrumbs = currentDir ? currentDir.split("/") : [];
+  const lightboxUrl = useMediaUrl(lightboxPath);
+
+  // Library-wide, so it survives folder navigation and filter toggles.
+  const { usage, stale } = useMemo(() => {
+    const paths = files?.map((file) => file.path) ?? [];
+
+    return {
+      usage: index && classifyUsage(paths, index),
+      stale: index ? staleReferences(index, paths) : [],
+    };
+  }, [files, index]);
+
+  // Everything in this folder, before the unused filter: an upload has to be
+  // checked against every name here, not only the ones currently on screen.
+  const { folders, files: dirFiles } = useMemo(
+    () => listDirectory(files ?? [], currentDir, (file) => file.path),
+    [files, currentDir],
+  );
+
+  const currentFiles = useMemo(
+    () =>
+      unusedOnly && usage ? dirFiles.filter((file) => usage.get(file.path) === "orphan") : dirFiles,
+    [dirFiles, unusedOnly, usage],
+  );
+
+  const usageLabel = (path: string): string => {
+    const kind: Usage = usage?.get(path) ?? "orphan";
+
+    if (kind === "always-included") return t(($) => $.media.alwaysIncluded);
+    if (kind === "orphan") return t(($) => $.media.unused);
+
+    return t(($) => $.media.uses, { count: referencesOf(path).length });
+  };
+
+  const breadcrumbs = dirSegments(currentDir);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFile = e.target.files?.[0];
@@ -86,48 +119,45 @@ function MediaLibrary() {
     const file = await optimizeImage(rawFile);
     setOptimizing(false);
     const path = currentDir ? `${currentDir}/${file.name}` : file.name;
-    const exists = currentFiles.some((f) => getFileName(f.path) === file.name);
+    const exists = dirFiles.some((f) => getFileName(f.path) === file.name);
+    e.target.value = "";
+
     if (exists) {
       setDuplicateFile({ path, file });
-      e.target.value = "";
       return;
     }
-    await uploadMutation.mutateAsync({ path, file });
-    e.target.value = "";
+
+    // `mutate`, not `mutateAsync`: a refused upload (the size limit, say) belongs
+    // in the banner below rather than in an unhandled rejection.
+    uploadMutation.mutate({ path, file });
   };
 
-  const handleOverwrite = async () => {
+  const handleOverwrite = () => {
     if (!duplicateFile) return;
-    const fullPath = `${config.mediaDirectory}/${duplicateFile.path}`;
-    await replaceMutation.mutateAsync({ path: fullPath, file: duplicateFile.file });
+    uploadMutation.mutate(duplicateFile);
     setDuplicateFile(null);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteTarget) return;
-    await deleteMutation.mutateAsync(deleteTarget);
+    deleteMutation.mutate(deleteTarget);
     setDeleteTarget(null);
   };
 
-  const handleRename = async () => {
-    if (!renameTarget || !renameValue.trim()) return;
-    const relativePath = stripMediaPrefix(renameTarget, config.mediaDirectory);
-    const dir = relativePath.includes("/")
-      ? relativePath.slice(0, relativePath.lastIndexOf("/") + 1)
-      : "";
-    const newRelative = dir + renameValue.trim();
-    await renameMutation.mutateAsync({
+  const handleRename = (name: string) => {
+    if (!renameTarget) return;
+
+    renameMutation.mutate({
       oldPath: renameTarget,
-      newPath: `${config.mediaDirectory}/${newRelative}`,
+      newPath: join(dirname(renameTarget), name),
     });
     setRenameTarget(null);
-    setRenameValue("");
   };
 
-  const handleReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !replaceTarget) return;
-    await replaceMutation.mutateAsync({ path: replaceTarget, file });
+    uploadMutation.mutate({ path: replaceTarget, file });
     setReplaceTarget(null);
     e.target.value = "";
   };
@@ -149,7 +179,44 @@ function MediaLibrary() {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
+        <div>
+          <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
+          {/* An object store has no draft branch: what is uploaded or deleted here
+              is live at once, unlike a library in the repository. */}
+          {!getMedia().transactional && (
+            <p className="text-xs text-muted-foreground">{t(($) => $.media.immediate)}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {usage ? (
+            <>
+              <span className="text-xs text-muted-foreground">
+                {t(($) => $.media.unusedCount, {
+                  count: [...usage.values()].filter((kind) => kind === "orphan").length,
+                  total: usage.size,
+                })}
+              </span>
+              <Button
+                type="button"
+                variant={unusedOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUnusedOnly(!unusedOnly)}
+              >
+                {unusedOnly ? t(($) => $.media.allFiles) : t(($) => $.media.unusedOnly)}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={scanning}
+              onClick={scan}
+            >
+              {scanning ? t(($) => $.media.scanningReferences) : t(($) => $.media.checkUsage)}
+            </Button>
+          )}
+        </div>
         <Button asChild>
           <label className="cursor-pointer">
             {optimizing
@@ -171,50 +238,66 @@ function MediaLibrary() {
       {breadcrumbs.length > 0 && (
         <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
           <Button type="button" variant="link" size="xs" onClick={() => setCurrentDir("")}>
-            {config.mediaDirectory}
+            {t(($) => $.media.title)}
           </Button>
-          {breadcrumbs.map((segment, i) => {
-            const path = breadcrumbs.slice(0, i + 1).join("/");
-            const isLast = i === breadcrumbs.length - 1;
-            return (
-              <span key={path} className="flex items-center gap-1">
-                <span>/</span>
-                {isLast ? (
-                  <span className="font-medium text-foreground">{segment}</span>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="xs"
-                    onClick={() => setCurrentDir(path)}
-                  >
-                    {segment}
-                  </Button>
-                )}
-              </span>
-            );
-          })}
+          {breadcrumbs.map(({ name, path }, i) => (
+            <span key={path} className="flex items-center gap-1">
+              <span>/</span>
+              {i === breadcrumbs.length - 1 ? (
+                <span className="font-medium text-foreground">{name}</span>
+              ) : (
+                <Button type="button" variant="link" size="xs" onClick={() => setCurrentDir(path)}>
+                  {name}
+                </Button>
+              )}
+            </span>
+          ))}
         </nav>
       )}
 
-      {sortedSubdirs.length === 0 && currentFiles.length === 0 && (
+      {stale.length > 0 && (
+        <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+          <p className="text-sm font-medium">
+            {t(($) => $.media.staleTitle, { count: stale.length })}
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
+            {stale.map((reference, i) => (
+              <li key={i}>
+                {reference.collection} / {reference.entryId} ({reference.where}) &rarr;{" "}
+                <code>{reference.path}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {scanError && (
+        <ErrorBanner>
+          {t(($) => $.media.referencesUnavailable, { message: scanError.message })}
+        </ErrorBanner>
+      )}
+
+      {/* A refused write — the size limit, a store error — has nowhere else to surface. */}
+      {writeError && <ErrorBanner>{writeError.message}</ErrorBanner>}
+
+      {folders.length === 0 && currentFiles.length === 0 && !scanning && (
         <div className="text-center text-muted-foreground">
-          <p>{t(($) => $.media.noFiles)}</p>
+          <p>{unusedOnly ? t(($) => $.media.noUnused) : t(($) => $.media.noFiles)}</p>
         </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Folder cards */}
-        {sortedSubdirs.map((dir) => (
+        {folders.map(({ name, path }) => (
           <Button
-            key={dir}
+            key={path}
             type="button"
             variant="outline"
-            onClick={() => setCurrentDir(currentDir ? `${currentDir}/${dir}` : dir)}
+            onClick={() => setCurrentDir(path)}
             className="flex h-28 flex-col items-center justify-center gap-2 hover:border-accent-foreground/30 hover:bg-accent"
           >
             <span className="text-3xl text-muted-foreground">&#128193;</span>
-            <span className="text-sm font-medium text-foreground">{dir}</span>
+            <span className="text-sm font-medium text-foreground">{name}</span>
           </Button>
         ))}
 
@@ -230,24 +313,15 @@ function MediaLibrary() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setLightboxSrc(toPreviewUrl(file.path))}
+                  onClick={() => setLightboxPath(file.path)}
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${getFileName(file.path)}`}
                 >
-                  <img
-                    src={toPreviewUrl(file.path)}
-                    alt=""
-                    className="h-full w-full object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
+                  <MediaImage path={file.path} className="h-full w-full object-contain" />
                 </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-muted">
-                  <span className="text-2xl text-muted-foreground">
-                    {file.path.split(".").pop()?.toUpperCase()}
-                  </span>
+                  <MediaImage path={file.path} />
                 </div>
               )}
               {/* Hover action buttons */}
@@ -257,10 +331,7 @@ function MediaLibrary() {
                   variant="ghost"
                   size="xs"
                   className="bg-black/50 text-white hover:bg-blue-600 hover:text-white"
-                  onClick={() => {
-                    setRenameTarget(file.path);
-                    setRenameValue(getFileName(file.path));
-                  }}
+                  onClick={() => askFor(setRenameTarget, file.path)}
                 >
                   {t(($) => $.common.rename)}
                 </Button>
@@ -281,7 +352,7 @@ function MediaLibrary() {
                   variant="ghost"
                   size="xs"
                   className="bg-black/50 text-white hover:bg-red-600 hover:text-white"
-                  onClick={() => setDeleteTarget(file.path)}
+                  onClick={() => askFor(setDeleteTarget, file.path)}
                 >
                   {t(($) => $.common.delete)}
                 </Button>
@@ -290,7 +361,10 @@ function MediaLibrary() {
                 <p className="truncate text-xs font-medium text-foreground" title={file.path}>
                   {getFileName(file.path)}
                 </p>
-                <p className="text-xs text-muted-foreground">{formatSize(file.size)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatSize(file.size)}
+                  {usage && ` · ${usageLabel(file.path)}`}
+                </p>
               </div>
             </div>
           );
@@ -303,14 +377,22 @@ function MediaLibrary() {
         type="file"
         onChange={handleReplace}
         className="hidden"
-        disabled={replaceMutation.isPending}
+        disabled={uploadMutation.isPending}
       />
 
       {/* Delete confirmation */}
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t(($) => $.media.deleteFile)}
-        message={t(($) => $.media.deleteFileMessage)}
+        message={
+          <ReferenceWarning
+            references={referencesOf(deleteTarget)}
+            pending={scanPending}
+            error={scanError}
+            consequence={t(($) => $.media.deleteReferenced)}
+            fallback={t(($) => $.media.deleteFileMessage)}
+          />
+        }
         confirmLabel={t(($) => $.common.delete)}
         variant="danger"
         onConfirm={handleDelete}
@@ -333,43 +415,85 @@ function MediaLibrary() {
       {/* Rename dialog */}
       {renameTarget !== null && (
         <RenameDialog
+          warning={
+            <ReferenceWarning
+              references={referencesOf(renameTarget)}
+              pending={scanPending}
+              error={scanError}
+              consequence={t(($) => $.media.renameReferenced)}
+            />
+          }
           currentName={getFileName(renameTarget)}
-          value={renameValue}
-          onChange={setRenameValue}
           isPending={renameMutation.isPending}
           onConfirm={handleRename}
-          onCancel={() => {
-            setRenameTarget(null);
-            setRenameValue("");
-          }}
+          onCancel={() => setRenameTarget(null)}
         />
       )}
 
       <ImageLightbox
-        open={lightboxSrc !== null}
-        src={lightboxSrc ?? ""}
-        onClose={() => setLightboxSrc(null)}
+        open={lightboxPath !== null}
+        src={lightboxUrl ?? ""}
+        onClose={() => setLightboxPath(null)}
       />
     </div>
   );
 }
 
+/**
+ * What content would break. A textual match is reported like any other: it is
+ * weaker evidence, but the point here is to stop a destructive operation, not to
+ * decide what to bundle.
+ */
+function ReferenceWarning({
+  references,
+  pending,
+  error,
+  consequence,
+  fallback,
+}: {
+  references: AssetReference[];
+  pending: boolean;
+  /** A scan that never produced an answer, which must not read as "nothing references it". */
+  error?: Error | null;
+  consequence: string;
+  fallback?: string;
+}) {
+  const { t } = useTranslation();
+
+  if (error) return <>{t(($) => $.media.referencesUnavailable, { message: error.message })}</>;
+
+  if (pending) return <>{t(($) => $.media.scanningReferences)}</>;
+
+  if (references.length === 0) return <>{fallback ?? ""}</>;
+
+  return (
+    <>
+      {t(($) => $.media.usedBy, { count: references.length })} {consequence}
+      <ul className="mt-2 max-h-40 list-disc overflow-auto pl-5 text-xs">
+        {references.map((reference, i) => (
+          <li key={i}>{describeReference(reference)}</li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function RenameDialog({
+  warning,
   currentName,
-  value,
-  onChange,
   isPending,
   onConfirm,
   onCancel,
 }: {
+  warning: React.ReactNode;
   currentName: string;
-  value: string;
-  onChange: (v: string) => void;
   isPending: boolean;
-  onConfirm: () => void;
+  onConfirm: (name: string) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
+  // Owned here, so a keystroke re-renders the dialog rather than the whole library.
+  const [value, setValue] = useState(currentName);
 
   return (
     <Dialog
@@ -383,12 +507,13 @@ function RenameDialog({
           <DialogTitle>{t(($) => $.media.renameFile)}</DialogTitle>
           <DialogDescription>{t(($) => $.media.current, { name: currentName })}</DialogDescription>
         </DialogHeader>
+        {warning}
         <Input
           type="text"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onConfirm();
+            if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
           }}
           autoFocus
         />
@@ -397,7 +522,7 @@ function RenameDialog({
             {t(($) => $.common.cancel)}
           </Button>
           <Button
-            onClick={onConfirm}
+            onClick={() => onConfirm(value.trim())}
             disabled={isPending || !value.trim() || value === currentName}
           >
             {isPending ? t(($) => $.media.renaming) : t(($) => $.common.rename)}

@@ -1,8 +1,6 @@
-import type { EntryMeta } from "@shared/types";
-
-export interface DirectoryListing {
+export interface DirectoryListing<T> {
   folders: PathSegment[];
-  files: EntryMeta[];
+  files: T[];
 }
 
 export interface PathSegment {
@@ -38,24 +36,29 @@ export function dirSegments(dir: string): PathSegment[] {
 }
 
 /**
- * Splits entries into the immediate subfolders and the files directly under
- * `dir` (a slash-joined prefix, "" being the collection root). Deeply nested
- * entries surface as folders so the user drills down one level at a time
- * instead of facing one flat list.
+ * Splits items into the immediate subfolders and the ones directly under `dir`
+ * (a slash-joined prefix, "" being the root). Deeply nested items surface as
+ * folders so the user drills down one level at a time instead of facing one flat
+ * list. `key` is the slash-joined path to group by: an entry id in a collection,
+ * a library path in the media browser.
  */
-export function listDirectory(entries: EntryMeta[], dir: string): DirectoryListing {
+export function listDirectory<T>(
+  items: T[],
+  dir: string,
+  key: (item: T) => string,
+): DirectoryListing<T> {
   const prefix = dir ? `${dir}/` : "";
   const folders = new Set<string>();
-  const files: EntryMeta[] = [];
+  const files: T[] = [];
 
-  for (const entry of entries) {
-    if (!entry.id.startsWith(prefix)) continue;
+  for (const item of items) {
+    if (!key(item).startsWith(prefix)) continue;
 
-    const rest = entry.id.slice(prefix.length);
+    const rest = key(item).slice(prefix.length);
     const slash = rest.indexOf("/");
 
     if (slash === -1) {
-      files.push(entry);
+      files.push(item);
     } else {
       folders.add(rest.slice(0, slash));
     }
@@ -65,6 +68,6 @@ export function listDirectory(entries: EntryMeta[], dir: string): DirectoryListi
     folders: [...folders]
       .sort((a, b) => a.localeCompare(b))
       .map((name) => ({ name, path: `${prefix}${name}` })),
-    files: files.sort((a, b) => a.id.localeCompare(b.id)),
+    files: files.sort((a, b) => key(a).localeCompare(key(b))),
   };
 }

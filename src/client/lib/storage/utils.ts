@@ -16,9 +16,11 @@ export function stripExtension(filename: string): string {
   return dot === -1 ? filename : filename.slice(0, dot);
 }
 
-export function stripMediaPrefix(path: string, mediaDirectory: string): string {
+/** The library-relative form of a repository path, or null when it is outside the library. */
+export function stripMediaPrefix(path: string, mediaDirectory: string): string | null {
   const rel = relative(mediaDirectory, path);
-  return rel.startsWith("..") ? path : rel;
+
+  return rel.startsWith("..") ? null : rel;
 }
 
 export async function fileToBase64(file: File): Promise<string> {

@@ -57,9 +57,9 @@ async function listFiles(rootDir: string, dir: string): Promise<MediaFile[]> {
 
       if (entry.isDirectory()) return listFiles(rootDir, fullPath);
 
-      const { size, mtime } = await stat(fullPath);
+      const { size } = await stat(fullPath);
 
-      return [{ path: relative(rootDir, fullPath), size, lastModified: mtime.toISOString() }];
+      return [{ path: relative(rootDir, fullPath), size }];
     }),
   );
 

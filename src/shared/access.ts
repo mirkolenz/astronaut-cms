@@ -1,6 +1,14 @@
 // Write-access verification using only the Fetch API, so it runs unchanged in
 // the browser and in any server/edge runtime (Workers, Deno, Node). Mirrors what
 // the Octokit/Gitbeaker SDKs do for a single permission lookup.
+//
+// Every injected route gates on the same thing — the caller holds a token with
+// write access to the configured repository — so the gate and its cache live
+// here rather than once per route.
+
+import { jsonError } from "./response.ts";
+import { unreachable } from "./unreachable.ts";
+import { joinUrl } from "./url.ts";
 
 // GitLab access levels: 30 = Developer (can push to non-protected branches and open MRs).
 const MIN_GITLAB_WRITE_ACCESS_LEVEL = 30;
@@ -38,8 +46,7 @@ export async function verifyGitLabWriteAccess(
   project: string,
   instanceUrl: string,
 ): Promise<void> {
-  const base = instanceUrl.replace(/\/+$/, "");
-  const res = await fetch(`${base}/api/v4/projects/${encodeURIComponent(project)}`, {
+  const res = await fetch(joinUrl(instanceUrl, `api/v4/projects/${encodeURIComponent(project)}`), {
     headers: { authorization: `Bearer ${token}` },
   });
 
@@ -56,5 +63,98 @@ export async function verifyGitLabWriteAccess(
 
   if (Math.max(projectAccess, groupAccess) < MIN_GITLAB_WRITE_ACCESS_LEVEL) {
     throw new Error(`You need write access to ${project} to use this CMS.`);
+  }
+}
+
+/** The storage identity an injected route verifies its callers against. */
+export interface AccessConfig {
+  storageType: "local" | "github" | "gitlab";
+  github?: { repo: string };
+  gitlab?: { project: string; instanceUrl: string };
+}
+
+/** The gate's slice of the CMS config, so no route has to spell the three fields itself. */
+export function accessConfig(config: AccessConfig): AccessConfig {
+  return { storageType: config.storageType, github: config.github, gitlab: config.gitlab };
+}
+
+const ACCESS_CACHE_TTL = 5 * 60 * 1000;
+
+// Per-token results, so a streaming turn or a burst of media calls does not
+// re-hit the Git API on every call. Bounded by token count and a short TTL.
+const accessCache = new Map<string, number>();
+
+/**
+ * Throws unless the caller may write to the configured repository. This is the
+ * only authorization an injected route has: it holds no session of its own, so
+ * the editor's Git token is both the identity and the permission.
+ */
+export async function verifyWriteAccess(
+  token: string | undefined,
+  config: AccessConfig,
+): Promise<void> {
+  // Local storage is dev-only and carries no provider identity to verify against.
+  if (config.storageType === "local") return;
+
+  if (!token) throw new Error("Not authenticated");
+
+  const now = Date.now();
+  const cached = accessCache.get(token);
+
+  if (cached != null && cached > now) return;
+
+  // Exhaustive on purpose: a storage type with no verification of its own must
+  // fail closed rather than fall through and cache the token as valid.
+  switch (config.storageType) {
+    case "github":
+      if (!config.github) throw new Error("GitHub storage is not configured");
+
+      await verifyGitHubWriteAccess(token, config.github.repo);
+      break;
+
+    case "gitlab":
+      if (!config.gitlab) throw new Error("GitLab storage is not configured");
+
+      await verifyGitLabWriteAccess(token, config.gitlab.project, config.gitlab.instanceUrl);
+      break;
+
+    default:
+      unreachable(config.storageType, "Cannot verify access for storage type");
+  }
+
+  // Evict expired entries so the cache stays bounded by currently-valid tokens,
+  // not every token the warm instance has ever seen.
+  for (const [key, expiry] of accessCache) {
+    if (expiry <= now) accessCache.delete(key);
+  }
+
+  accessCache.set(token, now + ACCESS_CACHE_TTL);
+}
+
+/** The bearer token of a request, if it carries one. */
+function bearerToken(request: Request): string | undefined {
+  return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+}
+
+/** The writing side of the convention {@link bearerToken} reads. */
+export function bearer(token: string | undefined): Record<string, string> {
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * The gate as a route uses it: null when the caller may write, otherwise the
+ * 403 to return. Both injected routes open the same way, so they share the
+ * answer as well as the check.
+ */
+export async function denyUnlessWritable(
+  request: Request,
+  config: AccessConfig,
+): Promise<Response | null> {
+  try {
+    await verifyWriteAccess(bearerToken(request), config);
+
+    return null;
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : "Forbidden", 403);
   }
 }

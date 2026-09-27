@@ -14,6 +14,11 @@ declare module "virtual:astronaut-cms/ai-server" {
   export default gateway;
 }
 
+declare module "virtual:astronaut-cms/media-server" {
+  const media: import("./integration/types").MediaServerConfig | null;
+  export default media;
+}
+
 declare module "virtual:astronaut-cms/assets" {
   /** Lazy asset loader maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
   export const images: Record<string, () => Promise<import("astro").ImageMetadata>>;

@@ -1,3 +1,4 @@
+import { join } from "pathe";
 import type {
   BranchStatus,
   ChangeRequestSummary,
@@ -25,29 +26,47 @@ import {
   getFileExtension,
 } from "@shared/content-parser";
 import config from "virtual:astronaut-cms/config";
-import { validateSegment, validatePath, validateFormat } from "@shared/validation";
-import { assertEntryWritable } from "@client/lib/validation";
-import { stripExtension } from "./utils";
+import { validateSegment, validatePath, validateFormat, validateMediaPath } from "@shared/validation";
+import { assertEntryWritable, type ContentSource, type MediaSource } from "@client/lib/validation";
+import { assertWithinSizeLimit, hasAllowedExtension } from "@shared/media";
+import { stripExtension, stripMediaPrefix } from "./utils";
 
 const BRANCH_PREFIX = "cms/";
 
+/**
+ * A Git storage backend is also the repository media library: media there is
+ * committed to the same draft branch as content. When the library lives
+ * elsewhere, {@link useMediaSource} points entry validation at it instead.
+ */
 export abstract class StorageBase implements StorageBackend {
   abstract readonly capabilities: StorageCapabilities;
 
+  /** Media in the repository is committed to the draft branch, like every other change. */
+  readonly transactional = true;
+
   protected schemas: CollectionManifest;
   protected mediaDirectory: string;
+  private mediaSource: MediaSource = this;
 
   constructor(schemas: CollectionManifest, mediaDirectory: string) {
     this.schemas = schemas;
     this.mediaDirectory = mediaDirectory;
   }
 
+  /** Only the listing is needed, so this never grants writes to a library it does not own. */
+  useMediaSource(source: MediaSource): void {
+    this.mediaSource = source;
+  }
+
   abstract listEntries(collection: string): Promise<EntryMeta[]>;
   abstract listMedia(): Promise<MediaFile[]>;
-  abstract uploadMedia(path: string, file: File): Promise<MediaFile>;
-  abstract replaceMedia(path: string, file: File): Promise<MediaFile>;
-  abstract renameMedia(oldPath: string, newPath: string): Promise<MediaFile>;
-  abstract deleteMedia(path: string): Promise<void>;
+  /**
+   * All three take repository paths, lowered by the funnels below, and persist a
+   * write the library's limits have already been checked against.
+   */
+  protected abstract writeMedia(repoPath: string, file: File): Promise<void>;
+  protected abstract moveMedia(from: string, to: string): Promise<void>;
+  protected abstract removeMedia(repoPath: string): Promise<void>;
   /** Persists an entry that has already been validated. */
   protected abstract writeEntry(
     collection: string,
@@ -74,11 +93,11 @@ export abstract class StorageBase implements StorageBackend {
 
     if (!col) throw new Error(`Unknown collection: ${collection}`);
 
-    await assertEntryWritable(this, { col, id, ...data });
+    await assertEntryWritable(this.contentSource, { col, id, ...data });
     await this.writeEntry(collection, id, data);
   }
 
-  async getEntry(collection: string, id: string): Promise<EntryContent> {
+  async getEntry(collection: string, id: string, format?: string): Promise<EntryContent> {
     const col = this.schemas[collection];
     if (!col) throw new Error(`Unknown collection: ${collection}`);
 
@@ -91,10 +110,14 @@ export abstract class StorageBase implements StorageBackend {
       return { id, data: entry, body: "", format };
     }
 
-    const extensions: readonly string[] =
+    const known: readonly string[] =
       col.type === "content"
         ? (["md", "mdx", "mdoc"] satisfies Array<(typeof CONTENT_FORMATS)[number]>)
         : (["json", "yaml", "yml", "toml"] satisfies Array<(typeof DATA_FORMATS)[number]>);
+
+    // A caller that listed the entry already knows its format; trying that first
+    // turns the fallback loop's 404s into a single request.
+    const extensions = format ? [format, ...known.filter((ext) => ext !== format)] : known;
 
     for (const ext of extensions) {
       try {
@@ -157,11 +180,65 @@ export abstract class StorageBase implements StorageBackend {
     throw new Error("Not implemented");
   }
 
-  /** Media listings show the configured file types only, so strays never appear as assets. */
-  protected mediaFiles(files: MediaFile[]): MediaFile[] {
-    return files.filter((file) =>
-      config.mediaExtensions.some((ext) => file.path.toLowerCase().endsWith(ext.toLowerCase())),
-    );
+  /** What entry validation resolves references and assets against. */
+  protected get contentSource(): ContentSource {
+    return {
+      listEntries: (collection) => this.listEntries(collection),
+      listMedia: () => this.mediaSource.listMedia(),
+    };
+  }
+
+  // --- Repository media library ---
+
+  /** The repository path of a library file. */
+  protected mediaRepoPath(path: string): string {
+    validateMediaPath(path);
+
+    return join(this.mediaDirectory, path);
+  }
+
+  /** Where a repository library's own writes are checked, before any path is built. */
+  async uploadMedia(path: string, file: File): Promise<void> {
+    assertWithinSizeLimit(file.size, config.maxFileSize);
+
+    return this.writeMedia(this.mediaRepoPath(path), file);
+  }
+
+  async renameMedia(oldPath: string, newPath: string): Promise<void> {
+    return this.moveMedia(this.mediaRepoPath(oldPath), this.mediaRepoPath(newPath));
+  }
+
+  async deleteMedia(path: string): Promise<void> {
+    return this.removeMedia(this.mediaRepoPath(path));
+  }
+
+  /**
+   * The dev server serves the working tree directly; the Git backends override
+   * this. Addressed by the file's own location rather than by `mediaRef`, which
+   * spells a *reference* and reports a bare key for a library standing in for an
+   * object store.
+   */
+  async readUrl(path: string): Promise<string | Blob> {
+    return join(import.meta.env.BASE_URL, this.mediaDirectory, path);
+  }
+
+  /**
+   * Lowers repository paths into library files, dropping strays in the media
+   * directory. Takes the backend's own listing shape rather than `MediaFile`s, so
+   * a whole-repository tree costs no allocation for the paths it discards.
+   */
+  protected mediaFiles(files: Iterable<{ path: string; size?: number }>): MediaFile[] {
+    const result: MediaFile[] = [];
+
+    for (const file of files) {
+      const path = stripMediaPrefix(file.path, this.mediaDirectory);
+
+      if (path != null && hasAllowedExtension(path, config.mediaExtensions)) {
+        result.push({ path, size: file.size ?? 0 });
+      }
+    }
+
+    return result;
   }
 
   // --- File collection helpers ---

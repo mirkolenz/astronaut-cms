@@ -1,3 +1,4 @@
+import { join } from "pathe";
 import type { FieldSchema } from "./field-schema.ts";
 
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
@@ -41,6 +42,23 @@ export function collectionBase(
   return collection?.loaderBase ?? `src/content/${name}`;
 }
 
+/**
+ * Project-relative path of the file an entry's content lives in: its own file in
+ * a glob collection, the shared container in a file collection. It is what a
+ * relative asset reference written inside that entry resolves against.
+ */
+export function entryFilePath(
+  collection: CollectionManifestEntry,
+  id: string,
+  format: string,
+): string {
+  if (collection.loaderType === "file" && collection.loaderFileName) {
+    return collection.loaderFileName;
+  }
+
+  return join(collectionBase(collection.name, collection), `${id}.${format}`);
+}
+
 export interface EntryMeta {
   id: string;
   collection: string;
@@ -60,10 +78,10 @@ export interface SaveEntryRequest {
   format: string;
 }
 
+/** One file in the media library, addressed relative to the library root. */
 export interface MediaFile {
   path: string;
   size: number;
-  lastModified: string;
 }
 
 export type ChangeKind = "added" | "modified" | "deleted" | "renamed";

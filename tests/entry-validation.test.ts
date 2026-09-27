@@ -58,7 +58,7 @@ describe("validateAgainstSchema", () => {
 // Storage refuses the write itself, so no caller can skip the check.
 const source = {
   listEntries: () => Promise.resolve([{ id: "a" }]),
-  listMedia: () => Promise.resolve([{ path: "src/assets/hero.svg" }]),
+  listMedia: () => Promise.resolve([{ path: "hero.svg" }]),
 };
 
 const complete = { title: "T", publishDate: "2026-01-01", cover: "/src/assets/hero.svg" };
@@ -72,6 +72,15 @@ const write = (data: Record<string, unknown>) => ({
 });
 
 describe("assertEntryWritable", () => {
+  // The build resolves a relative asset value against the entry it is written in
+  // (and so does the render-time resolver), so refusing to save one would make an
+  // entry the site builds fine uneditable in the CMS.
+  it("accepts an asset path written relative to the entry", async () => {
+    await expect(
+      assertEntryWritable(source, write({ ...complete, cover: "../../assets/hero.svg" })),
+    ).resolves.toBeUndefined();
+  });
+
   it("refuses an entry missing a required field", async () => {
     await expect(
       assertEntryWritable(source, write({ publishDate: "2026-01-01" })),

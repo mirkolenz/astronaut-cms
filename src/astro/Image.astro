@@ -11,6 +11,18 @@ type Props = Omit<LocalImageProps, "src"> & {
 
 const { src, base, ...rest } = Astro.props;
 const resolved = typeof src === "string" ? await resolveImage(src, base) : src;
+
+// A resolved string means the media library lives in an object store, so this is
+// a remote image and astro needs its dimensions. `inferSize` reads them from the
+// image itself — at build time for a prerendered page — so neither the schema nor
+// the editor has to carry them; an explicit width and height still win.
+const inferSize = rest.width == null || rest.height == null;
 ---
 
-<AstroImage src={resolved} {...rest} />
+{
+  typeof resolved === "string" ? (
+    <AstroImage src={resolved} inferSize={inferSize} {...rest} />
+  ) : (
+    <AstroImage src={resolved} {...rest} />
+  )
+}

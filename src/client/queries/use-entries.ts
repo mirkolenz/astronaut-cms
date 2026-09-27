@@ -1,11 +1,14 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getStorage } from "@client/lib/storage";
+import { REFERENCES_QUERY } from "@client/lib/media/references";
 import type { BranchStatus } from "@client/lib/storage/types";
 import type { FileChange } from "@shared/types";
 import type { SaveEntryRequest } from "@shared/types";
 
 function invalidateEntries(qc: QueryClient, collection: string) {
   void qc.invalidateQueries({ queryKey: ["cms", "entries", collection] });
+  // What content references is derived from entries, so it ages with them.
+  void qc.invalidateQueries({ queryKey: REFERENCES_QUERY.queryKey });
 }
 
 function invalidateEntry(qc: QueryClient, collection: string, id: string) {

@@ -40,6 +40,7 @@ A WYSIWYG editor renders text blocks and custom components as you type, so what 
 
 Browse, upload, replace, rename, and delete assets with folder navigation.
 An inline asset picker integrates directly into image and file fields.
+Files live in the repository by default, or in any S3-compatible object store (AWS S3, Cloudflare R2, MinIO) when the library outgrows Git — uploads then go straight from the browser to the bucket through a presigned URL, and the site serves them from your CDN.
 
 ### GitHub and GitLab Backends
 
