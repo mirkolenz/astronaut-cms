@@ -3,7 +3,11 @@
   imports = [
     inputs.treefmt-nix.flakeModule
   ];
-  systems = import inputs.systems;
+  systems = [
+    "aarch64-darwin"
+    "aarch64-linux"
+    "x86_64-linux"
+  ];
 
   perSystem =
     {
@@ -11,10 +15,13 @@
       config,
       ...
     }:
+    let
+      site = pkgs.callPackage ./site.nix { };
+    in
     {
       packages = {
-        docs = pkgs.callPackage ./docs.nix { };
-        demo = pkgs.callPackage ./demo.nix { };
+        docs = site { workspace = "docs"; };
+        demo = site { workspace = "demo"; };
         release-env = pkgs.buildEnv {
           name = "release-env";
           paths = [ pkgs.nodejs ];
@@ -22,7 +29,8 @@
       };
       checks = {
         inherit (config.packages) docs demo;
-      };
+      }
+      // pkgs.callPackages ./ci.nix { };
       devShells.default = pkgs.callPackage ./shell.nix {
         treefmt = config.treefmt.build.wrapper;
       };

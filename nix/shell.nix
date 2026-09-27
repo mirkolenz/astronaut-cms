@@ -3,6 +3,7 @@
   lib,
   treefmt,
   nodejs,
+  oxlint,
 }:
 mkShell {
   shellHook = ''
@@ -12,6 +13,7 @@ mkShell {
   '';
   packages = [
     nodejs
+    oxlint
     treefmt
   ];
 }
