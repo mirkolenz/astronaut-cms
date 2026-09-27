@@ -27,13 +27,15 @@ interface RawCollection {
 
 /**
  * Loads the user's content config in Node and lowers every collection into a
- * fully serializable {@link CollectionManifest}. Returns `null` when the config
- * cannot be evaluated, so callers can degrade to an empty admin gracefully.
+ * fully serializable {@link CollectionManifest}. A config that cannot be
+ * evaluated degrades to an empty manifest (an admin with no collections) rather
+ * than a null every caller would have to unwrap.
  */
 export function loadCollections(
   contentConfigPath: string,
   rootDir: string,
-): CollectionManifest | null {
+  logger: { warn: (message: string) => void },
+): CollectionManifest {
   try {
     const jiti = createJiti(rootDir, { alias: JITI_ALIAS });
     const mod = jiti(contentConfigPath) as { collections?: Record<string, RawCollection> };
@@ -58,7 +60,13 @@ export function loadCollections(
     }
 
     return manifest;
-  } catch {
-    return null;
+  } catch (error) {
+    logger.warn(
+      `Failed to load ${contentConfigPath} — collections will be empty: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+
+    return {};
   }
 }

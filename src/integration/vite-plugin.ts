@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "pathe";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
-import type { CmsClientConfig, CmsConfig } from "./types.ts";
+import type { AiGateway, CmsClientConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 
@@ -33,77 +33,20 @@ function buildSourceExports(root: string, pkgPath: string): Record<string, strin
   return map;
 }
 
-const DEFAULT_MEDIA_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".avif",
-  ".svg",
-  ".gif",
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".ppt",
-  ".pptx",
-  ".zip",
-  ".csv",
-];
+export interface CmsVitePluginOptions {
+  clientConfig: CmsClientConfig;
+  aiGateway: AiGateway | null;
+  userConfigPath: string | null;
+  collections: CollectionManifest;
+}
 
-export function cmsVitePlugin(
-  config: CmsConfig,
-  userConfigPath: string | null,
-  collections: CollectionManifest | null,
-  trailingSlash: "always" | "never" | "ignore",
-): Plugin {
-  const storage = config.storage ?? { type: "local" as const };
-  const clientConfig: CmsClientConfig = {
-    mountPoint: config.mountPoint ?? "/admin",
-    storageType: storage.type,
-    trailingSlash,
-    mediaDirectory: config.media?.directory ?? "src/assets",
-    mediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
-    locale: config.locale ?? "en",
-    previewUrl: config.previewUrl,
-    ...(config.ai?.enabled &&
-      config.ai.models?.length && {
-        ai: {
-          models: config.ai.models,
-          maxSteps: config.ai.maxSteps ?? 24,
-        },
-      }),
-    ...(storage.type === "github" && {
-      github: {
-        repo: storage.repo,
-        branch: storage.branch ?? "main",
-        clientId: storage.clientId,
-        authMode: storage.authMode ?? "oauth-app",
-        scopes: storage.scopes ?? ["repo"],
-        publishMode: storage.publishMode ?? "direct",
-      },
-    }),
-    ...(storage.type === "gitlab" && {
-      gitlab: {
-        project: storage.project,
-        branch: storage.branch ?? "main",
-        clientId: storage.clientId,
-        instanceUrl: storage.instanceUrl ?? "https://gitlab.com",
-        scopes: storage.scopes ?? ["api"],
-        publishMode: storage.publishMode ?? "direct",
-      },
-    }),
-  };
-
-  // Server-only: the gateway config (and any credentials) is imported solely by
-  // the relay route, so it is bundled into the SSR output and never the client.
-  const aiGateway = config.ai?.enabled ? (config.ai.gateway ?? null) : null;
+export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
+  const { clientConfig, aiGateway, userConfigPath, collections } = options;
 
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
     "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiGateway)};`,
-    "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections ?? {})};`,
+    "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(clientConfig.mediaDirectory),
   };

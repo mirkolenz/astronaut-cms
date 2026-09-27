@@ -160,12 +160,12 @@ export async function discardChanges(rootDir: string, paths: string[]): Promise<
 export function managedPaths(options: {
   rootDir: string;
   mediaDir: string;
-  collections?: CollectionManifest;
+  collections: CollectionManifest;
 }): string[] {
   const { rootDir, mediaDir, collections } = options;
   const paths = new Set([relative(rootDir, mediaDir)]);
 
-  for (const [name, collection] of Object.entries(collections ?? {})) {
+  for (const [name, collection] of Object.entries(collections)) {
     paths.add(collection.loaderFileName ?? collectionBase(name, collection));
   }
 

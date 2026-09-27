@@ -9,6 +9,7 @@ import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
+import { resolveAiGateway, resolveClientConfig } from "./resolve-config.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export { defineComponent, image, file } from "../config.ts";
@@ -25,8 +26,6 @@ function findConfig(rootDir: string, base: string): string | null {
 }
 
 export default function cms(config: CmsConfig = {}): AstroIntegration {
-  const mountPoint = config.mountPoint ?? "/admin";
-
   return {
     name: "astronaut-cms",
     hooks: {
@@ -39,8 +38,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
       }) => {
         const rootDir = fileURLToPath(astroConfig.root);
         const basePath = astroConfig.base;
-        const mediaSubdir = config.media?.directory ?? "src/assets";
-        const mediaDir = join(rootDir, mediaSubdir);
 
         const overrideToLocal =
           command === "dev" &&
@@ -54,6 +51,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             `Using local storage for "astro dev" (configured "${config.storage?.type}" backend will be used in build)`,
           );
         }
+
+        // Every default is applied once, here; `clientConfig` is what the admin
+        // bundle and the rest of this hook both read.
+        const clientConfig = resolveClientConfig(effectiveConfig, astroConfig.trailingSlash);
+        const mountPoint = clientConfig.mountPoint;
+        const mediaDir = join(rootDir, clientConfig.mediaDirectory);
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;
@@ -92,13 +95,10 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Auto-discover and load content.config.{ts,mts,js,mjs}
         const contentConfigPath = findConfig(rootDir, "src/content.config");
-        let collections: CollectionManifest | null = null;
+        let collections: CollectionManifest = {};
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
-          collections = loadCollections(contentConfigPath, rootDir);
-          if (!collections) {
-            logger.warn("Failed to load content config — collections will be empty");
-          }
+          collections = loadCollections(contentConfigPath, rootDir, logger);
         } else {
           logger.warn("No content.config found — collections will be empty");
         }
@@ -107,16 +107,16 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           vite: {
             plugins: [
               tailwindcss(),
-              cmsVitePlugin(
-                effectiveConfig,
+              cmsVitePlugin({
+                clientConfig,
+                aiGateway: resolveAiGateway(effectiveConfig),
                 userConfigPath,
                 collections,
-                astroConfig.trailingSlash,
-              ),
+              }),
               // Dev-only filesystem API for the local storage backend, plus the
               // reload suppression that keeps the admin's state across its own saves.
               ...(command === "dev"
-                ? [cmsDevPlugin({ basePath, mediaDir, rootDir, collections: collections ?? undefined })]
+                ? [cmsDevPlugin({ basePath, mediaDir, rootDir, collections })]
                 : []),
             ],
           },

@@ -9,7 +9,7 @@ import { parseRepo } from "@client/lib/oauth/github";
 let instance: StorageBackend | null = null;
 
 function createStorage(): StorageBackend {
-  const mediaDirectory = config.mediaDirectory ?? "src/assets";
+  const { mediaDirectory } = config;
 
   switch (config.storageType) {
     case "github": {
@@ -21,7 +21,7 @@ function createStorage(): StorageBackend {
         {
           owner,
           repo,
-          branch: config.github.branch ?? "main",
+          branch: config.github.branch,
           publishMode: config.github.publishMode,
         },
         collections,
@@ -35,8 +35,8 @@ function createStorage(): StorageBackend {
       return new GitLabStorage(
         {
           project: config.gitlab.project,
-          branch: config.gitlab.branch ?? "main",
-          instanceUrl: config.gitlab.instanceUrl ?? "https://gitlab.com",
+          branch: config.gitlab.branch,
+          instanceUrl: config.gitlab.instanceUrl,
           publishMode: config.gitlab.publishMode,
         },
         collections,

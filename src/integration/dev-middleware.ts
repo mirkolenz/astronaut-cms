@@ -20,7 +20,7 @@ export interface DevMiddlewareOptions {
   basePath: string;
   mediaDir: string;
   rootDir: string;
-  collections?: CollectionManifest;
+  collections: CollectionManifest;
 }
 
 function sendJson(res: ServerResponse, data: unknown, status = 200) {

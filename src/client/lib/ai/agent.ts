@@ -5,6 +5,7 @@ import {
   type InferUITools,
   type ToolUIPart,
 } from "ai";
+import { DEFAULT_AI_MAX_STEPS } from "@shared/ai";
 import { queryClient } from "@client/lib/query-client";
 import { useAiSettingsStore } from "@client/stores/ai-settings-store";
 import { aiConfig } from "./config";
@@ -38,7 +39,7 @@ export const cmsAgent = new ToolLoopAgent({
   model: aiProvider.chatModel(aiConfig?.models[0] ?? ""),
   instructions: SYSTEM_PROMPT,
   tools: cmsTools,
-  stopWhen: isStepCount(aiConfig?.maxSteps ?? 24),
+  stopWhen: isStepCount(aiConfig?.maxSteps ?? DEFAULT_AI_MAX_STEPS),
   prepareCall: (settings) => ({ ...settings, ...callSettings() }),
   // Tools write through the storage layer directly, bypassing the mutation hooks
   // in `queries/` that normally invalidate. Doing it here rather than per tool

@@ -45,7 +45,7 @@ function hasExtension(file: File, ext: string): boolean {
 // Extracts readable text from a document entirely client-side: PDFs via pdf.js
 // (bundled by unpdf, no worker setup), Word `.docx` via mammoth, everything else
 // as UTF-8 text.
-export async function extractDocumentText(file: File): Promise<string> {
+async function extractDocumentText(file: File): Promise<string> {
   if (file.type === "application/pdf" || hasExtension(file, ".pdf")) {
     const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
     const { text } = await extractText(pdf, { mergePages: true });

@@ -8,3 +8,6 @@ export const AI_API_BASE = "/_astronaut-cms/ai";
 
 /** Injected-route pattern for the relay's OpenAI-compatible chat-completions endpoint. */
 export const AI_CHAT_COMPLETIONS_PATTERN = `${AI_API_BASE}/chat/completions`;
+
+/** Default maximum model/tool round-trips per assistant turn. */
+export const DEFAULT_AI_MAX_STEPS = 24;
