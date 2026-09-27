@@ -40,4 +40,9 @@ export const referenceMarker = (collection: string) =>
  * what keeps an `image()` meant for a component prop out of a `content.config.ts`,
  * where astro's own helper is the only one that resolves.
  */
-export const schemaHelpers = { image: imageMarker, file: fileMarker, link: linkMarker };
+export const schemaHelpers = {
+  image: imageMarker,
+  file: fileMarker,
+  link: linkMarker,
+  reference: referenceMarker,
+};
