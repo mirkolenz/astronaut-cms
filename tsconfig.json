@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsbuildinfo",
+    "rootDir": "./src",
     "target": "ES2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "types": ["node"],
+    "types": ["node", "vite/client"],
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
@@ -22,7 +23,6 @@
       "@client/*": ["./src/client/*"],
       "@shared/*": ["./src/shared/*"],
       "@integration/*": ["./src/integration/*"],
-      "@stubs/*": ["./src/stubs/*"],
       "@assets/*": ["./assets/*"]
     }
   },

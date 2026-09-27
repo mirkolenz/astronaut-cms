@@ -36,10 +36,10 @@
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
     },
-    "./stubs": {
-      "types": "./dist/stubs/index.d.ts",
-      "source": "./src/stubs/index.ts",
-      "default": "./dist/stubs.js"
+    "./internal": {
+      "types": "./dist/internal/index.d.ts",
+      "source": "./src/internal/index.ts",
+      "default": "./dist/internal.js"
     },
     "./styles.css": {
       "source": "./src/astro/styles.css",

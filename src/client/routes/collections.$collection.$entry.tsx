@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useEntry, useSaveEntry, useDeleteEntry } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
-import { FieldRenderer, type ZodFieldSchema } from "@client/components/editors/field-renderer";
+import { FieldRenderer } from "@client/components/editors/field-renderer";
+import { objectShape } from "@shared/field-schema";
 import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { toast } from "@client/components/toast";
@@ -28,8 +29,7 @@ function EntryEditor() {
   const saveMutation = useSaveEntry(collection, entryId);
   const deleteMutation = useDeleteEntry(collection);
 
-  const schema = collections?.[collection]?.schema;
-  const shape: Record<string, ZodFieldSchema> | undefined = schema?.shape;
+  const shape = objectShape(collections?.[collection]?.schema);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [editBody, setEditBody] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -181,7 +181,7 @@ function EntryEditor() {
                       value={formData[key]}
                       onChange={(v) => handleFieldChange(key, v)}
                       name={key}
-                      required={fieldSchema.def.type !== "optional"}
+                      required={!fieldSchema.optional}
                     />
                   ))}
                 </div>

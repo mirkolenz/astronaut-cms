@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
+import type { CollectionManifest } from "../shared/types.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { createDevMiddleware } from "./dev-middleware.ts";
-import { createJiti } from "jiti";
-import { CLIENT_REDIRECTS } from "./client-redirects.ts";
+import { loadCollections } from "./load-collections.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export { defineComponent, image, file } from "../config.ts";
@@ -46,55 +46,13 @@ function findConfig(rootDir: string, base: string): string | null {
   return null;
 }
 
-function createCmsJiti(rootDir: string) {
-  return createJiti(rootDir, { alias: CLIENT_REDIRECTS });
-}
-
-interface LoadedCollectionMeta {
-  loaderType: "glob" | "file";
-  loaderFileName?: string | null;
-  loaderBase?: string | null;
-}
-
-function extractCollectionMeta(
-  contentConfigPath: string,
-  rootDir: string,
-): Record<string, LoadedCollectionMeta> | null {
-  try {
-    const jiti = createCmsJiti(rootDir);
-    const mod = jiti(contentConfigPath) as {
-      collections?: Record<
-        string,
-        {
-          loader?: {
-            __cmsFileName?: string | null;
-            __cmsBase?: string | null;
-          };
-        }
-      >;
-    };
-    const collections = mod.collections ?? {};
-    const result: Record<string, LoadedCollectionMeta> = {};
-    for (const [name, col] of Object.entries(collections)) {
-      result[name] = {
-        loaderType: col.loader?.__cmsFileName != null ? "file" : "glob",
-        loaderFileName: col.loader?.__cmsFileName ?? null,
-        loaderBase: col.loader?.__cmsBase ?? null,
-      };
-    }
-    return result;
-  } catch {
-    return null;
-  }
-}
-
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   const mountPoint = config.mountPoint ?? "/admin";
   let contentDir = "";
   let mediaDir = "";
   let rootDir = "";
   let basePath = "/";
-  let collectionsMeta: Record<string, LoadedCollectionMeta> | null = null;
+  let collections: CollectionManifest | null = null;
 
   return {
     name: "astronaut-cms",
@@ -159,11 +117,14 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           }
         }
 
-        // Auto-discover content.config.{ts,mts,js,mjs}
+        // Auto-discover and load content.config.{ts,mts,js,mjs}
         const contentConfigPath = findConfig(rootDir, "src/content.config");
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
-          collectionsMeta = extractCollectionMeta(contentConfigPath, rootDir);
+          collections = loadCollections(contentConfigPath, rootDir);
+          if (!collections) {
+            logger.warn("Failed to load content config — collections will be empty");
+          }
         } else {
           logger.warn("No content.config found — collections will be empty");
         }
@@ -172,7 +133,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           vite: {
             plugins: [
               tailwindcss(),
-              cmsVitePlugin(effectiveConfig, userConfigPath, contentConfigPath),
+              cmsVitePlugin(effectiveConfig, userConfigPath, collections),
             ],
           },
         });
@@ -199,7 +160,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             mediaPrefix: config.media?.directory ?? "src/assets",
             allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
             rootDir,
-            collections: collectionsMeta ?? undefined,
+            collections: collections ?? undefined,
           }),
         );
       },

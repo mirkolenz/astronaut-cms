@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { join } from "pathe";
-import { getAssetType, getReferenceCollection } from "@shared/schema-utils";
+import type { FieldSchema } from "@shared/field-schema";
 import { toPreviewUrl } from "@client/lib/asset-utils";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
@@ -20,38 +20,14 @@ import {
   SelectValue,
 } from "@client/components/ui/select";
 
-/**
- * Runtime interface for Zod schemas as provided by astro/zod.
- * Astro ships Zod v4 at runtime; this captures the API surface
- * used by the field renderer for direct schema introspection.
- */
-export interface ZodFieldSchema {
-  def: {
-    type: string;
-    value?: unknown;
-    defaultValue?: unknown;
-    discriminator?: string;
-    options?: ZodFieldSchema[];
-    out?: ZodFieldSchema;
-  };
-  unwrap?(): ZodFieldSchema;
-  shape?: Record<string, ZodFieldSchema>;
-  element?: ZodFieldSchema;
-  options?: unknown[];
-  meta?(): Record<string, unknown> | undefined;
-  keyType?: ZodFieldSchema;
-  valueType?: ZodFieldSchema;
-  maxLength?: number;
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
-
-function asString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
+function asNumber(value: unknown): number {
+  return typeof value === "number" ? value : 0;
 }
-function asNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" ? value : fallback;
-}
-function asBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
+function asBoolean(value: unknown): boolean {
+  return typeof value === "boolean" ? value : false;
 }
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -63,7 +39,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 interface FieldRendererProps {
-  schema: ZodFieldSchema;
+  schema: FieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
   name: string;
@@ -71,188 +47,126 @@ interface FieldRendererProps {
 }
 
 export function FieldRenderer({ schema, value, onChange, name, required }: FieldRendererProps) {
-  const type = schema.def.type;
-
-  // Unwrap wrappers
-  if (type === "optional" && schema.unwrap) {
-    return (
-      <FieldRenderer
-        schema={schema.unwrap()}
-        value={value}
-        onChange={onChange}
-        name={name}
-        required={false}
-      />
-    );
-  }
-  if (type === "nullable" && schema.unwrap) {
-    const inner = schema.unwrap();
+  if (schema.nullable) {
+    const inner: FieldSchema = { ...schema, nullable: false };
     if (value === null || value === undefined) {
       return <NullableToggle name={name} onEnable={() => onChange(getDefaultValue(inner))} />;
     }
     return (
       <NullableWrapper name={name} onClear={() => onChange(null)}>
-        <FieldRenderer
-          schema={inner}
-          value={value}
-          onChange={onChange}
-          name={name}
-          required={required}
-        />
+        <FieldRenderer schema={inner} value={value} onChange={onChange} name={name} required={required} />
       </NullableWrapper>
     );
   }
-  if (type === "default" && schema.unwrap) {
-    return (
-      <FieldRenderer
-        schema={schema.unwrap()}
-        value={value ?? schema.def.defaultValue}
-        onChange={onChange}
-        name={name}
-        required={required}
-      />
-    );
-  }
-  if (type === "pipe" && schema.def.out) {
-    return (
-      <FieldRenderer
-        schema={schema.def.out}
-        value={value}
-        onChange={onChange}
-        name={name}
-        required={required}
-      />
-    );
-  }
 
-  // Check metadata for asset fields (image/file)
-  const assetType = getAssetType(schema);
-  if (assetType === "image") {
-    return (
-      <ImageField name={name} value={asString(value)} onChange={onChange} required={required} />
-    );
-  }
-  if (assetType === "file") {
-    return (
-      <FileField name={name} value={asString(value)} onChange={onChange} required={required} />
-    );
-  }
+  const resolved = value ?? schema.default;
 
-  const refCollection = getReferenceCollection(schema);
-  if (refCollection) {
-    return (
-      <ReferenceField
-        name={name}
-        value={asString(value)}
-        onChange={onChange}
-        required={required}
-        collection={refCollection}
-      />
-    );
-  }
+  switch (schema.type) {
+    case "image":
+      return (
+        <ImageField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+      );
 
-  switch (type) {
+    case "file":
+      return (
+        <FileField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+      );
+
+    case "reference":
+      return (
+        <ReferenceField
+          name={name}
+          value={asString(resolved)}
+          onChange={onChange}
+          required={required}
+          collection={schema.collection}
+        />
+      );
+
     case "string":
-      if (schema.maxLength && schema.maxLength > 200) {
+      if (schema.format === "email" || schema.format === "url") {
         return (
-          <TextareaField
+          <StringField
             name={name}
-            value={asString(value)}
+            value={asString(resolved)}
             onChange={onChange}
             required={required}
+            format={schema.format}
           />
         );
       }
+      if (schema.maxLength && schema.maxLength > 200) {
+        return (
+          <TextareaField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+        );
+      }
       return (
-        <StringField name={name} value={asString(value)} onChange={onChange} required={required} />
-      );
-
-    case "email":
-      return (
-        <StringField
-          name={name}
-          value={asString(value)}
-          onChange={onChange}
-          required={required}
-          format="email"
-        />
-      );
-
-    case "url":
-      return (
-        <StringField
-          name={name}
-          value={asString(value)}
-          onChange={onChange}
-          required={required}
-          format="url"
-        />
+        <StringField name={name} value={asString(resolved)} onChange={onChange} required={required} />
       );
 
     case "number":
       return (
-        <NumberField name={name} value={asNumber(value)} onChange={onChange} required={required} />
-      );
-
-    case "int":
-      return (
         <NumberField
           name={name}
-          value={asNumber(value)}
+          value={asNumber(resolved)}
           onChange={onChange}
           required={required}
-          integer
+          integer={schema.integer}
         />
       );
 
     case "boolean":
-      return <BooleanField name={name} value={asBoolean(value)} onChange={onChange} />;
+      return <BooleanField name={name} value={asBoolean(resolved)} onChange={onChange} />;
 
     case "date":
       return (
-        <DateField name={name} value={asString(value)} onChange={onChange} required={required} />
+        <DateField name={name} value={asString(resolved)} onChange={onChange} required={required} />
       );
 
     case "enum":
       return (
         <EnumField
-          schema={schema}
+          options={schema.options}
           name={name}
-          value={asString(value)}
+          value={asString(resolved)}
           onChange={onChange}
           required={required}
         />
       );
 
     case "array":
-      return <ArrayField schema={schema} name={name} value={asArray(value)} onChange={onChange} />;
+      return (
+        <ArrayField element={schema.element} name={name} value={asArray(resolved)} onChange={onChange} />
+      );
 
     case "object":
       return (
-        <ObjectField schema={schema} name={name} value={asRecord(value)} onChange={onChange} />
+        <ObjectField shape={schema.shape} name={name} value={asRecord(resolved)} onChange={onChange} />
       );
 
     case "record":
       return (
-        <RecordField schema={schema} name={name} value={asRecord(value)} onChange={onChange} />
+        <RecordField
+          valueSchema={schema.value}
+          name={name}
+          value={asRecord(resolved)}
+          onChange={onChange}
+        />
       );
 
     case "union":
-      if (schema.def.discriminator) {
-        return (
-          <UnionField
-            schema={schema}
-            name={name}
-            value={asRecord(value)}
-            onChange={onChange}
-            discriminator={schema.def.discriminator}
-          />
-        );
-      }
-      return <FallbackField name={name} value={value} onChange={onChange} />;
+      return (
+        <UnionField
+          variants={schema.variants}
+          discriminator={schema.discriminator}
+          name={name}
+          value={asRecord(resolved)}
+          onChange={onChange}
+        />
+      );
 
     default:
-      return <FallbackField name={name} value={value} onChange={onChange} />;
+      return <FallbackField name={name} value={resolved} onChange={onChange} />;
   }
 }
 
@@ -267,9 +181,9 @@ function StringField({
   value: string;
   onChange: (v: unknown) => void;
   required?: boolean;
-  format?: string;
+  format?: "email" | "url";
 }) {
-  const type = format === "uri" || format === "url" ? "url" : format === "email" ? "email" : "text";
+  const type = format === "url" ? "url" : format === "email" ? "email" : "text";
   return (
     <div>
       <Label>
@@ -389,19 +303,18 @@ function DateField({
 }
 
 function EnumField({
-  schema,
+  options,
   name,
   value,
   onChange,
   required,
 }: {
-  schema: ZodFieldSchema;
+  options: string[];
   name: string;
   value: string;
   onChange: (v: unknown) => void;
   required?: boolean;
 }) {
-  const options = (schema.options ?? []).map(String);
   return (
     <div>
       <Label>
@@ -414,8 +327,8 @@ function EnumField({
         </SelectTrigger>
         <SelectContent>
           {options.map((opt) => (
-            <SelectItem key={String(opt)} value={String(opt)}>
-              {String(opt)}
+            <SelectItem key={opt} value={opt}>
+              {opt}
             </SelectItem>
           ))}
         </SelectContent>
@@ -631,31 +544,24 @@ function ReferenceField({
   );
 }
 
-function isComplexSchema(schema?: ZodFieldSchema): boolean {
-  if (!schema) return false;
-  const type = schema.def.type;
-  if (type === "object" || type === "array" || type === "record") return true;
-  if ((type === "optional" || type === "nullable" || type === "default") && schema.unwrap) {
-    return isComplexSchema(schema.unwrap());
-  }
-  return false;
+function isComplexSchema(schema?: FieldSchema): boolean {
+  return schema?.type === "object" || schema?.type === "array" || schema?.type === "record";
 }
 
 function ArrayField({
-  schema,
+  element,
   name,
   value,
   onChange,
 }: {
-  schema: ZodFieldSchema;
+  element: FieldSchema;
   name: string;
   value: unknown[];
   onChange: (v: unknown) => void;
 }) {
   const { t } = useTranslation();
   const items = Array.isArray(value) ? value : [];
-  const itemSchema = schema.element;
-  const needsConfirm = isComplexSchema(itemSchema);
+  const needsConfirm = isComplexSchema(element);
   const [confirmRemoveIndex, setConfirmRemoveIndex] = useState<number | null>(null);
 
   const updateItem = (index: number, newValue: unknown) => {
@@ -665,7 +571,7 @@ function ArrayField({
   };
 
   const addItem = () => {
-    onChange([...items, getDefaultValue(itemSchema)]);
+    onChange([...items, getDefaultValue(element)]);
   };
 
   const removeItem = (index: number) => {
@@ -679,16 +585,12 @@ function ArrayField({
         {items.map((item, i) => (
           <div key={i} className="flex items-start gap-2">
             <div className="flex-1">
-              {itemSchema ? (
-                <FieldRenderer
-                  schema={itemSchema}
-                  value={item}
-                  onChange={(v) => updateItem(i, v)}
-                  name={`${i}`}
-                />
-              ) : (
-                <FallbackField name={`${i}`} value={item} onChange={(v) => updateItem(i, v)} />
-              )}
+              <FieldRenderer
+                schema={element}
+                value={item}
+                onChange={(v) => updateItem(i, v)}
+                name={`${i}`}
+              />
             </div>
             <Button
               type="button"
@@ -727,21 +629,18 @@ function ArrayField({
 }
 
 function ObjectField({
-  schema,
+  shape,
   name,
   value,
   onChange,
 }: {
-  schema: ZodFieldSchema;
+  shape: Record<string, FieldSchema>;
   name: string;
   value: Record<string, unknown>;
   onChange: (v: unknown) => void;
 }) {
-  const obj = typeof value === "object" && value !== null ? value : {};
-  const shape = schema.shape ?? {};
-
   const updateField = (key: string, newValue: unknown) => {
-    onChange({ ...obj, [key]: newValue });
+    onChange({ ...value, [key]: newValue });
   };
 
   return (
@@ -752,10 +651,10 @@ function ObjectField({
           <FieldRenderer
             key={key}
             schema={fieldSchema}
-            value={obj[key]}
+            value={value[key]}
             onChange={(v) => updateField(key, v)}
             name={key}
-            required={fieldSchema.def.type !== "optional"}
+            required={!fieldSchema.optional}
           />
         ))}
       </div>
@@ -764,36 +663,34 @@ function ObjectField({
 }
 
 function RecordField({
-  schema,
+  valueSchema,
   name,
   value,
   onChange,
 }: {
-  schema: ZodFieldSchema;
+  valueSchema: FieldSchema;
   name: string;
   value: Record<string, unknown>;
   onChange: (v: unknown) => void;
 }) {
   const { t } = useTranslation();
-  const obj = asRecord(value);
-  const valueSchema = schema.valueType;
   const needsConfirm = isComplexSchema(valueSchema);
   const [confirmRemoveKey, setConfirmRemoveKey] = useState<string | null>(null);
   const [newKey, setNewKey] = useState("");
 
   const updateField = (key: string, newValue: unknown) => {
-    onChange({ ...obj, [key]: newValue });
+    onChange({ ...value, [key]: newValue });
   };
 
   const removeField = (key: string) => {
-    const next = { ...obj };
+    const next = { ...value };
     delete next[key];
     onChange(next);
   };
 
   const addField = () => {
     if (!newKey.trim()) return;
-    onChange({ ...obj, [newKey.trim()]: getDefaultValue(valueSchema) });
+    onChange({ ...value, [newKey.trim()]: getDefaultValue(valueSchema) });
     setNewKey("");
   };
 
@@ -801,20 +698,16 @@ function RecordField({
     <fieldset className="rounded-md border border-border p-3">
       <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
       <div className="space-y-3">
-        {Object.entries(obj).map(([key, val]) => (
+        {Object.entries(value).map(([key, val]) => (
           <div key={key} className="flex items-start gap-2">
             <span className="mt-1.5 shrink-0 text-xs font-mono text-muted-foreground">{key}</span>
             <div className="flex-1">
-              {valueSchema ? (
-                <FieldRenderer
-                  schema={valueSchema}
-                  value={val}
-                  onChange={(v) => updateField(key, v)}
-                  name={key}
-                />
-              ) : (
-                <FallbackField name={key} value={val} onChange={(v) => updateField(key, v)} />
-              )}
+              <FieldRenderer
+                schema={valueSchema}
+                value={val}
+                onChange={(v) => updateField(key, v)}
+                name={key}
+              />
             </div>
             <Button
               type="button"
@@ -863,38 +756,35 @@ function RecordField({
 }
 
 function UnionField({
-  schema,
+  variants,
+  discriminator,
   name,
   value,
   onChange,
-  discriminator,
 }: {
-  schema: ZodFieldSchema;
+  variants: FieldSchema[];
+  discriminator: string;
   name: string;
   value: Record<string, unknown>;
   onChange: (v: unknown) => void;
-  discriminator: string;
 }) {
   const { t } = useTranslation();
-  const variants = schema.def.options ?? [];
   const currentDiscValue = value[discriminator];
 
-  const selectedIndex = variants.findIndex((v) => {
-    const shape = v.shape;
-    if (!shape?.[discriminator]) return false;
-    // Check if the discriminator field is a literal matching the current value
-    const discSchema = shape[discriminator];
-    if (discSchema.def.type === "literal") {
-      return discSchema.def.value === currentDiscValue;
-    }
-    return false;
+  const variantLabel = (variant: FieldSchema, index: number): string => {
+    const disc = variant.type === "object" ? variant.shape[discriminator] : undefined;
+    return disc?.type === "literal" ? String(disc.value) : String(index);
+  };
+
+  const selectedIndex = variants.findIndex((variant) => {
+    if (variant.type !== "object") return false;
+    const disc = variant.shape[discriminator];
+    return disc?.type === "literal" && disc.value === currentDiscValue;
   });
 
   const handleVariantChange = (index: number) => {
     const variant = variants[index];
-    if (variant) {
-      onChange(getDefaultValue(variant));
-    }
+    if (variant) onChange(getDefaultValue(variant));
   };
 
   const selectedVariant = selectedIndex >= 0 ? variants[selectedIndex] : undefined;
@@ -913,23 +803,16 @@ function UnionField({
               <SelectValue placeholder="--" />
             </SelectTrigger>
             <SelectContent>
-              {variants.map((v, i) => {
-                const discField = v.shape?.[discriminator];
-                const label =
-                  discField?.def.type === "literal" && discField.def.value != null
-                    ? `${discField.def.value as string | number}`
-                    : String(i);
-                return (
-                  <SelectItem key={i} value={String(i)}>
-                    {label}
-                  </SelectItem>
-                );
-              })}
+              {variants.map((variant, i) => (
+                <SelectItem key={i} value={String(i)}>
+                  {variantLabel(variant, i)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        {selectedVariant && (
-          <ObjectField schema={selectedVariant} name="" value={value ?? {}} onChange={onChange} />
+        {selectedVariant?.type === "object" && (
+          <ObjectField shape={selectedVariant.shape} name="" value={value} onChange={onChange} />
         )}
       </div>
     </fieldset>
@@ -1017,47 +900,43 @@ function FallbackField({
   );
 }
 
-export function getDefaultValue(schema?: ZodFieldSchema): unknown {
+export function getDefaultValue(schema?: FieldSchema): unknown {
   if (!schema) return "";
-  const type = schema.def.type;
 
-  if (type === "default") return schema.def.defaultValue;
-  if (type === "optional" || type === "nullable") return null;
-  if (type === "pipe" && schema.def.out) return getDefaultValue(schema.def.out);
+  if (schema.default !== undefined) return schema.default;
+  if (schema.optional || schema.nullable) return null;
 
-  switch (type) {
+  switch (schema.type) {
     case "string":
-    case "email":
-    case "url":
+    case "image":
+    case "file":
+    case "reference":
       return "";
     case "number":
-    case "int":
       return 0;
     case "boolean":
       return false;
     case "date":
       return new Date().toISOString();
     case "enum":
-      return schema.options?.[0] != null ? `${schema.options[0] as string | number}` : "";
+      return schema.options[0] ?? "";
+    case "literal":
+      return schema.value;
     case "array":
       return [];
     case "record":
       return {};
     case "object": {
       const obj: Record<string, unknown> = {};
-      for (const [key, fieldSchema] of Object.entries(schema.shape ?? {})) {
-        if (fieldSchema.def.type !== "optional") {
+      for (const [key, fieldSchema] of Object.entries(schema.shape)) {
+        if (!fieldSchema.optional) {
           obj[key] = getDefaultValue(fieldSchema);
         }
       }
       return obj;
     }
-    case "union": {
-      if (schema.def.discriminator && schema.def.options?.[0]) {
-        return getDefaultValue(schema.def.options[0]);
-      }
-      return {};
-    }
+    case "union":
+      return schema.variants[0] ? getDefaultValue(schema.variants[0]) : {};
     default:
       return "";
   }

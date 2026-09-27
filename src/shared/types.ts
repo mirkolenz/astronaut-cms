@@ -1,3 +1,5 @@
+import type { FieldSchema } from "./field-schema.ts";
+
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
 export const DATA_FORMATS = ["json", "yaml", "yml", "toml"] as const;
 export const ALL_FORMATS = [...CONTENT_FORMATS, ...DATA_FORMATS] as const;
@@ -8,13 +10,30 @@ export type EntryFormat = (typeof ALL_FORMATS)[number];
 export type CollectionType = "content" | "data";
 export type StorageType = "local" | "github" | "gitlab";
 export type FileEntryLayout = "array" | "object";
+export type LoaderType = "glob" | "file";
 
 export interface CollectionInfo {
   name: string;
   type: CollectionType;
-  loaderType?: "glob" | "file";
+  loaderType?: LoaderType;
   loaderFileName?: string | null;
 }
+
+/**
+ * Fully-resolved description of one content collection, extracted from the
+ * user's `content.config.ts` in Node and serialized into the admin bundle.
+ */
+export interface CollectionManifestEntry {
+  name: string;
+  type: CollectionType;
+  schema: FieldSchema | null;
+  loaderType: LoaderType;
+  loaderPattern: string | string[] | null;
+  loaderBase: string | null;
+  loaderFileName: string | null;
+}
+
+export type CollectionManifest = Record<string, CollectionManifestEntry>;
 
 export interface EntryMeta {
   id: string;

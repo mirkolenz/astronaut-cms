@@ -20,7 +20,7 @@ function defineComponent<T extends z.ZodType>(
 
 ```ts
 import { defineComponent } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 const Alert = defineComponent({
   props: z.object({
@@ -46,7 +46,7 @@ function image(): z.ZodString;
 
 ```ts
 import { defineComponent, image } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 const Hero = defineComponent({
   props: z.object({
@@ -71,7 +71,7 @@ function file(): z.ZodString;
 
 ```ts
 import { defineComponent, file } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 const Download = defineComponent({
   props: z.object({
@@ -100,7 +100,7 @@ Export a bound `ComponentProps` type from your CMS config file:
 
 ```ts title="src/cms.config.ts" {1} {5}
 import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 export const components = { /* ... */ };
 export type ComponentProps = InferComponentProps<typeof components>;

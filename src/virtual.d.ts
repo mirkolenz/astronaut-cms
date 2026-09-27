@@ -1,54 +1,26 @@
-/// <reference types="vite/client" />
-
 declare module "@mdxeditor/editor/style.css";
 
+// Note: the inline `import("...").Type` form is used deliberately. A top-level
+// `import type { X } from "..."` statement inside an ambient `declare module`
+// silently resolves to `any` under this project's resolution settings.
+
 declare module "virtual:astronaut-cms/config" {
-  import type { CmsClientConfig } from "./integration/types";
-  const config: CmsClientConfig;
+  const config: import("./integration/types").CmsClientConfig;
   export default config;
 }
 
 declare module "virtual:astronaut-cms/assets" {
-  import type { ImageMetadata } from "astro";
   /** Lazy media-directory glob maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
-  export const images: Record<string, () => Promise<ImageMetadata>>;
+  export const images: Record<string, () => Promise<import("astro").ImageMetadata>>;
   export const files: Record<string, () => Promise<string>>;
 }
 
 declare module "virtual:astronaut-cms/collections" {
-  import type { ZodFieldSchema } from "./client/components/editors/field-renderer";
-  const collections: Record<
-    string,
-    {
-      name: string;
-      type: "content" | "data";
-      schema: ZodFieldSchema;
-      loaderPattern: string | string[] | null;
-      loaderBase: string | null;
-      loaderFileName: string | null;
-      loaderType: "glob" | "file";
-    }
-  >;
+  const collections: import("./shared/types").CollectionManifest;
   export default collections;
 }
 
 declare module "virtual:astronaut-cms/user-config" {
-  import type { ComponentType } from "react";
-  import type { JsxEditorProps } from "@mdxeditor/editor";
-  import type { LucideIcon } from "lucide-react";
-  import type { ZodFieldSchema } from "./client/components/editors/field-renderer";
-
-  export interface ClientComponentDef {
-    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- ZodFieldSchema unresolvable by linter in virtual module declarations
-    props: ZodFieldSchema | null;
-    children?: "markdown" | Record<string, ClientComponentDef>;
-    kind: "flow" | "text";
-    source: string | null;
-    defaultExport: boolean;
-    label: string;
-    icon: LucideIcon | null;
-    editor: ComponentType<JsxEditorProps> | null;
-  }
-
-  export const components: Record<string, ClientComponentDef>;
+  export type ClientComponentDef = import("./internal").ClientComponentDef;
+  export const components: import("./internal").ComponentManifest;
 }

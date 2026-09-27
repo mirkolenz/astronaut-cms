@@ -1,7 +1,8 @@
 import { usePublisher, insertJsx$ } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { getDefaultValue, type ZodFieldSchema } from "./field-renderer";
+import { objectShape } from "@shared/field-schema";
+import { getDefaultValue } from "./field-renderer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +14,7 @@ import {
  * Builds default JSX props from a Zod schema for inserting a new component.
  */
 function buildDefaultProps(def: ClientComponentDef): Record<string, string> {
-  const shape = (def.props as ZodFieldSchema | null)?.shape;
+  const shape = objectShape(def.props);
   if (!shape) return {};
   const props: Record<string, string> = {};
   for (const [key, fieldSchema] of Object.entries(shape)) {

@@ -1,9 +1,10 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { JsxEditorProps } from "@mdxeditor/editor";
-import { type z, z as zod } from "astro/zod";
+import type { z } from "zod";
 
 export type { JsxEditorProps };
+export { imageMarker as image, fileMarker as file } from "./shared/cms-markers.ts";
 
 export type ChildrenConfig = "markdown" | Record<string, ComponentDefinition>;
 
@@ -29,11 +30,3 @@ export type InferComponentProps<
 > = {
   [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
 };
-
-export function image() {
-  return zod.string().meta({ "x-cms-image": true });
-}
-
-export function file() {
-  return zod.string().meta({ "x-cms-file": true });
-}

@@ -1,20 +1,21 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
-import type { ZodFieldSchema } from "@client/components/editors/field-renderer";
+import type { FieldSchema } from "@shared/field-schema";
 import { CmsComponentEditor } from "@client/components/editors/cms-component-editor";
 
 /**
- * Converts a Zod schema field type to the closest MDXEditor property type.
+ * Maps a field type to the closest MDXEditor property type.
  */
-function zodTypeToJsxType(type: string): "string" | "number" | "expression" {
+function fieldToJsxType(type: FieldSchema["type"]): "string" | "number" | "expression" {
   switch (type) {
     case "string":
-    case "email":
-    case "url":
     case "enum":
+    case "literal":
+    case "reference":
+    case "image":
+    case "file":
       return "string";
     case "number":
-    case "int":
       return "number";
     default:
       return "expression";
@@ -22,33 +23,15 @@ function zodTypeToJsxType(type: string): "string" | "number" | "expression" {
 }
 
 /**
- * Unwraps optional/nullable/default/pipe wrappers to get the inner type.
+ * Converts an object field schema to an array of JsxPropertyDescriptors.
  */
-function unwrapType(schema: ZodFieldSchema): { type: string; required: boolean } {
-  const t = schema.def.type;
-  if ((t === "optional" || t === "nullable" || t === "default") && schema.unwrap) {
-    const inner = unwrapType(schema.unwrap());
-    return { type: inner.type, required: false };
-  }
-  if (t === "pipe" && schema.def.out) {
-    return unwrapType(schema.def.out);
-  }
-  return { type: t, required: true };
-}
-
-/**
- * Converts a Zod object schema shape to an array of JsxPropertyDescriptors.
- */
-function zodSchemaToJsxProps(schema: ZodFieldSchema | null): JsxPropertyDescriptor[] {
-  if (!schema?.shape) return [];
-  return Object.entries(schema.shape).map(([name, fieldSchema]) => {
-    const { type, required } = unwrapType(fieldSchema);
-    return {
-      name,
-      type: zodTypeToJsxType(type),
-      required,
-    };
-  });
+function schemaToJsxProps(schema: FieldSchema | null): JsxPropertyDescriptor[] {
+  if (schema?.type !== "object") return [];
+  return Object.entries(schema.shape).map(([name, field]) => ({
+    name,
+    type: fieldToJsxType(field.type),
+    required: !field.optional && !field.nullable && field.default === undefined,
+  }));
 }
 
 /**
@@ -66,7 +49,7 @@ export function toJsxDescriptors(
       kind: def.kind,
       source: def.source ?? undefined,
       defaultExport: def.defaultExport,
-      props: zodSchemaToJsxProps(def.props),
+      props: schemaToJsxProps(def.props),
       hasChildren: !!def.children,
       Editor: def.editor ?? CmsComponentEditor,
     });

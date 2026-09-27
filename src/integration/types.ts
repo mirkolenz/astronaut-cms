@@ -22,14 +22,6 @@ export interface CmsConfig {
    * - Vercel: `https://my-site-git-{slug}-team.vercel.app`
    */
   previewUrl?: string;
-  /**
-   * Module specifiers to stub in client builds. These modules are replaced
-   * with no-op exports so their Node.js dependencies don't enter the browser
-   * bundle. Useful for third-party content collection loaders.
-   *
-   * When set, replaces the defaults (`["@astrojs/starlight/loaders"]`).
-   */
-  clientStubs?: string[];
 }
 
 export type SupportedLocale = "en" | "de";

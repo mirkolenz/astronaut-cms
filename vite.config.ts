@@ -11,7 +11,6 @@ export default defineConfig({
       "@client": resolve(import.meta.dirname, "src/client"),
       "@shared": resolve(import.meta.dirname, "src/shared"),
       "@integration": resolve(import.meta.dirname, "src/integration"),
-      "@stubs": resolve(import.meta.dirname, "src/stubs"),
       "@assets": resolve(import.meta.dirname, "assets"),
     },
   },
@@ -39,9 +38,9 @@ export default defineConfig({
       entry: {
         integration: "src/integration/index.ts",
         config: "src/config.ts",
-        stubs: "src/stubs/index.ts",
         client: "src/client/index.tsx",
         runtime: "src/runtime/index.ts",
+        internal: "src/internal/index.ts",
       },
       formats: ["es"],
     },

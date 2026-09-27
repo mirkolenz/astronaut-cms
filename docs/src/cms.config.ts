@@ -1,5 +1,5 @@
 import { defineComponent, image, type InferComponentProps } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 import {
   MessageSquareWarning,
   CreditCard,

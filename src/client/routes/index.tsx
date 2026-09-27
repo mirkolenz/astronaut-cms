@@ -4,6 +4,7 @@ import { NotebookPen, BarChart3 } from "lucide-react";
 import { useCollections } from "@client/queries/use-collections";
 import { ErrorBanner } from "@client/components/error-banner";
 import { toLabel } from "@client/lib/to-label";
+import { objectShape } from "@shared/field-schema";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -60,7 +61,7 @@ function Dashboard() {
               {col.type === "content" ? t($ => $.dashboard.contentCollection) : t($ => $.dashboard.dataCollection)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground/70">
-              {t($ => $.dashboard.fields, { count: Object.keys(col.schema.shape ?? {}).length })}
+              {t($ => $.dashboard.fields, { count: Object.keys(objectShape(col.schema) ?? {}).length })}
             </p>
           </Link>
         ))}

@@ -11,7 +11,7 @@ The CMS config file (`src/cms.config.ts`) defines custom MDX block components th
 
 ```ts title="src/cms.config.ts"
 import { defineComponent } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 import { TriangleAlert } from "lucide-react";
 
 export const components = {
@@ -74,7 +74,7 @@ This is useful for container patterns like tabs:
 
 ```ts title="src/cms.config.ts"
 import { defineComponent } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 export const components = {
   Tabs: defineComponent({
@@ -113,7 +113,7 @@ The admin panel renders these as asset pickers connected to the media library.
 
 ```ts title="src/cms.config.ts"
 import { defineComponent, image, file } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 export const components = {
   Hero: defineComponent({
@@ -147,7 +147,7 @@ First, export a bound `ComponentProps` type from your CMS config:
 
 ```ts title="src/cms.config.ts" {1} {5}
 import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
-import { z } from "astro/zod";
+import { z } from "zod";
 
 export const components = { /* ... */ };
 export type ComponentProps = InferComponentProps<typeof components>;

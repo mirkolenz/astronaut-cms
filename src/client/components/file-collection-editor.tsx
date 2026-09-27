@@ -11,7 +11,8 @@ import {
   useReorderFileEntries,
 } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
-import { FieldRenderer, type ZodFieldSchema } from "@client/components/editors/field-renderer";
+import { FieldRenderer } from "@client/components/editors/field-renderer";
+import { objectShape, type FieldSchema } from "@shared/field-schema";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
@@ -26,7 +27,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
   const { data: entries, isLoading, error } = useEntries(collection);
   const { data: collections } = useCollections();
-  const schema = collections?.[collection]?.schema as ZodFieldSchema | undefined;
+  const schema = collections?.[collection]?.schema ?? undefined;
   const meta = collectionMeta[collection];
   const format = (meta?.loaderFileName && getFileExtension(meta.loaderFileName)) || "json";
   const { data: layout } = useFileLayout(collection);
@@ -174,7 +175,7 @@ function FileEntryCard({
 }: {
   collection: string;
   entryId: string;
-  schema?: ZodFieldSchema;
+  schema?: FieldSchema;
   expanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
@@ -214,7 +215,7 @@ function FileEntryCard({
     );
   };
 
-  const shape = schema?.shape ?? {};
+  const shape = objectShape(schema) ?? {};
 
   return (
     <div className="rounded-lg border border-border">
@@ -269,7 +270,7 @@ function FileEntryCard({
                   value={formData[key]}
                   onChange={(v) => handleFieldChange(key, v)}
                   name={key}
-                  required={fieldSchema.def.type !== "optional"}
+                  required={!fieldSchema.optional}
                 />
               ))}
               {Object.keys(shape).length === 0 && (

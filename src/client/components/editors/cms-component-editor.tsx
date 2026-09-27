@@ -14,7 +14,8 @@ import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { findComponent } from "@client/lib/component-lookup";
-import { FieldRenderer, type ZodFieldSchema, getDefaultValue } from "./field-renderer";
+import { objectShape } from "@shared/field-schema";
+import { FieldRenderer, getDefaultValue } from "./field-renderer";
 import { EditorCard } from "./editor-card";
 import { Button } from "@client/components/ui/button";
 import {
@@ -71,7 +72,7 @@ function propToAttribute(name: string, value: string | number | boolean): MdxJsx
 }
 
 function buildDefaultAttributes(def: ClientComponentDef): MdxJsxAttribute[] {
-  const shape = (def.props as ZodFieldSchema | null)?.shape;
+  const shape = objectShape(def.props);
   if (!shape) return [];
   const attrs: MdxJsxAttribute[] = [];
   for (const [key, fieldSchema] of Object.entries(shape)) {
@@ -146,8 +147,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
   const def = findComponent(name, components);
   const label = def?.label ?? name;
   const Icon = def?.icon;
-  const schema: ZodFieldSchema | null | undefined = def?.props;
-  const shape = schema?.shape;
+  const shape = objectShape(def?.props);
   const childrenConfig = def?.children;
   const structuredChildDefs = typeof childrenConfig === "object" ? childrenConfig : null;
 
@@ -225,7 +225,6 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
   );
 
   const currentProps = extractProps(mdastNode);
-  const hasProps = shape && Object.keys(shape).length > 0;
 
   return (
     <div className="my-1">
@@ -250,7 +249,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
           </>
         }
       >
-        {hasProps && (
+        {shape && Object.keys(shape).length > 0 && (
           <div className="space-y-2">
             {Object.entries(shape).map(([key, fieldSchema]) => (
               <FieldRenderer
@@ -263,7 +262,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
                   }
                 }}
                 name={key}
-                required={fieldSchema.def.type !== "optional"}
+                required={!fieldSchema.optional}
               />
             ))}
           </div>

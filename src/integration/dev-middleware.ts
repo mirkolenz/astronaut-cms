@@ -4,6 +4,7 @@ import { join, dirname, resolve } from "pathe";
 import type { ViteDevServer } from "vite";
 import {
   ALL_FORMATS,
+  type CollectionManifest,
   type EntryMeta,
   type EntryContent,
   type MediaFile,
@@ -26,14 +27,7 @@ export interface DevMiddlewareOptions {
   mediaPrefix: string;
   allowedMediaExtensions: string[];
   rootDir: string;
-  collections?: Record<
-    string,
-    {
-      loaderType: "glob" | "file";
-      loaderFileName?: string | null;
-      loaderBase?: string | null;
-    }
-  >;
+  collections?: CollectionManifest;
 }
 
 function assertWithinBase(filePath: string, baseDir: string): void {
