@@ -162,7 +162,8 @@
   "overrides": {
     "@streamdown/code": {
       "shiki": "^4"
-    }
+    },
+    "js-yaml": "^4.3.2"
   },
   "peerDependenciesMeta": {
     "@aws-sdk/client-s3": {

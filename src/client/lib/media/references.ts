@@ -189,7 +189,7 @@ export function describeReference({ collection, entryId, where }: AssetReference
 
 /** What reaches one file, reusing the index the media page may already have built. */
 async function assetReferences(path: string): Promise<AssetReference[]> {
-  const index = await queryClient.fetchQuery(REFERENCES_QUERY);
+  const index = await queryClient.query(REFERENCES_QUERY);
 
   return index.get(path) ?? [];
 }

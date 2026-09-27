@@ -11,6 +11,7 @@ import type { ImageMetadata } from "astro";
  */
 const FORMATS = {
   png: true,
+  apng: true,
   jpg: true,
   jpeg: true,
   webp: true,

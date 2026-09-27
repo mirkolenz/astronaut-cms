@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { FieldSchema } from "./field-schema.ts";
 
+// Hoisted out of the refinement below so the check reuses one validator instead
+// of building a fresh one per value.
+const EMAIL = z.email();
+
 /**
  * Rebuilds a live Zod validator from a serialized {@link FieldSchema}, the inverse
  * of `zodToFieldSchema`. The integration lowers each collection's schema in Node
@@ -22,7 +26,7 @@ function base(field: FieldSchema): z.ZodType {
       if (field.format === "email") {
         return z
           .string()
-          .refine((value) => z.email().safeParse(value).success, "Expected an email address.")
+          .refine((value) => EMAIL.safeParse(value).success, "Expected an email address.")
           .describe("Email address.");
       }
 
