@@ -27,11 +27,10 @@ import { ADMIN_ROOT_ID, HARDENING_HEADERS } from "astronaut-cms/internal";
 // both are configuration this page cannot hold back, since a policy has to be in
 // place before any script runs.
 
-// The only inline script here is the dev-only Fast Refresh preamble below. A
-// nonce admits that element and nothing an injection could write, which
-// `'unsafe-inline'` would not, and it is minted per response so it cannot be
-// replayed.
-const nonce = import.meta.env.DEV ? crypto.randomUUID() : null;
+// Dev serves inline scripts this page does not write, such as Astro's toolbar,
+// beside the Fast Refresh preamble below, so only dev admits them. A production
+// page has none.
+const dev = import.meta.env.DEV;
 
 const connectSrc = ["'self'"];
 
@@ -43,7 +42,7 @@ if (config.ai?.byok) connectSrc.push(new URL(config.ai.byok.baseUrl).origin);
 
 const csp = [
   "default-src 'none'",
-  `script-src 'self'${nonce ? ` 'nonce-${nonce}'` : ""}`,
+  `script-src 'self'${dev ? " 'unsafe-inline'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' https:",
@@ -71,8 +70,8 @@ for (const [name, value] of Object.entries({
   ...(config.webmcp?.originTrialToken && { "origin-trial": config.webmcp.originTrialToken }),
   // For the handful of agents that still read only this one.
   "x-frame-options": "DENY",
-  // The page is the same for everyone, but it carries a per-response nonce in
-  // dev and a policy that has to match what is served, so nothing may keep it.
+  // The page is the same for everyone, but it carries a policy that has to
+  // match what is served, so nothing may keep it.
   "cache-control": "private, no-store",
 })) {
   Astro.response.headers.set(name, value);
@@ -106,7 +105,7 @@ window.$RefreshSig$ = () => (type) => type;`;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {nonce && <script is:inline type="module" nonce={nonce} set:html={fastRefreshPreamble} />}
+    {dev && <script is:inline type="module" set:html={fastRefreshPreamble} />}
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />
   </head>
