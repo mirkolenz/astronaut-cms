@@ -28,57 +28,45 @@
   "exports": {
     ".": {
       "types": "./dist/integration/index.d.ts",
-      "source": "./src/integration/index.ts",
       "default": "./dist/integration.js"
     },
     "./config": {
       "types": "./dist/config.d.ts",
-      "source": "./src/config.ts",
       "default": "./dist/config.js"
     },
     "./admin.astro": {
-      "source": "./src/astro/admin.astro",
       "default": "./dist/astro/admin.astro"
     },
     "./Image.astro": {
-      "source": "./src/astro/Image.astro",
       "default": "./dist/astro/Image.astro"
     },
     "./assets": {
       "types": "./dist/assets/index.d.ts",
-      "source": "./src/assets/index.ts",
       "default": "./dist/assets.js"
     },
     "./media-presign": {
       "types": "./dist/media/presign.d.ts",
-      "source": "./src/media/presign.ts",
       "default": "./dist/media-presign.js"
     },
     "./client": {
-      "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
     },
     "./bootstrap": {
-      "source": "./src/client/bootstrap.ts",
       "default": "./dist/bootstrap.js"
     },
     "./internal": {
       "types": "./dist/internal/index.d.ts",
-      "source": "./src/internal/index.ts",
       "default": "./dist/internal.js"
     },
     "./styles.css": {
-      "source": "./src/astro/styles.css",
       "default": "./dist/astro/styles.css"
     },
     "./endpoint": {
       "types": "./dist/server/endpoint.d.ts",
-      "source": "./src/server/endpoint.ts",
       "default": "./dist/endpoint.js"
     },
     "./server-local": {
       "types": "./dist/server/storage/local.d.ts",
-      "source": "./src/server/storage/local.ts",
       "default": "./dist/server-local.js"
     }
   },

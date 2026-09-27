@@ -1,4 +1,5 @@
 import { createJiti } from "jiti";
+import { SOURCE_EXPORTS } from "./self-resolve.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { imageMarker } from "../shared/cms-markers.ts";
 import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
@@ -22,6 +23,7 @@ export interface ConfigLogger {
 // imports. Everything else (third-party loaders and schemas) runs for real.
 const LOADER_STUBS = "astronaut-cms/internal";
 const JITI_ALIAS: Record<string, string> = {
+  ...SOURCE_EXPORTS,
   "astro:content": LOADER_STUBS,
   "astro/loaders": LOADER_STUBS,
 };
@@ -122,7 +124,7 @@ export function loadComponents(
   logger: ConfigLogger,
 ): ComponentManifest {
   try {
-    const jiti = createJiti(rootDir);
+    const jiti = createJiti(rootDir, { alias: SOURCE_EXPORTS });
     const mod = jiti(userConfigPath) as { components?: Record<string, ComponentDefinition> };
 
     return processUserConfig(mod.components);

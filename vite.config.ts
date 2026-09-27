@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
 import dts from "unplugin-dts/vite";
+import { CLIENT_SOURCES, ENTRY_POINTS, bundleOf } from "./src/entry-points.ts";
 
 const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, "package.json"), "utf8"));
 
@@ -38,7 +39,7 @@ export default defineConfig({
       semicolons: true,
       quoteStyle: "double",
     }),
-    dts({ entryRoot: "src", exclude: ["src/client/**"] }),
+    dts({ entryRoot: "src", exclude: [`src/${CLIENT_SOURCES}`] }),
     {
       name: "copy-astro-files",
       closeBundle() {
@@ -48,17 +49,11 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: {
-        integration: "src/integration/index.ts",
-        config: "src/config.ts",
-        client: "src/client/index.tsx",
-        bootstrap: "src/client/bootstrap.ts",
-        assets: "src/assets/index.ts",
-        "media-presign": "src/media/presign.ts",
-        endpoint: "src/server/endpoint.ts",
-        "server-local": "src/server/storage/local.ts",
-        internal: "src/internal/index.ts",
-      },
+      entry: Object.fromEntries(
+        ENTRY_POINTS.map((entry) => [bundleOf(entry), `src/${entry.source}`]).filter(
+          ([bundle]) => bundle !== null,
+        ),
+      ),
       formats: ["es"],
     },
     rolldownOptions: {

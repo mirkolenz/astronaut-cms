@@ -10,37 +10,22 @@
  * A published install has no `src/`, so every lookup here falls through to the
  * specifier and Node resolves `dist/` as it should.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "pathe";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { resolve } from "pathe";
+import { ENTRY_POINTS, specifierOf } from "../entry-points.ts";
 
-const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const PKG_JSON_PATH = resolve(PKG_ROOT, "package.json");
+// Running from source rather than from `dist/`, which is fixed for the process,
+// so it is decided once here and the lookups below stay pure.
+const SOURCE_ROOT = existsSync(resolve(import.meta.dirname, "self-resolve.ts"))
+  ? resolve(import.meta.dirname, "..")
+  : undefined;
 
 /** Specifier to source path, for the entry points whose sources exist. */
-export const SOURCE_EXPORTS: Record<string, string> = existsSync(PKG_JSON_PATH)
-  ? buildSourceExports(PKG_ROOT, PKG_JSON_PATH)
+export const SOURCE_EXPORTS: Record<string, string> = SOURCE_ROOT
+  ? Object.fromEntries(
+      ENTRY_POINTS.map((entry) => [specifierOf(entry), resolve(SOURCE_ROOT, entry.source)]),
+    )
   : {};
-
-function buildSourceExports(root: string, pkgPath: string): Record<string, string> {
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-    name: string;
-    exports?: Record<string, { source?: string }>;
-  };
-  const map: Record<string, string> = {};
-
-  for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
-    // Existence is fixed for the process (workspace-linked source vs published
-    // dist), so resolve it once here and keep the lookups pure.
-    const sourcePath = conditions.source && resolve(root, conditions.source);
-
-    if (sourcePath && existsSync(sourcePath)) {
-      map[subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`] = sourcePath;
-    }
-  }
-
-  return map;
-}
 
 /** The entrypoint to hand `injectRoute`, which does its own resolution. */
 export function routeEntrypoint(specifier: string): string {
