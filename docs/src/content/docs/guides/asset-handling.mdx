@@ -4,7 +4,6 @@ description: How CMS-referenced images and files are bundled and optimized at re
 ---
 
 import { Aside } from "@astrojs/starlight/components";
-import Figure from "@/components/Figure.astro";
 
 The CMS stores asset references as plain path strings and resolves them to optimized assets
 **at render time** through a Vite `import.meta.glob` map. Nothing is injected into your Markdown or
@@ -50,9 +49,8 @@ const pdfUrl = await resolveFile("/src/assets/report.pdf"); // -> string URL
 ---
 ```
 
-The example below is rendered through `Figure` from a real `image()` prop:
-
-<Figure src="/src/assets/sample.svg" alt="Sample graphic" caption="Resolved at render time from a path string." />
+The `demo` workspace uses exactly this pattern for its `Figure`, `Hero`, and post cover images,
+so it doubles as an end-to-end example of render-time asset resolution.
 
 ## Relative paths
 

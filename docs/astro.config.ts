@@ -1,8 +1,8 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import react from "@astrojs/react";
-import cms from "../src/integration/index.ts";
 
+// Pure documentation site. The live CMS integration lives in the `demo`
+// workspace now, which is the canonical showcase.
 export default defineConfig({
   site: "https://mirkolenz.github.io",
   base: "/astronaut-cms",
@@ -35,25 +35,6 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "reference" } }],
         },
       ],
-    }),
-    react(),
-    cms({
-      storage: {
-        type: "github",
-        repo: "mirkolenz/astronaut-cms",
-        branch: "main",
-        clientId: "Ov23liO6YlidLM2gkKBv",
-      },
-      // Enable the dev AI assistant only when AI_GATEWAY_URL points at a local
-      // OpenAI-compatible server (e.g. llama.cpp's `llama-server`). AI_GATEWAY_MODEL
-      // selects the model id it serves.
-      ...(process.env.AI_GATEWAY_URL && {
-        ai: {
-          enabled: true,
-          gateway: { type: "custom", baseUrl: process.env.AI_GATEWAY_URL },
-          models: [process.env.AI_GATEWAY_MODEL ?? "local"],
-        },
-      }),
     }),
   ],
 });

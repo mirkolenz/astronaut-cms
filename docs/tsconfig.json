@@ -2,15 +2,7 @@
   "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"],
-      "@client/*": ["../src/client/*"],
-      "@shared/*": ["../src/shared/*"],
-      "@integration/*": ["../src/integration/*"],
-      "@stubs/*": ["../src/stubs/*"],
-      "@assets/*": ["../assets/*"],
-      "astronaut-cms": ["../src/integration/index.ts"],
-      "astronaut-cms/config": ["../src/config.ts"],
-      "astronaut-cms/assets": ["../src/runtime/index.ts"]
+      "@/*": ["./src/*"]
     }
   }
 }
