@@ -107,6 +107,24 @@ export async function exists(lookup: Promise<unknown>): Promise<boolean> {
   }
 }
 
+/**
+ * What a write requires of the path it is claiming, as one value: the state it
+ * was based on, or that there was no state at all. Two separate parameters could
+ * say both at once, which means nothing and left each backend to invent its own
+ * precedence for the pair.
+ */
+export type Precondition = { version: string } | { absent: true };
+
+/** The precondition an optional version stands for: none at all when it is absent. */
+export function versioned(version?: string): Precondition | undefined {
+  return version === undefined ? undefined : { version };
+}
+
+/** Whether the state a backend actually found satisfies the write's precondition. */
+export function satisfies(actual: string | undefined, precondition: Precondition): boolean {
+  return "absent" in precondition ? actual === undefined : actual === precondition.version;
+}
+
 export function mapMergeError(err: unknown): Error {
   const status = getErrorStatus(err);
 
@@ -160,7 +178,11 @@ export interface StorageBackend {
     newId: string,
     expectedVersion?: string,
   ): Promise<void>;
-  duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
+  duplicateEntry(
+    collection: string,
+    sourceId: string,
+    targetId: string,
+  ): Promise<string | undefined>;
   reorderEntries(collection: string, ids: string[], expectedVersion?: string): Promise<void>;
   getFileLayout(collection: string): Promise<FileCollectionInfo>;
 

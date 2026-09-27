@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ChevronUp, Trash2 } from "lucide-react";
 import {
@@ -46,7 +46,10 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const reorderMutation = useReorderFileEntries(collection);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    expectedVersion?: string;
+  } | null>(null);
   // A new entry is held here until its first save creates it, so an abandoned
   // one never lands in the file as an empty (schema-invalid) record.
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -80,16 +83,22 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate({ id: deleteTarget, expectedVersion: file?.version }, {
-      onSuccess: () => {
-        toast(
-          t(($) => $.collection.entryDeleted),
-          "success",
-        );
-        setDeleteTarget(null);
+    deleteMutation.mutate(
+      {
+        id: deleteTarget.id,
+        expectedVersion: deleteTarget.expectedVersion ?? file?.version,
       },
-      onError: (err) => toast(writeError(err), "error"),
-    });
+      {
+        onSuccess: () => {
+          toast(
+            t(($) => $.collection.entryDeleted),
+            "success",
+          );
+          setDeleteTarget(null);
+        },
+        onError: (err) => toast(writeError(err), "error"),
+      },
+    );
   };
 
   if (isLoading) {
@@ -137,7 +146,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
               schema={schema}
               expanded={expandedEntries.has(entry.id)}
               onToggle={() => toggleEntry(entry.id)}
-              onDelete={() => setDeleteTarget(entry.id)}
+              onDelete={(expectedVersion) => setDeleteTarget({ id: entry.id, expectedVersion })}
               orderable={isOrderable}
               onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
               onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
@@ -174,7 +183,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         <ConfirmDialog
           open={deleteTarget !== null}
           title={t(($) => $.editors.removeEntry)}
-          message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
+          message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget?.id ?? "" })}
           confirmLabel={t(($) => $.common.remove)}
           variant="danger"
           onConfirm={handleDelete}
@@ -208,7 +217,7 @@ function FileEntryCard({
   draft?: boolean;
   expanded: boolean;
   onToggle: () => void;
-  onDelete: () => void;
+  onDelete: (expectedVersion?: string) => void;
   onCreated?: () => void;
   orderable: boolean;
   onMoveUp?: () => void;
@@ -224,13 +233,14 @@ function FileEntryCard({
     draft ? schemaDefaults(objectShape(schema)) : {},
   );
   const [isDirty, setIsDirty] = useState(!!draft);
+  const baselineVersion = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (entry) {
+    if (entry && !isDirty) {
       setFormData(entry.data);
-      setIsDirty(false);
+      baselineVersion.current = entry.version;
     }
-  }, [entry]);
+  }, [entry, isDirty]);
 
   const handleFieldChange = useCallback((key: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -245,9 +255,16 @@ function FileEntryCard({
     saveMutation.mutate(
       // In a file collection this is the container's version, which every entry
       // in it shares, so the guard covers a sibling saved while this one was open.
-      { data: formData, body: "", format: entryFormat, expectedVersion: entry?.version },
       {
-        onSuccess: () => {
+        data: formData,
+        body: "",
+        format: entryFormat,
+        createOnly: !!draft,
+        expectedVersion: baselineVersion.current,
+      },
+      {
+        onSuccess: ({ version }) => {
+          baselineVersion.current = version;
           setIsDirty(false);
           toast(draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved), "success");
           onCreated?.();
@@ -304,7 +321,7 @@ function FileEntryCard({
             variant="ghost"
             size="icon-xs"
             className="text-destructive"
-            onClick={onDelete}
+            onClick={() => onDelete(baselineVersion.current)}
           >
             <Trash2 className="size-4" />
           </Button>

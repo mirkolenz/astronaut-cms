@@ -123,14 +123,68 @@ describe("GitHub requests", () => {
     );
     expect(calls[1].headers.accept).toBe("application/vnd.github.object+json");
   });
+
+  it("reads large file contents from the blob API", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { body: { type: "file", sha: "large", content: "", encoding: "none" } },
+      {
+        body: {
+          content: btoa("---\ntitle: Large\n---\n\nBody\n"),
+          encoding: "base64",
+        },
+      },
+    ]);
+
+    const entry = await storage().getEntry("posts", "large", "md");
+
+    expect(entry.data).toEqual({ title: "Large" });
+    expect(entry.body).toBe("\nBody\n");
+    expect(calls[2].url).toBe("https://api.github.com/repos/acme/site/git/blobs/large");
+  });
+
+  it("does not turn a failed repository listing into an empty repository", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { status: 503, body: { message: "Unavailable" } },
+    ]);
+
+    await expect(storage().listEntries("posts")).rejects.toMatchObject({ status: 503 });
+  });
+
+  it("checks the source and destination against the same parent before moving media", async () => {
+    stubFetch([
+      { body: {} },
+      { body: { type: "file", sha: "source" } },
+      { body: { object: { sha: "parent" } } },
+      { body: { type: "file", sha: "changed" } },
+      { status: 404, body: {} },
+      { body: { tree: { sha: "tree" } } },
+    ]);
+
+    await expect(storage().renameMedia("source.png", "target.png")).rejects.toBeInstanceOf(
+      StaleWriteError,
+    );
+    expect(calls[3].url).toContain("contents/src/assets/source.png?ref=parent");
+    expect(calls[4].url).toContain("contents/src/assets/target.png?ref=parent");
+    expect(calls).not.toContainEqual(
+      expect.objectContaining({ method: "POST", url: expect.stringContaining("/git/trees") }),
+    );
+  });
 });
 
 describe("GitLab requests", () => {
-  const storage = () => new GitLabStorage(
-    { project: "group/site", branch: "main", instanceUrl: "https://gitlab.com", publishMode: "direct" },
-    options,
-    "glpat",
-  );
+  const storage = () =>
+    new GitLabStorage(
+      {
+        project: "group/site",
+        branch: "main",
+        instanceUrl: "https://gitlab.com",
+        publishMode: "direct",
+      },
+      options,
+      "glpat",
+    );
 
   it("encodes the project path as one segment", async () => {
     stubFetch([{ status: 404, body: {} }, { body: [] }]);

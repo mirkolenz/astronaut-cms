@@ -85,6 +85,7 @@ const saveRequest = z.object({
   data: z.record(z.string(), z.unknown()),
   body: z.string(),
   format: z.enum(ALL_FORMATS),
+  createOnly: z.boolean().optional(),
   expectedVersion,
 });
 

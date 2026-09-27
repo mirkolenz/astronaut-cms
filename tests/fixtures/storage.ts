@@ -1,6 +1,16 @@
-import { StorageBase } from "@server/storage/base";
-import type { BranchStatus } from "@server/storage/types";
-import type { EntryMeta, FileChange, MediaFile } from "@shared/types";
+import { StorageBase } from "@/server/storage/base";
+import type { BranchStatus, Precondition } from "@/server/storage/types";
+import type { StorageOptions } from "@/server/storage/base";
+import type { CollectionManifest, EntryMeta, FileChange, MediaFile } from "@/shared/types";
+
+/** The rest of the storage contract, for a test that only cares about its collections. */
+export const storageOptions = (collections: CollectionManifest): StorageOptions => ({
+  collections,
+  mediaDirectory: "src/assets",
+  mediaExtensions: [".png"],
+  maxFileSize: null,
+  login: "alice",
+});
 
 /**
  * A `StorageBase` with every abstract member answered, so a test only writes the
@@ -33,7 +43,7 @@ export class StubStorage extends StorageBase {
     _path: string,
     _content: string,
     _message: string,
-    _expectedVersion?: string,
+    _precondition?: Precondition,
   ): Promise<string | undefined> {
     return Promise.resolve(undefined);
   }

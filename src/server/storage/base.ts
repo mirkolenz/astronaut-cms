@@ -8,7 +8,14 @@ import type {
   StorageBackend,
   UploadTicket,
 } from "./types.ts";
-import { isNotFound, mapMergeError, type VersionedContent } from "./types.ts";
+import {
+  isNotFound,
+  mapMergeError,
+  staleWrite,
+  versioned,
+  type Precondition,
+  type VersionedContent,
+} from "./types.ts";
 import type {
   CollectionManifest,
   EntryMeta,
@@ -128,9 +135,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     path: string,
     content: string,
     message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string | undefined> {
-    const version = await this.commitFile(path, content, message, expectedVersion);
+    const version = await this.commitFile(path, content, message, precondition);
 
     this.containers.clear();
 
@@ -142,15 +149,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * what goes in it is decided here, uniformly, so a backend only has to know
    * how to persist one.
    *
-   * `expectedVersion` is the state the write was based on. A backend that can
-   * make the provider enforce it does; one that cannot ignores it, and the write
-   * takes the last word as it always did.
+   * The `precondition` is what the write requires of the path at the instant it
+   * is claimed. A backend that can make the provider enforce it does; one that
+   * cannot ignores it, and the write takes the last word as it always did.
    */
   protected abstract commitFile(
     path: string,
     content: string,
     message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string | undefined>;
   protected abstract removeFile(
     path: string,
@@ -181,19 +188,35 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     await assertEntryWritable(this.contentSource, { col, id, ...data });
 
-    const { path, content } = this.isFileCollection(collection)
+    const edited = this.isFileCollection(collection)
       ? await this.editFileCollection(collection, (entries) => {
+          if (data.createOnly && Object.hasOwn(entries, id)) {
+            throw staleWrite(`${collection}/${id}`);
+          }
+
           entries[id] = data.data;
         })
       : {
           path: this.getEntryPath(collection, id, data.format),
           content: serializeContent(data.data, data.body, data.format),
+          version: undefined,
         };
 
-    // For a file collection this is the container's version, so an edit to one
-    // entry conflicts with a concurrent edit to any other — which is right,
-    // because they are the same file and the rewrite carries all of them.
-    return this.persist(path, content, `Update ${collection}/${id}`, data.expectedVersion);
+    // A new entry claims its path by requiring it to be absent. In a file
+    // collection the path is the container, which may well exist already — the
+    // entry inside it is what has to be new, and the rewrite above checked that
+    // — so the claim there is on the container's version instead.
+    //
+    // That version is only ever adopted for a new entry: an ordinary save of a
+    // file collection carries the version the editor was given or none at all,
+    // and none means last-write-wins, as it does everywhere else.
+    const version = data.createOnly
+      ? (data.expectedVersion ?? edited.version)
+      : data.expectedVersion;
+    const precondition: Precondition | undefined =
+      version !== undefined ? { version } : data.createOnly ? { absent: true } : undefined;
+
+    return this.persist(edited.path, edited.content, `Update ${collection}/${id}`, precondition);
   }
 
   async deleteEntry(collection: string, id: string, expectedVersion?: string): Promise<void> {
@@ -204,7 +227,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
         delete entries[id];
       });
 
-      await this.persist(path, content, message, expectedVersion);
+      await this.persist(path, content, message, versioned(expectedVersion));
 
       return;
     }
@@ -239,7 +262,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       ),
     );
 
-    await this.persist(path, content, `Reorder ${collection}`, expectedVersion);
+    await this.persist(path, content, `Reorder ${collection}`, versioned(expectedVersion));
   }
 
   async getEntry(collection: string, id: string, format?: string): Promise<EntryContent> {
@@ -292,18 +315,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     sourceId: string,
     targetId: string,
     expectedVersion?: string,
-  ): Promise<void> {
-    const [source, targetExists] = await Promise.all([
-      this.getEntry(collection, sourceId),
-      this.entryExists(collection, targetId),
-    ]);
+  ): Promise<string | undefined> {
+    const source = await this.getEntry(collection, sourceId);
 
-    if (targetExists) throw new Error(`Entry already exists: ${collection}/${targetId}`);
-
-    await this.saveEntry(collection, targetId, {
+    return this.saveEntry(collection, targetId, {
       data: source.data,
       body: source.body,
       format: source.format,
+      createOnly: true,
       ...(expectedVersion !== undefined && { expectedVersion }),
     });
   }
@@ -326,8 +345,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     const shared = this.isFileCollection(collection);
 
-    await this.duplicateEntry(collection, oldId, newId, shared ? expectedVersion : undefined);
-    await this.deleteEntry(collection, oldId, shared ? undefined : expectedVersion);
+    const version = await this.duplicateEntry(
+      collection,
+      oldId,
+      newId,
+      shared ? expectedVersion : undefined,
+    );
+
+    await this.deleteEntry(collection, oldId, shared ? version : expectedVersion);
   }
 
   /** The format the listing reports for an entry, or null when it holds no such entry. */
@@ -335,16 +360,6 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     const entries = await this.listEntries(collection);
 
     return entries.find((entry) => entry.id === id)?.format ?? null;
-  }
-
-  private async entryExists(collection: string, id: string): Promise<boolean> {
-    try {
-      await this.getEntry(collection, id);
-
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   protected async fetchRawEntry(
@@ -410,7 +425,12 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   async renameMedia(oldPath: string, newPath: string): Promise<void> {
-    return this.moveMedia(this.mediaRepoPath(oldPath), this.mediaRepoPath(newPath));
+    const from = this.mediaRepoPath(oldPath);
+    const to = this.mediaRepoPath(newPath);
+
+    if (from === to) return;
+
+    return this.moveMedia(from, to);
   }
 
   async deleteMedia(path: string): Promise<void> {
@@ -541,14 +561,18 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    */
   protected async editFileCollection(
     collection: string,
-    mutate: (entries: Record<string, Record<string, unknown>>) => Record<
-      string,
-      Record<string, unknown>
-    > | void,
-  ): Promise<{ path: string; content: string }> {
-    const { path, format, entries, layout } = await this.readFileCollection(collection);
+    mutate: (
+      entries: Record<string, Record<string, unknown>>,
+    ) => Record<string, Record<string, unknown>> | void,
+  ): Promise<{ path: string; content: string; version?: string }> {
+    const { path, format, entries, layout, version } = await this.readFileCollection(collection);
+    const edited = { ...entries };
 
-    return { path, content: serializeMultiEntryFile(mutate(entries) ?? entries, format, layout) };
+    return {
+      path,
+      content: serializeMultiEntryFile(mutate(edited) ?? edited, format, layout),
+      version,
+    };
   }
 
   // --- Glob collection helpers ---

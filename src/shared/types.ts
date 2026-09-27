@@ -97,6 +97,8 @@ export interface SaveEntryRequest {
   data: Record<string, unknown>;
   body: string;
   format: EntryFormat;
+  /** Refuse the write if the entry already exists. */
+  createOnly?: boolean;
   /**
    * The {@link EntryContent.version} this edit was made against, so a write
    * cannot silently discard one that landed while the editor was open. Absent

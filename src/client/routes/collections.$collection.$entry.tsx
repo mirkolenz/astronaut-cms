@@ -72,14 +72,15 @@ function EntryEditor() {
 
   // A draft has nothing saved yet, so it starts dirty: Save is what creates it.
   const [isDirty, setIsDirty] = useState(isNew);
+  const baselineVersion = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (entry) {
+    if (entry && !isDirty) {
       setFormData(entry.data);
       setEditBody(entry.body);
-      setIsDirty(false);
+      baselineVersion.current = entry.version;
     }
-  }, [entry]);
+  }, [entry, isDirty]);
 
   const blocker = useBlocker({
     shouldBlockFn: () => isDirty,
@@ -99,9 +100,16 @@ function EntryEditor() {
       // The version this edit was made against, so a save cannot silently
       // discard one that landed while the editor was open. A new entry has none:
       // there is nothing yet for it to have been based on.
-      { data: formData, body: editBody, format, expectedVersion: entry?.version },
       {
-        onSuccess: () => {
+        data: formData,
+        body: editBody,
+        format,
+        createOnly: isNew,
+        expectedVersion: baselineVersion.current,
+      },
+      {
+        onSuccess: ({ version }) => {
+          baselineVersion.current = version;
           setIsDirty(false);
           toast(
             isNew ? t(($) => $.collection.entryCreated) : t(($) => $.entry.changesSaved),
@@ -131,24 +139,28 @@ function EntryEditor() {
     if (!entry) return;
     setFormData(entry.data);
     setEditBody(entry.body);
+    baselineVersion.current = entry.version;
     setIsDirty(false);
     setEditorKey((k) => k + 1);
   }, [entry]);
 
   const handleDelete = () => {
-    deleteMutation.mutate({ id: entryId, expectedVersion: entry?.version }, {
-      onSuccess: () => {
-        toast(
-          t(($) => $.collection.entryDeleted),
-          "success",
-        );
-        void navigate({
-          to: "/collections/$collection",
-          params: { collection },
-        });
+    deleteMutation.mutate(
+      { id: entryId, expectedVersion: baselineVersion.current },
+      {
+        onSuccess: () => {
+          toast(
+            t(($) => $.collection.entryDeleted),
+            "success",
+          );
+          void navigate({
+            to: "/collections/$collection",
+            params: { collection },
+          });
+        },
+        onError: (err) => toast(writeError(err), "error"),
       },
-      onError: (err) => toast(writeError(err), "error"),
-    });
+    );
     setShowDeleteConfirm(false);
   };
 
@@ -168,7 +180,7 @@ function EntryEditor() {
   const handleRename = (newId: string) => {
     setShowRename(false);
     renameMutation.mutate(
-      { oldId: entryId, newId, expectedVersion: entry?.version },
+      { oldId: entryId, newId, expectedVersion: baselineVersion.current },
       onMoved(
         newId,
         t(($) => $.entry.entryRenamed),

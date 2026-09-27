@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { StaleWriteError, staleWrite, type VersionedContent } from "@server/storage/types";
-import { StubStorage } from "./fixtures/storage";
-import type { CollectionManifest } from "@shared/types";
+import { ApiError } from "@/server/storage/api";
+import {
+  StaleWriteError,
+  satisfies,
+  staleWrite,
+  type Precondition,
+  type VersionedContent,
+} from "@/server/storage/types";
+import { StubStorage, storageOptions } from "./fixtures/storage";
+import type { CollectionManifest } from "@/shared/types";
 
 // A save carries the version the edit was made against, so a write cannot
 // silently discard one that landed while the editor was open. StorageBase is
@@ -35,9 +42,9 @@ class MemoryStorage extends StubStorage {
     path: string,
     content: string,
     _message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string> {
-    if (expectedVersion !== undefined && this.files.get(path)?.version !== expectedVersion) {
+    if (precondition && !satisfies(this.files.get(path)?.version, precondition)) {
       return Promise.reject(staleWrite(path));
     }
 
@@ -63,6 +70,85 @@ class MemoryStorage extends StubStorage {
   }
 }
 
+class FileStorage extends StubStorage {
+  override listEntries(collection: string) {
+    return this.listFileCollectionEntries(collection);
+  }
+
+  protected override fetchFileContent(): Promise<VersionedContent> {
+    return Promise.resolve({ content: "{" });
+  }
+}
+
+class EntryFailureStorage extends StubStorage {
+  calls = 0;
+  private readonly failure: "provider" | "parse" | "missing";
+
+  constructor(collections: CollectionManifest, failure: "provider" | "parse" | "missing") {
+    super(storageOptions(collections));
+    this.failure = failure;
+  }
+
+  protected override fetchRawEntry(
+    _collection: string,
+    _id: string,
+    format: string,
+  ): Promise<VersionedContent> {
+    this.calls += 1;
+
+    if (this.failure === "provider") return Promise.reject(new ApiError(503, "Unavailable"));
+    if (this.failure === "parse") return Promise.resolve({ content: "{" });
+    if (format === "json") {
+      return Promise.reject(Object.assign(new Error("Missing"), { code: "ENOENT" }));
+    }
+
+    return Promise.resolve({ content: "name: Found\n" });
+  }
+}
+
+class RacingFileStorage extends StubStorage {
+  private file: VersionedContent = {
+    content: JSON.stringify({ old: { name: "Original" } }),
+    version: "v1",
+  };
+  private writes = 1;
+
+  override listEntries(collection: string) {
+    return this.listFileCollectionEntries(collection);
+  }
+
+  protected override fetchFileContent(): Promise<VersionedContent> {
+    return Promise.resolve(this.file);
+  }
+
+  protected override commitFile(
+    path: string,
+    content: string,
+    _message: string,
+    precondition?: Precondition,
+  ): Promise<string> {
+    if (precondition && !satisfies(this.file.version, precondition)) {
+      return Promise.reject(staleWrite(path));
+    }
+
+    const version = `v${++this.writes}`;
+    this.file = { content, version };
+
+    if (version === "v2") {
+      const entries = JSON.parse(content) as Record<string, Record<string, unknown>>;
+
+      entries.old.name = "Concurrent";
+      this.file = { content: JSON.stringify(entries), version: `v${++this.writes}` };
+    }
+
+    return Promise.resolve(version);
+  }
+
+  storedEntries(): Record<string, Record<string, unknown>> {
+    return JSON.parse(this.file.content) as Record<string, Record<string, unknown>>;
+  }
+}
+
 const collections: CollectionManifest = {
   posts: {
     name: "posts",
@@ -75,16 +161,34 @@ const collections: CollectionManifest = {
   },
 };
 
+const dataCollections: CollectionManifest = {
+  data: {
+    name: "data",
+    type: "data",
+    loaderType: "glob",
+    loaderPattern: "**/*.json",
+    loaderBase: "src/data",
+    loaderFileName: null,
+    schema: null,
+  },
+};
+
+const fileCollections: CollectionManifest = {
+  authors: {
+    name: "authors",
+    type: "data",
+    loaderType: "file",
+    loaderPattern: null,
+    loaderBase: null,
+    loaderFileName: "src/data/authors.json",
+    schema: { type: "object", shape: { name: { type: "string" } } },
+  },
+};
+
 const PATH = "src/content/blog/hello.md";
 
 function storage() {
-  const store = new MemoryStorage({
-    collections,
-    mediaDirectory: "src/assets",
-    mediaExtensions: [".png"],
-    maxFileSize: null,
-    login: "alice",
-  });
+  const store = new MemoryStorage(storageOptions(collections));
 
   store.seed(PATH, "---\ntitle: Hello\n---\n\nBody\n");
 
@@ -110,7 +214,9 @@ describe("entry versions", () => {
 
     store.seed(PATH, "someone else wrote this");
 
-    await expect(store.saveEntry("posts", "hello", entry("v1"))).rejects.toBeInstanceOf(StaleWriteError);
+    await expect(store.saveEntry("posts", "hello", entry("v1"))).rejects.toBeInstanceOf(
+      StaleWriteError,
+    );
   });
 
   it("answers a save with the version to carry into the next one", async () => {
@@ -143,5 +249,66 @@ describe("entry versions", () => {
     store.seed(PATH, "someone else wrote this");
 
     await expect(store.saveEntry("posts", "hello", entry())).resolves.toBe("v3");
+  });
+
+  it("atomically refuses to create an entry at an occupied path", async () => {
+    const store = storage();
+
+    await expect(
+      store.saveEntry("posts", "hello", { ...entry(), createOnly: true }),
+    ).rejects.toBeInstanceOf(StaleWriteError);
+    await expect(store.getEntry("posts", "hello", "md")).resolves.toMatchObject({
+      body: "\nBody\n",
+    });
+  });
+
+  // A write carries one precondition, so a create that also names a version is
+  // a claim on that version rather than on the path being free. The two used to
+  // be separate flags and each backend decided for itself which of them won.
+  it("prefers an offered version over absence when a create carries both", async () => {
+    const store = storage();
+
+    await expect(
+      store.saveEntry("posts", "hello", { ...entry(), createOnly: true, expectedVersion: "v1" }),
+    ).resolves.toBe("v2");
+  });
+});
+
+describe("entry format fallback", () => {
+  it.each(["provider", "parse"] as const)("surfaces a %s failure immediately", async (failure) => {
+    const store = new EntryFailureStorage(dataCollections, failure);
+
+    await expect(store.getEntry("data", "item", "json")).rejects.not.toThrow(/Entry not found/);
+    expect(store.calls).toBe(1);
+  });
+
+  it("tries the next format when a file is genuinely absent", async () => {
+    const store = new EntryFailureStorage(dataCollections, "missing");
+
+    await expect(store.getEntry("data", "item", "json")).resolves.toMatchObject({
+      data: { name: "Found" },
+      format: "yaml",
+    });
+    expect(store.calls).toBe(2);
+  });
+});
+
+describe("file collections", () => {
+  it("surfaces malformed container content instead of presenting an empty collection", async () => {
+    const store = new FileStorage(storageOptions(fileCollections));
+
+    await expect(store.listEntries("authors")).rejects.toThrow();
+  });
+
+  it("uses the newly written container version when deleting a renamed source", async () => {
+    const store = new RacingFileStorage(storageOptions(fileCollections));
+
+    await expect(store.renameEntry("authors", "old", "new", "v1")).rejects.toBeInstanceOf(
+      StaleWriteError,
+    );
+    expect(store.storedEntries().old).toEqual({ name: "Concurrent" });
+    await expect(store.getEntry("authors", "old")).resolves.toMatchObject({
+      data: { name: "Concurrent" },
+    });
   });
 });

@@ -10,12 +10,12 @@
  * Node-only. The integration substitutes a stub for it in any build that is not
  * a dev run, so `node:fs` never enters a Workers or edge bundle.
  */
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { link, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "pathe";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { StorageBase, type StorageOptions } from "./base.ts";
 import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
-import { staleWrite } from "./types.ts";
+import { getErrorCode, staleWrite, type Precondition } from "./types.ts";
 import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
 
@@ -37,6 +37,7 @@ export class LocalStorage extends StorageBase {
       collections: options.collections,
     });
   }
+
 
   /**
    * A project-relative path lowered to an absolute one the CMS is allowed to
@@ -68,23 +69,28 @@ export class LocalStorage extends StorageBase {
     const found = await Promise.all(
       entries.map(async (entry): Promise<MediaFile[]> => {
         const fullPath = join(entry.parentPath, entry.name);
+        const path = relative(this.rootDir, fullPath);
 
-        if (entry.isDirectory()) return this.listDirectory(relative(this.rootDir, fullPath));
+        if (entry.isDirectory()) return this.listDirectory(path);
 
         const { size } = await stat(fullPath);
 
-        return [{ path: relative(this.rootDir, fullPath), size }];
+        return [{ path, size }];
       }),
     );
 
     return found.flat();
   }
 
-  private async writeFileAt(path: string, content: string | Uint8Array): Promise<void> {
+  private async writeFileAt(
+    path: string,
+    content: string | Uint8Array,
+    createOnly = false,
+  ): Promise<void> {
     const fullPath = this.resolve(path);
 
     await mkdir(dirname(fullPath), { recursive: true });
-    await writeFile(fullPath, content);
+    await writeFile(fullPath, content, createOnly ? { flag: "wx" } : undefined);
   }
 
   async listEntries(collection: string): Promise<EntryMeta[]> {
@@ -122,15 +128,21 @@ export class LocalStorage extends StorageBase {
     path: string,
     content: string,
     _message?: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string> {
-    if (expectedVersion !== undefined) {
-      const current = await this.fetchFileContent(path).catch(() => null);
+    const absent = precondition !== undefined && "absent" in precondition;
 
-      if (current?.version !== expectedVersion) throw staleWrite(path);
+    if (precondition !== undefined && !absent) await this.assertVersion(path, precondition.version);
+
+    try {
+      // `wx` is the claim itself: the check and the write are the same syscall,
+      // so nothing can take the path in between.
+      await this.writeFileAt(path, content, absent);
+    } catch (error) {
+      if (absent && getErrorCode(error) === "EEXIST") throw staleWrite(path);
+
+      throw error;
     }
-
-    await this.writeFileAt(path, content);
 
     return digest(content);
   }
@@ -140,13 +152,16 @@ export class LocalStorage extends StorageBase {
     _message?: string,
     expectedVersion?: string,
   ): Promise<void> {
-    if (expectedVersion !== undefined) {
-      const current = await this.fetchFileContent(path).catch(() => null);
-
-      if (current?.version !== expectedVersion) throw staleWrite(path);
-    }
+    if (expectedVersion !== undefined) await this.assertVersion(path, expectedVersion);
 
     await rm(this.resolve(path), { force: true });
+  }
+
+  /** The working tree names a file's state by its contents, so this reads them back. */
+  private async assertVersion(path: string, expectedVersion: string): Promise<void> {
+    const current = await this.fetchFileContent(path).catch(() => null);
+
+    if (current?.version !== expectedVersion) throw staleWrite(path);
   }
 
   async listMedia(): Promise<MediaFile[]> {
@@ -158,10 +173,20 @@ export class LocalStorage extends StorageBase {
   }
 
   protected async moveMedia(from: string, to: string): Promise<void> {
+    const source = this.resolve(from);
     const target = this.resolve(to);
 
     await mkdir(dirname(target), { recursive: true });
-    await rename(this.resolve(from), target);
+
+    try {
+      await link(source, target);
+    } catch (error) {
+      if (getErrorCode(error) === "EEXIST") throw staleWrite(to);
+
+      throw error;
+    }
+
+    await rm(source);
   }
 
   protected async removeMedia(repoPath: string): Promise<void> {
@@ -172,7 +197,7 @@ export class LocalStorage extends StorageBase {
     const bytes = await readFile(this.resolve(this.mediaRepoPath(path)));
 
     return {
-      bytes: new Uint8Array(bytes),
+      body: new Uint8Array(bytes),
       contentType: this.contentTypeOf(path),
       version: await digest(bytes),
     };
@@ -195,6 +220,7 @@ export class LocalStorage extends StorageBase {
     return readChanges(this.rootDir, this.managed);
   }
 }
+
 
 /** A file's contents, named. Not a git hash: nothing here compares it to one. */
 async function digest(content: string | Uint8Array): Promise<string> {

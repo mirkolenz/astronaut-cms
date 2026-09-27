@@ -31,13 +31,18 @@ export function useSaveEntry(collection: string, id: string) {
     // The refetch the save triggered is still in flight, so the editor is given
     // the version its next save has to carry directly. Without it a second save
     // inside that window would look stale and be refused.
-    onSuccess: ({ version }) => {
-      if (version) {
-        queryClient.setQueryData(
-          cmsKeys.entry(collection, id),
-          (current: EntryContent | undefined) => current && { ...current, version },
-        );
-      }
+    onSuccess: ({ version }, saved) => {
+      queryClient.setQueryData(
+        cmsKeys.entry(collection, id),
+        (current: EntryContent | undefined) =>
+          current && {
+            ...current,
+            data: saved.data,
+            body: saved.body,
+            format: saved.format,
+            ...(version && { version }),
+          },
+      );
     },
   });
 }

@@ -1,8 +1,20 @@
 import type { ChangeKind, EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
-import type { ChangeRequestSummary, MediaContent, PublishMode } from "./types.ts";
-import { MergeConflictError, exists, getErrorStatus, staleWrite } from "./types.ts";
-import type { VersionedContent } from "./types.ts";
+import type {
+  ChangeRequestSummary,
+  MediaContent,
+  Precondition,
+  PublishMode,
+  VersionedContent,
+} from "./types.ts";
+import {
+  MergeConflictError,
+  exists,
+  getErrorStatus,
+  satisfies,
+  staleWrite,
+  versioned,
+} from "./types.ts";
 import { ApiClient } from "./api.ts";
 import { encodeKeyPath } from "../../shared/media.ts";
 
@@ -204,9 +216,9 @@ export class GitHubStorage extends BranchedStorage {
     path: string,
     content: string,
     message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string | undefined> {
-    return this.commitBlob(path, content, "utf-8", message, expectedVersion);
+    return this.commitBlob(path, content, "utf-8", message, precondition);
   }
 
   protected async removeFile(
@@ -218,7 +230,7 @@ export class GitHubStorage extends BranchedStorage {
       [{ path, mode: "100644", type: "blob", sha: null }],
       message,
       undefined,
-      expectedVersion === undefined ? undefined : { path, expected: expectedVersion },
+      preconditionsFor(path, versioned(expectedVersion)),
     );
   }
 
@@ -251,6 +263,11 @@ export class GitHubStorage extends BranchedStorage {
         { path: from, mode: "100644", type: "blob", sha: null },
       ],
       `Rename ${from} to ${to}`,
+      undefined,
+      [
+        { path: from, precondition: { version: sha } },
+        { path: to, precondition: { absent: true } },
+      ],
     );
   }
 
@@ -362,7 +379,7 @@ export class GitHubStorage extends BranchedStorage {
     content: string,
     encoding: "utf-8" | "base64",
     message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string> {
     const [blob, parentSha] = await Promise.all([
       this.api.json<{ sha: string }>({
@@ -377,7 +394,7 @@ export class GitHubStorage extends BranchedStorage {
       [{ path, mode: "100644", type: "blob", sha: blob.sha }],
       message,
       parentSha,
-      expectedVersion === undefined ? undefined : { path, expected: expectedVersion },
+      preconditionsFor(path, precondition),
     );
 
     // The blob that was just committed, which is exactly what a read of this
@@ -400,7 +417,7 @@ export class GitHubStorage extends BranchedStorage {
     treeEntries: TreeEntry[],
     message: string,
     knownParent?: string,
-    precondition?: { path: string; expected: string },
+    preconditions: Array<{ path: string; precondition: Precondition }> = [],
   ): Promise<void> {
     const parentSha = knownParent ?? (await this.parentSha());
 
@@ -409,12 +426,19 @@ export class GitHubStorage extends BranchedStorage {
     // that moved in between makes the update a non-fast-forward and the write
     // fails rather than landing on top of whatever arrived. It depends on
     // nothing the parent commit does, so the two are read together.
-    const [current, parentCommit] = await Promise.all([
-      precondition && this.blobShaAt(precondition.path, parentSha),
+    const [checked, parentCommit] = await Promise.all([
+      Promise.all(
+        preconditions.map(async (required) => ({
+          ...required,
+          actual: await this.blobShaAt(required.path, parentSha),
+        })),
+      ),
       this.api.json<{ tree: { sha: string } }>({ path: `${this.repo}/git/commits/${parentSha}` }),
     ]);
+    const failed = checked.find(({ actual, precondition }) => !satisfies(actual, precondition));
 
-    if (precondition && current !== precondition.expected) throw staleWrite(precondition.path);
+    if (failed) throw staleWrite(failed.path);
+
     const tree = await this.api.json<{ sha: string }>({
       path: `${this.repo}/git/trees`,
       method: "POST",
@@ -445,9 +469,12 @@ export class GitHubStorage extends BranchedStorage {
   }
 }
 
+/** One path's precondition in the shape `commitTree` checks, or nothing to check. */
+const preconditionsFor = (path: string, precondition?: Precondition) =>
+  precondition === undefined ? [] : [{ path, precondition }];
+
 const summarize = (pull: PullRequest): ChangeRequestSummary => ({
   id: pull.number,
   title: pull.title,
   url: pull.html_url,
 });
-

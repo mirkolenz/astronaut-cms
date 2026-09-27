@@ -1,8 +1,13 @@
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
-import type { ChangeRequestSummary, MediaContent, PublishMode } from "./types.ts";
+import type {
+  ChangeRequestSummary,
+  MediaContent,
+  Precondition,
+  PublishMode,
+  VersionedContent,
+} from "./types.ts";
 import { MergeConflictError, exists, getErrorStatus, staleWrite } from "./types.ts";
-import type { VersionedContent } from "./types.ts";
 import { ApiClient } from "./api.ts";
 import { joinUrl } from "../../shared/url.ts";
 
@@ -182,9 +187,9 @@ export class GitLabStorage extends BranchedStorage {
     path: string,
     content: string,
     message: string,
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string | undefined> {
-    return this.commitUpsert(path, content, message, undefined, expectedVersion);
+    return this.commitUpsert(path, content, message, undefined, precondition);
   }
 
   protected async removeFile(
@@ -363,17 +368,20 @@ export class GitLabStorage extends BranchedStorage {
     content: string,
     message: string,
     encoding?: "base64",
-    expectedVersion?: string,
+    precondition?: Precondition,
   ): Promise<string | undefined> {
     // GitLab's commit API distinguishes create from update, so an upsert has to
-    // know whether the file is already there on the ref it is branching from. A
-    // version answers that on its own — it can only have come from reading the
-    // file — which spares the probe on the path that carries one.
+    // know whether the file is already there on the ref it is branching from.
+    // The precondition answers that on its own wherever it has one: a version
+    // can only have come from reading the file, and requiring absence is the
+    // create. Only a write with neither pays for the probe.
+    const version = precondition && "version" in precondition ? precondition.version : undefined;
     const present =
-      expectedVersion !== undefined ||
-      (await exists(
-        this.api.send({ path: this.filePath(path), query: { ref: await this.readRef() } }),
-      ));
+      precondition === undefined
+        ? await exists(
+            this.api.send({ path: this.filePath(path), query: { ref: await this.readRef() } }),
+          )
+        : version !== undefined;
 
     return this.commit(
       {
@@ -383,7 +391,7 @@ export class GitLabStorage extends BranchedStorage {
         encoding,
         // Only on an update: a create has no prior state to have moved on, and
         // GitLab rejects the field outright when the file is not there.
-        ...(present && expectedVersion !== undefined && { last_commit_id: expectedVersion }),
+        ...(present && version !== undefined && { last_commit_id: version }),
       },
       message,
     );
@@ -408,11 +416,13 @@ export class GitLabStorage extends BranchedStorage {
         },
       });
     } catch (err) {
-      // GitLab refuses a stale `last_commit_id` with a 400 that reads like any
-      // other bad request, so the precondition we set is what identifies it.
-      if (action.last_commit_id !== undefined && getErrorStatus(err) === 400) {
-        throw staleWrite(action.file_path);
-      }
+      // GitLab refuses both a stale `last_commit_id` and a create onto an
+      // occupied path with a 400 that reads like any other bad request, so the
+      // precondition the action carries is what identifies it. A create is
+      // itself a precondition: the path has to be absent for it to succeed.
+      const precondition = action.action === "create" || action.last_commit_id !== undefined;
+
+      if (precondition && getErrorStatus(err) === 400) throw staleWrite(action.file_path);
 
       throw err;
     }
