@@ -3,24 +3,36 @@
  * authorization code, a client secret or the resulting token: it is redirected
  * out, redirected back, and handed a sealed cookie.
  *
- * Both providers run the same authorization-code flow, so only the endpoints,
- * the identity lookup and the write-access check differ. PKCE is not used: the
- * CMS is now a confidential client with a registered redirect URI, and GitHub
- * has never implemented PKCE anyway. `state` is what binds the callback to the
- * browser that started it, and it travels in its own short-lived sealed cookie
- * rather than in `sessionStorage`, where script could read or replace it.
+ * Both providers run the same authorization-code flow with PKCE, so only the
+ * endpoints, the identity lookup and the write-access check differ. PKCE is not
+ * here to stand in for a client secret — the CMS is a confidential client and
+ * both providers still demand the secret at the exchange — but because it binds
+ * a code to the browser that asked for it, which a confidential client gets no
+ * other way. The verifier never leaves the server: it travels in a short-lived
+ * sealed cookie rather than in `sessionStorage`, where script could read it or
+ * plant one.
+ *
+ * That binding is also the whole of the callback's CSRF defence, which is why
+ * there is no separate `state` secret to keep in step with it. `state` carries
+ * the challenge, so a callback can be refused against the cookie before any
+ * authorization code is spent; the verifier behind it is what makes the refusal
+ * mean something.
  */
+import { encode as base64url } from "jose/base64url";
 import { GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import type { Provider } from "../shared/auth.ts";
 import { parseRepo } from "../shared/repo.ts";
 import { joinUrl } from "../shared/url.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 import type { Session } from "./session.ts";
-import { githubClient } from "./storage/github.ts";
+import { GITHUB_API, githubClient } from "./storage/github.ts";
 import { gitlabClient } from "./storage/gitlab.ts";
 
 /** GitLab access levels: 30 = Developer, the lowest that may push and open MRs. */
 const MIN_GITLAB_ACCESS_LEVEL = 30;
+
+/** Where a GitLab backend points when the deployment does not host its own. */
+const GITLAB_CLOUD = "https://gitlab.com";
 
 /** The providers that actually sign anyone in: everything but the dev-only local one. */
 export type OAuthProvider = Exclude<Provider, "local">;
@@ -42,6 +54,9 @@ interface Endpoints {
   secretEnv: string;
 }
 
+/** The GitLab instance this deployment talks to. */
+const gitlabUrl = (config: ProviderConfig): string => config.instanceUrl ?? GITLAB_CLOUD;
+
 function endpoints(config: ProviderConfig): Endpoints {
   if (config.provider === "github") {
     return {
@@ -51,11 +66,9 @@ function endpoints(config: ProviderConfig): Endpoints {
     };
   }
 
-  const instanceUrl = config.instanceUrl ?? "https://gitlab.com";
-
   return {
-    authorize: joinUrl(instanceUrl, "oauth/authorize"),
-    token: joinUrl(instanceUrl, "oauth/token"),
+    authorize: joinUrl(gitlabUrl(config), "oauth/authorize"),
+    token: joinUrl(gitlabUrl(config), "oauth/token"),
     secretEnv: GITLAB_CLIENT_SECRET_ENV,
   };
 }
@@ -78,18 +91,40 @@ export function clientSecret(config: ProviderConfig, getEnv: EnvReader): string 
   return secret;
 }
 
-/** Where the provider sends the editor to approve, for a given `state`. */
+/**
+ * A fresh PKCE verifier: 32 random bytes, which encode to the 43 characters both
+ * providers accept, and the only secret the sign-in cookie carries.
+ */
+export function createVerifier(): string {
+  return base64url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+/**
+ * What a verifier proves. `S256` is the only method either provider implements,
+ * so there is nothing to negotiate and nothing to read back off the callback.
+ */
+export async function challengeFor(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+
+  return base64url(new Uint8Array(digest));
+}
+
+/** Where the provider sends the editor to approve, for a given challenge. */
 export function authorizationUrl(
   config: ProviderConfig,
   redirectUri: string,
-  state: string,
+  challenge: string,
 ): string {
   const url = new URL(endpoints(config).authorize);
 
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  // The challenge again, so the callback can be refused against the sign-in
+  // cookie before an authorization code is spent at the provider.
+  url.searchParams.set("state", challenge);
 
   // A GitHub App derives its permissions from the installation, so it has no
   // scopes at all and `scope=` is not the same request as no scope.
@@ -148,11 +183,13 @@ export async function exchangeCode(
   getEnv: EnvReader,
   code: string,
   redirectUri: string,
+  verifier: string,
 ): Promise<Session> {
   const token = await postToken(config, getEnv, {
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
+    code_verifier: verifier,
   });
 
   return toSession(config.provider, token, await verifyAccess(config, token.access_token!));
@@ -162,23 +199,78 @@ export async function exchangeCode(
  * A lapsed token replaced in place, so an open tab never has to sign in again.
  * Write access is not re-checked here: the provider enforces it on every call
  * this token makes, which is a stronger check than asking it once.
+ *
+ * The refresh token is a parameter rather than something read off the session
+ * because both providers rotate it: spending one invalidates it, so the caller
+ * has to hold it to keep two requests from spending the same one (see
+ * `refreshes` in `handler.ts`).
  */
 export async function refreshSession(
   config: ProviderConfig,
   getEnv: EnvReader,
-  session: Session,
+  refreshToken: string,
+  login: string,
 ): Promise<Session | null> {
-  if (!session.refreshToken) return null;
-
   try {
     const token = await postToken(config, getEnv, {
       grant_type: "refresh_token",
-      refresh_token: session.refreshToken,
+      refresh_token: refreshToken,
     });
 
-    return toSession(config.provider, token, session.login);
+    return toSession(config.provider, token, login);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Ends the provider's side of the session, so signing out is not only local.
+ *
+ * Without it the cookie goes and the token lives on for the hours it has left,
+ * which is the one window in which a session outlasts the editor's intent to end
+ * it. Both providers revoke the grant rather than the one credential, so the
+ * refresh token goes with it.
+ *
+ * Best effort by construction: the cookie is cleared whatever happens here, and
+ * someone who asked to sign out is not the person to tell that the provider did
+ * not answer.
+ */
+export async function revokeSession(
+  config: ProviderConfig,
+  getEnv: EnvReader,
+  session: Session,
+): Promise<void> {
+  try {
+    const secret = clientSecret(config, getEnv);
+
+    if (config.provider === "github") {
+      await fetch(`${GITHUB_API}/applications/${config.clientId}/token`, {
+        method: "DELETE",
+        headers: {
+          // The app revoking its own grant, so it authenticates as the app.
+          authorization: `Basic ${btoa(`${config.clientId}:${secret}`)}`,
+          accept: "application/vnd.github+json",
+          "content-type": "application/json",
+          // Required by the API, which refuses a request without one.
+          "user-agent": "astronaut-cms",
+        },
+        body: JSON.stringify({ access_token: session.token }),
+      });
+
+      return;
+    }
+
+    await fetch(joinUrl(gitlabUrl(config), "oauth/revoke"), {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: secret,
+        token: session.token,
+      }),
+    });
+  } catch {
+    // Nothing to do about it, and nothing the editor could act on.
   }
 }
 
@@ -195,7 +287,7 @@ const optional = <T>(lookup: Promise<T>): Promise<T | null> => lookup.catch(() =
 export async function verifyAccess(config: ProviderConfig, token: string): Promise<string> {
   return config.provider === "github"
     ? verifyGitHub(token, config.target)
-    : verifyGitLab(token, config.target, config.instanceUrl ?? "https://gitlab.com");
+    : verifyGitLab(token, config.target, gitlabUrl(config));
 }
 
 async function verifyGitHub(token: string, repo: string): Promise<string> {

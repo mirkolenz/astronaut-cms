@@ -36,12 +36,12 @@ const ISSUER = "astronaut-cms";
 
 /**
  * What a token is *for*. Every kind the CMS issues shares one key, so without
- * this a session would verify as an OAuth state and (once MCP lands) an
+ * this a session would verify as a sign-in cookie and (once MCP lands) an
  * authorization code would verify as an access token. Binding the audience
  * makes that structural rather than a matter of which fields each reader
  * happens to check.
  */
-export type TokenAudience = "session" | "oauth-state";
+export type TokenAudience = "session" | "oauth-login";
 
 /**
  * Declared as a type alias rather than an interface so it carries the implicit

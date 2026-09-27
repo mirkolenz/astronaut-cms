@@ -25,6 +25,7 @@ import { isActiveContentType } from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
+import { Coalesced } from "../shared/coalesce.ts";
 import { relay } from "../ai/handler.ts";
 import { createContext } from "./context.ts";
 import { HttpError } from "./errors.ts";
@@ -32,10 +33,13 @@ import { MergeConflictError } from "./storage/types.ts";
 import { dispatch } from "./operations.ts";
 import {
   authorizationUrl,
+  challengeFor,
   clientSecret,
+  createVerifier,
   exchangeCode,
   OAuthError,
   refreshSession,
+  revokeSession,
   verifyAccess,
   type ProviderConfig,
 } from "./oauth.ts";
@@ -58,8 +62,9 @@ const MAX_RPC_BYTES = 4 * 1024 * 1024;
 /** Largest upload this server will take through itself, for a store that cannot presign. */
 const MAX_PROXY_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-const STATE_COOKIE = "astronaut_cms_oauth";
-const STATE_MAX_AGE = 600;
+/** Carries the PKCE verifier between the redirect out and the redirect back. */
+const LOGIN_COOKIE = "astronaut_cms_login";
+const LOGIN_MAX_AGE = 600;
 
 /**
  * Sign-in is the only thing an unauthenticated caller can make this server do
@@ -92,8 +97,12 @@ const rpc = new RateLimiter({ requests: 300, windowMs: 60_000, concurrency: 12 }
 
 const tooMany = (message: string) => () => new HttpError(message, 429);
 
-/** What the state cookie carries between the redirect out and the redirect back. */
-type LoginState = { state: string };
+/**
+ * What the sign-in cookie carries. The verifier alone: the challenge derived
+ * from it is what the provider echoes back as `state`, so there is no second
+ * secret to mint, to carry, or to keep in step with it.
+ */
+type Login = { verifier: string };
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -125,6 +134,21 @@ const cookieScope = (url: URL): string => `${sitePath(url)}${API_BASE}`;
 /** The session cookie, or the expired form of it that signing out sets. */
 function sessionCookie(url: URL, value?: string): string {
   return cmsCookie({ name: SESSION_COOKIE, url, path: cookieScope(url), value });
+}
+
+/**
+ * The sign-in cookie, or the expired form of it every callback sets. A verifier
+ * is spent on the one code it was minted for, so it is torn up whichever way the
+ * callback ends rather than left to time out.
+ */
+function loginCookie(url: URL, value?: string): string {
+  return cmsCookie({
+    name: LOGIN_COOKIE,
+    url,
+    path: cookieScope(url),
+    value,
+    maxAge: LOGIN_MAX_AGE,
+  });
 }
 
 /** The token inside it, whose own `exp` matches the cookie's `Max-Age`. */
@@ -199,8 +223,12 @@ type Authenticated =
       cookie?: string;
     }
   | { kind: "anonymous" }
-  /** A real session whose editor no longer has repository access. */
-  | { kind: "revoked"; error: string }
+  /**
+   * A real session whose editor no longer has repository access. It still
+   * carries the session, because signing out is the one thing such an editor is
+   * allowed to do and revoking the provider's token is part of it.
+   */
+  | { kind: "revoked"; error: string; session: Session }
   | { kind: "misconfigured"; error: string };
 
 async function authenticate(
@@ -233,7 +261,16 @@ async function authenticate(
 
   if (!needsRefresh(session)) return revocable(provider, session);
 
-  const renewed = await refreshSession(provider, getEnv, session);
+  const { refreshToken } = session;
+
+  if (!refreshToken) return { kind: "anonymous" };
+
+  // Shared, because both providers rotate the refresh token: the several
+  // requests one navigation fires would otherwise each spend the same one, the
+  // first would win, and the rest would be handed a token already invalidated.
+  const renewed = await refreshes.run(refreshToken, () =>
+    refreshSession(provider, getEnv, refreshToken, session.login),
+  );
 
   if (!renewed) return { kind: "anonymous" };
 
@@ -242,14 +279,6 @@ async function authenticate(
 
 /**
  * The session, unless the editor behind it has lost repository access.
- *
- * Every call the CMS makes on the editor's own token is re-decided by the
- * provider, so for the repository a stale session is already harmless. The
- * surfaces that are not are the reason this exists: the assistant relay and an
- * object-store media library both spend the *deployment's* credentials and ask
- * the provider nothing, so without this, losing access would still leave someone
- * able to spend the AI account and rewrite the bucket until their cookie expired
- * thirty days later.
  *
  * Here rather than at a route, so a route added later cannot forget it.
  */
@@ -260,7 +289,7 @@ async function revocable(
 ): Promise<Authenticated> {
   const error = await revoked(provider, session.token);
 
-  return error ? { kind: "revoked", error } : { kind: "session", session, cookie };
+  return error ? { kind: "revoked", error, session } : { kind: "session", session, cookie };
 }
 
 const describeFailure = (err: unknown): string =>
@@ -270,35 +299,42 @@ const describeFailure = (err: unknown): string =>
 const ACCESS_TTL_MS = 5 * 60_000;
 
 /**
- * Token to the check that cleared it. The *promise* is cached, not just its
- * expiry, so the several requests one admin navigation fires share a single
- * provider call rather than each starting their own on a cold instance.
+ * Token to the check that cleared it. The *promise* is shared, not just its
+ * result, so the several requests one admin navigation fires make one provider
+ * call between them rather than each starting their own on a cold instance.
  */
-const checks = new Map<string, { expiry: number; done: Promise<string | undefined> }>();
+const checks = new Coalesced<string | undefined>(ACCESS_TTL_MS);
 
-/** Why this token may no longer be used, or undefined while it still may. */
+/**
+ * How long a completed refresh answers for the token it consumed. Long enough to
+ * outlast a request that read the cookie just before another request spent it,
+ * short enough that no session is served from here for its own sake.
+ */
+const REFRESH_TTL_MS = 60_000;
+
+/** Refresh token to the session that replaced it. */
+const refreshes = new Coalesced<Session | null>(REFRESH_TTL_MS);
+
+/**
+ * Why this token may no longer be used, or undefined while it still may.
+ *
+ * Every call the CMS makes on the editor's own token is re-decided by the
+ * provider, so for the repository a stale session is already harmless. The
+ * surfaces that are not are the reason this exists: the assistant relay and an
+ * object-store media library both spend the *deployment's* credentials and ask
+ * the provider nothing, so without this, losing access would still leave someone
+ * able to spend the AI account and rewrite the bucket until their cookie expired
+ * thirty days later.
+ */
 function revoked(provider: ProviderConfig, token: string): Promise<string | undefined> {
-  const now = Date.now();
-  const cached = checks.get(token);
-
-  if (cached && cached.expiry > now) return cached.done;
-
-  // One entry per token in flight, so this is a handful of editors and it keeps
-  // a long-lived instance from accumulating dead sessions.
-  for (const [key, check] of checks) {
-    if (check.expiry <= now) checks.delete(key);
-  }
-
   // Fails closed: a provider outage reads as "no longer permitted", which is the
   // right direction for a gate and the same answer signing in would give.
-  const done = verifyAccess(provider, token).then(
-    () => undefined,
-    (err: unknown) => describeFailure(err),
+  return checks.run(token, () =>
+    verifyAccess(provider, token).then(
+      () => undefined,
+      (err: unknown) => describeFailure(err),
+    ),
   );
-
-  checks.set(token, { expiry: now + ACCESS_TTL_MS, done });
-
-  return done;
 }
 
 /**
@@ -321,7 +357,7 @@ function sessionState(
     // the session cookie lands on the page rather than in a redirect loop; the
     // shell suppresses it again once anything has gone wrong.
     autoLogin:
-      request.headers.get(CF_ACCESS_HEADER) != null && readCookie(request, STATE_COOKIE) == null,
+      request.headers.get(CF_ACCESS_HEADER) != null && readCookie(request, LOGIN_COOKIE) == null,
     // A deployment that cannot reach its own secret, or an editor who has lost
     // access, is the one thing worth reporting: both leave someone staring at a
     // sign-in button that will not work.
@@ -374,14 +410,8 @@ async function route(
     );
   }
 
-  // A POST, so the same-origin check above covers it: as a GET, any third-party
-  // page could sign an editor out with a top-level navigation, which carries the
-  // `SameSite=Lax` cookie.
-  if (path === "/logout" && request.method === "POST") {
-    return json({ ok: true }, 200, { "set-cookie": sessionCookie(url) });
-  }
-
-  const authenticated = await authenticate(request, url, getEnv, providerConfig());
+  const provider = providerConfig();
+  const authenticated = await authenticate(request, url, getEnv, provider);
   const renewed = authenticated.kind === "session" ? authenticated.cookie : undefined;
   const extra: Record<string, string> = renewed ? { "set-cookie": renewed } : {};
 
@@ -389,6 +419,22 @@ async function route(
   // find out which it is.
   if (path === "/session" && request.method === "GET") {
     return json(sessionState(request, url, authenticated), 200, extra);
+  }
+
+  // A POST, so the same-origin check above covers it: as a GET, any third-party
+  // page could sign an editor out with a top-level navigation, which carries the
+  // `SameSite=Lax` cookie.
+  //
+  // Ahead of the refusals below, so signing out is the one thing that still
+  // works for a session the CMS has otherwise stopped honouring.
+  if (path === "/logout" && request.method === "POST") {
+    // The token as well as the cookie, so the grant ends here rather than
+    // whenever it would have lapsed. `local` has no provider and no token.
+    if (provider && "session" in authenticated) {
+      await revokeSession(provider, getEnv, authenticated.session);
+    }
+
+    return json({ ok: true }, 200, { "set-cookie": sessionCookie(url) });
   }
 
   if (authenticated.kind === "revoked") return fail(authenticated.error, 403);
@@ -507,27 +553,24 @@ async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
 
   if (!provider) return fail("This deployment does not sign in.", 400);
 
-  const state = crypto.randomUUID();
+  const verifier = createVerifier();
   const redirectUri = siteUrl(url, API_CALLBACK);
 
   return new Response(null, {
     status: 302,
     headers: {
-      location: authorizationUrl(provider, redirectUri, state),
-      // The `state` lives in its own short-lived sealed cookie rather than in
+      location: authorizationUrl(provider, redirectUri, await challengeFor(verifier)),
+      // The verifier lives in its own short-lived sealed cookie rather than in
       // `sessionStorage`, so script in the admin can neither read it nor plant one.
-      "set-cookie": cmsCookie({
-        name: STATE_COOKIE,
+      "set-cookie": loginCookie(
         url,
-        path: cookieScope(url),
-        value: await issue(
-          "oauth-state",
-          { state } satisfies LoginState,
+        await issue(
+          "oauth-login",
+          { verifier } satisfies Login,
           sessionSecret(provider, getEnv),
-          STATE_MAX_AGE,
+          LOGIN_MAX_AGE,
         ),
-        maxAge: STATE_MAX_AGE,
-      }),
+      ),
       "cache-control": "no-store",
     },
   });
@@ -539,34 +582,47 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
   if (!provider) return fail("This deployment does not sign in.", 400);
 
   const admin = siteUrl(url, clientConfig.mountPoint);
-  const failed = (message: string) =>
-    Response.redirect(`${admin}?error=${encodeURIComponent(message)}`, 302);
+
+  // However this ends, the verifier is spent: every answer tears up the cookie
+  // carrying it, so one code can be redeemed against it and no more.
+  const redirect = (location: string, session?: string): Response => {
+    const headers = new Headers({ location, "cache-control": "no-store" });
+
+    headers.append("set-cookie", loginCookie(url));
+
+    if (session) headers.append("set-cookie", session);
+
+    return new Response(null, { status: 302, headers });
+  };
+
+  const failed = (message: string) => redirect(`${admin}?error=${encodeURIComponent(message)}`);
 
   const error = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
   if (error) return failed(error);
 
+  const secret = sessionSecret(provider, getEnv);
+  const cookie = readCookie(request, LOGIN_COOKIE);
+  const login = cookie ? await verify<Login>("oauth-login", cookie, secret) : null;
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const stateCookie = readCookie(request, STATE_COOKIE);
-  const expected = stateCookie
-    ? await verify<LoginState>("oauth-state", stateCookie, sessionSecret(provider, getEnv))
-    : null;
 
-  if (!code || !state || expected?.state !== state) {
+  // The callback has to belong to the sign-in this browser started, and the
+  // challenge is what says so. Checked here rather than left to the provider's
+  // own verifier check, so a forged callback costs a hash instead of an outbound
+  // request against the budget that bounds them.
+  if (!code || !login || url.searchParams.get("state") !== (await challengeFor(login.verifier))) {
     return failed("The sign-in link expired. Try again.");
   }
 
-  const session = await exchangeCode(provider, getEnv, code, siteUrl(url, API_CALLBACK));
+  const session = await exchangeCode(
+    provider,
+    getEnv,
+    code,
+    siteUrl(url, API_CALLBACK),
+    login.verifier,
+  );
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      location: admin,
-      "cache-control": "no-store",
-      "set-cookie": sessionCookie(url, await issueSession(session, sessionSecret(provider, getEnv))),
-    },
-  });
+  return redirect(admin, sessionCookie(url, await issueSession(session, secret)));
 }
 
 function toResponse(err: unknown): Response {

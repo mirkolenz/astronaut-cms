@@ -43,13 +43,13 @@ describe("sealed session", () => {
   });
 
   // Every kind of token the CMS issues shares one key, so without the audience a
-  // session would verify as an OAuth state — and, once MCP lands, an
+  // session would verify as a sign-in cookie — and, once MCP lands, an
   // authorization code as an access token.
   it("refuses a token issued for another purpose", async () => {
-    const state = await issue("oauth-state", { state: "abc" }, SECRET, HOUR);
+    const login = await issue("oauth-login", { verifier: "abc" }, SECRET, HOUR);
 
-    await expect(verify("session", state, SECRET)).resolves.toBeNull();
-    await expect(verify("oauth-state", state, SECRET)).resolves.toMatchObject({ state: "abc" });
+    await expect(verify("session", login, SECRET)).resolves.toBeNull();
+    await expect(verify("oauth-login", login, SECRET)).resolves.toMatchObject({ verifier: "abc" });
   });
 
   // The cookie's Max-Age is the browser's to honour; this is the server's own

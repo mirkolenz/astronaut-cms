@@ -26,6 +26,19 @@ Successful script injection in the admin can act as the editor while the tab is 
   and it is why a production deployment now needs an SSR adapter.
 </Aside>
 
+### Signing in
+
+The whole flow runs on the server.
+The browser is redirected out, redirected back, and handed a sealed cookie; it never sees an authorization code, a client secret, or the token the exchange produces.
+
+Authorization Code with PKCE, at both providers.
+PKCE is not standing in for a client secret here, because the CMS is a confidential client and both GitHub and GitLab still require the secret at the token exchange.
+It is there because it binds a code to the browser that asked for it, which is the one thing a confidential client gets no other way.
+The verifier is minted per sign-in, kept in a short-lived sealed `HttpOnly` cookie rather than in `sessionStorage` where script could read it or plant one, and torn up by the callback however it ends, so exactly one code can ever be redeemed against it.
+
+That binding is also the whole of the callback's CSRF defence, which is why there is no separate `state` secret to keep in step with it.
+`state` carries the challenge instead, so a callback that does not match the sign-in cookie is refused after one SHA-256 and before any authorization code is spent at the provider.
+
 ### Cross-site requests
 
 Cookie authentication is ambient: the browser attaches the cookie to any request to your origin, whoever caused it.
@@ -38,7 +51,7 @@ Encryption, not signing. A signed JWT is base64, readable by anyone holding it, 
 The envelope buys two things a hand-rolled seal has to be talked into:
 
 - **`exp` the server enforces.** A cookie's `Max-Age` is the browser's to honour. The token carries its own expiry, so a copied value stops working regardless.
-- **`aud` binding.** Every kind of token the CMS issues shares one key. Without an audience, a session would verify as an OAuth state — and, once MCP lands, an authorization code as an access token. Binding it makes that structural rather than a matter of which fields each reader happens to check.
+- **`aud` binding.** Every kind of token the CMS issues shares one key. Without an audience, a session would verify as a sign-in cookie — and, once MCP lands, an authorization code as an access token. Binding it makes that structural rather than a matter of which fields each reader happens to check.
 
 It is also what MCP's authorization codes and access tokens will be issued as, so there is one token mechanism rather than two.
 
@@ -69,6 +82,10 @@ Two things in the CMS do not work that way: the assistant relay and an object-st
 So the server re-checks repository access before it serves any request, caching the answer for five minutes.
 Removing someone's access therefore stops them spending your AI budget and rewriting your bucket within that window, not in thirty days.
 
+Signing out is not only local either.
+The CMS revokes the token at the provider as well, so the grant ends when the editor says so rather than whenever it would have lapsed on its own; both providers revoke the grant rather than the single credential, so the refresh token goes with it.
+It is best effort, because the cookie is cleared whatever the provider answers, and it is deliberately the one thing a session the CMS has otherwise stopped honouring can still do.
+
 Rotating the OAuth client secret invalidates every session at once, which is the thing you would do on compromise anyway.
 That is the immediate lever, and the five-minute re-check is the one that follows a routine offboarding.
 
@@ -81,7 +98,7 @@ Everything an anonymous request can reach, and what it costs:
 | `GET /admin` | A shell, a stylesheet and a ~1 kB bootstrap | None: the page reads no cookie |
 | `GET /_astronaut-cms/api/session` | Where to sign in, and no config | Read one cookie header |
 | `GET /login` | Redirect to the provider | One token encrypt |
-| `GET /callback` | Redirect back | **One outbound call to the provider** |
+| `GET /callback` | Redirect back | One SHA-256, then **an outbound call to the provider** only if the callback matches the sign-in cookie |
 | Anything else | `401 Not signed in.` | Read one cookie header |
 
 The admin page is the part worth dwelling on.
@@ -119,7 +136,7 @@ Moving the work server-side moved the cost with it: what an editor's browser use
 | Everything else (`/rpc`) | 300/min, 12 at once, per editor | A runaway assistant loop or a compromised tab |
 | The reference scan | 10/min, **1 at once**, per editor | The one operation that reads every entry in the repository |
 
-The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations *and* risks the provider rate-limiting your deployment's address, which would break sign-in for everyone.
+The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations *and* risks the provider rate-limiting your deployment's address, which would break sign-in for everyone. PKCE narrows what can reach that call at all: a callback is checked against the sign-in cookie first, so only a caller who started a real sign-in gets as far as spending one.
 
 <Aside type="caution" title="These bound accidents, not attacks">
   The limits live in one warm instance's memory, because the CMS holds no shared state and adding a
