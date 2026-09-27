@@ -10,8 +10,8 @@
  * Node-only. The integration substitutes a stub for it in any build that is not
  * a dev run, so `node:fs` never enters a Workers or edge bundle.
  */
-import { link, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "pathe";
+import { link, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative } from "pathe";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { StorageBase, type StorageOptions } from "./base.ts";
 import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
@@ -27,6 +27,8 @@ export interface LocalConfig {
 export class LocalStorage extends StorageBase {
   private readonly rootDir: string;
   private readonly managed: string[];
+  /** The roots as the filesystem actually names them. Fixed, so resolved once. */
+  private canonicalRoots?: Promise<{ root: string; managed: Map<string, string> }>;
 
   constructor(config: LocalConfig, options: StorageOptions) {
     super(options);
@@ -38,19 +40,47 @@ export class LocalStorage extends StorageBase {
     });
   }
 
+  private roots(): Promise<{ root: string; managed: Map<string, string> }> {
+    this.canonicalRoots ??= (async () => {
+      const [root, managed] = await Promise.all([
+        canonical(this.rootDir),
+        Promise.all(
+          this.managed.map(async (dir): Promise<[string, string]> => {
+            const absolute = join(this.rootDir, dir);
+
+            return [absolute, await canonical(absolute)];
+          }),
+        ),
+      ]);
+
+      return { root, managed: new Map(managed) };
+    })();
+
+    return this.canonicalRoots;
+  }
 
   /**
    * A project-relative path lowered to an absolute one the CMS is allowed to
    * touch. Joining first means a crafted `..` cannot smuggle a path out of the
    * project, and the allowlist then bounds it to the content model.
    */
-  private resolve(path: string): string {
+  private async resolve(path: string): Promise<string> {
     const fullPath = join(this.rootDir, path);
 
     assertWithinBase(fullPath, this.rootDir);
 
-    if (!this.managed.some((root) => isWithin(fullPath, join(this.rootDir, root)))) {
+    const { root, managed } = await this.roots();
+    const actualManagedRoot = [...managed].find(([absolute]) => isWithin(fullPath, absolute))?.[1];
+
+    if (actualManagedRoot === undefined) {
       throw new Error(`Path is not managed by the CMS: ${path}`);
+    }
+
+    if (
+      !isWithin(actualManagedRoot, root) ||
+      !isWithin(await canonical(fullPath), actualManagedRoot)
+    ) {
+      throw new Error(`Path escapes the managed directory: ${path}`);
     }
 
     return fullPath;
@@ -61,7 +91,7 @@ export class LocalStorage extends StorageBase {
     let entries;
 
     try {
-      entries = await readdir(this.resolve(dir), { withFileTypes: true });
+      entries = await readdir(await this.resolve(dir), { withFileTypes: true });
     } catch {
       return [];
     }
@@ -73,7 +103,7 @@ export class LocalStorage extends StorageBase {
 
         if (entry.isDirectory()) return this.listDirectory(path);
 
-        const { size } = await stat(fullPath);
+        const { size } = await stat(await this.resolve(path));
 
         return [{ path, size }];
       }),
@@ -87,7 +117,7 @@ export class LocalStorage extends StorageBase {
     content: string | Uint8Array,
     createOnly = false,
   ): Promise<void> {
-    const fullPath = this.resolve(path);
+    const fullPath = await this.resolve(path);
 
     await mkdir(dirname(fullPath), { recursive: true });
     await writeFile(fullPath, content, createOnly ? { flag: "wx" } : undefined);
@@ -105,7 +135,7 @@ export class LocalStorage extends StorageBase {
   }
 
   protected async fetchFileContent(path: string): Promise<VersionedContent> {
-    const content = await readFile(this.resolve(path), "utf-8");
+    const content = await readFile(await this.resolve(path), "utf-8");
 
     return { content, version: await digest(content) };
   }
@@ -154,7 +184,7 @@ export class LocalStorage extends StorageBase {
   ): Promise<void> {
     if (expectedVersion !== undefined) await this.assertVersion(path, expectedVersion);
 
-    await rm(this.resolve(path), { force: true });
+    await rm(await this.resolve(path), { force: true });
   }
 
   /** The working tree names a file's state by its contents, so this reads them back. */
@@ -173,8 +203,8 @@ export class LocalStorage extends StorageBase {
   }
 
   protected async moveMedia(from: string, to: string): Promise<void> {
-    const source = this.resolve(from);
-    const target = this.resolve(to);
+    const source = await this.resolve(from);
+    const target = await this.resolve(to);
 
     await mkdir(dirname(target), { recursive: true });
 
@@ -194,7 +224,7 @@ export class LocalStorage extends StorageBase {
   }
 
   async readMedia(path: string): Promise<MediaContent> {
-    const bytes = await readFile(this.resolve(this.mediaRepoPath(path)));
+    const bytes = await readFile(await this.resolve(this.mediaRepoPath(path)));
 
     return {
       body: new Uint8Array(bytes),
@@ -221,6 +251,26 @@ export class LocalStorage extends StorageBase {
   }
 }
 
+/** Resolves every existing segment and preserves the missing tail of a new path. */
+async function canonical(path: string): Promise<string> {
+  const tail: string[] = [];
+  let existing = path;
+
+  for (;;) {
+    try {
+      return join(await realpath(existing), ...tail);
+    } catch (err) {
+      if (getErrorCode(err) !== "ENOENT") throw err;
+
+      const parent = dirname(existing);
+
+      if (parent === existing) throw err;
+
+      tail.unshift(basename(existing));
+      existing = parent;
+    }
+  }
+}
 
 /** A file's contents, named. Not a git hash: nothing here compares it to one. */
 async function digest(content: string | Uint8Array): Promise<string> {
