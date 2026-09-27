@@ -78,7 +78,6 @@ export interface FileChange {
   patch?: string;
 }
 
-
 // Extracts allowed file extensions from loader metadata.
 // Handles glob patterns (e.g. "**/*.{md,mdx}") and file loader filenames (e.g. "data.json").
 // Returns null if no extensions can be determined.

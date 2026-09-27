@@ -33,11 +33,7 @@ export class GitLabStorage extends BranchedStorage {
   private cachedApi: ReturnType<GitLabStorage["createApi"]> | null = null;
   private cachedApiToken: string | null = null;
 
-  constructor(
-    config: GitLabConfig,
-    schemas: CollectionManifest,
-    mediaDirectory: string,
-  ) {
+  constructor(config: GitLabConfig, schemas: CollectionManifest, mediaDirectory: string) {
     super(schemas, mediaDirectory, config.publishMode);
     this.config = config;
   }
@@ -222,7 +218,11 @@ export class GitLabStorage extends BranchedStorage {
   }
 
   protected async diffAgainstDefault(branch: string): Promise<FileChange[]> {
-    const cmp = await this.api.Repositories.compare(this.config.project, this.config.branch, branch);
+    const cmp = await this.api.Repositories.compare(
+      this.config.project,
+      this.config.branch,
+      branch,
+    );
 
     return (cmp.diffs ?? []).map((diff) => ({
       path: diff.new_path,

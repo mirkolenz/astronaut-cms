@@ -208,9 +208,7 @@ function EntryEditor() {
   const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(format);
 
   const loaderBase = collectionMeta[collection]?.loaderBase;
-  const contentFilePath = loaderBase
-    ? getContentFilePath(loaderBase, entryId, format)
-    : undefined;
+  const contentFilePath = loaderBase ? getContentFilePath(loaderBase, entryId, format) : undefined;
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>

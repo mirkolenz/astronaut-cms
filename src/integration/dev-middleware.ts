@@ -161,7 +161,10 @@ function createDevMiddleware(
           }>(req);
 
           await mkdir(dirname(filePath), { recursive: true });
-          await writeFile(filePath, encoding === "base64" ? Buffer.from(content, "base64") : content);
+          await writeFile(
+            filePath,
+            encoding === "base64" ? Buffer.from(content, "base64") : content,
+          );
           sendJson(res, { ok: true });
           return;
         }

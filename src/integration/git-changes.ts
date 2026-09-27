@@ -12,7 +12,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { unlink } from "node:fs/promises";
 import { join, relative } from "pathe";
-import { collectionBase, type ChangeKind, type CollectionManifest, type FileChange } from "../shared/types.ts";
+import {
+  collectionBase,
+  type ChangeKind,
+  type CollectionManifest,
+  type FileChange,
+} from "../shared/types.ts";
 import { assertWithinBase } from "./paths.ts";
 
 const run = promisify(execFile);
@@ -100,7 +105,10 @@ async function readStatus(
 ): Promise<StatusEntry[]> {
   if (paths.length === 0) return [];
 
-  return parseStatus(await git(rootDir, ["status", "--porcelain=v1", "-z", "--", ...paths]), prefix);
+  return parseStatus(
+    await git(rootDir, ["status", "--porcelain=v1", "-z", "--", ...paths]),
+    prefix,
+  );
 }
 
 async function toFileChange(rootDir: string, entry: StatusEntry): Promise<FileChange> {

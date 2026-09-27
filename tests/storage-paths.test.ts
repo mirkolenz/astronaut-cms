@@ -62,7 +62,13 @@ class TestStorage extends StorageBase {
   }
 }
 
-const glob = { type: "content", loaderType: "glob", schema: null, loaderPattern: null, loaderFileName: null } as const;
+const glob = {
+  type: "content",
+  loaderType: "glob",
+  schema: null,
+  loaderPattern: null,
+  loaderFileName: null,
+} as const;
 
 const schemas: CollectionManifest = {
   // Collection key ("posts") differs from its directory ("blog").

@@ -18,12 +18,7 @@ export function LocaleTabs({ collection, locales, active, subDir }: LocaleTabsPr
   return (
     <div className="flex items-center gap-1 rounded-lg border border-border p-1">
       {locales.map((locale) => (
-        <Button
-          key={locale}
-          asChild
-          variant={locale === active ? "secondary" : "ghost"}
-          size="sm"
-        >
+        <Button key={locale} asChild variant={locale === active ? "secondary" : "ghost"} size="sm">
           <Link
             to="/collections/$collection"
             params={{ collection }}

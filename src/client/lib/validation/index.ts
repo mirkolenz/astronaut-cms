@@ -148,7 +148,9 @@ export function validateAgainstSchema(
 
   if (result.success) return [];
 
-  return result.error.issues.map((issue) => diagnostic(issue.message, issue.path.join(".") || undefined));
+  return result.error.issues.map((issue) =>
+    diagnostic(issue.message, issue.path.join(".") || undefined),
+  );
 }
 
 /**
@@ -165,8 +167,14 @@ async function checkResolvableLeaves(
   if (leaves.length === 0) return [];
 
   const [references, assets] = await Promise.all([
-    checkReferences(source, leaves.filter((l) => l.kind === "reference")),
-    checkAssets(source, leaves.filter((l) => l.kind !== "reference")),
+    checkReferences(
+      source,
+      leaves.filter((l) => l.kind === "reference"),
+    ),
+    checkAssets(
+      source,
+      leaves.filter((l) => l.kind !== "reference"),
+    ),
   ]);
 
   return [...references, ...assets];

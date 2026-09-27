@@ -232,10 +232,7 @@ function FileEntryCard({
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast(
-            draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved),
-            "success",
-          );
+          toast(draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved), "success");
           onCreated?.();
         },
         onError: (err) => toast(err.message, "error"),

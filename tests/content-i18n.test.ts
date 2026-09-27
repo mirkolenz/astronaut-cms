@@ -37,18 +37,26 @@ describe("locale ids", () => {
 describe("resolveContentI18n", () => {
   it("inherits the site's locales, normalizing path/codes entries", () => {
     expect(
-      resolveContentI18n({}, { defaultLocale: "en", locales: ["en", { path: "pt", codes: ["pt-BR"] }] }),
+      resolveContentI18n(
+        {},
+        { defaultLocale: "en", locales: ["en", { path: "pt", codes: ["pt-BR"] }] },
+      ),
     ).toEqual({ locales: ["en", "pt"], defaultLocale: "en" });
   });
 
   it("stays off without an i18n config, and when explicitly disabled", () => {
     expect(resolveContentI18n({}, undefined)).toBeNull();
-    expect(resolveContentI18n({ i18n: false }, { defaultLocale: "en", locales: ["en", "de"] })).toBeNull();
+    expect(
+      resolveContentI18n({ i18n: false }, { defaultLocale: "en", locales: ["en", "de"] }),
+    ).toBeNull();
   });
 
   it("lets the CMS config override the site's locales", () => {
     expect(
-      resolveContentI18n({ i18n: { locales: ["en", "fr"] } }, { defaultLocale: "de", locales: ["de"] }),
+      resolveContentI18n(
+        { i18n: { locales: ["en", "fr"] } },
+        { defaultLocale: "de", locales: ["de"] },
+      ),
     ).toEqual({ locales: ["en", "fr"], defaultLocale: "de" });
   });
 });

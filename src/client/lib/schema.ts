@@ -185,7 +185,9 @@ export function collectionPatchSchema(
  * either be wrong (a reference or asset has to name something that exists) or
  * silently satisfy a check the editor is meant to prompt for.
  */
-export function schemaDefaults(shape: Record<string, FieldSchema> | undefined): Record<string, unknown> {
+export function schemaDefaults(
+  shape: Record<string, FieldSchema> | undefined,
+): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(shape ?? {})
       .filter(([, field]) => field.default !== undefined)

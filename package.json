@@ -6,17 +6,17 @@
     "astro",
     "astro-integration",
     "cms",
-    "headless-cms",
     "git",
+    "headless-cms",
     "mdx",
     "zod"
   ],
   "homepage": "https://mirkolenz.github.io/astronaut-cms/",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mirkolenz/astronaut-cms.git"
   },
-  "license": "MIT",
   "workspaces": [
     "docs",
     "demo"

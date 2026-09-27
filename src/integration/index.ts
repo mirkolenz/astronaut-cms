@@ -129,9 +129,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
               }),
               // Dev-only filesystem API for the local storage backend, plus the
               // reload suppression that keeps the admin's state across its own saves.
-              ...(command === "dev"
-                ? [cmsDevPlugin({ mediaDir, rootDir, collections })]
-                : []),
+              ...(command === "dev" ? [cmsDevPlugin({ mediaDir, rootDir, collections })] : []),
             ],
           },
         });

@@ -62,7 +62,12 @@ export function ChangeActions() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => run(update, t(($) => $.publish.updated))}
+          onClick={() =>
+            run(
+              update,
+              t(($) => $.publish.updated),
+            )
+          }
           disabled={busy || behind === 0}
         >
           {update.isPending ? t(($) => $.publish.updating) : t(($) => $.publish.update)}
@@ -86,7 +91,12 @@ export function ChangeActions() {
       {canPublish && (
         <Button
           size="sm"
-          onClick={() => run(publish, t(($) => $.publish.published))}
+          onClick={() =>
+            run(
+              publish,
+              t(($) => $.publish.published),
+            )
+          }
           disabled={busy || count === 0}
         >
           {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
@@ -101,7 +111,10 @@ export function ChangeActions() {
         variant="danger"
         onConfirm={() => {
           setShowDiscardConfirm(false);
-          run(discard, t(($) => $.changes.discarded));
+          run(
+            discard,
+            t(($) => $.changes.discarded),
+          );
         }}
         onCancel={() => setShowDiscardConfirm(false)}
       />

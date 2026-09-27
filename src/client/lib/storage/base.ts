@@ -307,11 +307,7 @@ export abstract class BranchedStorage extends StorageBase {
 
   protected publishMode: PublishMode;
 
-  constructor(
-    schemas: CollectionManifest,
-    mediaDirectory: string,
-    publishMode: PublishMode,
-  ) {
+  constructor(schemas: CollectionManifest, mediaDirectory: string, publishMode: PublishMode) {
     super(schemas, mediaDirectory);
     this.publishMode = publishMode;
   }

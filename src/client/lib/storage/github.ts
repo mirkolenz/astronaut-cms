@@ -45,11 +45,7 @@ export class GitHubStorage extends BranchedStorage {
   private cachedOctokit: Octokit | null = null;
   private cachedOctokitToken: string | null = null;
 
-  constructor(
-    config: GitHubConfig,
-    schemas: CollectionManifest,
-    mediaDirectory: string,
-  ) {
+  constructor(config: GitHubConfig, schemas: CollectionManifest, mediaDirectory: string) {
     super(schemas, mediaDirectory, config.publishMode);
     this.config = config;
   }

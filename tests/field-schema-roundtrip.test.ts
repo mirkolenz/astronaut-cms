@@ -231,15 +231,17 @@ describe("tool JSON Schema stays simple", () => {
   it("still rejects values those checks exist for", () => {
     expect(fieldSchemaToZod({ type: "date" }).safeParse("next week").success).toBe(false);
     expect(fieldSchemaToZod({ type: "date" }).safeParse("2026-01-31").success).toBe(true);
-    expect(
-      fieldSchemaToZod({ type: "string", format: "email" }).safeParse("nope").success,
-    ).toBe(false);
-    expect(
-      fieldSchemaToZod({ type: "string", format: "email" }).safeParse("a@b.com").success,
-    ).toBe(true);
+    expect(fieldSchemaToZod({ type: "string", format: "email" }).safeParse("nope").success).toBe(
+      false,
+    );
+    expect(fieldSchemaToZod({ type: "string", format: "email" }).safeParse("a@b.com").success).toBe(
+      true,
+    );
   });
 
   it("keeps a pattern the schema author wrote themselves", () => {
-    expect(JSON.stringify(jsonSchema({ type: "string", pattern: "^[a-z]+$" }))).toContain("pattern");
+    expect(JSON.stringify(jsonSchema({ type: "string", pattern: "^[a-z]+$" }))).toContain(
+      "pattern",
+    );
   });
 });
