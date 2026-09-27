@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import config from "@/client/lib/config";
 import { mediaPath, type MediaLibraryId, type MediaLocation } from "@/shared/media";
-import type { AssetReference, ReferenceIndex } from "@/shared/references";
+import type { AssetReference } from "@/shared/references";
 import { call } from "@/client/lib/api";
 import { cmsKeys } from "@/client/lib/query-keys";
 import { mediaUrl, uploadMedia } from "@/client/lib/media";
@@ -117,25 +117,20 @@ export function useAssetUrl(ref: string | undefined): string | undefined {
  * "not scanned" and "scanning" are told apart here rather than at each use.
  */
 export function useReferenceIndex() {
-  const queryClient = useQueryClient();
   const [requested, setRequested] = useState(false);
-  const [scanPending, setScanPending] = useState(false);
   const { data, isFetching, error, refetch } = useQuery({ ...REFERENCES_QUERY, enabled: requested });
-  const index = queryClient.getQueryData<ReferenceIndex>(cmsKeys.references) ?? data;
 
   return {
-    index,
+    index: data,
     /** A scan is in flight, which is what the trigger and the empty state react to. */
-    scanning: scanPending || isFetching,
+    scanning: isFetching,
     /** Nothing can be said about references yet, whether or not a scan is running. */
-    pending: scanPending || isFetching || index == null,
+    pending: isFetching || data == null,
     error,
+    /** Always rescans, joining a scan already in flight rather than restarting it. */
     scan: () => {
-      if (scanPending || isFetching) return;
-
-      setScanPending(true);
-      void refetch().finally(() => setScanPending(false));
       setRequested(true);
+      void refetch({ cancelRefetch: false });
     },
   };
 }

@@ -28,12 +28,6 @@ class TestLocalStorage extends LocalStorage {
   }
 }
 
-class StaleMediaListingStorage extends LocalStorage {
-  override listPaths(): Promise<{ path: string }[]> {
-    return Promise.resolve([]);
-  }
-}
-
 const glob = {
   type: "content",
   loaderType: "glob",
@@ -104,18 +98,18 @@ describe("LocalStorage paths", () => {
     });
   });
 
-  it("does not replace a file created after the media listing", async () => {
+  it("does not replace an existing file on upload", async () => {
     await inProject(async (parent) => {
       const target = join(parent, MEDIA_DIRECTORY, "target.png");
 
       await mkdir(join(parent, MEDIA_DIRECTORY), { recursive: true });
       await writeFile(target, "existing");
 
-      const storage = new StaleMediaListingStorage({ rootDir: parent }, localOptions);
+      const storage = new LocalStorage({ rootDir: parent }, localOptions);
 
       await expect(
         storage.uploadMedia("target.png", new TextEncoder().encode("new"), false),
-      ).rejects.toBeInstanceOf(StaleWriteError);
+      ).rejects.toThrow(/already exists/);
       await expect(readFile(target, "utf8")).resolves.toBe("existing");
     });
   });

@@ -13,6 +13,7 @@ import {
   isNotFound,
   mapMergeError,
   staleWrite,
+  StaleWriteError,
   versioned,
   type Precondition,
   type VersionedContent,
@@ -58,7 +59,8 @@ import {
   type MediaLibraryId,
   type WorkingTreeLibrary,
 } from "../../shared/media.ts";
-import type { ComponentSchemaMap, FieldSchema } from "../../shared/field-schema.ts";
+import { isRecord, type ComponentSchemaMap, type FieldSchema } from "../../shared/field-schema.ts";
+import { activeVariant } from "../../shared/field-to-zod.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
 import { HttpError, checked } from "../errors.ts";
 import { ContentValidationError, diagnostic } from "../../shared/diagnostics.ts";
@@ -69,41 +71,43 @@ const untrashable =
 
 const BRANCH_PREFIX = "cms/";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
+const occupied = (path: string): HttpError => new HttpError(`A file already exists at "${path}".`, 409);
 
-function activeField(schema: FieldSchema | null | undefined, value: unknown): FieldSchema | undefined {
-  if (!schema) return undefined;
-  if (schema.type !== "union") return schema;
-
-  const { discriminator } = schema;
-
-  if (!discriminator || !isRecord(value)) return undefined;
-
-  return schema.variants.find((variant) => {
-    const tag = variant.type === "object" ? variant.shape[discriminator] : undefined;
-
-    return tag?.type === "literal" && Object.is(tag.value, value[discriminator]);
-  });
+/** The schema of the value at `key` inside a container that `field` describes. */
+function childSchema(field: FieldSchema | undefined, key: string | number): FieldSchema | undefined {
+  switch (field?.type) {
+    case "array":
+      return typeof key === "number" ? field.element : undefined;
+    case "tuple":
+      return typeof key === "number" ? field.items[key] : undefined;
+    case "object":
+      return typeof key === "string" ? field.shape[key] : undefined;
+    case "record":
+      return typeof key === "string" ? field.value : undefined;
+    default:
+      return undefined;
+  }
 }
 
 /** Restore TOML date types lost when entry data passed through the JSON API. */
-function restoreTomlDates(
-  value: unknown,
+function restoreTomlDates<T>(
+  value: T,
   previous: unknown,
   schema: FieldSchema | null | undefined,
   path = "",
-): unknown {
-  const field = activeField(schema, value);
+): T {
+  const field = schema?.type === "union" ? activeVariant(schema, value) : (schema ?? undefined);
+  const restore = (item: unknown, old: unknown, key: string | number): unknown =>
+    restoreTomlDates(item, old, childSchema(field, key), path ? `${path}.${key}` : `${key}`);
 
   if (typeof value === "string" && (previous instanceof Date || field?.type === "date")) {
     const date = new TomlDate(value);
 
-    if (date.isValid()) return date;
+    if (date.isValid()) return date as T;
 
     const parsed = new Date(value);
 
-    if (!Number.isNaN(parsed.getTime())) return new TomlDate(parsed.toISOString());
+    if (!Number.isNaN(parsed.getTime())) return new TomlDate(parsed.toISOString()) as T;
 
     if (field?.type !== "date") return value;
 
@@ -113,49 +117,16 @@ function restoreTomlDates(
   if (Array.isArray(value)) {
     const old = Array.isArray(previous) ? previous : [];
 
-    return value.map((item, index) =>
-      restoreTomlDates(
-        item,
-        old[index],
-        field?.type === "array"
-          ? field.element
-          : field?.type === "tuple"
-            ? field.items[index]
-            : undefined,
-        `${path}.${index}`,
-      ),
-    );
+    return value.map((item, index) => restore(item, old[index], index)) as T;
   }
 
-  if (isRecord(value)) return restoreTomlRecord(value, previous, field, path);
+  if (isRecord(value)) {
+    const old = isRecord(previous) ? previous : {};
+
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, old[key], key)])) as T;
+  }
 
   return value;
-}
-
-function restoreTomlRecord(
-  value: Record<string, unknown>,
-  previous: unknown,
-  schema: FieldSchema | null | undefined,
-  path = "",
-): Record<string, unknown> {
-  const old = isRecord(previous) ? previous : {};
-  const field = activeField(schema, value);
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [
-      key,
-      restoreTomlDates(
-        item,
-        old[key],
-        field?.type === "object"
-          ? field.shape[key]
-          : field?.type === "record"
-            ? field.value
-            : undefined,
-        path ? `${path}.${key}` : key,
-      ),
-    ]),
-  );
 }
 
 /** Both providers hand file contents back this way, whitespace and all. */
@@ -252,19 +223,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     schema: FieldSchema | null,
     createOnly: boolean,
   ): Promise<Record<string, unknown>> {
-    if (createOnly) return restoreTomlRecord(data, undefined, schema);
-
     let previous: Record<string, unknown> | undefined;
 
     try {
-      const { content } = await this.fetchRawEntry(collection, id, "toml");
-
-      previous = parseContent(content, "toml").data;
+      if (!createOnly) previous = parseContent((await this.fetchRawEntry(collection, id, "toml")).content, "toml").data;
     } catch (err) {
       if (!isNotFound(err)) throw err;
     }
 
-    return restoreTomlRecord(data, previous, schema);
+    return restoreTomlDates(data, previous, schema);
   }
 
   /**
@@ -316,7 +283,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
           entries.set(
             id,
             format === "toml"
-              ? restoreTomlRecord(data.data, entries.get(id), col.schema)
+              ? restoreTomlDates(data.data, entries.get(id), col.schema)
               : data.data,
           );
         })
@@ -537,30 +504,33 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * so an oversized or occupied upload is refused before it is sent.
    */
   async beginUpload(path: string, size: number, overwrite: boolean): Promise<UploadTicket> {
-    await this.assertUploadable(path, size, overwrite);
+    this.assertUploadable(path, size);
+
+    // Replacing a file is a different act from adding one: an upload that did
+    // not ask to replace does not get to.
+    if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path)) throw occupied(path);
 
     return { direct: false };
   }
 
-  private async assertUploadable(path: string, size: number, overwrite: boolean): Promise<string> {
-    const repoPath = this.mediaRepoPath(path);
-
+  private assertUploadable(path: string, size: number): string {
     checked(413, () => assertWithinSizeLimit(size, this.options.library));
 
-    // Replacing a file is a different act from adding one: an upload that did
-    // not ask to replace does not get to.
-    if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path)) {
-      throw new HttpError(`A file already exists at "${path}".`, 409);
-    }
-
-    return repoPath;
+    return this.mediaRepoPath(path);
   }
 
-  /** Where a repository library's own writes are checked before bytes reach a backend. */
+  /**
+   * Where a repository library's own writes are checked before bytes reach a backend.
+   * Every backend claims a new path atomically, so no listing is needed here.
+   */
   async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
-    const repoPath = await this.assertUploadable(path, bytes.byteLength, overwrite);
+    try {
+      await this.writeMedia(this.assertUploadable(path, bytes.byteLength), bytes, overwrite);
+    } catch (error) {
+      if (!overwrite && error instanceof StaleWriteError) throw occupied(path);
 
-    return this.writeMedia(repoPath, bytes, overwrite);
+      throw error;
+    }
   }
 
   async renameMedia(oldPath: string, newPath: string): Promise<void> {

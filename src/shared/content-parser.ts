@@ -16,6 +16,7 @@ import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { frontmatter } from "micromark-extension-frontmatter";
 import type { FileEntryLayout } from "./types";
 import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
+import { isRecord } from "@/shared/field-schema";
 
 /**
  * Extracts the file extension from a file name or path.
@@ -133,13 +134,16 @@ export function serializeContent(
 /** The entries of a file collection, keyed by id in the order the file holds them. */
 export type FileEntries = Map<string, Record<string, unknown>>;
 
+/** Astro names an array entry by `id` and falls back to `slug`. */
+const idKey = (item: Record<string, unknown>): "id" | "slug" => (item.id == null && item.slug != null ? "slug" : "id");
+
 // A Map keeps the array's order even for integer-like ids, which an object
 // would move to the front.
 function arrayEntries(items: Record<string, unknown>[]): FileEntries {
   const entries: FileEntries = new Map();
 
   for (const item of items) {
-    const id = idOf(item.id ?? item.slug);
+    const id = idOf(item[idKey(item)]);
 
     if (id) entries.set(id, item);
   }
@@ -211,11 +215,11 @@ export function serializeMultiEntryFile(
   format: string,
 ): string {
   if (layout === "array") {
-    // Astro reads `id` first and falls back to `slug`. A duplicate must update
-    // whichever field names the source, or the next read would collapse it.
+    // A duplicate must update whichever field names the source,
+    // or the next read would collapse it.
     // An unchanged numeric identifier keeps its type.
     const arr = [...entries].map(([id, data]) => {
-      const key = data.id == null && data.slug != null ? "slug" : "id";
+      const key = idKey(data);
       const current = data[key];
 
       return { ...data, [key]: idOf(current) === id ? current : id };
@@ -249,9 +253,6 @@ function idOf(value: unknown): string | undefined {
 const sameValue = (node: unknown, value: unknown): boolean =>
   isNode(node) && JSON.stringify(node.toJSON()) === JSON.stringify(value);
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /**
  * `value` written over `node`, reusing every part of the old tree that still
  * holds the same value, so what a save leaves alone keeps its comments and
@@ -282,7 +283,7 @@ function mergeYaml(doc: Document, node: unknown, value: unknown): unknown {
     const byId = new Map(items.filter(isMap).map((item) => [idOf(item.get("id") ?? item.get("slug")), item]));
 
     node.items = value.map((item, index) => {
-      const id = isRecord(item) ? idOf(item.id ?? item.slug) : undefined;
+      const id = isRecord(item) ? idOf(item[idKey(item)]) : undefined;
 
       return mergeYaml(doc, id === undefined ? items[index] : byId.get(id), item);
     });

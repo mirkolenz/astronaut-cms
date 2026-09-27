@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
+import { activeVariant } from "@/shared/field-to-zod";
 import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
@@ -206,7 +207,7 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
 
       return (
         <UnionField
-          variants={schema.variants}
+          schema={schema}
           discriminator={schema.discriminator}
           name={name}
           value={asRecord(resolved)}
@@ -854,38 +855,33 @@ function RecordField({
 }
 
 function UnionField({
-  variants,
+  schema,
   discriminator,
   name,
   value,
   onChange,
 }: {
-  variants: FieldSchema[];
+  schema: Extract<FieldSchema, { type: "union" }>;
   discriminator: string;
   name: string;
   value: Record<string, unknown>;
   onChange: (v: unknown) => void;
 }) {
   const { t } = useTranslation();
-  const currentDiscValue = value[discriminator];
+  const { variants } = schema;
 
   const variantLabel = (variant: FieldSchema, index: number): string => {
     const disc = variant.type === "object" ? variant.shape[discriminator] : undefined;
     return disc?.type === "literal" ? String(disc.value) : String(index);
   };
 
-  const selectedIndex = variants.findIndex((variant) => {
-    if (variant.type !== "object") return false;
-    const disc = variant.shape[discriminator];
-    return disc?.type === "literal" && disc.value === currentDiscValue;
-  });
+  const selectedVariant = activeVariant(schema, value);
+  const selectedIndex = selectedVariant ? variants.indexOf(selectedVariant) : -1;
 
   const handleVariantChange = (index: number) => {
     const variant = variants[index];
     if (variant) onChange(getDefaultValue(variant));
   };
-
-  const selectedVariant = selectedIndex >= 0 ? variants[selectedIndex] : undefined;
 
   return (
     <fieldset className="rounded-md border border-border p-3">

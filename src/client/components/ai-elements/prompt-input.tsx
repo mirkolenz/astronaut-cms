@@ -491,7 +491,6 @@ export const PromptInput = ({
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
-  const submittingRef = useRef(false);
 
   // ----- Local attachments (only used when no provider)
   const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
@@ -792,8 +791,6 @@ export const PromptInput = ({
     async (event) => {
       event.preventDefault();
 
-      if (submittingRef.current) return;
-
       const form = event.currentTarget;
       const text = usingProvider
         ? controller.textInput.value
@@ -802,23 +799,11 @@ export const PromptInput = ({
             return (formData.get("message") as string) || "";
           })();
 
-      submittingRef.current = true;
-
       // Reset form immediately after capturing text to avoid race condition
       // where user input during async blob conversion would be lost
       if (!usingProvider) {
         form.reset();
       }
-
-      const restoreText = () => {
-        if (usingProvider || !text) return;
-
-        const input = form.elements.namedItem("message");
-
-        if (input instanceof HTMLTextAreaElement) {
-          input.value = input.value ? `${text}\n${input.value}` : text;
-        }
-      };
 
       try {
         // Convert blob URLs to data URLs asynchronously
@@ -848,7 +833,6 @@ export const PromptInput = ({
             }
           } catch {
             // Don't clear on error - user may want to retry
-            restoreText();
           }
         } else {
           // Sync function completed without throwing, clear inputs
@@ -859,9 +843,6 @@ export const PromptInput = ({
         }
       } catch {
         // Don't clear on error - user may want to retry
-        restoreText();
-      } finally {
-        submittingRef.current = false;
       }
     },
     [usingProvider, controller, files, onSubmit, clear],
@@ -936,16 +917,17 @@ export const PromptInputTextarea = ({
         if (e.shiftKey) {
           return;
         }
+        e.preventDefault();
+
         // Check if the submit button is disabled before submitting
         const { form } = e.currentTarget;
         const submitButton = form?.querySelector(
           'button[type="submit"]',
         ) as HTMLButtonElement | null;
-        if (!submitButton || submitButton.disabled) {
+        if (submitButton?.disabled) {
           return;
         }
 
-        e.preventDefault();
         form?.requestSubmit();
       }
 

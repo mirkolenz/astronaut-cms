@@ -94,11 +94,9 @@ function EntryEditor() {
 
   // Use ref for save to avoid event listener churn
   const saveRef = useRef<() => void>(() => {});
-  const savingRef = useRef(false);
   saveRef.current = () => {
-    if (!format || !isDirty || savingRef.current) return;
+    if (!format || !isDirty) return;
 
-    savingRef.current = true;
     saveMutation.mutate(
       // The version this edit was made against, so a save cannot silently
       // discard one that landed while the editor was open. A new entry has none:
@@ -131,9 +129,6 @@ function EntryEditor() {
           }
         },
         onError: (err) => toast(writeError(err), "error"),
-        onSettled: () => {
-          savingRef.current = false;
-        },
       },
     );
   };

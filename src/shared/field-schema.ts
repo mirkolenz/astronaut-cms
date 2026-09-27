@@ -100,6 +100,10 @@ export function isRequired(field: FieldSchema): boolean {
   return !field.optional && !field.nullable && field.default === undefined && !field.catch;
 }
 
+/** A plain object, as opposed to an array, a date or a primitive. */
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
+
 /** Returns the field map of an object schema, or `undefined` for any other type. */
 export function objectShape(
   schema: FieldSchema | null | undefined,

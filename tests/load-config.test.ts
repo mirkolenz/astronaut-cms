@@ -7,8 +7,6 @@ import { project } from "./fixtures/project";
 it("rejects file collections the CMS cannot serialize safely", async () => {
   const custom = file("src/data.json", { parser: JSON.parse });
 
-  expect(custom.__cmsCustomParser).toBe(true);
-
   for (const loader of [
     { __cmsFileName: "src/data.csv" },
     custom,

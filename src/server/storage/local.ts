@@ -16,7 +16,7 @@ import { basename, dirname, join, relative } from "pathe";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { StorageBase, type StorageOptions } from "./base.ts";
 import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
-import { getErrorCode, staleWrite, type Precondition } from "./types.ts";
+import { getErrorCode, isNotFound, staleWrite, type Precondition } from "./types.ts";
 import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
 import { partialContent, type ByteRange } from "../../shared/http.ts";
@@ -99,7 +99,7 @@ export class LocalStorage extends StorageBase {
     try {
       entries = await readdir(await this.resolve(dir), { withFileTypes: true, recursive: true });
     } catch (error) {
-      if (getErrorCode(error) === "ENOENT") return [];
+      if (isNotFound(error)) return [];
 
       throw error;
     }
@@ -267,7 +267,7 @@ async function canonical(path: string): Promise<string> {
     try {
       return join(await realpath(existing), ...tail);
     } catch (err) {
-      if (getErrorCode(err) !== "ENOENT") throw err;
+      if (!isNotFound(err)) throw err;
 
       const parent = dirname(existing);
 

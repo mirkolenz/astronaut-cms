@@ -192,7 +192,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {used && files && !scanning && !scanError ? (
+          {used && files && scanReady ? (
             <>
               <span className="text-xs text-muted-foreground">
                 {t(($) => $.media.unusedCount, {

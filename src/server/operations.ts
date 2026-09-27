@@ -19,6 +19,7 @@ import { collectionEnum } from "../shared/collection-schema.ts";
 import { ALL_FORMATS } from "../shared/types.ts";
 import { ContentValidationError, diagnostic, type Diagnostic } from "../shared/diagnostics.ts";
 import {
+  assetReferenceSchema,
   describeReference,
   referencesFor,
   type AssetReference,
@@ -126,16 +127,7 @@ function scan(ctx: RequestContext): Promise<ReferenceIndex> {
 }
 
 /** The references a human saw before accepting a destructive media action. */
-const acknowledgedReferences = z
-  .array(
-    z.object({
-      collection: z.string(),
-      entryId: z.string(),
-      where: z.string(),
-      declared: z.boolean(),
-    }),
-  )
-  .optional();
+const acknowledgedReferences = z.array(assetReferenceSchema).optional();
 
 function assertValid(diagnostics: Diagnostic[]): void {
   if (diagnostics.length > 0) throw new ContentValidationError(diagnostics);
@@ -187,6 +179,16 @@ async function assertReferencesAcknowledged(
   refuse(
     `"${location.path}" is still referenced by ${references.map(describeReference).join(", ")}. Update them first.`,
   );
+}
+
+/** In sequence, so a path outside the library never spends the scan budget. */
+async function assertMovable(
+  ctx: RequestContext,
+  file: MediaLocation,
+  acknowledged: AssetReference[] | undefined,
+): Promise<void> {
+  await assertInLibrary(ctx, file);
+  await assertReferencesAcknowledged(ctx, file, acknowledged);
 }
 
 export const operations = {
@@ -302,8 +304,7 @@ export const operations = {
     async (ctx, { library, from, to, acknowledgedReferences }) => {
       const file = { library, path: from };
 
-      await assertInLibrary(ctx, file);
-      await assertReferencesAcknowledged(ctx, file, acknowledgedReferences);
+      await assertMovable(ctx, file, acknowledgedReferences);
       await ctx.media(library).renameMedia(from, to);
 
       return ok;
@@ -313,8 +314,7 @@ export const operations = {
   deleteMedia: op(
     mediaFile.extend({ acknowledgedReferences }),
     async (ctx, { acknowledgedReferences, ...file }) => {
-      await assertInLibrary(ctx, file);
-      await assertReferencesAcknowledged(ctx, file, acknowledgedReferences);
+      await assertMovable(ctx, file, acknowledgedReferences);
       await ctx.media(file.library).deleteMedia(file.path);
 
       return ok;

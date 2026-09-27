@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { call } from "@/client/lib/api";
 import { cmsKeys } from "@/client/lib/query-keys";
@@ -25,8 +26,9 @@ export function useEntry(collection: string, id: string, options?: { enabled?: b
 
 export function useSaveEntry(collection: string, id: string) {
   const queryClient = useQueryClient();
+  const inFlight = useRef(false);
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (entry: SaveEntryRequest) => call("saveEntry", { collection, id, entry }),
     // The refetch the save triggered is still in flight, so the editor is given
     // the version its next save has to carry directly. Without it a second save
@@ -44,7 +46,20 @@ export function useSaveEntry(collection: string, id: string) {
           },
       );
     },
+    onSettled: () => {
+      inFlight.current = false;
+    },
   });
+
+  // A second save before the first settles would carry the same, soon stale, version.
+  const mutate: typeof mutation.mutate = (entry, options) => {
+    if (inFlight.current) return;
+
+    inFlight.current = true;
+    mutation.mutate(entry, options);
+  };
+
+  return { ...mutation, mutate };
 }
 
 export function useDeleteEntry(collection: string) {

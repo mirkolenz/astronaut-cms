@@ -1,4 +1,5 @@
 import { ALL_FORMATS } from "./types";
+import { isLibraryFile } from "./media";
 
 const ALLOWED_SEGMENT_CHARS = /^[a-zA-Z0-9_-]+$/;
 
@@ -76,4 +77,12 @@ export function mediaPathError(value: string, name = "media path"): string | nul
   }
 
   return null;
+}
+
+/** Why a path is not a file a media library admits, or null when it is one. */
+export function libraryPathError(path: string, extensions: readonly string[] | null): string | null {
+  return (
+    mediaPathError(path) ??
+    (isLibraryFile(path, extensions) ? null : `"${path}" is hidden or not of an allowed media type.`)
+  );
 }

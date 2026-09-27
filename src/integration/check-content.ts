@@ -1,8 +1,10 @@
 import { statSync } from "node:fs";
-import { extname, join } from "pathe";
+import { join } from "pathe";
 import { validateAgainstSchema } from "../shared/collection-schema.ts";
 import { formatDiagnostic } from "../shared/diagnostics.ts";
-import { isLibraryFile, mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
+import { getFileExtension } from "../shared/content-parser.ts";
+import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
+import { libraryPathError } from "../shared/validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import type { ContentEntry } from "./content-files.ts";
@@ -58,14 +60,11 @@ function assetProblems(
     if (location?.library === "s3") return repoOnly ? [`${file} (${where}): ${repoOnlyRefusal(value)}`] : [];
 
     const key = location?.path;
-    const path = key && join(rootDir, media.repo.directory, key);
     const resolvable =
-      key &&
-      key === join("/", key).slice(1) &&
-      isLibraryFile(key, media.repo.extensions) &&
-      path &&
-      isRegularFile(path) &&
-      (kind !== "image" || ASTRO_IMAGE_FORMATS.some((format) => format === extname(path).slice(1)));
+      key !== undefined &&
+      libraryPathError(key, media.repo.extensions) === null &&
+      isRegularFile(join(rootDir, media.repo.directory, key)) &&
+      (kind !== "image" || ASTRO_IMAGE_FORMATS.some((format) => format === getFileExtension(key)));
 
     return resolvable
       ? []

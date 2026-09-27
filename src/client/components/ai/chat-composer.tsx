@@ -9,6 +9,7 @@ import {
   PromptInputButton,
   PromptInputFooter,
   PromptInputHeader,
+  PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
   type PromptInputMessage,
@@ -128,6 +129,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatRevision = useRef(0);
+  const submitting = useRef(false);
 
   const addFiles = (list: FileList | File[]) => {
     const incoming = [...list].map((file) => ({ id: nanoid(), file, save: false }));
@@ -161,8 +163,14 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     const text = message.text?.trim() ?? "";
     const revision = chatRevision.current;
 
+    // The input keeps its text whenever this throws, so a refused or failed send loses nothing.
+    if (submitting.current || status === "submitted" || status === "streaming") {
+      throw new Error("A message is already being sent.");
+    }
+
     if (!text && attachments.length === 0) return;
 
+    submitting.current = true;
     setPreparing(true);
 
     let prepared;
@@ -174,6 +182,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
       toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
       throw error;
     } finally {
+      submitting.current = false;
       setPreparing(false);
     }
 
@@ -184,99 +193,101 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   };
 
   return (
-    <PromptInput onSubmit={handleSubmit} className={className} accept={ATTACHMENT_ACCEPT} multiple>
-      {attachments.length > 0 && (
-        <PromptInputHeader>
-          {attachments.map((attachment) => (
-            <AttachmentChip
-              key={attachment.id}
-              attachment={attachment}
-              onRemove={removeAttachment}
-              onToggleSave={toggleSave}
-            />
-          ))}
-        </PromptInputHeader>
-      )}
-
-      <PromptInputBody>
-        <PromptInputTextarea placeholder={t(($) => $.ai.placeholder)} onPaste={handlePaste} />
-      </PromptInputBody>
-
-      <PromptInputFooter>
-        <PromptInputButton
-          tooltip={t(($) => $.ai.attach)}
-          aria-label={t(($) => $.ai.attach)}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Paperclip className="size-4" />
-        </PromptInputButton>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={ATTACHMENT_ACCEPT}
-          className="hidden"
-          onChange={handleInputChange}
-        />
-
-        {/* Unmounted rather than disabled while there is nothing to clear: the
-            surrounding input group mutes its entire contents whenever any
-            descendant is disabled. Stops a running turn first; `stop` is a no-op
-            when idle. */}
-        {messages.length > 0 && (
-          <PromptInputButton
-            tooltip={t(($) => $.ai.newChat)}
-            aria-label={t(($) => $.ai.newChat)}
-            onClick={() => {
-              chatRevision.current++;
-              setAttachments([]);
-              void stop();
-              clearChat();
-            }}
-          >
-            <SquarePen className="size-4" />
-          </PromptInputButton>
+    <PromptInputProvider>
+      <PromptInput onSubmit={handleSubmit} className={className} accept={ATTACHMENT_ACCEPT} multiple>
+        {attachments.length > 0 && (
+          <PromptInputHeader>
+            {attachments.map((attachment) => (
+              <AttachmentChip
+                key={attachment.id}
+                attachment={attachment}
+                onRemove={removeAttachment}
+                onToggleSave={toggleSave}
+              />
+            ))}
+          </PromptInputHeader>
         )}
 
-        <Select value={effort} onValueChange={(value) => setEffort(value as ReasoningEffort)}>
-          <SelectTrigger
-            className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none"
-            aria-label={t(($) => $.ai.reasoning)}
-          >
-            <Brain className="size-3.5 shrink-0 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {REASONING_EFFORTS.map((level) => (
-              <SelectItem key={level} value={level}>
-                {effortLabel(t, level)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <PromptInputBody>
+          <PromptInputTextarea placeholder={t(($) => $.ai.placeholder)} onPaste={handlePaste} />
+        </PromptInputBody>
 
-        {aiConfig && aiConfig.models.length > 1 && (
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none">
+        <PromptInputFooter>
+          <PromptInputButton
+            tooltip={t(($) => $.ai.attach)}
+            aria-label={t(($) => $.ai.attach)}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="size-4" />
+          </PromptInputButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ATTACHMENT_ACCEPT}
+            className="hidden"
+            onChange={handleInputChange}
+          />
+
+          {/* Unmounted rather than disabled while there is nothing to clear: the
+              surrounding input group mutes its entire contents whenever any
+              descendant is disabled. Stops a running turn first; `stop` is a no-op
+              when idle. */}
+          {messages.length > 0 && (
+            <PromptInputButton
+              tooltip={t(($) => $.ai.newChat)}
+              aria-label={t(($) => $.ai.newChat)}
+              onClick={() => {
+                chatRevision.current++;
+                setAttachments([]);
+                void stop();
+                clearChat();
+              }}
+            >
+              <SquarePen className="size-4" />
+            </PromptInputButton>
+          )}
+
+          <Select value={effort} onValueChange={(value) => setEffort(value as ReasoningEffort)}>
+            <SelectTrigger
+              className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none"
+              aria-label={t(($) => $.ai.reasoning)}
+            >
+              <Brain className="size-3.5 shrink-0 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {aiConfig.models.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {id}
+              {REASONING_EFFORTS.map((level) => (
+                <SelectItem key={level} value={level}>
+                  {effortLabel(t, level)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        )}
 
-        <PromptInputSubmit
-          className="ml-auto"
-          status={preparing ? "submitted" : status}
-          onStop={stop}
-          disabled={preparing}
-        />
-      </PromptInputFooter>
-    </PromptInput>
+          {aiConfig && aiConfig.models.length > 1 && (
+            <Select value={model} onValueChange={setModel}>
+              <SelectTrigger className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {aiConfig.models.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <PromptInputSubmit
+            className="ml-auto"
+            status={preparing ? "submitted" : status}
+            onStop={stop}
+            disabled={preparing}
+          />
+        </PromptInputFooter>
+      </PromptInput>
+    </PromptInputProvider>
   );
 }

@@ -1,5 +1,5 @@
-import type { FieldSchema } from "./field-schema";
-import { fieldSchemaToZod } from "@/shared/field-to-zod";
+import { isRecord, type FieldSchema } from "@/shared/field-schema";
+import { activeVariant } from "@/shared/field-to-zod";
 
 // Walks a (FieldSchema, value) pair in tandem and collects every leaf that holds
 // a path to another resource: a cross-collection `reference` or an `image`/`file`
@@ -14,10 +14,6 @@ export interface ResolvableLeaf {
   repoOnly?: true;
   value: string;
   path: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function child(path: string, key: string | number): string {
@@ -74,9 +70,7 @@ export function collectResolvableLeaves(
         : [];
 
     case "union": {
-      const variant = schema.variants.find((candidate) =>
-        fieldSchemaToZod(candidate).safeParse(value).success,
-      );
+      const variant = activeVariant(schema, value);
 
       return variant ? collectResolvableLeaves(variant, value, path) : [];
     }

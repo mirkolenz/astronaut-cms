@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FieldSchema } from "./field-schema.ts";
+import { isRecord, type FieldSchema } from "./field-schema.ts";
 import {
   allowedLinks,
   containsLink,
@@ -179,4 +179,28 @@ export function fieldSchemaToZod(field: FieldSchema): z.ZodType {
   cache.set(field, schema);
 
   return schema;
+}
+
+/**
+ * The variant of `schema` that `value` belongs to.
+ * A discriminated union is resolved by its tag alone,
+ * a plain union by the first variant that validates.
+ */
+export function activeVariant(
+  schema: Extract<FieldSchema, { type: "union" }>,
+  value: unknown,
+): FieldSchema | undefined {
+  const { discriminator, variants } = schema;
+
+  if (discriminator) {
+    if (!isRecord(value)) return undefined;
+
+    return variants.find((variant) => {
+      const tag = variant.type === "object" ? variant.shape[discriminator] : undefined;
+
+      return tag !== undefined && fieldSchemaToZod(tag).safeParse(value[discriminator]).success;
+    });
+  }
+
+  return variants.find((variant) => fieldSchemaToZod(variant).safeParse(value).success);
 }

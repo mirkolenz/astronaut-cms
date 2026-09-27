@@ -264,7 +264,6 @@ function FileEntryCard({
   const [isDirty, setIsDirty] = useState(!!draft);
   const baselineVersion = useRef<string | undefined>(undefined);
   const baselineData = useRef<string | undefined>(undefined);
-  const savingRef = useRef(false);
 
   useEffect(() => {
     const dirtyKey = draft ? `draft:${entryId}` : entryId;
@@ -300,9 +299,7 @@ function FileEntryCard({
   const handleSave = () => {
     const entryFormat = entry?.format ?? format;
 
-    if (!entryFormat || savingRef.current) return;
-
-    savingRef.current = true;
+    if (!entryFormat) return;
 
     saveMutation.mutate(
       // In a file collection this is the container's version, which every entry
@@ -322,9 +319,6 @@ function FileEntryCard({
           onCreated?.();
         },
         onError: (err) => toast(writeError(err), "error"),
-        onSettled: () => {
-          savingRef.current = false;
-        },
       },
     );
   };

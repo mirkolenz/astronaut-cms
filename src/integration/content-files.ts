@@ -47,15 +47,13 @@ export function contentEntries(
     // A file collection names a literal path, which may contain glob characters.
     const isFile = collection.loaderType === "file";
     const files = isFile
-      ? collection.loaderFileName ? [join(rootDir, collection.loaderFileName)] : []
+      ? (collection.loaderFileName ? [join(rootDir, collection.loaderFileName)] : []).filter((path) => existsSync(path))
       : globFiles(
           join(rootDir, collectionBase(collection.name, collection)),
           collection.loaderPattern ?? "**/*",
         );
 
     for (const path of files) {
-      if (isFile && !existsSync(path)) continue;
-
       const file = relative(rootDir, path);
       const raw = readFileSync(path, "utf-8");
       const format = getFileExtension(file);

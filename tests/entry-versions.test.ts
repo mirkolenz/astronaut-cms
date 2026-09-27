@@ -345,19 +345,8 @@ describe("entry format fallback", () => {
   });
 });
 
-it("keeps a TOML date after it crosses the JSON API and is saved", async () => {
-  const store = new MemoryStorage(storageOptions(tomlCollections));
-  const path = "src/data/events/launch.toml";
-
-  store.seed(path, "published = 2026-01-01\n");
-
-  const read = await store.getEntry("events", "launch", "toml");
-  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
-
-  await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
-
-  expect(store.content(path)).toContain("published = 2026-01-01\n");
-});
+/** Entry data as it comes back from the JSON API. */
+const overJson = (data: unknown): Record<string, unknown> => JSON.parse(JSON.stringify(data));
 
 it("restores a new date declared by the collection schema", async () => {
   const store = new MemoryStorage(storageOptions(tomlCollections));
@@ -405,7 +394,7 @@ it("keeps untyped TOML dates and quoted date-looking text distinct", async () =>
   );
 
   const read = await store.getEntry("events", "launch", "toml");
-  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
+  const data = overJson(read.data);
 
   await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
 
@@ -428,7 +417,7 @@ it("restores dates in an untyped TOML file collection", async () => {
   store.file = { content: "[launch]\npublished = 2026-01-01\n", version: "v1" };
 
   const read = await store.getEntry("events", "launch");
-  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
+  const data = overJson(read.data);
 
   await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
 

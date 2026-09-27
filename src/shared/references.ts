@@ -4,17 +4,20 @@
  * a list of pairs rather than a Map; everything derived from it is a pure
  * function and lives here, where both sides can reach it.
  */
+import { z } from "zod";
 import type { MediaLibraryId, MediaLocation } from "./media.ts";
 
 /** A reference an entry holds. */
-export interface AssetReference {
-  collection: string;
-  entryId: string;
+export const assetReferenceSchema = z.object({
+  collection: z.string(),
+  entryId: z.string(),
   /** The field or prop holding it, or the body it was found in. */
-  where: string;
+  where: z.string(),
   /** False when only a textual match backs it, e.g. a markdown image. */
-  declared: boolean;
-}
+  declared: z.boolean(),
+});
+
+export type AssetReference = z.infer<typeof assetReferenceSchema>;
 
 /** Library and path, as one key. */
 export const fileKey = (library: MediaLibraryId, path: string): string => `${library}:${path}`;
