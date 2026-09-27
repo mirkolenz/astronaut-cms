@@ -10,11 +10,11 @@
  * Keep this module small and keep its static imports trivial. Anything imported
  * at the top lands in the shell's chunk and is served to anyone who asks.
  */
-import { API_SESSION, type SessionState } from "@/shared/auth";
+import { ADMIN_ROOT_ID, API_SESSION, type SessionState } from "@/shared/auth";
 import { setConfig } from "@/client/lib/config";
 import { apiFetch, apiUrl } from "@/client/lib/routes";
 
-const root = document.getElementById("astronaut-cms-root");
+const root = document.getElementById(ADMIN_ROOT_ID);
 const panel = document.getElementById("astronaut-cms-signin");
 
 /** Reveals the shell's own sign-in panel, which is why nothing here builds markup. */

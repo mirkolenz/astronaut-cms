@@ -33,8 +33,7 @@ import { join } from "pathe";
 import { assetKey } from "../shared/asset-path.ts";
 import { mediaPath, remoteMediaUrl, type ClientMediaBackend } from "../shared/media.ts";
 import { isAbsoluteUrl } from "../shared/url.ts";
-import config from "virtual:astronaut-cms/config";
-import { images, files, referencedOnly } from "virtual:astronaut-cms/assets";
+import { images, files, media, referencedOnly } from "virtual:astronaut-cms/assets";
 
 type RemoteBackend = Extract<ClientMediaBackend, { type: "remote" }>;
 
@@ -53,9 +52,7 @@ export type ResolvedImage = MediaRegistry extends { backend: "repo" }
   : ImageMetadata | string;
 type AssetKind = "image" | "file";
 
-// Read from the config module rather than the generated one, so `publicUrl` has a single source.
-const remote: RemoteBackend | null =
-  config.mediaBackend.type === "remote" ? config.mediaBackend : null;
+const remote: RemoteBackend | null = media.mediaBackend.type === "remote" ? media.mediaBackend : null;
 
 /**
  * A key resolves without a lookup, since only the store knows what it holds, so
@@ -64,7 +61,7 @@ const remote: RemoteBackend | null =
  * which is what a site migrating from a repository library runs into.
  */
 function libraryKey(path: string): string {
-  const key = mediaPath(path, config);
+  const key = mediaPath(path, media);
 
   if (key == null) {
     throw new Error(
@@ -94,7 +91,7 @@ async function resolve<T>(
 
   const key = libraryKey(path);
 
-  if (remote.local) return load(map, kind, join("/", config.mediaDirectory, key));
+  if (remote.local) return load(map, kind, join("/", media.mediaDirectory, key));
 
   // Pure string work, which never reaches the store.
   return remoteMediaUrl(key, remote.publicUrl);

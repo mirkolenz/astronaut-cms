@@ -1,6 +1,7 @@
 import type { ContentI18n } from "../shared/i18n.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
 import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
+import type { CollectionManifest } from "../shared/types.ts";
 
 export type { AiGateway };
 
@@ -406,6 +407,8 @@ export type ServerStorageConfig =
 export type CmsRuntime = "cloudflare" | "node";
 
 export interface CmsServerConfig {
+  /** The site's `trailingSlash` policy, which the CMS's own URLs have to follow for Astro to match them. */
+  trailingSlash: "always" | "never" | "ignore";
   storage: ServerStorageConfig;
   /** Null when the media library lives in the repository. */
   media: MediaServerConfig | null;
@@ -420,9 +423,6 @@ export interface CmsServerConfig {
 export interface CmsClientConfig {
   mountPoint: string;
   storageType: "local" | "github" | "gitlab";
-  // The host site's Astro `trailingSlash` policy, so the client can address the
-  // injected relay route (an API endpoint) in the form Astro will actually match.
-  trailingSlash: "always" | "never" | "ignore";
   mediaDirectory: string;
   /** File extensions the media library lists, e.g. [".png", ".pdf"], or null for any file. */
   mediaExtensions: string[] | null;
@@ -452,4 +452,5 @@ export interface CmsClientConfig {
   capabilities: { publish: boolean; update: boolean };
   /** Present exactly when the tools are exposed to agents in the browser. */
   webmcp?: { originTrialToken?: string };
+  collections: CollectionManifest;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertEntryWritable } from "@/server/validation";
+import { assertEntryWritable, type ContentSource } from "@/server/validation";
 import { validateAgainstSchema } from "@/shared/collection-schema";
 import { ContentValidationError } from "@/shared/diagnostics";
 import type { CollectionManifestEntry } from "@/shared/types";
@@ -55,9 +55,11 @@ describe("validateAgainstSchema", () => {
 });
 
 // Storage refuses the write itself, so no caller can skip the check.
-const source = {
+const source: ContentSource = {
   listEntries: () => Promise.resolve([{ id: "a" }]),
   listMedia: () => Promise.resolve([{ path: "hero.svg" }]),
+  media: { mediaBackend: { type: "repo" }, mediaDirectory: "src/assets" },
+  components: {},
 };
 
 const complete = { title: "T", publishDate: "2026-01-01", cover: "/src/assets/hero.svg" };

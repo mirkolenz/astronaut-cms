@@ -5,7 +5,7 @@ import { GitHubStorage } from "@/server/storage/github";
 import { GitLabStorage } from "@/server/storage/gitlab";
 import { getErrorStatus, StaleWriteError } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
-import collections from "virtual:astronaut-cms/collections";
+import { client } from "virtual:astronaut-cms/server";
 
 // The provider SDKs were 1.1 MB of runtime JavaScript for twenty-nine endpoints,
 // so the CMS calls them over `fetch` instead. These pin what that hand-written
@@ -54,10 +54,12 @@ afterEach(() => {
 });
 
 const options: StorageOptions = {
-  collections,
+  collections: client.collections,
   mediaDirectory: "src/assets",
   mediaExtensions: [".png"],
   maxFileSize: null,
+  mediaBackend: { type: "repo" },
+  components: {},
   login: "alice",
 };
 

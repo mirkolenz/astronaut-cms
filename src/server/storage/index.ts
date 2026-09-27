@@ -1,6 +1,5 @@
-import { LocalStorage } from "virtual:astronaut-cms/local-storage";
-import collections from "virtual:astronaut-cms/collections";
-import serverConfig from "virtual:astronaut-cms/server";
+import { client, components, server as serverConfig } from "virtual:astronaut-cms/server";
+import { LocalStorage } from "virtual:astronaut-cms/runtime";
 import type { StorageBackend } from "./types.ts";
 import { GitHubStorage } from "./github.ts";
 import { GitLabStorage } from "./gitlab.ts";
@@ -22,10 +21,12 @@ export type { StorageBackend };
 export function createStorage(session: Session): StorageBase {
   const { storage } = serverConfig;
   const options: StorageOptions = {
-    collections,
+    collections: client.collections,
     mediaDirectory: serverConfig.mediaDirectory,
     mediaExtensions: serverConfig.mediaExtensions,
     maxFileSize: serverConfig.maxFileSize,
+    mediaBackend: client.mediaBackend,
+    components,
     login: session.login,
   };
 

@@ -4,7 +4,7 @@ import { INVALIDATIONS } from "@/client/lib/query-keys";
 import { operations } from "@/server/operations";
 import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
 import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
-import collections from "virtual:astronaut-cms/collections";
+import { client } from "virtual:astronaut-cms/server";
 import { createCmsTools } from "@/shared/tools/catalog";
 import { TOOL_NAME_PATTERN, unexposable } from "@/shared/tools/exposable";
 import type { CmsCall, CmsToolSet, ToolConfig } from "@/shared/tools/types";
@@ -13,6 +13,7 @@ const config: ToolConfig = {
   mediaBackend: { type: "repo" },
   mediaDirectory: "src/assets",
   contentI18n: null,
+  collections: client.collections,
 };
 
 const unreachable: CmsCall = () => Promise.reject(new Error("the server should not be reached"));
@@ -74,7 +75,7 @@ describe("the tool catalog", () => {
 // collection the CMS is perfectly happy with would otherwise take the assistant
 // down. Caught at build, where the person who can rename it is looking.
 it("refuses a collection no tool can be named after", () => {
-  const col = collections.posts!;
+  const col = client.collections.posts!;
 
   expect(unexposable("posts", col)).toBeNull();
   expect(unexposable("blog posts", col)).toMatch(/not a usable tool name/);

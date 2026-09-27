@@ -9,7 +9,6 @@ import {
   useFileLayout,
   useReorderFileEntries,
 } from "@/client/queries/use-entries";
-import { useCollections } from "@/client/queries/use-collections";
 import { useWriteError } from "@/client/lib/write-error";
 import { FieldRenderer } from "@/client/components/editors/field-renderer";
 import { isRequired, objectShape, type FieldSchema } from "@/shared/field-schema";
@@ -24,14 +23,13 @@ import { toLabel } from "@/client/lib/to-label";
 import { getFileExtension } from "@/shared/content-parser";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
-import collectionMeta from "virtual:astronaut-cms/collections";
+import config from "@/client/lib/config";
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
   const { data: entries, isLoading, error } = useEntries(collection);
-  const { data: collections } = useCollections();
-  const schema = collections?.[collection]?.schema ?? undefined;
-  const meta = collectionMeta[collection];
+  const meta = config.collections[collection];
+  const schema = meta?.schema ?? undefined;
   const format =
     (meta?.loaderFileName && asEntryFormat(getFileExtension(meta.loaderFileName))) || "json";
   const { data: file } = useFileLayout(collection);

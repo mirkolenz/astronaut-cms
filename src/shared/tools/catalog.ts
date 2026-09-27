@@ -22,7 +22,6 @@
  * list is the whole of what it is told.
  */
 import { z } from "zod";
-import collections from "virtual:astronaut-cms/collections";
 import {
   collectionDataSchema,
   collectionEnum,
@@ -41,8 +40,6 @@ import {
   type ToolContext,
   type ToolRefusal,
 } from "./types.ts";
-
-const collection = collectionEnum(collections).describe("Name of a content or data collection.");
 
 const entryId = z.string().describe('Id of an entry, as listEntries reports it (e.g. "about").');
 
@@ -149,6 +146,10 @@ function guarded(tools: CmsToolSet): CmsToolSet {
  * definitions serve the browser and, in time, an MCP server.
  */
 export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
+  const collection = collectionEnum(config.collections).describe(
+    "Name of a content or data collection.",
+  );
+
   /**
    * One full-overwrite tool per collection, carrying that collection's exact
    * data schema and format set. The two kinds differ only in the markdown
@@ -245,7 +246,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
   // name, so including it would cost the whole catalog rather than that one
   // collection. Reading it still works, through the tools that take a name.
   const entryTools: CmsToolSet = Object.fromEntries(
-    Object.entries(collections)
+    Object.entries(config.collections)
       .filter(([name, col]) => unexposable(name, col) === null)
       .flatMap(([name, col]) => [
         [`writeEntry_${name}`, writeEntryTool(name, col)],

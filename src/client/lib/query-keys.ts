@@ -20,7 +20,6 @@ const root = ["cms"] as const;
 export const cmsKeys = {
   /** Everything the CMS caches, for the writes that age all of it. */
   all: root,
-  collections: [...root, "collections"],
   entries: (collection: string) => [...root, "entries", collection],
   /** Without an id: every entry of the collection. */
   entry: (collection: string, id?: string) =>

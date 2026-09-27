@@ -14,7 +14,7 @@
  * drift from what the server actually accepts.
  */
 import { z } from "zod";
-import collections from "virtual:astronaut-cms/collections";
+import { client } from "virtual:astronaut-cms/server";
 import { collectionEnum } from "../shared/collection-schema.ts";
 import { ALL_FORMATS } from "../shared/types.ts";
 import { ContentValidationError, diagnostic, type Diagnostic } from "../shared/diagnostics.ts";
@@ -68,7 +68,7 @@ const ok = { ok: true } as const;
 
 const none = z.object({});
 
-const collection = collectionEnum(collections);
+const collection = collectionEnum(client.collections);
 
 const entryRef = z.object({ collection, id: z.string() });
 

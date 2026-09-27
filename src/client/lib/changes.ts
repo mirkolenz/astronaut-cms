@@ -1,4 +1,3 @@
-import collections from "virtual:astronaut-cms/collections";
 import config from "@/client/lib/config";
 import { stripExtension, stripMediaPrefix } from "@/shared/paths";
 import { collectionBase, type FileChange } from "@/shared/types";
@@ -22,7 +21,7 @@ export interface DescribedChange extends FileChange {
 export function describeChange(change: FileChange): DescribedChange {
   const { path } = change;
 
-  for (const [name, col] of Object.entries(collections)) {
+  for (const [name, col] of Object.entries(config.collections)) {
     if (col.loaderFileName) {
       if (path === col.loaderFileName) return { ...change, collection: name, label: name };
       continue;

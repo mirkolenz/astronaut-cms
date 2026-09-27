@@ -7,7 +7,7 @@ import {
   type AssetReference,
   type ReferenceIndex,
 } from "@/shared/references";
-import config from "virtual:astronaut-cms/config";
+import { client as config } from "virtual:astronaut-cms/server";
 import type { CollectionManifestEntry } from "@/shared/types";
 
 // What may be deleted is decided by two different kinds of evidence: a schema

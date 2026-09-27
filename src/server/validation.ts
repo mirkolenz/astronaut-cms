@@ -1,12 +1,11 @@
-import config from "virtual:astronaut-cms/config";
 import { validateAgainstSchema } from "@/shared/collection-schema";
 import { validatePath } from "@/shared/validation";
-import { describeMediaRef, mediaPath } from "@/shared/media";
+import { describeMediaRef, mediaPath, type MediaRefConfig } from "@/shared/media";
 import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
 import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
-import { components } from "virtual:astronaut-cms/user-config";
 import { validateBody } from "@/shared/body-validation";
 import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
+import type { ComponentSchemaMap } from "@/shared/field-schema";
 
 /**
  * What the checks need to look things up. The storage backend is passed in
@@ -19,6 +18,10 @@ export interface MediaSource {
 
 export interface ContentSource extends MediaSource {
   listEntries(collection: string): Promise<{ id: string }[]>;
+  /** How an asset value addresses the library. */
+  media: MediaRefConfig;
+  /** The components a body may use, with the prop schemas their values follow. */
+  components: ComponentSchemaMap;
 }
 
 /** Every library path the backend reports, as the checks below compare against it. */
@@ -107,7 +110,7 @@ async function checkReferences(
  * further and refuses to start, since the same walk decides what is bundled.
  */
 async function checkAssets(
-  source: MediaSource,
+  source: ContentSource,
   assets: ResolvableLeaf[],
   base?: string,
 ): Promise<Diagnostic[]> {
@@ -116,11 +119,11 @@ async function checkAssets(
   const paths = await libraryPaths(source);
 
   return assets.flatMap((asset) => {
-    const path = mediaPath(asset.value, config, base);
+    const path = mediaPath(asset.value, source.media, base);
 
     if (path == null) {
       return diagnostic(
-        `"${asset.value}" does not address the media library. An asset value must be ${describeMediaRef(config)}; upload the file there and use the path the media library reports.`,
+        `"${asset.value}" does not address the media library. An asset value must be ${describeMediaRef(source.media)}; upload the file there and use the path the media library reports.`,
         asset.path,
       );
     }
@@ -187,7 +190,7 @@ async function validateEntryWrite(
   source: ContentSource,
   { col, id, data, body, format }: EntryWrite,
 ): Promise<Diagnostic[]> {
-  const parsed = validateBody(body, format, components);
+  const parsed = validateBody(body, format, source.components);
 
   return [
     ...validateEntryId(id),

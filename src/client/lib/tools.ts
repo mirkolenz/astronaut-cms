@@ -9,7 +9,6 @@ import { call } from "@/client/lib/api";
 import config from "@/client/lib/config";
 import { createCmsTools } from "@/shared/tools/catalog";
 
-// `config` is filled in place by `bootstrap.ts` before the admin chunk is
-// imported, and every tool reads it when it runs rather than now, so binding it
-// here is safe.
+// Safe at module scope: `bootstrap.ts` fills `config` in place before the admin
+// chunk is imported.
 export const cmsToolCatalog = createCmsTools({ call, config });

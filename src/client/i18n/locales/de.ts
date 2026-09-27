@@ -35,7 +35,6 @@ const de: TranslationShape<typeof en> = {
     contentCollection: "Inhaltssammlung",
     dataCollection: "Datensammlung",
     fields: "{{count}} Felder",
-    failedLoad: "Sammlungen konnten nicht geladen werden: {{message}}",
   },
   collection: {
     newEntry: "Neuer Eintrag",

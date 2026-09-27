@@ -8,7 +8,12 @@ import type { CmsClientConfig } from "../integration/types.ts";
  * Who issued the session. `local` is `astro dev` against the working tree, which
  * has no provider and therefore no sign-in at all.
  */
-export type Provider = "github" | "gitlab" | "local";
+export const PROVIDERS = ["github", "gitlab", "local"] as const;
+
+export type Provider = (typeof PROVIDERS)[number];
+
+/** The element the shell renders and the admin mounts into, carrying the site's routing. */
+export const ADMIN_ROOT_ID = "astronaut-cms-root";
 
 /** Root-relative base of the CMS API. Astro prepends the site `base`. */
 export const API_BASE = "/_astronaut-cms/api";

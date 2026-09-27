@@ -45,13 +45,7 @@ const schemas: CollectionManifest = {
 };
 
 describe("StorageBase glob paths", () => {
-  const storage = new TestStorage({
-    collections: schemas,
-    mediaDirectory: "src/assets",
-    mediaExtensions: [".png"],
-    maxFileSize: null,
-    login: "test",
-  });
+  const storage = new TestStorage(storageOptions(schemas));
 
   it("resolves the collection path from the loader base, not the key", () => {
     expect(storage.collectionPath("posts")).toBe("src/content/blog");

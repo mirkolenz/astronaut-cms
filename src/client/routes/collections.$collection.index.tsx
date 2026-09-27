@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { EntryFormat } from "@/shared/types";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries } from "@/client/queries/use-entries";
-import { useCollections } from "@/client/queries/use-collections";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { toLabel } from "@/client/lib/to-label";
@@ -13,11 +11,16 @@ import { localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
 import { LocaleTabs } from "@/client/components/locale-tabs";
 import { TranslationStatus } from "@/client/components/translation-status";
-import { compareIds, extractFormatsFromLoader } from "@/shared/types";
+import {
+  compareIds,
+  extractFormatsFromLoader,
+  type CollectionManifestEntry,
+  type EntryFormat,
+} from "@/shared/types";
 import { FileCollectionEditor } from "@/client/components/file-collection-editor";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
-import collectionMeta from "virtual:astronaut-cms/collections";
+import config from "@/client/lib/config";
 
 export const Route = createFileRoute("/collections/$collection/")({
   component: CollectionPage,
@@ -29,11 +32,9 @@ export const Route = createFileRoute("/collections/$collection/")({
 
 function CollectionPage() {
   const { collection } = Route.useParams();
-  const { data: collections } = useCollections();
-  const collectionInfo = collections?.[collection];
-  const meta = collectionMeta[collection];
+  const collectionInfo = config.collections[collection];
 
-  if (meta?.loaderType === "file") {
+  if (collectionInfo?.loaderType === "file") {
     return <FileCollectionEditor collection={collection} />;
   }
 
@@ -45,7 +46,7 @@ function GlobCollectionPage({
   collectionInfo,
 }: {
   collection: string;
-  collectionInfo?: (typeof collectionMeta)[string];
+  collectionInfo?: CollectionManifestEntry;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();

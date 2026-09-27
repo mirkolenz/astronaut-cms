@@ -32,7 +32,6 @@ const en = {
     contentCollection: "Content collection",
     dataCollection: "Data collection",
     fields: "{{count}} fields",
-    failedLoad: "Failed to load collections: {{message}}",
   },
   collection: {
     newEntry: "New Entry",

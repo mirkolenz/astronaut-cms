@@ -22,6 +22,7 @@ import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
 import { DEFAULT_AI_MAX_STEPS, gatewayEndpoint, isAddressable } from "../shared/ai.ts";
 import { parseRepo } from "../shared/repo.ts";
+import type { CollectionManifest } from "../shared/types.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
 export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
@@ -82,16 +83,15 @@ const mediaDirectory = (config: CmsConfig): string =>
 
 export function resolveClientConfig(
   config: CmsConfig,
-  trailingSlash: "always" | "never" | "ignore",
   astroI18n: AstroI18n | undefined,
   localMedia: boolean,
+  collections: CollectionManifest,
 ): CmsClientConfig {
   const type = storageType(config);
 
   return {
     mountPoint: config.mountPoint ?? DEFAULT_MOUNT_POINT,
     storageType: type,
-    trailingSlash,
     mediaDirectory: mediaDirectory(config),
     mediaExtensions: mediaExtensions(config),
     maxFileSize: config.media?.maxFileSize ?? null,
@@ -118,6 +118,7 @@ export function resolveClientConfig(
     ...(config.webmcp?.enabled && {
       webmcp: { originTrialToken: config.webmcp.originTrialToken },
     }),
+    collections,
   };
 }
 
@@ -256,8 +257,10 @@ export function resolveServerConfig(
   config: CmsConfig,
   rootDir: string,
   media: MediaServerConfig | null,
+  trailingSlash: AstroConfig["trailingSlash"],
 ): CmsServerConfig {
   return {
+    trailingSlash,
     storage: resolveServerStorage(config, rootDir),
     media,
     ai: resolveAiServer(config),

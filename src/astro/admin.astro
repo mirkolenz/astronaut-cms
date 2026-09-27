@@ -1,7 +1,7 @@
 ---
 import "astronaut-cms/styles.css";
-import config from "virtual:astronaut-cms/config";
-import { HARDENING_HEADERS } from "astronaut-cms/internal";
+import { client as config, server } from "virtual:astronaut-cms/server";
+import { ADMIN_ROOT_ID, HARDENING_HEADERS } from "astronaut-cms/internal";
 
 // A shell. It reads no session and carries no configuration: the bootstrap it
 // loads asks the server who is asking, and only then imports the admin. That is
@@ -112,7 +112,11 @@ window.$RefreshSig$ = () => (type) => type;`;
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body>
-    <div id="astronaut-cms-root"></div>
+    <div
+      id={ADMIN_ROOT_ID}
+      data-base={import.meta.env.BASE_URL}
+      data-trailing-slash={server.trailingSlash}
+    ></div>
     <!-- The whole of the anonymous admin, rendered here rather than built in
          script: the shell already emits HTML, so the sign-in screen costs no
          second rendering path and no escaping of the provider's message. Hidden

@@ -1,5 +1,5 @@
 import { usePublisher, insertJsx$ } from "@mdxeditor/editor";
-import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
+import type { ClientComponentDef } from "@/internal/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { objectShape } from "@/shared/field-schema";
 import { getDefaultValue } from "./field-renderer";

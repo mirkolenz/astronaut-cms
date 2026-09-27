@@ -28,6 +28,7 @@ function stubFetch(reply: (ops: Array<{ op: string }>) => { status?: number; bod
 beforeEach(() => {
   requests.length = 0;
   vi.stubGlobal("window", { location: { origin: "https://x.test", reload: () => {} } });
+  vi.stubGlobal("document", { getElementById: () => null });
 });
 
 afterEach(() => {

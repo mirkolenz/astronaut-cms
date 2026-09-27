@@ -12,6 +12,7 @@ import type { z } from "zod";
 import type { CmsCall } from "../../server/operations.ts";
 import type { ContentI18n } from "../i18n.ts";
 import type { MediaRefConfig } from "../media.ts";
+import type { CollectionManifest } from "../types.ts";
 
 /**
  * How a tool reaches the CMS, which is the operation registry and nothing else.
@@ -23,6 +24,7 @@ export type { CmsCall };
 /** What the tools need to know about the deployment beyond what they can ask it. */
 export interface ToolConfig extends MediaRefConfig {
   contentI18n: ContentI18n | null;
+  collections: CollectionManifest;
 }
 
 export interface ToolContext {

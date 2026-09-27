@@ -14,7 +14,7 @@ import type {
   MdxJsxFlowElement,
 } from "mdast-util-mdx";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
-import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
+import type { ClientComponentDef } from "@/internal/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { findComponent } from "@/shared/component-lookup";
 import { isRequired, objectShape } from "@/shared/field-schema";

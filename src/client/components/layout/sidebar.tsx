@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { FileText, NotebookPen, BarChart3, GitCompareArrows, Image, Bot } from "lucide-react";
-import { useCollections } from "@/client/queries/use-collections";
+import config from "@/client/lib/config";
 import { useChanges } from "@/client/queries/use-entries";
 import { Badge } from "@/client/components/ui/badge";
 import { toLabel } from "@/client/lib/to-label";
@@ -16,7 +16,7 @@ const navLinkClasses =
 
 export function Sidebar() {
   const { t } = useTranslation();
-  const { data: collections, isLoading } = useCollections();
+  const { collections } = config;
   const pending = useChanges().data?.length ?? 0;
 
   return (
@@ -34,31 +34,23 @@ export function Sidebar() {
         <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {t(($) => $.layout.collections)}
         </p>
-        {isLoading && (
-          <div className="space-y-1 px-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 animate-pulse rounded bg-muted" />
-            ))}
-          </div>
-        )}
-        {collections &&
-          Object.entries(collections).map(([name, col]) => (
-            <Link
-              key={name}
-              to="/collections/$collection"
-              params={{ collection: name }}
-              className={navLinkClasses}
-            >
-              {col.loaderType === "file" ? (
-                <FileText className="size-4 text-muted-foreground" />
-              ) : col.type === "content" ? (
-                <NotebookPen className="size-4 text-muted-foreground" />
-              ) : (
-                <BarChart3 className="size-4 text-muted-foreground" />
-              )}
-              {toLabel(name)}
-            </Link>
-          ))}
+        {Object.entries(collections).map(([name, col]) => (
+          <Link
+            key={name}
+            to="/collections/$collection"
+            params={{ collection: name }}
+            className={navLinkClasses}
+          >
+            {col.loaderType === "file" ? (
+              <FileText className="size-4 text-muted-foreground" />
+            ) : col.type === "content" ? (
+              <NotebookPen className="size-4 text-muted-foreground" />
+            ) : (
+              <BarChart3 className="size-4 text-muted-foreground" />
+            )}
+            {toLabel(name)}
+          </Link>
+        ))}
         <p className="mt-4 px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {t(($) => $.layout.workspace)}
         </p>

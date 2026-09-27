@@ -146,6 +146,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         command,
         injectRoute,
         updateConfig,
+        addWatchFile,
         logger,
       }) => {
         const rootDir = fileURLToPath(astroConfig.root);
@@ -187,24 +188,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // and a field that is missing rather than wrong would otherwise surface
         // as a TypeError from deep inside the resolver.
         validateMediaBackend(effectiveConfig, astroConfig.site);
-
-        // Every default is applied once, here; `clientConfig` is what the admin
-        // bundle and the rest of this hook both read.
-        const clientConfig = resolveClientConfig(
-          effectiveConfig,
-          astroConfig.trailingSlash,
-          astroConfig.i18n,
-          localMedia,
-        );
-        const mountPoint = clientConfig.mountPoint;
-        adminPath = join("/", astroConfig.base, mountPoint);
-
-        if (clientConfig.contentI18n) {
-          const { locales, defaultLocale } = clientConfig.contentI18n;
-          logger.info(
-            `Multilingual content enabled for locales ${locales.join(", ")} (default: ${defaultLocale})`,
-          );
-        }
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;
@@ -267,6 +250,27 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           cms: userConfigPath,
         });
         const { collections, components } = loaded;
+
+        // The integration reads both at startup, so an edit restarts the dev server.
+        for (const path of [contentConfigPath, userConfigPath]) if (path) addWatchFile(path);
+
+        // Every default is applied once, here; `clientConfig` is what the admin
+        // and the rest of this hook both read.
+        const clientConfig = resolveClientConfig(
+          effectiveConfig,
+          astroConfig.i18n,
+          localMedia,
+          collections,
+        );
+        const mountPoint = clientConfig.mountPoint;
+        adminPath = join("/", astroConfig.base, mountPoint);
+
+        if (clientConfig.contentI18n) {
+          const { locales, defaultLocale } = clientConfig.contentI18n;
+          logger.info(
+            `Multilingual content enabled for locales ${locales.join(", ")} (default: ${defaultLocale})`,
+          );
+        }
         const entries =
           command === "build" || command === "dev"
             ? contentEntries(rootDir, collections, components)
@@ -301,7 +305,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           }
         }
 
-        const serverConfig = resolveServerConfig(effectiveConfig, rootDir, mediaServer);
+        const serverConfig = resolveServerConfig(
+          effectiveConfig,
+          rootDir,
+          mediaServer,
+          astroConfig.trailingSlash,
+        );
 
         // Where runtime bindings and secrets come from. Astro has no capability
         // to ask, so the adapter's own name is the signal; `runtime` overrides it
@@ -348,12 +357,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 clientConfig,
                 serverConfig,
                 userConfigPath,
-                collections,
+                components,
                 entries,
                 command,
                 rootDir,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
-                base: astroConfig.base,
                 runtime,
               }),
               // The admin writes files the dev server watches; without this every

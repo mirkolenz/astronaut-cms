@@ -1,5 +1,5 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
-import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
+import type { ClientComponentDef } from "@/internal/user-config";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
 import { componentEntries } from "@/shared/component-lookup";
 import { CmsComponentEditor } from "@/client/components/editors/cms-component-editor";

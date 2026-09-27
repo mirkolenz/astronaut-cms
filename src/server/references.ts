@@ -13,9 +13,7 @@
  * deletion is refused on. A precondition only the caller checks is caller
  * discipline; this one is a rule of the library.
  */
-import collections from "virtual:astronaut-cms/collections";
-import config from "virtual:astronaut-cms/config";
-import { components } from "virtual:astronaut-cms/user-config";
+import { client as config, components } from "virtual:astronaut-cms/server";
 import { isLibraryFile, mediaPath } from "../shared/media.ts";
 import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
@@ -101,7 +99,7 @@ export function indexEntry(
 export async function buildReferenceIndex(storage: StorageBackend): Promise<ReferenceIndex> {
   const index = new Map<string, AssetReference[]>();
   const listings = await Promise.all(
-    Object.values(collections).map(async (col) =>
+    Object.values(config.collections).map(async (col) =>
       (await storage.listEntries(col.name)).map((meta) => ({ col, meta })),
     ),
   );

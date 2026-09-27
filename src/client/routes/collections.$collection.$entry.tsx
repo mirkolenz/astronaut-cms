@@ -26,7 +26,7 @@ import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { TranslationSwitcher } from "@/client/components/translation-switcher";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/client/components/ui/button";
-import collectionMeta from "virtual:astronaut-cms/collections";
+import config from "@/client/lib/config";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
@@ -54,7 +54,7 @@ function EntryEditor() {
   const renameMutation = useRenameEntry(collection);
   const duplicateMutation = useDuplicateEntry(collection);
 
-  const meta = collectionMeta[collection];
+  const meta = config.collections[collection];
   const shape = objectShape(meta?.schema);
   const format = entry?.format ?? newFormat;
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>

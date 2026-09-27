@@ -4,6 +4,7 @@ import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
 import type { CmsClientConfig, CmsRuntime, CmsServerConfig } from "./types.ts";
 import type { CollectionManifest, CollectionSort } from "../shared/types.ts";
+import type { ComponentManifest } from "../internal/user-config.ts";
 import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
@@ -17,15 +18,14 @@ export interface CmsVitePluginOptions {
   /** Everything only the injected route may see: credentials’ identity, bucket, gateway. */
   serverConfig: CmsServerConfig;
   userConfigPath: string | null;
-  collections: CollectionManifest;
+  /** The components as lowered in Node, whose schemas the server validates against. */
+  components: ComponentManifest;
   /** The entries on disk, read once by the integration for every build-time pass. */
   entries: ContentEntry[];
   command: AstroCommand;
   rootDir: string;
   /** Media-directory-relative globs to bundle even when no content references them. */
   alwaysInclude: string[];
-  /** The host site's Astro `base`, which the admin needs to address the API. */
-  base: string;
   /** Where the injected routes read secrets and bindings from. */
   runtime: CmsRuntime;
 }
@@ -37,40 +37,26 @@ interface LoadContext {
 }
 
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
-  const { clientConfig, serverConfig, userConfigPath, collections } = options;
+  const { clientConfig, serverConfig, userConfigPath } = options;
 
   const virtualModules: Record<string, string | ((ctx: LoadContext) => string)> = {
-    "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
-    // Split out of the config so the admin can address the API before it has
-    // one. The config is delivered by the session probe and therefore only to a
-    // recognised editor, but a request has to be made to reach the probe at all,
-    // and these two are what makes that request land on the injected route. They
-    // are the site's own public URL shape, so bundling them gives nothing away.
-    "virtual:astronaut-cms/routing": `export default ${JSON.stringify({
-      base: options.base,
-      trailingSlash: clientConfig.trailingSlash,
-    })};`,
-    "virtual:astronaut-cms/server": `export default ${JSON.stringify(serverConfig)};`,
-    // Workers hand the environment to a module rather than to a global, and the
-    // import only resolves inside a Workers build, so which of these is emitted
-    // is settled here, where the target runtime is known. The dev API runs in
-    // Node whatever the adapter.
-    "virtual:astronaut-cms/runtime-env": ({ devApi }) =>
-      options.runtime === "cloudflare" && !devApi
-        ? `export { env as default } from "cloudflare:workers";`
-        : `export default undefined;`,
-    // The filesystem backend is Node-only, so it is linked in exactly where it
-    // runs, the dev API, and stubbed everywhere else: without this, `node:fs`
-    // would follow the injected route into a Workers or edge bundle.
-    "virtual:astronaut-cms/local-storage": ({ devApi }) =>
-      serverConfig.storage.type === "local" && devApi
-        ? `export { LocalStorage } from "astronaut-cms/server-local";`
-        : `export const LocalStorage = null;`,
+    // Everything the injected routes read, which no browser bundle imports. The
+    // components are the ones lowered in Node, whose live `icon` and `editor`
+    // drop out as JSON, so the server never loads the site's editors.
+    "virtual:astronaut-cms/server": `\
+export const client = ${JSON.stringify(clientConfig)};
+export const server = ${JSON.stringify(serverConfig)};
+export const components = ${JSON.stringify(options.components)};`,
+    "virtual:astronaut-cms/runtime": ({ devApi }) => generateRuntimeModule(options, devApi),
     "virtual:astronaut-cms/order": ({ watch }) =>
-      generateOrderModule(collections, options.rootDir, watch),
-    "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
+      generateOrderModule(clientConfig.collections, options.rootDir, watch),
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
-    "virtual:astronaut-cms/assets": generateAssetsModule(options),
+    // The media fields come along so the resolver reads no config module, which
+    // would take the whole admin config into a site island that resolves an asset.
+    "virtual:astronaut-cms/assets": `export const media = ${JSON.stringify({
+      mediaBackend: clientConfig.mediaBackend,
+      mediaDirectory: clientConfig.mediaDirectory,
+    })};\n${generateAssetsModule(options)}`,
   };
 
   return {
@@ -92,6 +78,22 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       });
     },
   };
+}
+
+// Workers hand the environment to a module rather than to a global, and the
+// filesystem backend is Node-only, so both are linked in exactly where they
+// run. The dev API runs in Node whatever the adapter.
+function generateRuntimeModule(options: CmsVitePluginOptions, devApi: boolean): string {
+  const env =
+    options.runtime === "cloudflare" && !devApi
+      ? `export { env } from "cloudflare:workers";`
+      : `export const env = undefined;`;
+  const localStorage =
+    options.serverConfig.storage.type === "local" && devApi
+      ? `export { LocalStorage } from "astronaut-cms/server-local";`
+      : `export const LocalStorage = null;`;
+
+  return `${env}\n${localStorage}`;
 }
 
 // Emits the lazy loader maps that back `astronaut-cms/assets`, keyed by

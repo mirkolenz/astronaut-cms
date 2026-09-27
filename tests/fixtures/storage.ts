@@ -9,6 +9,8 @@ export const storageOptions = (collections: CollectionManifest): StorageOptions 
   mediaDirectory: "src/assets",
   mediaExtensions: [".png"],
   maxFileSize: null,
+  mediaBackend: { type: "repo" },
+  components: {},
   login: "alice",
 });
 

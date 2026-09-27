@@ -3,17 +3,20 @@
  *
  * Both halves are here rather than in `api.ts` because the session probe needs
  * them before there is any config to read, and `api.ts` reads the config. The
- * routing facts come from their own bundled module for the same reason: the
- * config is delivered by the probe, and the probe has to be addressed first.
+ * routing facts are rendered onto the shell by `admin.astro` for the same
+ * reason: the config is delivered by the probe, and the probe has to be
+ * addressed first.
  */
-import routing from "virtual:astronaut-cms/routing";
+import { ADMIN_ROOT_ID } from "@/shared/auth";
 import { conformTrailingSlash, joinUrl } from "@/shared/url";
 
 /** Absolute URL for a CMS API path, in the form the host's `trailingSlash` makes Astro match. */
 export function apiUrl(path: string): string {
+  const { base = "/", trailingSlash } = document.getElementById(ADMIN_ROOT_ID)?.dataset ?? {};
+
   return conformTrailingSlash(
-    new URL(joinUrl(routing.base, path), window.location.origin).href,
-    routing.trailingSlash,
+    new URL(joinUrl(base, path), window.location.origin).href,
+    trailingSlash === "always" || trailingSlash === "never" ? trailingSlash : "ignore",
   );
 }
 

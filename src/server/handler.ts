@@ -9,8 +9,7 @@
  * path into {@link dispatch}, so the reachable surface is the operation registry
  * rather than one route per thing the CMS happens to do.
  */
-import serverConfig from "virtual:astronaut-cms/server";
-import clientConfig from "virtual:astronaut-cms/config";
+import { client as clientConfig, server as serverConfig } from "virtual:astronaut-cms/server";
 import {
   API_BASE,
   API_CALLBACK,
@@ -169,7 +168,7 @@ const issueSession = (session: Session, secret: string): Promise<string> =>
 function siteUrl(url: URL, path: string): string {
   return conformTrailingSlash(
     new URL(`${sitePath(url)}${path}`, url.origin).href,
-    clientConfig.trailingSlash,
+    serverConfig.trailingSlash,
   );
 }
 

@@ -3,7 +3,7 @@
  * carries. An operation receives this and nothing else, so it cannot reach a
  * credential, an environment variable or a store the request did not earn.
  */
-import serverConfig from "virtual:astronaut-cms/server";
+import { server as serverConfig } from "virtual:astronaut-cms/server";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import { openStore } from "../media/open-store.ts";
 import { ObjectStoreLibrary } from "./media.ts";

@@ -5,7 +5,6 @@
  * WebMCP has no prompt of ours at all, so it gets the same answer from a tool —
  * built here, once, so the two can never describe different sites.
  */
-import collections from "virtual:astronaut-cms/collections";
 import { extractFormatsFromLoader } from "../types.ts";
 import { describeMediaRef } from "../media.ts";
 import type { ToolConfig } from "./types.ts";
@@ -22,7 +21,7 @@ export interface ContentModel {
 export function contentModel(config: ToolConfig): ContentModel {
   return {
     collections: Object.fromEntries(
-      Object.entries(collections).map(([name, col]) => [
+      Object.entries(config.collections).map(([name, col]) => [
         name,
         {
           type: col.type,

@@ -1,8 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { NotebookPen, BarChart3 } from "lucide-react";
-import { useCollections } from "@/client/queries/use-collections";
-import { ErrorBanner } from "@/client/components/error-banner";
+import config from "@/client/lib/config";
 import { toLabel } from "@/client/lib/to-label";
 import { objectShape } from "@/shared/field-schema";
 
@@ -12,25 +11,9 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const { t } = useTranslation();
-  const { data: collections, isLoading, error } = useCollections();
+  const { collections } = config;
 
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 animate-pulse rounded-lg border border-border bg-muted" />
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <ErrorBanner>{t(($) => $.dashboard.failedLoad, { message: error.message })}</ErrorBanner>
-    );
-  }
-
-  if (!collections || Object.keys(collections).length === 0) {
+  if (Object.keys(collections).length === 0) {
     return (
       <div className="text-center text-muted-foreground">
         <p className="text-lg">{t(($) => $.dashboard.noCollections)}</p>

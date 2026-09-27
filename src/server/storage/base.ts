@@ -53,7 +53,9 @@ import {
   assertWithinSizeLimit,
   isLibraryFile,
   mediaContentType,
+  type ClientMediaBackend,
 } from "../../shared/media.ts";
+import type { ComponentSchemaMap } from "../../shared/field-schema.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
 import { HttpError } from "../errors.ts";
 
@@ -92,6 +94,9 @@ export interface StorageOptions {
   /** Extensions the library lists and accepts, already lower-cased. */
   mediaExtensions: string[] | null;
   maxFileSize: number | null;
+  /** Where the library lives, which decides how an entry spells an asset. */
+  mediaBackend: ClientMediaBackend;
+  components: ComponentSchemaMap;
   /** The signed-in editor, which is what the draft branch is named after. */
   login: string;
 }
@@ -393,6 +398,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     return {
       listEntries: (collection) => this.listEntries(collection),
       listMedia: () => this.mediaSource.listMedia(),
+      media: { mediaBackend: this.options.mediaBackend, mediaDirectory: this.mediaDirectory },
+      components: this.options.components,
     };
   }
 
