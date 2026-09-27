@@ -1,28 +1,32 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
+import type { JsxEditorProps } from "@mdxeditor/editor";
 import type { LucideIcon } from "lucide-react";
-import type { PluggableList } from "unified";
 import type { z } from "astro/zod";
 
 interface RawComponentDef {
   props?: z.ZodType;
   children?: "markdown" | Record<string, RawComponentDef>;
+  kind?: "flow" | "text";
+  source?: string;
+  defaultExport?: boolean;
   label?: string;
   icon?: LucideIcon;
-  wrapper?: ComponentType<{ children: ReactNode }> | null;
+  editor?: ComponentType<JsxEditorProps>;
 }
 
 interface RawUserConfig {
   components?: Record<string, RawComponentDef>;
-  remarkPlugins?: PluggableList;
-  rehypePlugins?: PluggableList;
 }
 
 interface ProcessedComponentDef {
   props: z.ZodType | null;
   children?: "markdown" | Record<string, ProcessedComponentDef>;
+  kind: "flow" | "text";
+  source: string | null;
+  defaultExport: boolean;
   label: string;
   icon: LucideIcon | null;
-  wrapper: ComponentType<{ children: ReactNode }> | null;
+  editor: ComponentType<JsxEditorProps> | null;
 }
 
 export function processUserConfig(config: RawUserConfig | null) {
@@ -38,9 +42,12 @@ export function processUserConfig(config: RawUserConfig | null) {
       result[name] = {
         props: def.props ?? null,
         children,
+        kind: def.kind ?? "flow",
+        source: def.source ?? null,
+        defaultExport: def.defaultExport ?? false,
         label: def.label ?? name,
         icon: def.icon ?? null,
-        wrapper: def.wrapper ?? null,
+        editor: def.editor ?? null,
       };
     }
     return result;
@@ -48,7 +55,5 @@ export function processUserConfig(config: RawUserConfig | null) {
 
   return {
     components: transform(config?.components ?? {}),
-    remarkPlugins: config?.remarkPlugins ?? [],
-    rehypePlugins: config?.rehypePlugins ?? [],
   };
 }

@@ -131,4 +131,10 @@
   html {
     @apply font-sans;
   }
+  /* Map MDXEditor's semantic background variables to the shadcn theme */
+  [class*="editorRoot"],
+  [class*="nestedEditor"] {
+    --basePageBg: var(--background);
+    --baseBase: var(--card);
+  }
 }

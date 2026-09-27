@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useDebouncedValue } from "@/client/lib/use-debounced-value";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useEntry, useSaveEntry, useDeleteEntry } from "@/client/queries/use-entries";
 import { useCollections } from "@/client/queries/use-collections";
 import { FieldRenderer, type ZodFieldSchema } from "@/client/components/editors/field-renderer";
-import { MarkdownEditor } from "@/client/components/editors/markdown-editor";
-import { BlockEditor } from "@/client/components/editors/block-editor";
-import { PreviewPanel } from "@/client/components/layout/preview-panel";
+import { MdxEditor } from "@/client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { toast } from "@/client/components/toast";
 import { ErrorBanner } from "@/client/components/error-banner";
@@ -37,11 +34,9 @@ function EntryEditor() {
   const [editBody, setEditBody] = useState("");
   const [rawJson, setRawJson] = useState("");
   const [showRaw, setShowRaw] = useState(false);
-  const [showPreview, setShowPreview] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [isDirty, setIsDirty] = useState(false);
-  const debouncedBody = useDebouncedValue(editBody, 300);
 
   useEffect(() => {
     if (entry) {
@@ -121,7 +116,11 @@ function EntryEditor() {
     setShowDeleteConfirm(false);
   };
 
-  // Keyboard shortcut: Cmd/Ctrl+S to save
+  const handleBodyChange = useCallback((value: string) => {
+    setEditBody(value);
+    setIsDirty(true);
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -170,14 +169,6 @@ function EntryEditor() {
             >
               {showRaw ? t($ => $.entry.form) : t($ => $.entry.raw)}
             </Button>
-            {isContentFormat && (
-              <Button
-                variant={showPreview ? "secondary" : "outline"}
-                onClick={() => setShowPreview(!showPreview)}
-              >
-                {t($ => $.entry.preview)}
-              </Button>
-            )}
             <Button
               onClick={handleSave}
               disabled={saveMutation.isPending || !isDirty}
@@ -197,60 +188,50 @@ function EntryEditor() {
         {/* onChangeCapture catches user interaction with any input/textarea/select */}
         <div
           onChangeCapture={() => setIsDirty(true)}
-          className={
-            showPreview && isContentFormat
-              ? "grid min-h-0 flex-1 grid-cols-2 gap-4"
-              : "min-h-0 flex-1 overflow-y-auto"
-          }
+          className="min-h-0 flex-1 overflow-y-auto"
         >
-          <div className={showPreview && isContentFormat ? "min-h-0 overflow-y-auto" : ""}>
-            {showRaw ? (
-              <div className="space-y-4">
+          {showRaw ? (
+            <div className="space-y-4">
+              <div>
+                <Label>{t($ => $.entry.dataJson)}</Label>
+                <Textarea
+                  value={rawJson}
+                  onChange={(e) => setRawJson(e.target.value)}
+                  onBlur={syncRawToForm}
+                  className="font-mono"
+                  rows={12}
+                />
+              </div>
+              {isContentFormat && (
                 <div>
-                  <Label>{t($ => $.entry.dataJson)}</Label>
+                  <Label>{t($ => $.entry.body)}</Label>
                   <Textarea
-                    value={rawJson}
-                    onChange={(e) => setRawJson(e.target.value)}
-                    onBlur={syncRawToForm}
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
                     className="font-mono"
-                    rows={12}
+                    rows={16}
                   />
                 </div>
-                {isContentFormat && (
-                  <div>
-                    <Label>{t($ => $.entry.body)}</Label>
-                    <Textarea
-                      value={editBody}
-                      onChange={(e) => setEditBody(e.target.value)}
-                      className="font-mono"
-                      rows={16}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <FieldsSection
-                  schema={schema}
-                  formData={formData}
-                  onFieldChange={handleFieldChange}
-                />
-                {isContentFormat && (
-                  <div>
-                    <Label>{t($ => $.entry.body)}</Label>
-                    {entry.format === "mdx" ? (
-                      <BlockEditor value={editBody} onChange={setEditBody} />
-                    ) : (
-                      <MarkdownEditor value={editBody} onChange={setEditBody} />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {showPreview && isContentFormat && (
-            <PreviewPanel body={debouncedBody} format={entry.format} />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <FieldsSection
+                schema={schema}
+                formData={formData}
+                onFieldChange={handleFieldChange}
+              />
+              {isContentFormat && (
+                <div>
+                  <Label>{t($ => $.entry.body)}</Label>
+                  <MdxEditor
+                    markdown={editBody}
+                    onChange={handleBodyChange}
+                    format={entry.format as "md" | "mdx"}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </div>
 

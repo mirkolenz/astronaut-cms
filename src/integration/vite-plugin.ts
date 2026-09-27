@@ -148,6 +148,6 @@ function generateUserConfigModule(configPath: string | null): string {
   return `\
 ${configImport}
 import { processUserConfig } from "astronaut-cms/stubs";
-const { components, remarkPlugins, rehypePlugins } = processUserConfig(config);
-export { components, remarkPlugins, rehypePlugins };`;
+const { components } = processUserConfig(config);
+export { components };`;
 }

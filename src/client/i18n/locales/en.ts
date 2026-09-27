@@ -54,7 +54,6 @@ const en = {
   entry: {
     form: "Form",
     raw: "Raw",
-    preview: "Preview",
     fields: "Fields",
     dataJson: "Data (JSON)",
     body: "Body",
@@ -124,19 +123,6 @@ const en = {
     newKey: "New key",
     variant: "Variant",
     raw: "(raw)",
-    noContent: 'No content yet. Click "Add block" to get started.',
-    addBlock: "+ Add block",
-    text: "Text",
-    noComponents: "No components available",
-    expand: "Expand",
-    collapse: "Collapse",
-    moveUp: "Move up",
-    moveDown: "Move down",
-    deleteBlock: "Delete block",
-    deleteBlockMessage:
-      "Are you sure you want to delete this {{label}} block?",
-    noContentToPreview: "No content to preview.",
-    renderError: "Render error: {{error}}",
     removeEntry: "Remove entry",
     removeEntryMessage:
       'Are you sure you want to remove "{{id}}"? This will be applied on publish.',

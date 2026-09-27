@@ -58,7 +58,6 @@ const de: TranslationShape<typeof en> = {
   entry: {
     form: "Formular",
     raw: "Roh",
-    preview: "Vorschau",
     fields: "Felder",
     dataJson: "Daten (JSON)",
     body: "Inhalt",
@@ -130,20 +129,6 @@ const de: TranslationShape<typeof en> = {
     newKey: "Neuer Schlüssel",
     variant: "Variante",
     raw: "(roh)",
-    noContent:
-      'Noch kein Inhalt. Klicken Sie auf "Block hinzufügen", um zu beginnen.',
-    addBlock: "+ Block hinzufügen",
-    text: "Text",
-    noComponents: "Keine Komponenten verfügbar",
-    expand: "Aufklappen",
-    collapse: "Zuklappen",
-    moveUp: "Nach oben",
-    moveDown: "Nach unten",
-    deleteBlock: "Block löschen",
-    deleteBlockMessage:
-      "Sind Sie sicher, dass Sie diesen {{label}}-Block löschen möchten?",
-    noContentToPreview: "Kein Inhalt zur Vorschau.",
-    renderError: "Darstellungsfehler: {{error}}",
     removeEntry: "Eintrag entfernen",
     removeEntryMessage:
       'Sind Sie sicher, dass Sie "{{id}}" entfernen möchten? Dies wird beim Veröffentlichen angewendet.',

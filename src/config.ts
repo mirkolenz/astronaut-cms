@@ -1,21 +1,24 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
-import type { PluggableList } from "unified";
+import type { JsxEditorProps } from "@mdxeditor/editor";
 import { type z, z as zod } from "astro/zod";
+
+export type { JsxEditorProps };
 
 export type ChildrenConfig = "markdown" | Record<string, ComponentDefinition>;
 
 export interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   props: T;
   children?: ChildrenConfig;
+  kind?: "flow" | "text";
+  source?: string;
+  defaultExport?: boolean;
   label?: string;
   icon?: LucideIcon;
-  wrapper?: ComponentType<{ children: ReactNode }>;
+  editor?: ComponentType<JsxEditorProps>;
 }
 
 export interface CmsUserConfig {
-  remarkPlugins?: PluggableList;
-  rehypePlugins?: PluggableList;
   components?: Record<string, ComponentDefinition>;
 }
 
