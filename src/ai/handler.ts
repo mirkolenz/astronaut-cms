@@ -156,14 +156,40 @@ export async function handle(
   try {
     gateway = resolveGateway(config.gateway, getEnv);
   } catch (err) {
+    console.error("[astronaut-cms] Failed to resolve AI gateway:", err);
+
     return jsonError(err instanceof Error ? err.message : "Gateway not configured", 500);
   }
 
-  const upstream = await fetch(gateway.url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...gateway.headers },
-    body: JSON.stringify(body),
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(gateway.url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...gateway.headers },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    // A connection-level failure (gateway down, DNS, TLS) never reaches the
+    // browser as a useful status, so log the full error and return a clear one.
+    console.error(`[astronaut-cms] Failed to reach AI gateway at ${gateway.url}:`, err);
+
+    return jsonError(
+      `Could not reach the AI gateway at ${gateway.url}.${err instanceof Error ? ` ${err.message}` : ""}`,
+      502,
+    );
+  }
+
+  if (!upstream.ok) {
+    // Forward the gateway's error body verbatim (the client provider parses
+    // `{ error: { message } }`) and log the complete response server-side.
+    const detail = await upstream.text();
+    console.error(`[astronaut-cms] AI gateway returned HTTP ${upstream.status}: ${detail}`);
+
+    return new Response(detail, {
+      status: upstream.status,
+      headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
+    });
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
-import { Bot, X } from "lucide-react";
+import { AlertTriangle, Bot, X } from "lucide-react";
 import type { ToolUIPart } from "ai";
 import {
   Conversation,
@@ -120,7 +120,18 @@ export function ChatPanel() {
       </Conversation>
 
       {error && (
-        <p className="shrink-0 px-4 py-2 text-xs text-destructive">{error.message}</p>
+        <div
+          role="alert"
+          className="mx-2 mt-2 shrink-0 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+            <AlertTriangle className="size-4 shrink-0" />
+            {t($ => $.ai.errorTitle)}
+          </div>
+          {error.message && (
+            <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
+          )}
+        </div>
       )}
 
       <PromptInput onSubmit={handleSubmit} className="m-2 shrink-0">

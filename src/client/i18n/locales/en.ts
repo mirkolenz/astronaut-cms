@@ -156,6 +156,7 @@ const en = {
     emptyTitle: "How can I help?",
     emptyDescription: "Ask me to create, edit, or organize your content.",
     placeholder: "Ask the assistant to change your content...",
+    errorTitle: "The assistant couldn't complete your request",
   },
 } as const;
 

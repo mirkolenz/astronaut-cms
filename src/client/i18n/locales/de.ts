@@ -162,6 +162,7 @@ const de: TranslationShape<typeof en> = {
     emptyTitle: "Wie kann ich helfen?",
     emptyDescription: "Bitte mich, Inhalte zu erstellen, zu bearbeiten oder zu ordnen.",
     placeholder: "Bitte den Assistenten, deine Inhalte zu ändern...",
+    errorTitle: "Der Assistent konnte deine Anfrage nicht abschließen",
   },
 } as const;
 
