@@ -451,7 +451,8 @@ export abstract class BranchedStorage extends StorageBase {
     } catch (err) {
       throw mapMergeError(err);
     }
-    this.markBranchExists(false);
+
+    await this.dropBranch(branch);
   }
 
   async update(): Promise<void> {
@@ -462,8 +463,22 @@ export abstract class BranchedStorage extends StorageBase {
 
   async discard(): Promise<void> {
     const branch = await this.getUserBranch();
+
     if (!(await this.branchExists(branch))) return;
+
+    await this.dropBranch(branch);
+  }
+
+  /**
+   * Retires the draft branch and any change request on it, which is what both
+   * discarding a changeset and publishing one come down to. Publishing has to
+   * ask for it too: only GitLab removes the source branch as part of accepting,
+   * so without this the branch would outlive the changeset on GitHub while the
+   * cache reported it gone, and the next write would try to create it afresh.
+   */
+  private async dropBranch(branch: string): Promise<void> {
     const cr = await this.findOpenChangeRequest(branch);
+
     if (cr) {
       try {
         await this.closeChangeRequest(cr.id);
@@ -471,11 +486,13 @@ export abstract class BranchedStorage extends StorageBase {
         // Already closed.
       }
     }
+
     try {
       await this.deleteUserBranch(branch);
     } catch {
-      // Already gone (e.g. PR merged with auto-delete).
+      // Already gone (e.g. removed along with the merge).
     }
+
     this.markBranchExists(false);
   }
 
