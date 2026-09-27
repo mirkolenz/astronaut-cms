@@ -243,6 +243,8 @@ describe("the trash", () => {
 
     await expect(library.restoreMedia("photos/hero.png")).rejects.toThrow(/not a deleted file/);
     await expect(library.purgeTrash("../elsewhere")).rejects.toThrow(/not a deleted file/);
+    await expect(library.purgeTrash(".trash/1-../photos/hero.png")).rejects.toThrow(/not a deleted file/);
+    await expect(library.purgeTrash(".trash/01-photos/hero.png")).rejects.toThrow(/not a deleted file/);
   });
 
   it("refuses a restore onto a name taken since", async () => {

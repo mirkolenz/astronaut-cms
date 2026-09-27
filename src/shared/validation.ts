@@ -58,13 +58,22 @@ export function validateFormat(format: string, name = "format"): void {
  * the media route before a key is built from it.
  */
 export function validateMediaPath(value: string, name = "media path"): void {
-  if (!value) throw new Error(`${name} must not be empty`);
+  const error = mediaPathError(value, name);
+
+  if (error) throw new Error(error);
+}
+
+/** Why a value is not a media library path, or null when it is one. */
+export function mediaPathError(value: string, name = "media path"): string | null {
+  if (!value) return `${name} must not be empty`;
 
   if (value.startsWith("/") || /\\|\p{Cc}/u.test(value)) {
-    throw new Error(`Invalid ${name} "${value}": must be a relative path without backslashes`);
+    return `Invalid ${name} "${value}": must be a relative path without backslashes`;
   }
 
   if (value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new Error(`Invalid ${name} "${value}": must not contain empty or traversing segments`);
+    return `Invalid ${name} "${value}": must not contain empty or traversing segments`;
   }
+
+  return null;
 }

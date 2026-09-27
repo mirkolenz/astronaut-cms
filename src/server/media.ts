@@ -14,7 +14,7 @@ import type { MediaBackend, MediaContent, UploadTicket } from "./storage/types.t
 import type { MediaFile, TrashedFile } from "../shared/types.ts";
 import type { MediaServerConfig } from "../integration/types.ts";
 import { HttpError, checked } from "./errors.ts";
-import { validateMediaPath } from "../shared/validation.ts";
+import { mediaPathError, validateMediaPath } from "../shared/validation.ts";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
@@ -53,10 +53,23 @@ const trashId = (path: string, at: number): string => `${TRASH_SEGMENT}/${at}-${
 
 const TRASH_ID = /^\.trash\/(\d+)-(.+)$/;
 
+/**
+ * The deletion an id names, or null for anything `trashId` could not have
+ * issued. The path has to be one a library file could have had, so a stored key
+ * or a caller's id cannot traverse, or point back into a hidden prefix, and the
+ * id has to be the exact spelling `trashId` produces for it.
+ */
 function parseTrashId(id: string): { path: string; deletedAt: number } | null {
   const match = TRASH_ID.exec(id);
 
-  return match ? { deletedAt: Number(match[1]), path: match[2] } : null;
+  if (!match) return null;
+
+  const deletedAt = Number(match[1]);
+  const path = match[2];
+  const issued =
+    mediaPathError(path) === null && isLibraryFile(path, null) && trashId(path, deletedAt) === id;
+
+  return issued ? { deletedAt, path } : null;
 }
 
 export class ObjectStoreLibrary implements MediaBackend {
@@ -181,7 +194,9 @@ export class ObjectStoreLibrary implements MediaBackend {
   async deleteMedia(path: string): Promise<void> {
     const key = this.toKey(path);
 
-    await this.store.copy(key, `${this.config.prefix}${trashId(path, Date.now())}`);
+    // Conditional, so a second deletion within the same millisecond refuses
+    // rather than replacing the first one's copy.
+    await this.store.copy(key, `${this.config.prefix}${trashId(path, Date.now())}`, true);
     await this.store.remove(key);
   }
 
