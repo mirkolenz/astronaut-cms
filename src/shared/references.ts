@@ -37,11 +37,7 @@ export function classifyUsage(
   return new Map(
     paths.map((path) => [
       path,
-      referenced.has(path)
-        ? "used"
-        : alwaysIncluded(path, config)
-          ? "always-included"
-          : "orphan",
+      referenced.has(path) ? "used" : alwaysIncluded(path, config) ? "always-included" : "orphan",
     ]),
   );
 }

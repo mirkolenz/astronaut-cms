@@ -144,7 +144,7 @@ stored as root-absolute path strings and resolved to optimized assets at render 
 with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
 
 <Aside type="note">
-  There is no importable `image()`. A collection field takes astro's `({ image })` and a component
+  There is no importable `image()`. A collection field takes astro's `({image})` and a component
   prop takes the one its props function is handed, so no spelling can resolve in one place and
   silently fail in the other. `file()` *is* importable, for the one case astro has no helper for: a
   non-image asset in a collection field.

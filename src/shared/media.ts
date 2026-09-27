@@ -99,7 +99,9 @@ export function describeMediaRef(config: MediaRefConfig): string {
 export function mediaRef(path: string, config: MediaRefConfig): string {
   const key = trimSlashes(path);
 
-  return config.mediaBackend.type === "repo" ? `/${trimSlashes(config.mediaDirectory)}/${key}` : key;
+  return config.mediaBackend.type === "repo"
+    ? `/${trimSlashes(config.mediaDirectory)}/${key}`
+    : key;
 }
 
 /**

@@ -48,9 +48,7 @@ describe("media caching", () => {
     // may append any `v` it likes, and only the file settles what it means.
     const wrong = await get("?v=not-this-file");
 
-    expect(addressed.headers.get("cache-control")).toBe(
-      "private, max-age=31536000, immutable",
-    );
+    expect(addressed.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
     expect(bare.headers.get("cache-control")).toBe("private, max-age=300");
     expect(wrong.headers.get("cache-control")).toBe("private, max-age=300");
     expect(bare.headers.get("etag")).toBe(`"${version}"`);

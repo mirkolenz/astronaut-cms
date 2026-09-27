@@ -19,11 +19,7 @@ import { components } from "virtual:astronaut-cms/user-config";
 import { hasAllowedExtension, mediaPath } from "../shared/media.ts";
 import { validateMdx } from "../shared/mdx-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
-import {
-  entryFilePath,
-  type CollectionManifestEntry,
-  type EntryContent,
-} from "../shared/types.ts";
+import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
 import type { AssetReference, ReferenceIndex } from "../shared/references.ts";
 import type { StorageBackend } from "./storage/types.ts";
 

@@ -363,11 +363,7 @@ function revoked(provider: ProviderConfig, token: string): Promise<string | unde
  * a static shell. An anonymous caller learns whether it is signed in and where
  * to go to change that, and nothing else.
  */
-function sessionState(
-  request: Request,
-  url: URL,
-  authenticated: Authenticated,
-): SessionState {
+function sessionState(request: Request, url: URL, authenticated: Authenticated): SessionState {
   return {
     loginUrl: siteUrl(url, API_LOGIN),
     // Already signed in at the edge, so the provider round trip can be made
@@ -392,9 +388,7 @@ export async function handle(
   const url = new URL(request.url);
   // The same split the cookie scope uses, so a site base that itself contains
   // the API segment cannot be read one way here and another way there.
-  const path = url.pathname
-    .slice(sitePath(url).length + API_BASE.length)
-    .replace(/\/+$/, "");
+  const path = url.pathname.slice(sitePath(url).length + API_BASE.length).replace(/\/+$/, "");
 
   try {
     return await route(path, request, url, getEnv, getBinding);
@@ -605,7 +599,10 @@ async function route(
  * promise to keep being that one. Streamed rather than buffered, so a large file
  * costs the function no more memory than a small one.
  */
-async function proxyMedia(source: string, path: string): Promise<{ body: BodyInit; contentType: string }> {
+async function proxyMedia(
+  source: string,
+  path: string,
+): Promise<{ body: BodyInit; contentType: string }> {
   const response = await fetch(source);
 
   if (!response.ok || !response.body) {

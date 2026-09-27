@@ -170,8 +170,9 @@ export const operations = {
     ctx.storage.listEntries(input.collection),
   ),
 
-  getEntry: op(entryRef.extend({ format: z.string().optional() }), (ctx, { collection, id, format }) =>
-    ctx.storage.getEntry(collection, id, format),
+  getEntry: op(
+    entryRef.extend({ format: z.string().optional() }),
+    (ctx, { collection, id, format }) => ctx.storage.getEntry(collection, id, format),
   ),
 
   /**
@@ -255,8 +256,13 @@ export const operations = {
   listMedia: op(none, async (ctx) => (await ctx.media()).listMedia()),
 
   beginUpload: op(
-    z.object({ path: mediaPathSchema, size: z.number().int().nonnegative(), overwrite: z.boolean().default(false) }),
-    async (ctx, { path, size, overwrite }) => (await ctx.media()).beginUpload(path, size, overwrite),
+    z.object({
+      path: mediaPathSchema,
+      size: z.number().int().nonnegative(),
+      overwrite: z.boolean().default(false),
+    }),
+    async (ctx, { path, size, overwrite }) =>
+      (await ctx.media()).beginUpload(path, size, overwrite),
   ),
 
   renameMedia: op(
@@ -319,9 +325,7 @@ export interface OperationError {
 }
 
 /** What one operation of a batch answers with. */
-export type OperationResult =
-  | { ok: true; data: unknown }
-  | { ok: false; error: OperationError };
+export type OperationResult = { ok: true; data: unknown } | { ok: false; error: OperationError };
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;

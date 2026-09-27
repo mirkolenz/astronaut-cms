@@ -28,7 +28,12 @@ import type {
   FileChange,
   TrashedFile,
 } from "../../shared/types.ts";
-import { CONTENT_FORMATS, DATA_FORMATS, asEntryFormat, collectionBase } from "../../shared/types.ts";
+import {
+  CONTENT_FORMATS,
+  DATA_FORMATS,
+  asEntryFormat,
+  collectionBase,
+} from "../../shared/types.ts";
 import {
   parseContent,
   parseMultiEntryFile,
@@ -43,7 +48,11 @@ import {
   validateMediaPath,
 } from "../../shared/validation.ts";
 import { assertEntryWritable, type ContentSource, type MediaSource } from "../validation.ts";
-import { assertWithinSizeLimit, hasAllowedExtension, mediaContentType } from "../../shared/media.ts";
+import {
+  assertWithinSizeLimit,
+  hasAllowedExtension,
+  mediaContentType,
+} from "../../shared/media.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
 import { HttpError } from "../errors.ts";
 
@@ -245,11 +254,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * than attempted, because a glob collection has no container file and the
    * rewrite would otherwise write to the directory the collection lives in.
    */
-  async reorderEntries(
-    collection: string,
-    ids: string[],
-    expectedVersion?: string,
-  ): Promise<void> {
+  async reorderEntries(collection: string, ids: string[], expectedVersion?: string): Promise<void> {
     if (!this.isFileCollection(collection)) {
       throw new Error(`Collection is not ordered: ${collection}`);
     }

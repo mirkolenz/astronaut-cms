@@ -46,11 +46,7 @@ describe("validateMdx", () => {
   });
 
   it("still reports schema violations in props", () => {
-    const { diagnostics } = validateMdx(
-      '<Figure src="/src/assets/hero.png" />',
-      "mdx",
-      components,
-    );
+    const { diagnostics } = validateMdx('<Figure src="/src/assets/hero.png" />', "mdx", components);
 
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].message).toContain('missing required prop "alt"');

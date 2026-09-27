@@ -29,8 +29,8 @@ The one genuine difference is that the agent is not one this project wrote, and 
 It is told only what the tool list says, so the descriptions carry that weight, and a `getContentModel` tool describes your collections, formats, media reference style and content languages on request.
 
 <Aside type="caution">
-Tools are registered only while a signed-in editor has the admin open, and only for the admin's own origin.
-Nothing is exposed on your site's public pages.
+  Tools are registered only while a signed-in editor has the admin open, and only for the admin's
+  own origin. Nothing is exposed on your site's public pages.
 </Aside>
 
 ## Enable it
@@ -45,9 +45,9 @@ cms({
 });
 ```
 
-| Property           | Type      | Default | Description                                                   |
-| ------------------ | --------- | ------- | ------------------------------------------------------------- |
-| `enabled`          | `boolean` | `false` | Register the CMS tools on `document.modelContext`             |
+| Property           | Type      | Default | Description                                                    |
+| ------------------ | --------- | ------- | -------------------------------------------------------------- |
+| `enabled`          | `boolean` | `false` | Register the CMS tools on `document.modelContext`              |
 | `originTrialToken` | `string`  | —       | Chrome origin trial token, served as the `Origin-Trial` header |
 
 ## Browser support
@@ -61,6 +61,6 @@ Once WebMCP ships unflagged you can drop it.
 For local development, enable `chrome://flags/#enable-webmcp-testing` instead, which makes the API available on any origin.
 
 <Aside>
-If you add a `Permissions-Policy` header in front of the admin, it has to allow `tools=(self)`.
-WebMCP is gated by that feature, and a policy that omits it makes every registration fail.
+  If you add a `Permissions-Policy` header in front of the admin, it has to allow `tools=(self)`.
+  WebMCP is gated by that feature, and a policy that omits it makes every registration fail.
 </Aside>

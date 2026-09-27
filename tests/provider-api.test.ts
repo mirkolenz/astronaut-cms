@@ -19,11 +19,17 @@ interface Call {
 
 const calls: Call[] = [];
 
-function stubFetch(responses: Array<{ status?: number; body?: unknown; headers?: Record<string, string> }>) {
+function stubFetch(
+  responses: Array<{ status?: number; body?: unknown; headers?: Record<string, string> }>,
+) {
   let next = 0;
 
   vi.stubGlobal("fetch", (input: URL | string, init?: RequestInit) => {
-    const { status = 200, body = {}, headers = {} } = responses[Math.min(next++, responses.length - 1)];
+    const {
+      status = 200,
+      body = {},
+      headers = {},
+    } = responses[Math.min(next++, responses.length - 1)];
 
     calls.push({
       url: String(input),
@@ -89,11 +95,12 @@ describe("ApiClient", () => {
 });
 
 describe("GitHub requests", () => {
-  const storage = () => new GitHubStorage(
-    { owner: "acme", repo: "site", branch: "main", publishMode: "direct" },
-    options,
-    "ghu_token",
-  );
+  const storage = () =>
+    new GitHubStorage(
+      { owner: "acme", repo: "site", branch: "main", publishMode: "direct" },
+      options,
+      "ghu_token",
+    );
 
   it("addresses the draft branch ref and the recursive tree of the ref it resolves to", async () => {
     stubFetch([{ status: 404, body: { message: "Not Found" } }, { body: { tree: [] } }]);
@@ -102,9 +109,7 @@ describe("GitHub requests", () => {
 
     expect(calls[0].url).toBe("https://api.github.com/repos/acme/site/git/ref/heads/cms/alice");
     // The draft branch is absent, so the listing falls back to the default branch.
-    expect(calls[1].url).toBe(
-      "https://api.github.com/repos/acme/site/git/trees/main?recursive=1",
-    );
+    expect(calls[1].url).toBe("https://api.github.com/repos/acme/site/git/trees/main?recursive=1");
     expect(calls[1].headers["x-github-api-version"]).toBe("2022-11-28");
   });
 
@@ -210,5 +215,14 @@ describe("GitLab requests", () => {
     expect(calls[1].url).toContain("page=1");
     expect(calls[2].url).toContain("page=2");
     expect(entries.map((entry) => entry.id)).toEqual(["a", "b"]);
+  });
+
+  it("does not turn a failed repository listing into an empty repository", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { status: 503, body: { message: "Unavailable" } },
+    ]);
+
+    await expect(storage().listEntries("posts")).rejects.toMatchObject({ status: 503 });
   });
 });

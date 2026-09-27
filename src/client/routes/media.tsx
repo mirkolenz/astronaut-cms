@@ -214,13 +214,7 @@ function MediaLibrary() {
               </Button>
             </>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={scanning}
-              onClick={scan}
-            >
+            <Button type="button" variant="outline" size="sm" disabled={scanning} onClick={scan}>
               {scanning ? t(($) => $.media.scanningReferences) : t(($) => $.media.checkUsage)}
             </Button>
           )}

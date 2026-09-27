@@ -112,8 +112,8 @@ One secret, the one your OAuth app already gave you:
 
 | Variable                             | Purpose                                                         |
 | ------------------------------------ | --------------------------------------------------------------- |
-| `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` | GitHub App client secret, for redeeming the authorization code.   |
-| `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` | The same, for GitLab.                                             |
+| `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` | GitHub App client secret, for redeeming the authorization code. |
+| `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` | The same, for GitLab.                                           |
 
 The session cookie's key is derived from it, so there is nothing else to generate or seed.
 See [Where the cookie key comes from](/astronaut-cms/guides/security/#where-the-cookie-key-comes-from).
@@ -158,8 +158,8 @@ The editor has a live provider session from moments earlier, so the provider app
 This needs no configuration at all.
 
 <Aside type="note">
-  The header is read as a hint about what to render, never as a permission, so it is deliberately not
-  verified. Forging it buys nothing: the redirect it triggers still has to complete a real OAuth
+  The header is read as a hint about what to render, never as a permission, so it is deliberately
+  not verified. Forging it buys nothing: the redirect it triggers still has to complete a real OAuth
   exchange against your app.
 </Aside>
 

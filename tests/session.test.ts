@@ -69,9 +69,9 @@ describe("sealed session", () => {
 
     await issue("session", session, "some-other-secret", HOUR);
 
-    await expect(verify<Session>("session", token, "shared-deployment-secret")).resolves.toMatchObject(
-      session,
-    );
+    await expect(
+      verify<Session>("session", token, "shared-deployment-secret"),
+    ).resolves.toMatchObject(session);
   });
 
   it("renews a token before it lapses, not after", () => {

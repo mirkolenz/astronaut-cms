@@ -21,9 +21,9 @@ That second boundary is the one that matters most.
 Successful script injection in the admin can act as the editor while the tab is open, which is unavoidable for any cookie-authenticated application, but it has nothing portable to steal and no way to reach past the CMS into the repository.
 
 <Aside type="note" title="What this replaced">
-  Earlier versions kept the provider token in the browser, where any script on the admin origin could
-  read it and use it anywhere. Moving it server-side is the whole point of the current architecture,
-  and it is why a production deployment now needs an SSR adapter.
+  Earlier versions kept the provider token in the browser, where any script on the admin origin
+  could read it and use it anywhere. Moving it server-side is the whole point of the current
+  architecture, and it is why a production deployment now needs an SSR adapter.
 </Aside>
 
 ### Signing in
@@ -66,9 +66,9 @@ Reusing it costs nothing in strength, because anyone holding the client secret c
 Set `ASTRONAUT_CMS_SESSION_SECRET` to key sessions off something else instead — to expire every session without touching your OAuth app, or to share one session across several services.
 
 <Aside type="note">
-  The alternative — generating a secret at build time — was rejected deliberately: it would change on
-  every deploy (signing everyone out), differ between instances of a scaled deployment, and land in
-  the build artifact. A secret the deployment already manages has none of those problems.
+  The alternative — generating a secret at build time — was rejected deliberately: it would change
+  on every deploy (signing everyone out), differ between instances of a scaled deployment, and land
+  in the build artifact. A secret the deployment already manages has none of those problems.
 </Aside>
 
 ### Revocation
@@ -94,13 +94,13 @@ That is the immediate lever, and the five-minute re-check is the one that follow
 
 Everything an anonymous request can reach, and what it costs:
 
-| Request | Answer | Work done |
-| --- | --- | --- |
-| `GET /admin` | A shell, a stylesheet and a ~1 kB bootstrap | None: the page reads no cookie |
-| `GET /_astronaut-cms/api/session` | Where to sign in, and no config | Read one cookie header |
-| `GET /login` | Redirect to the provider | One token encrypt |
-| `GET /callback` | Redirect back | One SHA-256, then **an outbound call to the provider** only if the callback matches the sign-in cookie |
-| Anything else | `401 Not signed in.` | Read one cookie header |
+| Request                           | Answer                                      | Work done                                                                                              |
+| --------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET /admin`                      | A shell, a stylesheet and a ~1 kB bootstrap | None: the page reads no cookie                                                                         |
+| `GET /_astronaut-cms/api/session` | Where to sign in, and no config             | Read one cookie header                                                                                 |
+| `GET /login`                      | Redirect to the provider                    | One token encrypt                                                                                      |
+| `GET /callback`                   | Redirect back                               | One SHA-256, then **an outbound call to the provider** only if the callback matches the sign-in cookie |
+| Anything else                     | `401 Not signed in.`                        | Read one cookie header                                                                                 |
 
 The admin page is the part worth dwelling on.
 It is a static shell that reads no session at all, which is what keeps the cookie off your site's own traffic: a page that had to read the cookie would need it scoped wide enough to reach that page.
@@ -131,13 +131,13 @@ A deployment that cannot reach its own secret reports that through the session e
 
 Moving the work server-side moved the cost with it: what an editor's browser used to spend is now your compute and your provider quota. Three budgets bound it, and all three are in-process.
 
-| Surface | Budget | What it stops |
-| --- | --- | --- |
-| Sign-in (`/login`, `/callback`) | 20/min, 4 at once, per caller address | An unauthenticated flood of code exchanges, each an outbound request to the provider |
-| Everything else (`/rpc`) | 300 operations/min, 12 requests at once, per editor | A runaway assistant loop or a compromised tab |
-| The reference scan | 10/min, **1 at once**, per editor | The one operation that reads every entry in the repository |
+| Surface                         | Budget                                              | What it stops                                                                        |
+| ------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Sign-in (`/login`, `/callback`) | 20/min, 4 at once, per caller address               | An unauthenticated flood of code exchanges, each an outbound request to the provider |
+| Everything else (`/rpc`)        | 300 operations/min, 12 requests at once, per editor | A runaway assistant loop or a compromised tab                                        |
+| The reference scan              | 10/min, **1 at once**, per editor                   | The one operation that reads every entry in the repository                           |
 
-The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations *and* risks the provider rate-limiting your deployment's address, which would break sign-in for everyone. PKCE narrows what can reach that call at all: a callback is checked against the sign-in cookie first, so only a caller who started a real sign-in gets as far as spending one.
+The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations _and_ risks the provider rate-limiting your deployment's address, which would break sign-in for everyone. PKCE narrows what can reach that call at all: a callback is checked against the sign-in cookie first, so only a caller who started a real sign-in gets as far as spending one.
 
 <Aside type="caution" title="These bound accidents, not attacks">
   The limits live in one warm instance's memory, because the CMS holds no shared state and adding a
@@ -160,7 +160,7 @@ The version is opaque — the server compares it, never dereferences it — so i
 Each backend lowers it to a precondition the provider enforces: `last_commit_id` on GitLab's commit API, a blob-hash check against the very commit the write will name as its parent on GitHub (where the branch is then advanced without `force`, so a branch that moved in between fails as a non-fast-forward), and a content digest against the working tree in development.
 A mismatch is a `412`, kept distinct from the `409` a provider returns when it cannot merge a branch: both are the editor's to resolve, but only one of them is resolved by reloading the entry.
 
-For a file collection the version is the *container's*, so editing one entry conflicts with a concurrent edit to any other.
+For a file collection the version is the _container's_, so editing one entry conflicts with a concurrent edit to any other.
 That is correct rather than strict: they are the same file, and the save rewrites all of them. Reordering carries that same container version.
 
 Renaming is two writes, of which only the first is based on what the caller read — the second is based on what the request has just done. Which one that is depends on the layout: in a file collection both entries share a container, so the version guards the write that adds the new entry; in a glob collection they are separate files, so it guards the removal of the old one.
@@ -281,8 +281,8 @@ The agent cannot publish.
 
 <Aside type="note">
   The agent loop itself runs in the browser, which is deliberate: each request to the relay is one
-  model call, so no serverless duration limit can cut a turn in half. What moved to the server is the
-  credential and the enforcement, not the loop, so nothing is lost by leaving it where it is.
+  model call, so no serverless duration limit can cut a turn in half. What moved to the server is
+  the credential and the enforcement, not the loop, so nothing is lost by leaving it where it is.
 </Aside>
 
 ### Cost
@@ -291,9 +291,9 @@ The relay holds the gateway credential, so a session is otherwise a licence to b
 Request size and output tokens are capped per editor by [`ai.limits`](/astronaut-cms/guides/ai-agent/#cost-controls); request rate and concurrency are capped too, but follow from `ai.maxSteps` rather than being configured beside it.
 
 <Aside type="caution">
-  Those limits bind one warm instance, not the deployment: the route holds no shared state. They stop
-  a runaway agent loop or a single hijacked session from draining a budget unattended. Set a spending
-  cap at the gateway as well — that is the only ceiling that counts across instances.
+  Those limits bind one warm instance, not the deployment: the route holds no shared state. They
+  stop a runaway agent loop or a single hijacked session from draining a budget unattended. Set a
+  spending cap at the gateway as well — that is the only ceiling that counts across instances.
 </Aside>
 
 ## Checklist
@@ -304,17 +304,17 @@ Request size and output tokens are capped per editor by [`ai.limits`](/astronaut
     expiring user tokens.
   </StepItem>
 
-  <StepItem title="Serve media from a separate origin">
-    A CDN subdomain, cookieless, with `nosniff`.
-  </StepItem>
+<StepItem title="Serve media from a separate origin">
+  A CDN subdomain, cookieless, with `nosniff`.
+</StepItem>
 
-  <StepItem title="Cap AI spend at the gateway">
-    `ai.limits` is the brake; the gateway budget is the ceiling.
-  </StepItem>
+<StepItem title="Cap AI spend at the gateway">
+  `ai.limits` is the brake; the gateway budget is the ceiling.
+</StepItem>
 
-  <StepItem title="Set a lifecycle rule on the media .trash/ prefix">
-    Long enough to undo a mistake, short enough not to keep deleted files forever.
-  </StepItem>
+<StepItem title="Set a lifecycle rule on the media .trash/ prefix">
+  Long enough to undo a mistake, short enough not to keep deleted files forever.
+</StepItem>
 
   <StepItem title="Enable bucket versioning">
     Recoverable deletion is in the CMS; versioning is what survives a credential compromise.

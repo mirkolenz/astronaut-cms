@@ -49,7 +49,10 @@ describe("resolveContentI18n", () => {
   // entries under a directory the site has no content in.
   it("maps a default locale code onto the path its entries live under", () => {
     expect(
-      resolveContentI18n({}, { defaultLocale: "en", locales: [{ path: "english", codes: ["en"] }] }),
+      resolveContentI18n(
+        {},
+        { defaultLocale: "en", locales: [{ path: "english", codes: ["en"] }] },
+      ),
     ).toEqual({ locales: ["english"], defaultLocale: "english" });
   });
 

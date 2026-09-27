@@ -21,7 +21,7 @@ export const storageOptions = (collections: CollectionManifest): StorageOptions 
  * happened to subclass the real thing.
  */
 export class StubStorage extends StorageBase {
-  listEntries(): Promise<EntryMeta[]> {
+  listEntries(_collection: string): Promise<EntryMeta[]> {
     return Promise.resolve([]);
   }
   listMedia(): Promise<MediaFile[]> {

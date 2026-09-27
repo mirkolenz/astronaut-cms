@@ -67,7 +67,9 @@ describe("dispatch", () => {
   it("runs the operation once its input is valid", async () => {
     const listed = [{ id: "hello", collection: "posts", format: "md" as const }];
     const ctx = context({
-      storage: { listEntries: () => Promise.resolve(listed) } as unknown as RequestContext["storage"],
+      storage: {
+        listEntries: () => Promise.resolve(listed),
+      } as unknown as RequestContext["storage"],
     });
 
     await expect(dispatch(ctx, "listEntries", { collection: "posts" })).resolves.toEqual(listed);

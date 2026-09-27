@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { authorizationUrl, challengeFor, createVerifier, type ProviderConfig } from "@server/oauth";
+import {
+  authorizationUrl,
+  challengeFor,
+  createVerifier,
+  type ProviderConfig,
+} from "@/server/oauth";
 
 // PKCE is what binds an authorization code to the browser that asked for it, and
 // the challenge doubles as `state` so a forged callback is refused before any
@@ -31,7 +36,9 @@ describe("PKCE", () => {
   it("sends the challenge as both the challenge and the state", async () => {
     const verifier = createVerifier();
     const challenge = await challengeFor(verifier);
-    const { searchParams } = new URL(authorizationUrl(github, "https://x.test/callback", challenge));
+    const { searchParams } = new URL(
+      authorizationUrl(github, "https://x.test/callback", challenge),
+    );
 
     expect(searchParams.get("code_challenge")).toBe(challenge);
     expect(searchParams.get("code_challenge_method")).toBe("S256");

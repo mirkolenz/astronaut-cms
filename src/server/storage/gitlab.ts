@@ -434,10 +434,7 @@ export class GitLabStorage extends BranchedStorage {
     return created.id;
   }
 
-  private async acceptMergeRequest(
-    iid: number,
-    options: Record<string, unknown>,
-  ): Promise<void> {
+  private async acceptMergeRequest(iid: number, options: Record<string, unknown>): Promise<void> {
     try {
       await this.api.run({
         path: `${this.project}/merge_requests/${iid}/merge`,

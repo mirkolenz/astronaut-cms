@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { BodyTooLargeError, readBody, readBytes } from "@shared/http";
-import { RateLimiter, callerAddress, limited } from "@shared/rate-limit";
-import { isActiveContentType, mediaContentType } from "@shared/media";
+import { describe, expect, it, vi } from "vitest";
+import { BodyTooLargeError, readBody, readBytes } from "@/shared/http";
+import { RateLimiter, callerAddress, limited } from "@/shared/rate-limit";
+import { isActiveContentType, mediaContentType } from "@/shared/media";
 
 // The injected routes spend something the caller does not own — a gateway
 // credential, a bucket — on a request the caller shapes. These are the three

@@ -10,12 +10,12 @@ for, and the CMS resolves only the one it does not: the props of your MDX compon
 injected into your Markdown or MDX at build time, so all of it works identically under Astro's
 default `satteri()` pipeline and under `unified()`.
 
-| Reference                            | Where                      | How it is handled                                                    |
-| ------------------------------------ | -------------------------- | -------------------------------------------------------------------- |
-| Markdown image `![alt](./x.png)`     | prose                      | Astro's Markdown processor, no extra wiring                          |
-| `image()` schema field               | frontmatter, data          | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
-| `image()` / `file()` component prop  | MDX component props        | Stored as a path string, resolved via `astronaut-cms/assets`         |
-| Link to a file `[doc](/files/x.pdf)` | prose                      | Put the file in `public/` (plain URL)                                |
+| Reference                            | Where               | How it is handled                                                    |
+| ------------------------------------ | ------------------- | -------------------------------------------------------------------- |
+| Markdown image `![alt](./x.png)`     | prose               | Astro's Markdown processor, no extra wiring                          |
+| `image()` schema field               | frontmatter, data   | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
+| `image()` / `file()` component prop  | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
+| Link to a file `[doc](/files/x.pdf)` | prose               | Put the file in `public/` (plain URL)                                |
 
 ## Collection fields
 
@@ -50,8 +50,8 @@ the CMS at render time.
 <Aside type="note">
   Astro's schema helpers have no `file()`. For a non-image asset in a collection field, import
   `file()` from `astronaut-cms/config` and resolve it with `resolveFile()`, exactly as for a
-  component prop below. `image()` is the other way round: it is never importable, because astro's
-  is the one that works in a collection schema.
+  component prop below. `image()` is the other way round: it is never importable, because astro's is
+  the one that works in a collection schema.
 </Aside>
 
 ## MDX component props

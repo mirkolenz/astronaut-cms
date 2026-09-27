@@ -27,9 +27,7 @@ export function conformTrailingSlash(
   const url = new URL(rawUrl);
 
   url.pathname =
-    policy === "always"
-      ? url.pathname.replace(/\/?$/, "/")
-      : url.pathname.replace(/(.)\/+$/, "$1");
+    policy === "always" ? url.pathname.replace(/\/?$/, "/") : url.pathname.replace(/(.)\/+$/, "$1");
 
   return url.href;
 }

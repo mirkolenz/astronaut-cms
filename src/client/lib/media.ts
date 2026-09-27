@@ -97,4 +97,3 @@ async function putThroughServer(path: string, file: File, overwrite: boolean): P
 
   await unwrap(await apiFetch(apiUrl(`${API_UPLOAD}?${query}`), { method: "PUT", body: file }));
 }
-

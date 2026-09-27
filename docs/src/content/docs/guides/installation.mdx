@@ -9,8 +9,12 @@ Astronaut CMS requires Astro 7 and React 19.
 Install the CMS package along with its peer dependencies.
 
 <Tabs>
-  <TabItem label="npm">```sh npm install astronaut-cms @astrojs/react react react-dom ```</TabItem>
-  <TabItem label="pnpm">```sh pnpm add astronaut-cms @astrojs/react react react-dom ```</TabItem>
+  <TabItem label="npm">
+    ```sh npm install astronaut-cms @astrojs/react react react-dom zod ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh pnpm add astronaut-cms @astrojs/react react react-dom zod ```
+  </TabItem>
 </Tabs>
 
 <Aside type="tip">
@@ -30,9 +34,10 @@ npm install @astrojs/mdx
 | `@astrojs/react` | `^6`    | React integration for the admin panel |
 | `react`          | `^19`   | React runtime                         |
 | `react-dom`      | `^19`   | React DOM renderer                    |
+| `zod`            | `^4`    | Collection and component schemas      |
 
 ## Optional Dependencies
 
 | Package        | Version | Purpose                          |
 | -------------- | ------- | -------------------------------- |
-| `@astrojs/mdx` | `^5`    | MDX support for block components |
+| `@astrojs/mdx` | `^7`    | MDX support for block components |

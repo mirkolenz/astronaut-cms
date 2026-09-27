@@ -25,12 +25,12 @@ cms({
 
 ### Options
 
-| Option              | Type       | Default        | Description                                                          |
-| ------------------- | ---------- | -------------- | -------------------------------------------------------------------- |
-| `directory`         | `string`   | `"src/assets"` | Directory where media files are stored, relative to the project root |
-| `allowedExtensions` | `string[]` | See below      | List of allowed file extensions                                      |
-| `maxFileSize`       | `number`   | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
-| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled | How an image is reshaped in the browser before it is uploaded |
+| Option              | Type                               | Default        | Description                                                                                           |
+| ------------------- | ---------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------- |
+| `directory`         | `string`                           | `"src/assets"` | Directory where media files are stored, relative to the project root                                  |
+| `allowedExtensions` | `string[]`                         | See below      | List of allowed file extensions                                                                       |
+| `maxFileSize`       | `number`                           | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled        | How an image is reshaped in the browser before it is uploaded                                         |
 
 ### Default Allowed Extensions
 
@@ -61,8 +61,8 @@ SVG, GIF, documents and any image already inside every limit are uploaded byte f
 Set `optimizeImages: false` to turn it off entirely, which is what you want when editors upload masters an object store is meant to hold.
 
 <Aside type="note">
-  This is not a replacement for astro's asset pipeline.
-  The library keeps one sensible master, and the build still derives the per-breakpoint variants a page actually serves.
+  This is not a replacement for astro's asset pipeline. The library keeps one sensible master, and
+  the build still derives the per-breakpoint variants a page actually serves.
 </Aside>
 
 See [`ImageOptimizationConfig`](/astronaut-cms/reference/configuration/#imageoptimizationconfig) for every option.
@@ -93,6 +93,7 @@ Content then stores library keys instead of project paths, and the site loads th
 
     Works with AWS S3, MinIO, Backblaze B2, Hetzner and anything else speaking the S3 API.
     Add `forcePathStyle: true` for a store that addresses objects as `<endpoint>/<bucket>/<key>`.
+
   </TabItem>
 
   <TabItem label="Cloudflare R2">
@@ -110,6 +111,7 @@ Content then stores library keys instead of project paths, and the site loads th
     ```
 
     R2 speaks the S3 API, so this is the same backend with Cloudflare's endpoint filled in.
+
   </TabItem>
 
   <TabItem label="R2 via Workers binding">
@@ -129,6 +131,7 @@ Content then stores library keys instead of project paths, and the site loads th
     On `@astrojs/cloudflare`, an R2 binding needs no credentials at all.
     A binding cannot hand out a presigned URL, so uploads are proxied through the Worker rather than going straight to the bucket.
     Add `accountId` as well to fall back to the S3 API wherever the binding is absent.
+
   </TabItem>
 </Tabs>
 
@@ -141,6 +144,7 @@ Content then stores library keys instead of project paths, and the site loads th
     ```sh
     npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
     ```
+
   </StepItem>
 
   <StepItem title="Set the credentials on the server">
@@ -154,6 +158,7 @@ Content then stores library keys instead of project paths, and the site loads th
     ```
 
     They are read by the CMS server alone and never reach the browser.
+
   </StepItem>
 
   <StepItem title="Decide how the library is read, and set publicUrl to match">
@@ -166,14 +171,15 @@ Content then stores library keys instead of project paths, and the site loads th
     same-origin content in the admin. The integration refuses the configuration when your
     `astro.config` declares a `site` it can check against. See
     [Security Model](/astronaut-cms/guides/security/#serve-the-library-from-its-own-origin).
+
   </StepItem>
 
-  <StepItem title="Allow browser uploads in the bucket's CORS policy">
-    A `PUT` from your admin's origin, with `if-none-match` among the allowed request headers: the
-    server signs that precondition into the upload URL, so the browser has to send it. Uploads go
-    straight from the browser to the store, which is what keeps them clear of the 4.5 MB (Vercel) and
-    6 MB (Netlify) function body limits.
-  </StepItem>
+<StepItem title="Allow browser uploads in the bucket's CORS policy">
+  A `PUT` from your admin's origin, with `if-none-match` among the allowed request headers: the
+  server signs that precondition into the upload URL, so the browser has to send it. Uploads go
+  straight from the browser to the store, which is what keeps them clear of the 4.5 MB (Vercel) and
+  6 MB (Netlify) function body limits.
+</StepItem>
 
   <StepItem title="Set a lifecycle rule on the .trash/ prefix">
     The library keeps it for itself: deletions are moved there rather than dropped, and the media
@@ -222,14 +228,14 @@ media: {
 ```
 
 - **The admin** reads through signed URLs the CMS server mints per request. Fully supported.
-- **The site** signs a URL per referenced image *while building*, astro downloads it and emits an
+- **The site** signs a URL per referenced image _while building_, astro downloads it and emits an
   optimized asset, and the built output refers to the store nowhere.
 
 <Aside type="caution">
   This needs **every page that renders library media to be prerendered**. A signed URL expires, so a
   page rendered on demand would hand visitors a link that stops working. The integration warns at
-  build time when `publicUrl` is absent. It also needs S3 API access to sign with: a
-  binding-only R2 backend is refused, since a Workers binding signs nothing.
+  build time when `publicUrl` is absent. It also needs S3 API access to sign with: a binding-only R2
+  backend is refused, since a Workers binding signs nothing.
 </Aside>
 
 ### Deleting and restoring
@@ -243,8 +249,8 @@ The trash is not a place you can otherwise address: it never appears in the libr
 <Aside type="caution">
   A trashed object is still an object. On a public bucket it remains readable at its own URL until
   the lifecycle rule removes it, so "deleted" here means "recoverable", not "gone". When you need a
-  file actually gone — someone asked you to remove their photo — delete it and then purge it from the
-  trash.
+  file actually gone — someone asked you to remove their photo — delete it and then purge it from
+  the trash.
 </Aside>
 
 The assistant can delete media but cannot restore or purge: those are the media view's alone.
@@ -254,11 +260,11 @@ That is deliberate, since the point of the trash is to catch a delete that shoul
 
 ### Image optimization and adapter image services
 
-| Setup | Public base | Private library |
-| --- | --- | --- |
-| Astro's built-in service, prerendered page | Optimized at build into `dist/` | Signed at build, optimized into `dist/` |
-| Astro's built-in service, on-demand page | Optimized per request by `/_image` | Not supported |
-| Vercel / Netlify / Cloudflare image service | Optimized at the edge | Not supported |
+| Setup                                       | Public base                        | Private library                         |
+| ------------------------------------------- | ---------------------------------- | --------------------------------------- |
+| Astro's built-in service, prerendered page  | Optimized at build into `dist/`    | Signed at build, optimized into `dist/` |
+| Astro's built-in service, on-demand page    | Optimized per request by `/_image` | Not supported                           |
+| Vercel / Netlify / Cloudflare image service | Optimized at the edge              | Not supported                           |
 
 The adapter image services — `@astrojs/vercel` with `imageService: true`, `@astrojs/netlify`'s Image CDN, `@astrojs/cloudflare` with `imageService: "cloudflare"` — rewrite an `<Image>` into a CDN URL that carries your source URL as a parameter, and the CDN fetches that source **from its own edge at request time**.
 
@@ -276,12 +282,13 @@ It cannot work with a private library. None of those CDNs can sign an S3 request
 - **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.
 
 <Aside type="note">
-  `astro dev` keeps the library in the working tree rather than the bucket, exactly as it substitutes
-  local storage for content, so running the admin locally needs no bucket credentials and cannot
-  touch what the deployed site serves. Only the bytes move: references are still written as keys, so
-  an entry edited in dev builds unchanged. It needs local storage, since the files live in the
-  working tree. Set `localMediaInDev: false` to point dev at the configured store instead — and note
-  that a dev run has no sign-in at all, so anyone who can reach the dev server can reach the bucket.
+  `astro dev` keeps the library in the working tree rather than the bucket, exactly as it
+  substitutes local storage for content, so running the admin locally needs no bucket credentials
+  and cannot touch what the deployed site serves. Only the bytes move: references are still written
+  as keys, so an entry edited in dev builds unchanged. It needs local storage, since the files live
+  in the working tree. Set `localMediaInDev: false` to point dev at the configured store instead —
+  and note that a dev run has no sign-in at all, so anyone who can reach the dev server can reach
+  the bucket.
 </Aside>
 
 ## Using Media in Content

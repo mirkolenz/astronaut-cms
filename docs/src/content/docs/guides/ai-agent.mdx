@@ -27,15 +27,15 @@ The CMS needs an Astro server adapter regardless (`@astrojs/node`, `@astrojs/net
 
 This is the single biggest cost decision the assistant involves, and it is a hosting choice rather than a setting.
 
-The relay is a Fetch-API streaming proxy that does almost no work of its own: it attaches a credential, forwards a request, and pipes bytes back. But it is **held open for the whole model response**, because that is what proxying a stream means. The agent loop runs in the browser, so no single call spans a whole turn — but a turn of *n* steps is *n* calls, each held for one model response.
+The relay is a Fetch-API streaming proxy that does almost no work of its own: it attaches a credential, forwards a request, and pipes bytes back. But it is **held open for the whole model response**, because that is what proxying a stream means. The agent loop runs in the browser, so no single call spans a whole turn — but a turn of _n_ steps is _n_ calls, each held for one model response.
 
 What that costs depends entirely on how your host bills a function that is waiting rather than computing:
 
-| Host | Runs as | Billed on | What a long generation costs |
-| --- | --- | --- | --- |
-| **Cloudflare** | Workers, at the edge | CPU time | Effectively nothing: waiting on the model is not CPU time, and there is no duration cap to plan around |
-| **Vercel** | Serverless function | Wall-clock duration | The full length of every model response, on every step |
-| **Netlify** | Serverless function | Wall-clock duration | The same, and capped at 10s on the free plan, which one long single-shot generation can hit |
+| Host           | Runs as              | Billed on           | What a long generation costs                                                                           |
+| -------------- | -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Cloudflare** | Workers, at the edge | CPU time            | Effectively nothing: waiting on the model is not CPU time, and there is no duration cap to plan around |
+| **Vercel**     | Serverless function  | Wall-clock duration | The full length of every model response, on every step                                                 |
+| **Netlify**    | Serverless function  | Wall-clock duration | The same, and capped at 10s on the free plan, which one long single-shot generation can hit            |
 
 The Astro adapters run on-demand routes at the edge only for Cloudflare; Netlify and Vercel run them in serverless functions (edge is for middleware only), which is why the three differ.
 
@@ -178,14 +178,14 @@ The first model is the default, and the relay rejects any model not in the list.
   [`credentials: "byok"`](#bring-your-own-key).
 </Aside>
 
-| Property      | Type                    | Default    | Description                                                             |
-| ------------- | ----------------------- | ---------- | ----------------------------------------------------------------------- |
-| `enabled`     | `boolean`               | `false`    | Enable the assistant and inject the relay route                         |
-| `gateway`     | `AiGateway`             | required   | Which gateway to reach, and where its credential comes from             |
-| `credentials` | `"relay" \| "byok"`     | `"relay"`  | Whose key is spent: the deployment's, or [each editor's](#bring-your-own-key) |
-| `models`      | `string[]`              | required   | Gateway-qualified model ids; the first is the default                   |
-| `maxSteps`    | `number`                | `24`       | Maximum model/tool round-trips per turn                                 |
-| `limits`      | `AiLimits`              | see below  | Request and output ceilings the relay applies                           |
+| Property      | Type                | Default   | Description                                                                   |
+| ------------- | ------------------- | --------- | ----------------------------------------------------------------------------- |
+| `enabled`     | `boolean`           | `false`   | Enable the assistant and inject the relay route                               |
+| `gateway`     | `AiGateway`         | required  | Which gateway to reach, and where its credential comes from                   |
+| `credentials` | `"relay" \| "byok"` | `"relay"` | Whose key is spent: the deployment's, or [each editor's](#bring-your-own-key) |
+| `models`      | `string[]`          | required  | Gateway-qualified model ids; the first is the default                         |
+| `maxSteps`    | `number`            | `24`      | Maximum model/tool round-trips per turn                                       |
+| `limits`      | `AiLimits`          | see below | Request and output ceilings the relay applies                                 |
 
 ### Collection names
 
@@ -255,7 +255,7 @@ cms({
 });
 ```
 
-How *often* an editor may call is not configured, it follows from `maxSteps`.
+How _often_ an editor may call is not configured, it follows from `maxSteps`.
 A turn is up to `maxSteps` relay requests, so the per-minute ceiling is four turns' worth and a raised `maxSteps` cannot make a single turn throttle itself halfway through.
 Concurrency is capped at four in flight per editor, each slot held until its stream ends.
 
