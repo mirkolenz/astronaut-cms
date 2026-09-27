@@ -14,7 +14,7 @@
  */
 import { parseExpressionAt } from "acorn";
 import type { Expression, Property } from "estree";
-import type { MdxJsxAttribute } from "mdast-util-mdx-jsx";
+import type { MdxJsxAttribute } from "mdast-util-mdx";
 
 /** A statically-known attribute value, or `unknown` for one only a runtime has. */
 export type StaticValue = { known: true; value: unknown } | { known: false };

@@ -5,7 +5,7 @@ import { describeMediaRef, mediaPath } from "@/shared/media";
 import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
 import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { components } from "virtual:astronaut-cms/user-config";
-import { validateMdx } from "@/shared/mdx-validation";
+import { validateBody } from "@/shared/body-validation";
 import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 
 /**
@@ -200,7 +200,7 @@ export interface EntryWrite {
 
 /**
  * Everything that has to hold before an entry may be written: a slug-safe id,
- * data matching the collection's schema, well-formed MDX components, and every
+ * data matching the collection's schema, a body within the allowed subset, and every
  * asset and reference — from the frontmatter and from the component props alike
  * — resolving to something that exists. The two leaf sources are resolved
  * together so the media library and each referenced collection are listed once
@@ -210,15 +210,15 @@ async function validateEntryWrite(
   source: ContentSource,
   { col, id, data, body, format }: EntryWrite,
 ): Promise<Diagnostic[]> {
-  const mdx = validateMdx(body, format, components);
+  const parsed = validateBody(body, format, components);
 
   return [
     ...validateEntryId(id),
     ...validateAgainstSchema(col, data),
-    ...mdx.diagnostics,
+    ...parsed.diagnostics,
     ...(await checkResolvableLeaves(
       source,
-      [...dataLeaves(col.schema, data), ...mdx.leaves],
+      [...dataLeaves(col.schema, data), ...parsed.leaves],
       entryFilePath(col, id, format),
     )),
   ];

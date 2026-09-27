@@ -275,6 +275,8 @@ Any of it can try to instruct the model, so the boundary is not "will the model 
 
 Every tool the agent can call is one operation on the CMS server, validated exactly as the interface's own calls are.
 Repository writes land in the **pending changeset** — the draft branch the editor reviews and then publishes or discards as a whole — so a destructive call talked out of a model costs a discard.
+A branch preview builds that changeset before anyone reviews it, and the published site serves it to every visitor, so an entry body may carry no code.
+See [allowed body content](/astronaut-cms/guides/cms-config/#allowed-body-content) for the subset every write is held to.
 Media deletion and renaming are refused while content still references the file, and an object-store deletion goes to the trash prefix.
 The agent cannot publish.
 

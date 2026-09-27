@@ -12,7 +12,7 @@ import type {
   MdxJsxAttribute,
   MdxJsxExpressionAttribute,
   MdxJsxFlowElement,
-} from "mdast-util-mdx-jsx";
+} from "mdast-util-mdx";
 import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";

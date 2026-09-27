@@ -1,5 +1,4 @@
 import type { Nodes } from "mdast";
-import { fromMarkdown } from "mdast-util-from-markdown";
 
 /**
  * The URLs a parsed body embeds as markdown images, inline (`![alt](url)`) or
@@ -27,12 +26,4 @@ export function imageUrls(tree: Nodes): string[] {
   }
 
   return urls;
-}
-
-/**
- * The images of a Markdown body. An MDX body is parsed by `validateMdx`, which
- * reports its images from the same tree, so it is never parsed twice.
- */
-export function markdownImages(body: string, format: string): string[] {
-  return format === "md" ? imageUrls(fromMarkdown(body)) : [];
 }

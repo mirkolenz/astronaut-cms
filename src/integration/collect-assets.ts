@@ -4,7 +4,7 @@ import { assetKey } from "../shared/asset-path.ts";
 import { isAstroImage } from "../shared/image-formats.ts";
 import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/content-parser.ts";
 import type { ComponentSchemaMap } from "../shared/field-schema.ts";
-import { validateMdx } from "../shared/mdx-validation.ts";
+import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
 import {
   collectionBase,
@@ -151,9 +151,9 @@ function* entryAssets(
   yield* candidates(dataLeaves(collection.schema, data), "frontmatter", null);
 
   // A component prop is the one image reference astro has no mechanism for, so
-  // unlike a collection field it does have to be bundled here. `validateMdx`
+  // unlike a collection field it does have to be bundled here. `validateBody`
   // yields nothing for a format whose bodies carry no components.
-  yield* candidates(validateMdx(body, format, components).leaves, null, "images");
+  yield* candidates(validateBody(body, format, components).leaves, null, "images");
 }
 
 /**

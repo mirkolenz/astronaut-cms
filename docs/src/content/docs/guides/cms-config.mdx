@@ -150,6 +150,17 @@ with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
   non-image asset in a collection field.
 </Aside>
 
+## Allowed Body Content
+
+Entries are held to a small subset of their format, so neither an editor nor the assistant can put code into the site.
+
+- **MDX** may import registered components from their `source`, pass them literal props, and use `<div>` and `<span>` with a literal `class` as wrappers. Any other element, attribute, directive, expression, spread, import or export is refused. `{/* comments */}` are allowed.
+- **Markdown and Markdoc** may not contain raw HTML.
+- **Links and images** may only point to relative, `http`, `https`, `mailto` or `tel` URLs.
+- **URLs in fields** may only be stored in a [`link()`](/astronaut-cms/reference/config-helpers/#schema-helpers-image-file-link) or `z.url()` field, with the same schemes. Any other string field, in frontmatter, data or component props, refuses a value that would act as a link.
+
+Anything beyond that belongs in a registered component.
+
 ## Matching Astro Components
 
 Each component defined in `cms.config.ts` must have a corresponding Astro component that renders the HTML.

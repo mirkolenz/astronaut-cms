@@ -13,7 +13,7 @@ export const components: ComponentManifest = {
       shape: { src: { type: "image" }, alt: { type: "string" } },
     },
     kind: "flow",
-    source: null,
+    source: "@/components/Figure.astro",
     defaultExport: false,
     label: "Figure",
     icon: null,

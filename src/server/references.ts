@@ -17,8 +17,7 @@ import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { isLibraryFile, mediaPath } from "../shared/media.ts";
-import { markdownImages } from "../shared/markdown-images.ts";
-import { validateMdx } from "../shared/mdx-validation.ts";
+import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
 import type { AssetReference, ReferenceIndex } from "../shared/references.ts";
@@ -75,14 +74,14 @@ export function indexEntry(
     else index.set(path, [reference]);
   };
 
-  const mdx = validateMdx(entry.body, entry.format, components);
+  const body = validateBody(entry.body, entry.format, components);
 
-  for (const leaf of [...dataLeaves(col.schema, entry.data), ...mdx.leaves]) {
+  for (const leaf of [...dataLeaves(col.schema, entry.data), ...body.leaves]) {
     if (leaf.kind !== "reference") add(leaf.value, leaf.path, true);
   }
 
   // A markdown image names its file as plainly as a schema field does.
-  for (const url of [...mdx.images, ...markdownImages(entry.body, entry.format)]) {
+  for (const url of body.images) {
     add(url, "markdown image", true);
   }
 
