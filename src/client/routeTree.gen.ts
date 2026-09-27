@@ -9,16 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
-import { Route as MediaRouteImport } from "./routes/media";
-import { Route as AssistantRouteImport } from "./routes/assistant";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as AssistantRouteImport } from "./routes/assistant";
+import { Route as MediaRouteImport } from "./routes/media";
 import { Route as CollectionsCollectionRouteImport } from "./routes/collections.$collection";
 import { Route as CollectionsCollectionIndexRouteImport } from "./routes/collections.$collection.index";
 import { Route as CollectionsCollectionEntryRouteImport } from "./routes/collections.$collection.$entry";
 
-const MediaRoute = MediaRouteImport.update({
-  id: "/media",
-  path: "/media",
+const IndexRoute = IndexRouteImport.update({
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AssistantRoute = AssistantRouteImport.update({
@@ -26,9 +26,9 @@ const AssistantRoute = AssistantRouteImport.update({
   path: "/assistant",
   getParentRoute: () => rootRouteImport,
 } as any);
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+const MediaRoute = MediaRouteImport.update({
+  id: "/media",
+  path: "/media",
   getParentRoute: () => rootRouteImport,
 } as any);
 const CollectionsCollectionRoute = CollectionsCollectionRouteImport.update({
@@ -108,11 +108,11 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/media": {
-      id: "/media";
-      path: "/media";
-      fullPath: "/media";
-      preLoaderRoute: typeof MediaRouteImport;
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/assistant": {
@@ -122,11 +122,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AssistantRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
+    "/media": {
+      id: "/media";
+      path: "/media";
+      fullPath: "/media";
+      preLoaderRoute: typeof MediaRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/collections/$collection": {

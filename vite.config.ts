@@ -1,9 +1,25 @@
-import { cpSync } from "node:fs";
+import { cpSync, readFileSync } from "node:fs";
+import { builtinModules } from "node:module";
 import { resolve } from "node:path";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
 import dts from "unplugin-dts/vite";
-import { externalizeDeps } from "vite-plugin-externalize-deps";
+
+const pkg = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, "package.json"), "utf8"),
+);
+
+const externalPackages = [
+  ...builtinModules,
+  ...Object.keys(pkg.dependencies ?? {}),
+  ...Object.keys(pkg.peerDependencies ?? {}),
+];
+
+const isExternal = (id: string) =>
+  id.startsWith("virtual:") ||
+  externalPackages.some(
+    (name) => id === name || id === `node:${name}` || id.startsWith(`${name}/`),
+  );
 
 export default defineConfig({
   resolve: {
@@ -24,7 +40,6 @@ export default defineConfig({
       quoteStyle: "double",
     }),
     dts({ entryRoot: "src", exclude: ["src/client/**"] }),
-    externalizeDeps({ include: [/^virtual:/] }),
     {
       name: "copy-astro-files",
       closeBundle() {
@@ -33,7 +48,6 @@ export default defineConfig({
     },
   ],
   build: {
-    emptyOutDir: true,
     lib: {
       entry: {
         integration: "src/integration/index.ts",
@@ -45,15 +59,10 @@ export default defineConfig({
       },
       formats: ["es"],
     },
-    outDir: "dist",
-    rollupOptions: {
+    rolldownOptions: {
+      external: isExternal,
       output: {
         chunkFileNames: "shared.js",
-      },
-      onwarn(warning, warn) {
-        if (warning.code === "MODULE_LEVEL_DIRECTIVE") return;
-        if (warning.code === "SOURCEMAP_ERROR") return;
-        warn(warning);
       },
     },
   },
