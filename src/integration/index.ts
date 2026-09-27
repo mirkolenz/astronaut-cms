@@ -19,7 +19,6 @@ import {
   isByok,
   resolveAlwaysInclude,
   resolveClientConfig,
-  resolveCollections,
   resolveMediaServer,
   resolveServerConfig,
   storageType,
@@ -28,8 +27,6 @@ import { isAddressable } from "../shared/ai.ts";
 
 export type {
   CmsConfig,
-  CollectionOptions,
-  CollectionSort,
   StorageConfig,
   MediaConfig,
   MediaBackendConfig,
@@ -38,8 +35,10 @@ export type {
   SupportedLocale,
 } from "./types.ts";
 export type { ContentI18n } from "../shared/i18n.ts";
-export { defineComponent, file } from "../config.ts";
+export { defineCollection, defineComponent, file } from "../config.ts";
 export type {
+  CollectionOptions,
+  CollectionSort,
   ComponentDefinition,
   InferComponentProps,
   ChildrenConfig,
@@ -284,8 +283,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           content: contentConfigPath,
           cms: userConfigPath,
         });
-        const { components } = loaded;
-        const collections = resolveCollections(loaded.collections, effectiveConfig);
+        const { collections, components } = loaded;
         const entries =
           command === "build" || command === "dev"
             ? contentEntries(rootDir, collections, components)

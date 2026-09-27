@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import type { JsxEditorProps } from "@mdxeditor/editor";
 import type { z } from "zod";
 import type { schemaHelpers } from "./shared/cms-markers.ts";
+import type { CollectionSort } from "./shared/types.ts";
 
 export type { JsxEditorProps };
 
@@ -37,6 +38,28 @@ export interface ComponentDefinition<
   label?: string;
   icon?: LucideIcon;
   editor?: ComponentType<JsxEditorProps>;
+}
+
+export type { CollectionSort };
+
+/** What `cms.config` adds to one collection of the content config. */
+export interface CollectionOptions {
+  /**
+   * How entries are ordered, both in the admin and for the site through
+   * `sortEntries` from `astronaut-cms/content` (default: "id", astro's own
+   * order). "file" keeps the order of a `file()` collection's file, which
+   * editors can then change.
+   */
+  sort?: CollectionSort;
+}
+
+/**
+ * One entry of the `collections` export of `cms.config`, keyed like the
+ * collections of `content.config`, as {@link defineComponent} is one entry of
+ * `components`.
+ */
+export function defineCollection(options: CollectionOptions): CollectionOptions {
+  return options;
 }
 
 export function defineComponent<T extends z.ZodType, C extends ChildrenConfig = never>(

@@ -33,7 +33,7 @@ const posts = defineCollection({
 });
 
 // Team members, stored as a single JSON file (a file collection). The CMS lets
-// you add, reorder (it is sorted by file order in astro.config), and edit
+// you add, reorder (it is sorted by file order in cms.config), and edit
 // entries in place, and other collections reference them by id.
 const team = defineCollection({
   loader: file("src/data/team.json"),

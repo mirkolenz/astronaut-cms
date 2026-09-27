@@ -1,11 +1,14 @@
 ---
 title: CMS Configuration
-description: Define custom MDX block components for the CMS editor.
+description: Define collection options and custom MDX block components for the CMS editor.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-The CMS config file (`src/cms.config.ts`) defines custom MDX block components that can be used in the admin panel's content editor.
+The CMS config file (`src/cms.config.ts`) holds everything the CMS adds to your content collections: the MDX block components editors can use in entry bodies, and options per collection.
+Everything else, such as storage, media and the assistant, is configured in `astro.config.ts`.
+
+The file is bundled into the admin, so keep secrets and Node-only imports out of it.
 
 ## Basic Setup
 
@@ -25,6 +28,21 @@ export const components = {
   }),
 };
 ```
+
+## Collection Options
+
+The `collections` export gives options to collections of `src/content.config.ts`, keyed by name, as `components` holds one `defineComponent()` per component:
+
+```ts title="src/cms.config.ts"
+import { defineCollection } from "astronaut-cms/config";
+
+export const collections = {
+  team: defineCollection({ sort: "file" }),
+};
+```
+
+A name that is not a collection of the content config fails the build.
+See [Entry order](/astronaut-cms/guides/content-collections/#entry-order) for the `sort` values.
 
 ## Component Definition
 

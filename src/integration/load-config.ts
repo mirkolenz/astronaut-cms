@@ -3,7 +3,7 @@ import { SOURCE_EXPORTS } from "./self-resolve.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { imageMarker } from "../shared/cms-markers.ts";
 import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
-import type { ComponentDefinition } from "../config.ts";
+import type { CollectionOptions, ComponentDefinition } from "../config.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { SchemaContext } from "astro/content/config";
 import type { CollectionManifest, CollectionManifestEntry } from "../shared/types.ts";
@@ -105,7 +105,7 @@ interface RawCollection {
 /**
  * Loads the user's content config and lowers every collection into a fully
  * serializable {@link CollectionManifest}, each in astro's own id order until
- * the integration config says otherwise.
+ * `cms.config` says otherwise.
  */
 async function loadCollections(
   load: ConfigImport,
@@ -136,34 +136,63 @@ async function loadCollections(
   return manifest;
 }
 
-/**
- * Loads the user's `cms.config.ts` and lowers its components into the same
- * {@link ComponentManifest} the admin bundle builds for itself at runtime.
- *
- * The admin has to do its own pass because `icon` and `editor` are live React
- * refs; a build wants nothing but the lowered prop schemas, which tell it which
- * component props name an asset.
- */
-async function loadComponents(
-  load: ConfigImport,
-  userConfigPath: string,
-): Promise<ComponentManifest> {
-  const mod = await load<{ components?: Record<string, ComponentDefinition> }>(userConfigPath);
-
-  return processUserConfig(mod.components);
+/** The two exports of `cms.config.ts` the integration reads. */
+interface CmsConfigModule {
+  components?: Record<string, ComponentDefinition>;
+  collections?: Record<string, CollectionOptions>;
 }
 
-/** Both configs, each empty when the site has none. */
+/**
+ * The content config's collections with the options `cms.config` gives them.
+ * An option naming no collection, or a file order for entries that are separate
+ * files, is a mistake the site would otherwise never notice.
+ */
+function withOptions(
+  manifest: CollectionManifest,
+  options: Record<string, CollectionOptions>,
+): CollectionManifest {
+  const resolved = { ...manifest };
+
+  for (const [name, { sort }] of Object.entries(options)) {
+    const collection = resolved[name];
+
+    if (!collection) {
+      throw new Error(
+        `cms.config collections: "${name}" is not a collection of the content config.`,
+      );
+    }
+
+    if (sort === "file" && collection.loaderType !== "file") {
+      throw new Error(
+        `cms.config collections: "${name}" cannot sort by "file", which needs a file() collection. The entries of a glob() collection are separate files.`,
+      );
+    }
+
+    if (sort) resolved[name] = { ...collection, sort };
+  }
+
+  return resolved;
+}
+
+/**
+ * Both configs, each empty when the site has none. The components are lowered
+ * into the same {@link ComponentManifest} the admin bundle builds for itself at
+ * runtime; the admin has to do its own pass because `icon` and `editor` are live
+ * React refs, and a build wants nothing but the lowered prop schemas.
+ */
 export function loadConfigs(
   rootDir: string,
   paths: { content: string | null; cms: string | null },
 ): Promise<{ collections: CollectionManifest; components: ComponentManifest }> {
   return withConfigImport(rootDir, async (load) => {
-    const [collections, components] = await Promise.all([
+    const [collections, cms] = await Promise.all([
       paths.content ? loadCollections(load, paths.content) : {},
-      paths.cms ? loadComponents(load, paths.cms) : {},
+      paths.cms ? load<CmsConfigModule>(paths.cms) : undefined,
     ]);
 
-    return { collections, components };
+    return {
+      collections: withOptions(collections, cms?.collections ?? {}),
+      components: processUserConfig(cms?.components),
+    };
   });
 }

@@ -61,7 +61,7 @@ File collections support both array and object layouts, which the admin panel de
 ## Entry order
 
 Astro's `getCollection()` returns entries sorted by id, whatever order a file holds them in.
-Set `sort` per collection in the integration config to choose another order:
+Set `sort` per collection in the `collections` export of `src/cms.config.ts` to choose another order:
 
 | `sort`            | Order                                                              |
 | ----------------- | ------------------------------------------------------------------ |
@@ -69,10 +69,12 @@ Set `sort` per collection in the integration config to choose another order:
 | `"natural"`       | By id, with numbers compared as numbers (`2` before `10`)          |
 | `"file"`          | The order of the file, for `file()` collections only               |
 
-```ts title="astro.config.ts"
-cms({
-  collections: { authors: { sort: "file" } },
-});
+```ts title="src/cms.config.ts"
+import { defineCollection } from "astronaut-cms/config";
+
+export const collections = {
+  authors: defineCollection({ sort: "file" }),
+};
 ```
 
 The admin lists entries in that order, and only a `"file"` collection offers reordering.

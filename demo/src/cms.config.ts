@@ -1,4 +1,8 @@
-import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
+import {
+  defineCollection,
+  defineComponent,
+  type InferComponentProps,
+} from "astronaut-cms/config";
 import { z } from "zod";
 import {
   Sparkles,
@@ -100,3 +104,8 @@ export const components = {
 };
 
 export type ComponentProps = InferComponentProps<typeof components>;
+
+// The team page lists members in the order of `src/data/team.json`.
+export const collections = {
+  team: defineCollection({ sort: "file" }),
+};

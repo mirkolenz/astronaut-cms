@@ -12,7 +12,6 @@ interface CmsConfig {
   config?: string;
   mountPoint?: string;
   storage?: StorageConfig;
-  collections?: Record<string, { sort?: "id" | "natural" | "file" }>;
   runtime?: "cloudflare" | "node";
   localStorageInDev?: boolean;
   localMediaInDev?: boolean;
@@ -30,7 +29,6 @@ interface CmsConfig {
 | `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                            |
 | `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
 | `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
-| `collections`       | `Record<string, CollectionOptions>` | `{}`       | Per collection options, see [Entry order](/astronaut-cms/guides/content-collections/#entry-order)                  |
 | `runtime`           | `"cloudflare" \| "node"` | from the adapter      | Where the injected routes read Workers bindings from                                                                  |
 | `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
 | `localMediaInDev`   | `boolean`              | `true`                  | Keep the media library in the working tree during `astro dev` instead of reaching the object store                  |

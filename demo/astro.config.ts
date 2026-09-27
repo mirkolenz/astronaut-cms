@@ -22,8 +22,6 @@ export default defineConfig({
     react(),
     cms({
       storage: { type: "local" },
-      // The team page lists members in the order of `src/data/team.json`.
-      collections: { team: { sort: "file" } },
       // Agentic AI assistant, pointed at a local llama.cpp `llama-server`
       // (OpenAI-compatible at /v1). The browser runs the agent loop; only model
       // inference is proxied through the injected relay route. No API key is

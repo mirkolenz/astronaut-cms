@@ -20,7 +20,6 @@ import type {
 import { presignedUploadOrigin, type ClientMediaBackend } from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
-import type { CollectionManifest } from "../shared/types.ts";
 import { DEFAULT_AI_MAX_STEPS, gatewayEndpoint, isAddressable } from "../shared/ai.ts";
 import { parseRepo } from "../shared/repo.ts";
 
@@ -69,36 +68,6 @@ export function resolveContentI18n(
   if (!locales?.length || !defaultLocale) return null;
 
   return { locales, defaultLocale };
-}
-
-/**
- * The content config's collections with the integration's per-collection
- * options applied. An option naming no collection, or a file order for entries
- * that are separate files, is a mistake the site would otherwise never notice.
- */
-export function resolveCollections(
-  manifest: CollectionManifest,
-  config: CmsConfig,
-): CollectionManifest {
-  const resolved = { ...manifest };
-
-  for (const [name, { sort }] of Object.entries(config.collections ?? {})) {
-    const collection = resolved[name];
-
-    if (!collection) {
-      throw new Error(`collections: "${name}" is not a collection of the content config.`);
-    }
-
-    if (sort === "file" && collection.loaderType !== "file") {
-      throw new Error(
-        `collections: "${name}" cannot sort by "file", which needs a file() collection. The entries of a glob() collection are separate files.`,
-      );
-    }
-
-    if (sort) resolved[name] = { ...collection, sort };
-  }
-
-  return resolved;
 }
 
 export const storageType = (config: CmsConfig): "local" | "github" | "gitlab" =>

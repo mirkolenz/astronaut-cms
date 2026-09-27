@@ -1,9 +1,21 @@
 ---
 title: Config Helpers
-description: API reference for defineComponent, the schema helpers, file, and InferComponentProps.
+description: API reference for defineCollection, defineComponent, the schema helpers, file, and InferComponentProps.
 ---
 
 These functions and types are exported from `astronaut-cms/config`.
+
+## `defineCollection()`
+
+Types one entry of the `collections` export of `cms.config.ts`, keyed by collection name like `content.config.ts`.
+
+```ts
+function defineCollection(options: CollectionOptions): CollectionOptions;
+
+interface CollectionOptions {
+  sort?: "id" | "natural" | "file"; // default: "id"
+}
+```
 
 ## `defineComponent()`
 
