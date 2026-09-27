@@ -36,7 +36,11 @@ export default defineConfig({
     {
       name: "copy-astro-files",
       closeBundle() {
-        cpSync("src/astro", "dist/astro", { recursive: true });
+        // The stylesheet is compiled by `vite.styles.config.ts` instead.
+        cpSync("src/astro", "dist/astro", {
+          recursive: true,
+          filter: (source) => !source.endsWith(".css"),
+        });
       },
     },
   ],

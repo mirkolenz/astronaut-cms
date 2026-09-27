@@ -3,7 +3,6 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { join } from "pathe";
-import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
@@ -364,7 +363,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           env: { schema: secretsSchema(config, serverConfig, configuredMedia, mediaServer) },
           vite: {
             plugins: [
-              tailwindcss(),
               cmsVitePlugin({
                 clientConfig,
                 serverConfig,
