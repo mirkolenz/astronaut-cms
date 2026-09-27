@@ -27,6 +27,7 @@ declare module "virtual:astronaut-cms/server" {
   export default config;
 }
 
+/** The Workers `env`, where the injected routes run in Workers. Only bindings are read off it. */
 declare module "virtual:astronaut-cms/runtime-env" {
   const env: Record<string, unknown> | undefined;
   export default env;

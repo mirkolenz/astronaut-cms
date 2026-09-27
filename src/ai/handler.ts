@@ -11,7 +11,7 @@
  * the same rules rather than by where they run.
  */
 import type { AiServerConfig } from "../integration/types.ts";
-import { gatewayEndpoint, type AiGateway } from "../shared/ai.ts";
+import { AI_API_KEY_ENV, gatewayEndpoint, type AiGateway } from "../shared/ai.ts";
 import { BodyTooLargeError, readBody } from "../shared/http.ts";
 import { RateLimiter } from "../shared/rate-limit.ts";
 import { unreachable } from "../shared/unreachable.ts";
@@ -88,7 +88,7 @@ function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
       const key =
         gateway.type === "cloudflare"
           ? getEnv("CLOUDFLARE_API_TOKEN")
-          : getEnv("ASTRONAUT_CMS_AI_API_KEY");
+          : getEnv(AI_API_KEY_ENV);
 
       return { url: joinUrl(baseUrl, "chat/completions"), headers: { ...bearer(key), ...headers } };
     }

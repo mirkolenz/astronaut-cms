@@ -1,20 +1,13 @@
+import { getSecret } from "astro:env/server";
 import adapterEnv from "virtual:astronaut-cms/runtime-env";
 
 /**
- * Reads a runtime environment variable across the runtimes the Astro adapters
- * target: Cloudflare Workers bindings and Node.
- * Shared by the injected server routes, which are the only code that may see a
- * secret and therefore the only code that reads the environment at all.
+ * Reads a runtime environment variable through `astro:env`, which every adapter
+ * feeds from its own runtime and which validates the secrets the integration
+ * declares. Shared by the injected server routes, which are the only code that
+ * may see a secret and therefore the only code that reads the environment at all.
  */
-export function readEnv(name: string): string | undefined {
-  const value = adapterEnv?.[name];
-
-  if (typeof value === "string") return value;
-
-  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
-
-  return proc?.env?.[name];
-}
+export const readEnv: EnvReader = (name) => getSecret(name);
 
 /** How a platform-agnostic handler asks for a variable, without knowing about Astro. */
 export type EnvReader = (name: string) => string | undefined;

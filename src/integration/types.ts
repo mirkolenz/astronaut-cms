@@ -15,7 +15,7 @@ export interface CmsConfig {
   /** Options per collection of `content.config`, keyed by collection name. */
   collections?: Record<string, CollectionOptions>;
   /**
-   * Where the injected routes read secrets and Workers bindings from. Detected
+   * Where the injected routes read Workers bindings from. Detected
    * from the Astro adapter, so set it only for an adapter that wraps or forks a
    * supported one under a name the detection does not recognise.
    */

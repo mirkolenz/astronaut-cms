@@ -16,6 +16,7 @@ const externalPackages = [
 
 const isExternal = (id: string) =>
   id.startsWith("virtual:") ||
+  id.startsWith("astro:") ||
   externalPackages.some(
     (name) => id === name || id === `node:${name}` || id.startsWith(`${name}/`),
   );

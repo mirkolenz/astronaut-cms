@@ -5,12 +5,13 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
-import { API_BASE, API_PATTERN, GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
-import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
+import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
+import { conformTrailingSlash } from "../shared/url.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
+import { secretsSchema } from "./env-schema.ts";
 import { checkContent } from "./check-content.ts";
 import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
@@ -220,7 +221,8 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Nothing reaches the store while the library is the working tree, so the
         // route that would hold its credential is never injected.
-        const mediaServer = localMedia ? null : resolveMediaServer(effectiveConfig);
+        const configuredMedia = resolveMediaServer(effectiveConfig);
+        const mediaServer = localMedia ? null : configuredMedia;
 
         // A Workers binding never loads the SDK, so only the S3 path demands it.
         if (mediaServer?.access.type === "s3") assertS3SdkInstalled(rootDir);
@@ -339,6 +341,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           ...(mediaBackend.type === "remote" && {
             image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
           }),
+          env: { schema: secretsSchema(config, serverConfig, configuredMedia, mediaServer) },
           vite: {
             plugins: [
               tailwindcss(),
@@ -398,17 +401,18 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         logger.info(`Admin panel will be available at ${mountPoint}`);
 
-        // Named once here rather than discovered at the sign-in screen: every one
-        // of these is a deploy-time secret the CMS cannot invent for itself. The
-        // session cookie's key is derived from the OAuth client secret, so it is
-        // deliberately not on this list.
-        const required: string[] = [];
+        // What the OAuth app has to name, spelled the way this site's routes
+        // answer, since a provider matches the redirect URI exactly.
+        if (serverConfig.storage.type !== "local") {
+          const callback = new URL(
+            join("/", astroConfig.base, API_CALLBACK),
+            astroConfig.site ?? "https://your-site.example",
+          ).href;
 
-        if (serverConfig.storage.type === "github") required.push(GITHUB_CLIENT_SECRET_ENV);
-        if (serverConfig.storage.type === "gitlab") required.push(GITLAB_CLIENT_SECRET_ENV);
-        if (mediaServer?.access.type === "s3") required.push(S3_ACCESS_KEY_ID_ENV);
-
-        if (required.length) logger.info(`Set these on the server: ${required.join(", ")}`);
+          logger.info(
+            `OAuth callback URL: ${conformTrailingSlash(callback, astroConfig.trailingSlash)}`,
+          );
+        }
 
         if (mediaServer?.access.type === "binding") {
           logger.info(`Media library reached through the R2 binding "${mediaServer.access.name}"`);

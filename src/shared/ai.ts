@@ -8,6 +8,9 @@ import { API_BASE } from "./auth.ts";
  */
 export const AI_API_BASE = `${API_BASE}/ai`;
 
+/** The key of a `custom` gateway, optional since a local model server needs none. */
+export const AI_API_KEY_ENV = "ASTRONAUT_CMS_AI_API_KEY";
+
 /** Default maximum model/tool round-trips per assistant turn. */
 export const DEFAULT_AI_MAX_STEPS = 24;
 
@@ -36,7 +39,7 @@ export type AiCredentials = "relay" | "byok";
  *   API token with AI Gateway permission comes from the `CLOUDFLARE_API_TOKEN`
  *   environment variable.
  * - `custom`: any OpenAI-compatible gateway via `baseUrl`. The key comes from the
- *   `ASTRONAUT_CMS_AI_API_KEY` environment variable.
+ *   {@link AI_API_KEY_ENV} environment variable.
  */
 export type AiGateway =
   | { type: "netlify" }
