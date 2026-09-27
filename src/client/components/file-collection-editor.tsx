@@ -12,11 +12,12 @@ import {
   useReorderFileEntries,
 } from "@/client/queries/use-entries";
 import { useWriteError } from "@/client/lib/write-error";
-import { FieldRenderer } from "@/client/components/editors/field-renderer";
-import { isRequired, objectShape, type FieldSchema } from "@/shared/field-schema";
+import { EntryFields } from "@/client/components/editors/entry-fields";
+import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { asEntryFormat, sortByIds, type EntryFormat } from "@/shared/types";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { EntryContextProvider } from "@/client/lib/entry-context";
@@ -55,6 +56,21 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   // A new entry is held here until its first save creates it, so an abandoned
   // one never lands in the file as an empty (schema-invalid) record.
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [dirtyEntries, setDirtyEntries] = useState<Set<string>>(new Set());
+  const blocker = useUnsavedChangesBlocker(dirtyEntries.size > 0);
+
+  const onDirtyChange = useCallback((id: string, dirty: boolean) => {
+    setDirtyEntries((previous) => {
+      if (previous.has(id) === dirty) return previous;
+
+      const next = new Set(previous);
+
+      if (dirty) next.add(id);
+      else next.delete(id);
+
+      return next;
+    });
+  }, []);
 
   const sortedEntries = useMemo(() => entries && sortByIds(entries, sort), [entries, sort]);
 
@@ -127,7 +143,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
               {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
             </p>
           </div>
-          <Button onClick={() => setShowAddDialog(true)}>{t(($) => $.collection.addEntry)}</Button>
+          <Button onClick={() => setShowAddDialog(true)} disabled={draftId !== null}>
+            {t(($) => $.collection.addEntry)}
+          </Button>
         </div>
 
         {(!sortedEntries || sortedEntries.length === 0) && (
@@ -148,6 +166,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
               collection={collection}
               entryId={entry.id}
               schema={schema}
+              onDirtyChange={onDirtyChange}
               expanded={expandedEntries.has(entry.id)}
               onToggle={() => toggleEntry(entry.id)}
               onDelete={(expectedVersion) => setDeleteTarget({ id: entry.id, expectedVersion })}
@@ -158,9 +177,11 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
           ))}
           {draftId && (
             <FileEntryCard
+              key={`draft:${draftId}`}
               collection={collection}
               entryId={draftId}
               schema={schema}
+              onDirtyChange={onDirtyChange}
               format={format}
               draft
               expanded
@@ -193,6 +214,8 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
+
+        <UnsavedChangesDialog blocker={blocker} />
       </div>
     </EntryContextProvider>
   );
@@ -202,6 +225,7 @@ function FileEntryCard({
   collection,
   entryId,
   schema,
+  onDirtyChange,
   format,
   draft,
   expanded,
@@ -215,6 +239,7 @@ function FileEntryCard({
   collection: string;
   entryId: string;
   schema?: FieldSchema;
+  onDirtyChange: (id: string, dirty: boolean) => void;
   /** File format, needed for a draft that has nothing stored to read it from. */
   format?: EntryFormat;
   /** This entry does not exist yet; saving creates it. */
@@ -238,12 +263,33 @@ function FileEntryCard({
   );
   const [isDirty, setIsDirty] = useState(!!draft);
   const baselineVersion = useRef<string | undefined>(undefined);
+  const baselineData = useRef<string | undefined>(undefined);
+  const savingRef = useRef(false);
 
   useEffect(() => {
-    if (entry && !isDirty) {
+    const dirtyKey = draft ? `draft:${entryId}` : entryId;
+
+    onDirtyChange(dirtyKey, isDirty);
+
+    return () => onDirtyChange(dirtyKey, false);
+  }, [draft, entryId, isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!entry) return;
+
+    const serialized = JSON.stringify(entry.data);
+
+    if (!isDirty) {
       setFormData(entry.data);
+      baselineData.current = serialized;
       baselineVersion.current = entry.version;
+
+      return;
     }
+
+    // A sibling changed the container, but this entry still matches the data
+    // the edit began from. The next save may use the container's new version.
+    if (serialized === baselineData.current) baselineVersion.current = entry.version;
   }, [entry, isDirty]);
 
   const handleFieldChange = useCallback((key: string, value: unknown) => {
@@ -254,7 +300,9 @@ function FileEntryCard({
   const handleSave = () => {
     const entryFormat = entry?.format ?? format;
 
-    if (!entryFormat) return;
+    if (!entryFormat || savingRef.current) return;
+
+    savingRef.current = true;
 
     saveMutation.mutate(
       // In a file collection this is the container's version, which every entry
@@ -274,6 +322,9 @@ function FileEntryCard({
           onCreated?.();
         },
         onError: (err) => toast(writeError(err), "error"),
+        onSettled: () => {
+          savingRef.current = false;
+        },
       },
     );
   };
@@ -333,21 +384,12 @@ function FileEntryCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-border px-4 py-3">
+        <div inert={saveMutation.isPending} className="border-t border-border px-4 py-3">
           {isLoading ? (
             <Skeleton className="h-24" />
           ) : (
             <div className="space-y-3">
-              {Object.entries(shape).map(([key, fieldSchema]) => (
-                <FieldRenderer
-                  key={key}
-                  schema={fieldSchema}
-                  value={formData[key]}
-                  onChange={(v) => handleFieldChange(key, v)}
-                  name={key}
-                  required={isRequired(fieldSchema)}
-                />
-              ))}
+              <EntryFields shape={shape} data={formData} onChange={handleFieldChange} />
               {Object.keys(shape).length === 0 && (
                 <p className="text-sm text-muted-foreground">{t(($) => $.entry.noSchemaShort)}</p>
               )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   useEntries,
   useEntry,
@@ -9,11 +9,12 @@ import {
   useRenameEntry,
   useDuplicateEntry,
 } from "@/client/queries/use-entries";
-import { FieldRenderer } from "@/client/components/editors/field-renderer";
-import { isRequired, objectShape } from "@/shared/field-schema";
+import { EntryFields } from "@/client/components/editors/entry-fields";
+import { objectShape } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { MdxEditor } from "@/client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
 import { EntryIdDialog } from "@/client/components/entry-id-dialog";
 import { toast } from "@/client/components/toast";
 import { useWriteError } from "@/client/lib/write-error";
@@ -84,20 +85,20 @@ function EntryEditor() {
     }
   }, [entry, isDirty]);
 
-  const blocker = useBlocker({
-    shouldBlockFn: () => isDirty,
-    enableBeforeUnload: () => isDirty,
-    withResolver: true,
-  });
+  const blocker = useUnsavedChangesBlocker(isDirty);
 
   const handleFieldChange = useCallback((key: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    setIsDirty(true);
   }, []);
 
   // Use ref for save to avoid event listener churn
   const saveRef = useRef<() => void>(() => {});
+  const savingRef = useRef(false);
   saveRef.current = () => {
-    if (!format) return;
+    if (!format || !isDirty || savingRef.current) return;
+
+    savingRef.current = true;
     saveMutation.mutate(
       // The version this edit was made against, so a save cannot silently
       // discard one that landed while the editor was open. A new entry has none:
@@ -125,10 +126,14 @@ function EntryEditor() {
               params: { collection, entry: entryId },
               search: {},
               replace: true,
+              ignoreBlocker: true,
             });
           }
         },
         onError: (err) => toast(writeError(err), "error"),
+        onSettled: () => {
+          savingRef.current = false;
+        },
       },
     );
   };
@@ -138,13 +143,24 @@ function EntryEditor() {
   const [editorKey, setEditorKey] = useState(0);
 
   const handleCancel = useCallback(() => {
+    if (isNew) {
+      void navigate({
+        to: "/collections/$collection",
+        params: { collection },
+        replace: true,
+        ignoreBlocker: true,
+      });
+
+      return;
+    }
+
     if (!entry) return;
     setFormData(entry.data);
     setEditBody(entry.body);
     baselineVersion.current = entry.version;
     setIsDirty(false);
     setEditorKey((k) => k + 1);
-  }, [entry]);
+  }, [collection, entry, isNew, navigate]);
 
   const handleDelete = () => {
     deleteMutation.mutate(
@@ -260,7 +276,7 @@ function EntryEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleCancel} disabled={!isDirty}>
+            <Button variant="outline" onClick={handleCancel} disabled={(!isNew && !isDirty) || saveMutation.isPending}>
               {t(($) => $.common.cancel)}
             </Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending || !isDirty}>
@@ -294,21 +310,12 @@ function EntryEditor() {
           </div>
         </div>
 
-        <div onChangeCapture={() => setIsDirty(true)} className="min-h-0 flex-1 overflow-y-auto">
+        <div inert={saveMutation.isPending} className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-4">
             {shape && (
               <CollapsibleSection title={t(($) => $.entry.fields)}>
                 <div className="space-y-3">
-                  {Object.entries(shape).map(([key, fieldSchema]) => (
-                    <FieldRenderer
-                      key={key}
-                      schema={fieldSchema}
-                      value={formData[key]}
-                      onChange={(v) => handleFieldChange(key, v)}
-                      name={key}
-                      required={isRequired(fieldSchema)}
-                    />
-                  ))}
+                  <EntryFields shape={shape} data={formData} onChange={handleFieldChange} />
                 </div>
               </CollapsibleSection>
             )}
@@ -360,15 +367,7 @@ function EntryEditor() {
           onCancel={() => setShowDuplicate(false)}
         />
 
-        <ConfirmDialog
-          open={blocker.status === "blocked"}
-          title={t(($) => $.entry.unsavedChanges)}
-          message={t(($) => $.entry.unsavedChangesMessage)}
-          confirmLabel={t(($) => $.common.discard)}
-          variant="danger"
-          onConfirm={() => blocker.status === "blocked" && blocker.proceed()}
-          onCancel={() => blocker.status === "blocked" && blocker.reset()}
-        />
+        <UnsavedChangesDialog blocker={blocker} />
       </div>
     </EntryContextProvider>
   );
