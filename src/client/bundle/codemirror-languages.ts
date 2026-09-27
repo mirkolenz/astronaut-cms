@@ -6,30 +6,32 @@
  */
 import { LanguageDescription, LanguageSupport, StreamLanguage } from "@codemirror/language";
 import type { StreamParser } from "@codemirror/language";
+// Static, since MDXEditor's source view already imports these four.
+import { css } from "@codemirror/lang-css";
+import { html } from "@codemirror/lang-html";
+import { javascript } from "@codemirror/lang-javascript";
+import { markdown } from "@codemirror/lang-markdown";
 
 const legacy = (parser: StreamParser<unknown>): LanguageSupport =>
   new LanguageSupport(StreamLanguage.define(parser));
-
-const javascript = (options: { jsx?: boolean; typescript?: boolean } = {}) =>
-  import("@codemirror/lang-javascript").then((m) => m.javascript(options));
 
 export const languages: LanguageDescription[] = [
   LanguageDescription.of({
     name: "CSS",
     extensions: ["css"],
-    load: () => import("@codemirror/lang-css").then((m) => m.css()),
+    load: async () => css(),
   }),
   LanguageDescription.of({
     name: "HTML",
     alias: ["xhtml"],
     extensions: ["html", "htm"],
-    load: () => import("@codemirror/lang-html").then((m) => m.html()),
+    load: async () => html(),
   }),
   LanguageDescription.of({
     name: "JavaScript",
     alias: ["ecmascript", "js", "node"],
     extensions: ["js", "mjs", "cjs"],
-    load: () => javascript(),
+    load: async () => javascript(),
   }),
   LanguageDescription.of({
     name: "JSON",
@@ -40,12 +42,12 @@ export const languages: LanguageDescription[] = [
   LanguageDescription.of({
     name: "JSX",
     extensions: ["jsx"],
-    load: () => javascript({ jsx: true }),
+    load: async () => javascript({ jsx: true }),
   }),
   LanguageDescription.of({
     name: "Markdown",
     extensions: ["md", "markdown", "mdx"],
-    load: () => import("@codemirror/lang-markdown").then((m) => m.markdown()),
+    load: async () => markdown(),
   }),
   LanguageDescription.of({
     name: "Shell",
@@ -61,13 +63,13 @@ export const languages: LanguageDescription[] = [
   LanguageDescription.of({
     name: "TSX",
     extensions: ["tsx"],
-    load: () => javascript({ jsx: true, typescript: true }),
+    load: async () => javascript({ jsx: true, typescript: true }),
   }),
   LanguageDescription.of({
     name: "TypeScript",
     alias: ["ts"],
     extensions: ["ts", "mts", "cts"],
-    load: () => javascript({ typescript: true }),
+    load: async () => javascript({ typescript: true }),
   }),
   LanguageDescription.of({
     name: "YAML",

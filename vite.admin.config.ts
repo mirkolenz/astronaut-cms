@@ -19,7 +19,10 @@ export default defineConfig({
       ...aliases,
       // Matched exactly, so the substitute can still reach shiki's core.
       { find: /^shiki$/, replacement: substitute("shiki.ts") },
-      { find: /^@streamdown\/(math|mermaid)$/, replacement: substitute("disabled-plugin.ts") },
+      {
+        find: /^(@streamdown\/(math|mermaid)|rehype-raw)$/,
+        replacement: substitute("disabled-plugin.ts"),
+      },
       {
         find: /^@codemirror\/language-data$/,
         replacement: substitute("codemirror-languages.ts"),

@@ -12,14 +12,7 @@ export const bundledLanguagesInfo: BundledLanguageInfo[] = [
   { id: "css", name: "CSS", import: () => import("shiki/langs/css.mjs") },
   { id: "diff", name: "Diff", import: () => import("shiki/langs/diff.mjs") },
   { id: "html", name: "HTML", import: () => import("shiki/langs/html.mjs") },
-  {
-    id: "javascript",
-    name: "JavaScript",
-    aliases: ["js", "cjs", "mjs"],
-    import: () => import("shiki/langs/javascript.mjs"),
-  },
   { id: "json", name: "JSON", import: () => import("shiki/langs/json.mjs") },
-  { id: "jsx", name: "JSX", import: () => import("shiki/langs/jsx.mjs") },
   {
     id: "markdown",
     name: "Markdown",
@@ -34,12 +27,12 @@ export const bundledLanguagesInfo: BundledLanguageInfo[] = [
     import: () => import("shiki/langs/shellscript.mjs"),
   },
   { id: "toml", name: "TOML", import: () => import("shiki/langs/toml.mjs") },
-  { id: "tsx", name: "TSX", import: () => import("shiki/langs/tsx.mjs") },
+  // A superset of JavaScript, JSX and TypeScript, so one grammar serves all four.
   {
-    id: "typescript",
-    name: "TypeScript",
-    aliases: ["ts", "cts", "mts"],
-    import: () => import("shiki/langs/typescript.mjs"),
+    id: "tsx",
+    name: "TSX",
+    aliases: ["javascript", "js", "cjs", "mjs", "jsx", "typescript", "ts", "cts", "mts"],
+    import: () => import("shiki/langs/tsx.mjs"),
   },
   { id: "yaml", name: "YAML", aliases: ["yml"], import: () => import("shiki/langs/yaml.mjs") },
 ];
