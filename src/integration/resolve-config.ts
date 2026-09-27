@@ -195,7 +195,7 @@ function storeS3(backend: Exclude<MediaBackendConfig, { type: "repo" }>): MediaS
   if (backend.type === "s3") {
     return {
       endpoint: trimSlashes(backend.endpoint),
-      region: backend.region ?? "auto",
+      region: backend.region,
       pathStyle: backend.forcePathStyle ?? false,
       bucket: backend.bucket,
     };
@@ -203,7 +203,6 @@ function storeS3(backend: Exclude<MediaBackendConfig, { type: "repo" }>): MediaS
 
   return {
     endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
-    region: "auto",
     pathStyle: true,
     bucket: backend.bucket,
   };

@@ -307,7 +307,7 @@ export interface S3MediaConfig extends ObjectStoreConfig {
   type: "s3";
   /** API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`. */
   endpoint: string;
-  /** Signing region (default: "auto"). */
+  /** Signing region (default: inferred from `endpoint` on AWS, R2 and B2, falling back to "us-east-1"). */
   region?: string;
   /** Address objects as `<endpoint>/<bucket>/<key>` rather than by virtual host. */
   forcePathStyle?: boolean;

@@ -64,4 +64,17 @@ describe("S3Store", () => {
     expect(headers).toMatchObject({ "content-disposition": "attachment", "if-none-match": "*" });
     expect(new URL(url).searchParams.get("X-Amz-SignedHeaders")).toContain("content-disposition");
   });
+
+  it("infers the signing region from the endpoint when none is set", async () => {
+    const { region: _, ...regionless } = target;
+    const store = new S3Store({ ...regionless, endpoint: "https://s3.eu-central-1.amazonaws.com" }, credentials);
+    const { url } = await store.presignUpload("photo.png", {
+      length: 7,
+      contentType: "image/png",
+      attachment: false,
+      ifAbsent: false,
+    });
+
+    expect(new URL(url).searchParams.get("X-Amz-Credential")).toMatch(/\/eu-central-1\/s3\/aws4_request$/);
+  });
 });

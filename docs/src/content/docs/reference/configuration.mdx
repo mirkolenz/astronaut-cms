@@ -165,7 +165,7 @@ type MediaBackendConfig =
 | `bucket`         | `s3`, `r2` | Bucket holding the library                                                                                                                                      |
 | `endpoint`       | `s3`       | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                                                                                                      |
 | `publicUrl`      | `s3`, `r2` | Public base URL the library is served under, and what content resolves against. Required                                                                   |
-| `region`         | `s3`       | Signing region (default `"auto"`)                                                                                                                               |
+| `region`         | `s3`       | Signing region (default: inferred from `endpoint` on AWS, R2 and Backblaze B2, otherwise `"us-east-1"`)                                                         |
 | `prefix`         | `s3`, `r2` | Key prefix the library is rooted at (default: the bucket root)                                                                                                  |
 | `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                                                                                                                  |
 | `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint                                                                                                            |

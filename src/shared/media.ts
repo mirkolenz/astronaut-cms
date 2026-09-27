@@ -198,7 +198,8 @@ export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): strin
 /** A bucket's S3 API: where requests go, and the region they are signed for. */
 export interface S3Target {
   endpoint: string;
-  region: string;
+  /** Absent to infer it from the endpoint (AWS, R2, B2), falling back to "us-east-1". */
+  region?: string;
   pathStyle: boolean;
   bucket: string;
 }
