@@ -3,7 +3,10 @@ import { useTranslation } from "react-i18next";
 import { FileText, NotebookPen, BarChart3, Image } from "lucide-react";
 import { useCollections } from "@client/queries/use-collections";
 import { toLabel } from "@client/lib/to-label";
-import logoUrl from "@assets/logo.png";
+// `?url` forces a URL string in both the standalone Vite lib build (where assets
+// inline as data URIs) and the Astro dev/build runtime, where a bare image import
+// would otherwise resolve to an `astro:assets` ImageMetadata object ([object]).
+import logoUrl from "@assets/logo.png?url";
 
 const navLinkClasses =
   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent [&.active]:bg-sidebar-accent [&.active]:font-medium";

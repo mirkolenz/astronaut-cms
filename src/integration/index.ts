@@ -7,7 +7,7 @@ import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
-import { createDevMiddleware } from "./dev-middleware.ts";
+import { cmsDevMiddlewarePlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
@@ -49,11 +49,6 @@ function findConfig(rootDir: string, base: string): string | null {
 
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   const mountPoint = config.mountPoint ?? "/admin";
-  let contentDir = "";
-  let mediaDir = "";
-  let rootDir = "";
-  let basePath = "/";
-  let collections: CollectionManifest | null = null;
 
   return {
     name: "astronaut-cms",
@@ -65,10 +60,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         updateConfig,
         logger,
       }) => {
-        rootDir = fileURLToPath(astroConfig.root);
-        basePath = astroConfig.base;
-        contentDir = join(rootDir, "src/content");
-        mediaDir = join(rootDir, config.media?.directory ?? "src/assets");
+        const rootDir = fileURLToPath(astroConfig.root);
+        const basePath = astroConfig.base;
+        const contentDir = join(rootDir, "src/content");
+        const mediaSubdir = config.media?.directory ?? "src/assets";
+        const mediaDir = join(rootDir, mediaSubdir);
 
         const overrideToLocal =
           command === "dev"
@@ -120,6 +116,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Auto-discover and load content.config.{ts,mts,js,mjs}
         const contentConfigPath = findConfig(rootDir, "src/content.config");
+        let collections: CollectionManifest | null = null;
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
           collections = loadCollections(contentConfigPath, rootDir);
@@ -130,11 +127,28 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
+        // Dev-only filesystem API for the local storage backend.
+        const devPlugins =
+          command === "dev"
+            ? [
+                cmsDevMiddlewarePlugin({
+                  basePath,
+                  contentDir,
+                  mediaDir,
+                  mediaPrefix: mediaSubdir,
+                  allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
+                  rootDir,
+                  collections: collections ?? undefined,
+                }),
+              ]
+            : [];
+
         updateConfig({
           vite: {
             plugins: [
               tailwindcss(),
               cmsVitePlugin(effectiveConfig, userConfigPath, collections),
+              ...devPlugins,
             ],
           },
         });
@@ -167,20 +181,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           });
           logger.info(`AI assistant relay will be available at ${AI_CHAT_COMPLETIONS_PATTERN}`);
         }
-      },
-
-      "astro:server:setup": ({ server }) => {
-        server.middlewares.use(
-          createDevMiddleware(server, {
-            basePath,
-            contentDir,
-            mediaDir,
-            mediaPrefix: config.media?.directory ?? "src/assets",
-            allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
-            rootDir,
-            collections: collections ?? undefined,
-          }),
-        );
       },
     },
   };

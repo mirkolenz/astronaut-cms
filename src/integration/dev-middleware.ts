@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readdir, readFile, writeFile, unlink, stat, mkdir, rename } from "node:fs/promises";
 import { join, dirname, resolve } from "pathe";
-import type { ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 import {
   ALL_FORMATS,
   type CollectionManifest,
@@ -310,7 +310,7 @@ async function deleteMedia(mediaDir: string, filePath: string): Promise<void> {
 
 // --- Middleware ---
 
-export function createDevMiddleware(
+function createDevMiddleware(
   server: ViteDevServer,
   options: DevMiddlewareOptions,
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
@@ -479,5 +479,25 @@ export function createDevMiddleware(
     } catch (error) {
       sendError(res, error);
     }
+  };
+}
+
+// Registers the dev API as a Vite plugin instead of `astro:server:setup`. Astro
+// unshifts its own trailing-slash middleware to the front of the connect stack
+// from a configureServer post-hook, and under trailingSlash: "always" it rejects
+// our extensionless `/__cms/*` requests with a 404 before an appended middleware
+// would run. `enforce: "post"` makes our post-hook run after Astro's, so the
+// unshift here places the CMS API ahead of that trailing-slash check.
+export function cmsDevMiddlewarePlugin(options: DevMiddlewareOptions): Plugin {
+  return {
+    name: "astronaut-cms:dev-api",
+    enforce: "post",
+
+    configureServer(server) {
+      const handle = createDevMiddleware(server, options);
+      return () => {
+        server.middlewares.stack.unshift({ route: "", handle });
+      };
+    },
   };
 }

@@ -25,6 +25,27 @@ const csp = [
   "base-uri 'none'",
   "form-action 'self'",
 ].join("; ");
+
+// The admin mounts React from an external module script (see body) rather than an
+// Astro island, so the page ships no inline scripts and runs under the strict
+// `script-src 'self'` CSP above without hashes. The trade-off: Astro's React
+// integration only injects the Fast Refresh preamble on island pages, so in dev
+// we install it ourselves. It is dev-only, production builds carry no Fast Refresh
+// transform, so no preamble is needed and the CSP stays inline-script free.
+//
+// Copied verbatim from @vitejs/plugin-react's `preambleCode`, the same string
+// @astrojs/react injects via injectScript("before-hydration", ...), with its
+// `__BASE__` placeholder resolved to `/` rather than the configured `base`. Vite
+// serves the refresh runtime at the base-less `/@react-refresh` in dev (and the
+// transform appends imports to that exact path), so prefixing `import.meta.env.BASE_URL`
+// would 404 under a non-root base. @astrojs/react hardcodes `/` for the same reason.
+// Keep in sync with the installed version at node_modules/@vitejs/plugin-react/dist/index.js:
+// the Fast Refresh transform throws unless `window.$RefreshReg$` is defined, which this
+// preamble provides.
+const fastRefreshPreamble = `import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;`;
 ---
 
 <html lang={config.locale}>
@@ -32,6 +53,7 @@ const csp = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     {import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={csp} />}
+    {import.meta.env.DEV && <script is:inline type="module" set:html={fastRefreshPreamble} />}
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />
   </head>
