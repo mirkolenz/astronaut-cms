@@ -58,6 +58,7 @@ interface RepoFile {
   type: string;
   sha: string;
   content?: string;
+  encoding?: string;
   download_url?: string | null;
 }
 
@@ -164,9 +165,19 @@ export class GitHubStorage extends BranchedStorage {
   }
 
   protected async fetchFileContent(path: string): Promise<VersionedContent> {
-    const { content, sha } = await this.getRepoFile(path);
+    const file = await this.getRepoFile(path);
 
-    return { content: fromBase64(content ?? ""), version: sha };
+    if (file.encoding === "base64") {
+      return { content: fromBase64(file.content ?? ""), version: file.sha };
+    }
+
+    const blob = await this.api.json<{ content: string; encoding: string }>({
+      path: `${this.repo}/git/blobs/${file.sha}`,
+    });
+
+    if (blob.encoding !== "base64") throw new Error(`Unsupported encoding for ${path}`);
+
+    return { content: fromBase64(blob.content), version: file.sha };
   }
 
   /**
