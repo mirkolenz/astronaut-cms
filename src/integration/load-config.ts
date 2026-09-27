@@ -8,7 +8,11 @@ import { processUserConfig, type ComponentManifest } from "../internal/user-conf
 import type { CollectionOptions, ComponentDefinition } from "../config.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { SchemaContext } from "astro/content/config";
-import type { CollectionManifest, CollectionManifestEntry } from "../shared/types.ts";
+import type {
+  AssertNever,
+  CollectionManifest,
+  CollectionManifestEntry,
+} from "../shared/types.ts";
 
 /**
  * The user's two config files, read in Node so the integration can see a live
@@ -95,7 +99,6 @@ const SCHEMA_HELPERS = { image: imageMarker };
 // using it would lower cleanly here and throw in the real build, leaving the admin
 // with a manifest the build disagrees with. Astro gaining one
 // therefore has to fail this compile instead, on the next dependency bump.
-type AssertNever<_T extends never> = void;
 export type SchemaHelpersMirrorAstro = AssertNever<
   Exclude<keyof SchemaContext, keyof typeof SCHEMA_HELPERS>
 >;

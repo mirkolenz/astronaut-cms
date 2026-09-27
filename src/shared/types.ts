@@ -4,6 +4,9 @@ import type { FieldSchema } from "./field-schema.ts";
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
 export const DATA_FORMATS = ["json", "yaml", "yml", "toml"] as const;
 export const ALL_FORMATS = [...CONTENT_FORMATS, ...DATA_FORMATS] as const;
+/** Compiles only when `T` is `never`: the drift checks against astro. */
+export type AssertNever<_T extends never> = void;
+
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
 export type DataFormat = (typeof DATA_FORMATS)[number];
 export type EntryFormat = (typeof ALL_FORMATS)[number];

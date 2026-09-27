@@ -17,6 +17,7 @@
 import { z } from "zod";
 import type * as AstroContentConfig from "astro/content/config";
 import type * as AstroLoaders from "astro/loaders";
+import type { AssertNever } from "../shared/types.ts";
 
 export { z };
 export { referenceMarker as reference } from "../shared/cms-markers.ts";
@@ -57,8 +58,6 @@ export function file(fileName: Parameters<typeof AstroLoaders.file>[0]): LoaderM
 // Each fails to compile if astro grows a config-time export this module does not
 // stand in for, which would otherwise surface as a `TypeError` at config:setup
 // in any site whose content config uses it.
-type AssertNever<_T extends never> = void;
-
 export type AllLoadersStubbed = AssertNever<Exclude<keyof typeof AstroLoaders, "glob" | "file">>;
 
 // `defineLiveCollection` is deliberately not stubbed: live collections belong to
