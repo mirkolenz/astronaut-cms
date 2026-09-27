@@ -176,9 +176,9 @@ function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): Clie
  * proxies instead, so it has none.
  */
 function presignOrigin(media: MediaServerConfig | null): string | undefined {
-  if (!media?.s3) return undefined;
+  if (media?.access.type !== "s3") return undefined;
 
-  return presignedUploadOrigin({ ...media.s3, bucket: media.bucket });
+  return presignedUploadOrigin({ ...media.access, bucket: media.bucket });
 }
 
 /**
@@ -191,28 +191,33 @@ export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null 
 
   if (backend.type === "repo") return null;
 
-  // An R2 bucket reached only through a Workers binding has no S3 target at all.
-  const s3 =
-    backend.type === "r2"
-      ? backend.accountId
-        ? {
-            endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
-            region: "auto",
-            pathStyle: true,
-          }
-        : null
-      : {
-          endpoint: trimSlashes(backend.endpoint),
-          region: backend.region ?? "auto",
-          pathStyle: backend.forcePathStyle ?? false,
-        };
-
   return {
     bucket: backend.bucket,
     publicUrl: trimSlashes(backend.publicUrl),
     prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
-    s3,
-    binding: backend.type === "r2" ? (backend.binding ?? null) : null,
+    access: storeAccess(backend),
+  };
+}
+
+function storeAccess(
+  backend: Exclude<MediaBackendConfig, { type: "repo" }>,
+): MediaServerConfig["access"] {
+  if (backend.type === "s3") {
+    return {
+      type: "s3",
+      endpoint: trimSlashes(backend.endpoint),
+      region: backend.region ?? "auto",
+      pathStyle: backend.forcePathStyle ?? false,
+    };
+  }
+
+  if (backend.binding) return { type: "binding", name: backend.binding };
+
+  return {
+    type: "s3",
+    endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
+    region: "auto",
+    pathStyle: true,
   };
 }
 

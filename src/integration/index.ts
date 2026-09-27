@@ -123,8 +123,8 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
     );
   }
 
-  if (backend.type === "r2" && !backend.accountId && !backend.binding) {
-    throw new Error("r2 media: either 'accountId' (S3 API) or 'binding' (Workers) is required.");
+  if (backend.type === "r2" && !backend.accountId === !backend.binding) {
+    throw new Error("r2 media: set exactly one of 'accountId' (S3 API) or 'binding' (Workers).");
   }
 }
 
@@ -219,7 +219,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const mediaServer = localMedia ? null : resolveMediaServer(effectiveConfig);
 
         // A Workers binding never loads the SDK, so only the S3 path demands it.
-        if (mediaServer?.s3) assertS3SdkInstalled(rootDir);
+        if (mediaServer?.access.type === "s3") assertS3SdkInstalled(rootDir);
 
         if (mediaServer && effectiveConfig.media?.alwaysInclude?.length) {
           logger.warn(
@@ -286,9 +286,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // reader would answer `undefined` for it and the failure would surface
         // much later as "no binding configured", so a misdetected adapter is
         // called out here instead.
-        if (serverConfig.media?.binding && runtime !== "cloudflare") {
+        const access = serverConfig.media?.access;
+
+        if (access?.type === "binding" && runtime !== "cloudflare") {
           throw new Error(
-            `Media binding '${serverConfig.media.binding}' needs a Cloudflare Workers runtime, but the adapter is ${astroConfig.adapter?.name ?? "unset"}. Set 'runtime: "cloudflare"' if it deploys to Workers under another name, or configure 'accountId' to reach the bucket over the S3 API instead.`,
+            `Media binding '${access.name}' needs a Cloudflare Workers runtime, but the adapter is ${astroConfig.adapter?.name ?? "unset"}. Set 'runtime: "cloudflare"' if it deploys to Workers under another name, or configure 'accountId' to reach the bucket over the S3 API instead.`,
           );
         }
 
@@ -363,12 +365,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         if (serverConfig.storage.type === "github") required.push(GITHUB_CLIENT_SECRET_ENV);
         if (serverConfig.storage.type === "gitlab") required.push(GITLAB_CLIENT_SECRET_ENV);
-        if (mediaServer && !mediaServer.binding) required.push(S3_ACCESS_KEY_ID_ENV);
+        if (mediaServer?.access.type === "s3") required.push(S3_ACCESS_KEY_ID_ENV);
 
         if (required.length) logger.info(`Set these on the server: ${required.join(", ")}`);
 
-        if (mediaServer?.binding) {
-          logger.info(`Media library reached through the R2 binding "${mediaServer.binding}"`);
+        if (mediaServer?.access.type === "binding") {
+          logger.info(`Media library reached through the R2 binding "${mediaServer.access.name}"`);
         }
 
         if (config.ai?.enabled) {

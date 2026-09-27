@@ -325,22 +325,31 @@ export interface S3MediaConfig extends ObjectStoreConfig {
 }
 
 /**
- * Cloudflare R2, which speaks the S3 API. Reached either through that API with
- * `accountId` and the `ASTRONAUT_CMS_S3_*` credentials, or — when the site is
- * deployed with `@astrojs/cloudflare` — through a Workers `binding`, which needs
- * no credentials at all. A binding proxies uploads through the Worker, where the
- * S3 API hands the browser a presigned URL and never sees the bytes.
+ * Cloudflare R2, reached in exactly one of two ways.
+ *
+ * - `accountId`: the S3 API, with the `ASTRONAUT_CMS_S3_*` credentials. Uploads
+ *   go straight from the browser to the bucket, and renames and deletions are
+ *   copies inside R2, so file size is bounded by R2 alone.
+ * - `binding`: a Workers binding on `@astrojs/cloudflare`, which needs no
+ *   credential and never loads the AWS SDK. Uploads, renames and deletions pass
+ *   through the Worker instead, so an upload is bounded by the plan's request
+ *   body limit.
  *
  * Public serving needs a custom domain on the bucket: the `*.r2.dev` hostname is
  * rate-limited and not meant for production traffic.
  */
-export interface R2MediaConfig extends ObjectStoreConfig {
-  type: "r2";
-  /** Cloudflare account id, for the S3 API endpoint. Required without `binding`. */
-  accountId?: string;
-  /** Workers R2 binding name, e.g. "MEDIA". Preferred when it is available. */
-  binding?: string;
-}
+export type R2MediaConfig = ObjectStoreConfig & { type: "r2" } & (
+    | {
+        /** Cloudflare account id, for the S3 API endpoint. */
+        accountId: string;
+        binding?: never;
+      }
+    | {
+        /** Workers R2 binding name, e.g. "MEDIA". */
+        binding: string;
+        accountId?: never;
+      }
+  );
 
 /**
  * What the injected media route needs to reach the store. Server-only: it is
@@ -353,10 +362,10 @@ export interface MediaServerConfig {
   publicUrl: string;
   /** Normalized to "" or "prefix/". */
   prefix: string;
-  /** S3 API access. Absent only for a binding-only R2 backend. */
-  s3: { endpoint: string; region: string; pathStyle: boolean } | null;
-  /** Workers R2 binding name, when one is configured. */
-  binding: string | null;
+  /** How the store is reached: its S3 API, or a Workers R2 binding. */
+  access:
+    | { type: "s3"; endpoint: string; region: string; pathStyle: boolean }
+    | { type: "binding"; name: string };
 }
 
 /**

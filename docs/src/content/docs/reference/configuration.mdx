@@ -182,8 +182,8 @@ type MediaBackendConfig =
 | `region`         | `s3`       | Signing region (default `"auto"`)                                                                                                                               |
 | `prefix`         | `s3`, `r2` | Key prefix the library is rooted at (default: the bucket root)                                                                                                  |
 | `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                                                                                                                  |
-| `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint                                                                                                                  |
-| `binding`        | `r2`       | Workers R2 binding name, used instead of credentials where available                                                                                            |
+| `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint. Exclusive with `binding`                                                                                        |
+| `binding`        | `r2`       | Workers R2 binding name, used instead of credentials. Exclusive with `accountId`                                                                                |
 
 See the [Media Library](../../guides/media-library/#where-files-are-stored) guide for the setup an object store needs.
 

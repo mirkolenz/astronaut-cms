@@ -20,8 +20,21 @@ import { BindingStore, type MediaStore, type R2Binding } from "./store.ts";
  */
 let cachedStore: { key: string; store: MediaStore } | null = null;
 
-export async function s3Store(media: MediaServerConfig, getEnv: EnvReader): Promise<MediaStore> {
-  if (!media.s3) throw new Error("The media backend has no S3 API access configured.");
+/** A binding never loads the AWS SDK, which is imported only on the S3 path. */
+export async function openStore(
+  media: MediaServerConfig,
+  getEnv: EnvReader,
+  getBinding: BindingReader,
+): Promise<MediaStore> {
+  const { access } = media;
+
+  if (access.type === "binding") {
+    const binding = getBinding(access.name);
+
+    if (!binding) throw new Error(`The R2 binding "${access.name}" is not available in this runtime.`);
+
+    return new BindingStore(binding as R2Binding);
+  }
 
   const accessKeyId = getEnv(S3_ACCESS_KEY_ID_ENV);
   const secretAccessKey = getEnv(S3_SECRET_ACCESS_KEY_ENV);
@@ -33,7 +46,7 @@ export async function s3Store(media: MediaServerConfig, getEnv: EnvReader): Prom
   }
 
   const sessionToken = getEnv(S3_SESSION_TOKEN_ENV);
-  const key = JSON.stringify([media.s3, media.bucket, accessKeyId, secretAccessKey, sessionToken]);
+  const key = JSON.stringify([access, media.bucket, accessKeyId, secretAccessKey, sessionToken]);
 
   if (cachedStore?.key !== key) {
     const { S3Store } = await import("./s3-store.ts");
@@ -41,36 +54,11 @@ export async function s3Store(media: MediaServerConfig, getEnv: EnvReader): Prom
     cachedStore = {
       key,
       store: new S3Store(
-        { ...media.s3, bucket: media.bucket },
+        { ...access, bucket: media.bucket },
         { accessKeyId, secretAccessKey, sessionToken },
       ),
     };
   }
 
   return cachedStore.store;
-}
-
-/**
- * A Workers binding is preferred where available, since it needs no credential.
- * The S3 module is imported only on the other path, so a binding never loads the
- * SDK.
- */
-export async function openStore(
-  media: MediaServerConfig,
-  getEnv: EnvReader,
-  getBinding: BindingReader,
-): Promise<MediaStore> {
-  if (!media.binding) return s3Store(media, getEnv);
-
-  const binding = getBinding(media.binding);
-
-  if (binding) return new BindingStore(binding as R2Binding);
-
-  if (!media.s3) {
-    throw new Error(
-      `The R2 binding "${media.binding}" is not available in this runtime, and no accountId is configured to fall back to the S3 API.`,
-    );
-  }
-
-  return s3Store(media, getEnv);
 }

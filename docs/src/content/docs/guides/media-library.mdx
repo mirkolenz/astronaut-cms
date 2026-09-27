@@ -136,9 +136,9 @@ Content then stores library keys instead of project paths, and the site loads th
     });
     ```
 
-    On `@astrojs/cloudflare`, an R2 binding needs no credentials at all.
-    A binding cannot hand out a presigned URL, so uploads are proxied through the Worker rather than going straight to the bucket.
-    Add `accountId` as well to fall back to the S3 API wherever the binding is absent.
+    On `@astrojs/cloudflare`, an R2 binding needs no credentials and never loads the AWS SDK.
+    A binding cannot hand out a presigned URL, so uploads, renames and deletions pass through the Worker rather than going straight to the bucket, and an upload is bounded by your plan's request body limit.
+    For large videos, use `accountId` instead. A backend takes exactly one of the two.
 
   </TabItem>
 </Tabs>

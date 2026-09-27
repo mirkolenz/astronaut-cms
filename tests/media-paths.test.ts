@@ -155,8 +155,7 @@ const libraryOf = (store: MediaStore) =>
       bucket: "b",
       publicUrl: "https://cdn.example.com",
       prefix: "lib/",
-      s3: null,
-      binding: null,
+      access: { type: "binding", name: "MEDIA" },
     },
     { extensions: ["png"], maxFileSize: null },
   );
