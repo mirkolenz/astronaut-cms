@@ -126,6 +126,8 @@ export interface CmsClientConfig {
   // injected relay route (an API endpoint) in the form Astro will actually match.
   trailingSlash: "always" | "never" | "ignore";
   mediaDirectory: string;
+  /** File extensions the media library lists, e.g. [".png", ".pdf"]. */
+  mediaExtensions: string[];
   locale: SupportedLocale;
   previewUrl?: string;
   ai?: {

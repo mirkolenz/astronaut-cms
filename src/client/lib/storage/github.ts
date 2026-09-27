@@ -131,13 +131,11 @@ export class GitHubStorage extends BranchedStorage {
         tree_sha: await this.readRef(),
         recursive: "1",
       });
-      return data.tree
-        .filter((item) => item.type === "blob" && item.path?.startsWith(prefix))
-        .map((item) => ({
-          path: item.path!,
-          size: item.size ?? 0,
-          lastModified: "",
-        }));
+      return this.mediaFiles(
+        data.tree
+          .filter((item) => item.type === "blob" && item.path?.startsWith(prefix))
+          .map((item) => ({ path: item.path!, size: item.size ?? 0, lastModified: "" })),
+      );
     } catch {
       return [];
     }

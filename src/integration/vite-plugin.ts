@@ -33,6 +33,25 @@ function buildSourceExports(root: string, pkgPath: string): Record<string, strin
   return map;
 }
 
+const DEFAULT_MEDIA_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".avif",
+  ".svg",
+  ".gif",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".zip",
+  ".csv",
+];
+
 export function cmsVitePlugin(
   config: CmsConfig,
   userConfigPath: string | null,
@@ -45,6 +64,7 @@ export function cmsVitePlugin(
     storageType: storage.type,
     trailingSlash,
     mediaDirectory: config.media?.directory ?? "src/assets",
+    mediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
     locale: config.locale ?? "en",
     previewUrl: config.previewUrl,
     ...(config.ai?.enabled &&

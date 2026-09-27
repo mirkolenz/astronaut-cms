@@ -7,6 +7,7 @@ const config: CmsClientConfig = {
   storageType: "local",
   trailingSlash: "ignore",
   mediaDirectory: "src/assets",
+  mediaExtensions: [".png", ".jpg", ".svg", ".pdf"],
   locale: "en",
 };
 

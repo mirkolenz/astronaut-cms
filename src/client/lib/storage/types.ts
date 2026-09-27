@@ -1,4 +1,11 @@
-import type { EntryMeta, EntryContent, FileChange, SaveEntryRequest, MediaFile } from "@shared/types";
+import type {
+  EntryMeta,
+  EntryContent,
+  FileChange,
+  FileEntryLayout,
+  SaveEntryRequest,
+  MediaFile,
+} from "@shared/types";
 
 export type PublishMode = "direct" | "pull-request";
 
@@ -67,6 +74,7 @@ export interface StorageBackend {
   renameEntry(collection: string, oldId: string, newId: string): Promise<void>;
   duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
   reorderEntries(collection: string, ids: string[]): Promise<void>;
+  getFileLayout(collection: string): Promise<FileEntryLayout>;
   listMedia(): Promise<MediaFile[]>;
   uploadMedia(path: string, file: File): Promise<MediaFile>;
   replaceMedia(path: string, file: File): Promise<MediaFile>;

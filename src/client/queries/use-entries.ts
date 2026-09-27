@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { getStorage } from "@client/lib/storage";
 import type { BranchStatus } from "@client/lib/storage/types";
 import type { FileChange } from "@shared/types";
-import { fetchJson } from "@client/lib/api";
 import type { SaveEntryRequest } from "@shared/types";
 
 function invalidateEntries(qc: QueryClient, collection: string) {
@@ -89,16 +88,7 @@ export function useDuplicateEntry(collection: string) {
 export function useFileLayout(collection: string) {
   return useQuery({
     queryKey: ["cms", "file-layout", collection],
-    queryFn: async () => {
-      try {
-        const data = await fetchJson<{ layout: "array" | "object" }>(
-          `/entries/${collection}/_layout`,
-        );
-        return data.layout;
-      } catch {
-        return "object" as const;
-      }
-    },
+    queryFn: () => getStorage().getFileLayout(collection),
     staleTime: Infinity,
     enabled: !!collection,
   });

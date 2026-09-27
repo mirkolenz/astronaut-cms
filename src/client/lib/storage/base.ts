@@ -24,6 +24,7 @@ import {
   serializeMultiEntryFile,
   getFileExtension,
 } from "@shared/content-parser";
+import config from "virtual:astronaut-cms/config";
 import { validateSegment, validatePath, validateFormat } from "@shared/validation";
 import { assertEntryWritable } from "@client/lib/validation";
 import { stripExtension } from "./utils";
@@ -156,6 +157,13 @@ export abstract class StorageBase implements StorageBackend {
     throw new Error("Not implemented");
   }
 
+  /** Media listings show the configured file types only, so strays never appear as assets. */
+  protected mediaFiles(files: MediaFile[]): MediaFile[] {
+    return files.filter((file) =>
+      config.mediaExtensions.some((ext) => file.path.toLowerCase().endsWith(ext.toLowerCase())),
+    );
+  }
+
   // --- File collection helpers ---
 
   protected isFileCollection(collection: string): boolean {
@@ -164,6 +172,21 @@ export abstract class StorageBase implements StorageBackend {
 
   protected getFileLoaderPath(collection: string): string | null {
     return this.schemas[collection]?.loaderFileName ?? null;
+  }
+
+  /** How a file collection stores its entries, which decides whether they can be reordered. */
+  async getFileLayout(collection: string): Promise<FileEntryLayout> {
+    const loaderFileName = this.getFileLoaderPath(collection);
+
+    if (!loaderFileName) return "object";
+
+    try {
+      const raw = await this.fetchFileContent(loaderFileName);
+
+      return parseMultiEntryFile(raw, getFileExtension(loaderFileName) || "json").layout;
+    } catch {
+      return "object";
+    }
   }
 
   protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {

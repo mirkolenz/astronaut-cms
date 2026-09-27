@@ -113,9 +113,11 @@ export class GitLabStorage extends BranchedStorage {
         ref: await this.readRef(),
         recursive: true,
       });
-      return items
-        .filter((item) => item.type === "blob")
-        .map((item) => ({ path: item.path, size: 0, lastModified: "" }));
+      return this.mediaFiles(
+        items
+          .filter((item) => item.type === "blob")
+          .map((item) => ({ path: item.path, size: 0, lastModified: "" })),
+      );
     } catch {
       return [];
     }

@@ -16,25 +16,6 @@ export type { ComponentDefinition, InferComponentProps, ChildrenConfig } from ".
 
 const CONFIG_EXTENSIONS = ["ts", "mts", "js", "mjs"];
 
-const DEFAULT_MEDIA_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".avif",
-  ".svg",
-  ".gif",
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".ppt",
-  ".pptx",
-  ".zip",
-  ".csv",
-];
-
 function findConfig(rootDir: string, base: string): string | null {
   for (const ext of CONFIG_EXTENSIONS) {
     const candidate = join(rootDir, `${base}.${ext}`);
@@ -131,8 +112,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 basePath,
                 contentDir,
                 mediaDir,
-                mediaPrefix: mediaSubdir,
-                allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
                 rootDir,
                 collections: collections ?? undefined,
               })
