@@ -1,6 +1,4 @@
 import type { FileUIPart } from "ai";
-import mammoth from "mammoth";
-import { extractText, getDocumentProxy } from "unpdf";
 import config from "@/client/lib/config";
 import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@/shared/media";
 import { uploadMedia } from "@/client/lib/media";
@@ -45,6 +43,7 @@ export function isImageAttachment(file: File): boolean {
 // as UTF-8 text.
 async function extractDocumentText(file: File): Promise<string> {
   if (file.type === "application/pdf" || hasAllowedExtension(file.name, [".pdf"])) {
+    const { extractText, getDocumentProxy } = await import("unpdf");
     const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
     const { text } = await extractText(pdf, { mergePages: true });
 
@@ -52,6 +51,7 @@ async function extractDocumentText(file: File): Promise<string> {
   }
 
   if (file.type === WORD_MIME || hasAllowedExtension(file.name, [".docx"])) {
+    const { default: mammoth } = await import("mammoth");
     const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
 
     return value;
