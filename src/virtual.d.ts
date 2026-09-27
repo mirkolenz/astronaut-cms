@@ -27,6 +27,11 @@ declare module "virtual:astronaut-cms/server" {
   export default config;
 }
 
+declare module "virtual:astronaut-cms/runtime-env" {
+  const env: Record<string, unknown> | undefined;
+  export default env;
+}
+
 /**
  * The filesystem backend, or null in any build that is not a dev run. The
  * integration stubs it out so `node:fs` never reaches a Workers or edge bundle.

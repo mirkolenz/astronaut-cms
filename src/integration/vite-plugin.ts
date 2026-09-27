@@ -1,7 +1,7 @@
 import { join } from "pathe";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
-import type { CmsClientConfig, CmsServerConfig } from "./types.ts";
+import type { CmsClientConfig, CmsRuntime, CmsServerConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
@@ -23,6 +23,8 @@ export interface CmsVitePluginOptions {
   alwaysInclude: string[];
   /** The host site's Astro `base`, which the admin needs to address the API. */
   base: string;
+  /** Where the injected routes read secrets and bindings from. */
+  runtime: CmsRuntime;
 }
 
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
@@ -40,6 +42,13 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       trailingSlash: clientConfig.trailingSlash,
     })};`,
     "virtual:astronaut-cms/server": `export default ${JSON.stringify(serverConfig)};`,
+    // Workers hand the environment to a module rather than to a global, and the
+    // import only resolves inside a Workers build — so which of these is emitted
+    // has to be settled here, where the target runtime is known.
+    "virtual:astronaut-cms/runtime-env":
+      options.runtime === "cloudflare"
+        ? `export { env as default } from "cloudflare:workers";`
+        : `export default undefined;`,
     // The filesystem backend is Node-only, so it is linked in exactly where it
     // can run and stubbed everywhere else: without this, `node:fs` would follow
     // the injected route into a Workers or edge bundle and fail it outright.

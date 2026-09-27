@@ -130,6 +130,9 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
   }
 }
 
+/** The one adapter that provides a Workers runtime, as Astro names it. */
+const CLOUDFLARE_ADAPTER = "@astrojs/cloudflare";
+
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   return {
     name: "astronaut-cms",
@@ -274,6 +277,23 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         const serverConfig = resolveServerConfig(effectiveConfig, rootDir, mediaServer);
 
+        // Where runtime bindings and secrets come from. Astro has no capability
+        // to ask, so the adapter's own name is the signal; `runtime` overrides it
+        // for an adapter that wraps or forks one of these under another name.
+        const runtime =
+          effectiveConfig.runtime ??
+          (astroConfig.adapter?.name === CLOUDFLARE_ADAPTER ? "cloudflare" : "node");
+
+        // A binding only exists inside a Workers runtime. Left to itself the
+        // reader would answer `undefined` for it and the failure would surface
+        // much later as "no binding configured", so a misdetected adapter is
+        // called out here instead.
+        if (serverConfig.media?.binding && runtime !== "cloudflare") {
+          throw new Error(
+            `Media binding '${serverConfig.media.binding}' needs a Cloudflare Workers runtime, but the adapter is ${astroConfig.adapter?.name ?? "unset"}. Set 'runtime: "cloudflare"' if it deploys to Workers under another name, or configure 'accountId' to reach the bucket over the S3 API instead.`,
+          );
+        }
+
         // A private library is signed at build time, so what astro has to trust
         // is the store's own origin rather than a public base it never sees.
         const remoteMedia =
@@ -309,6 +329,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 logger,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
                 base: astroConfig.base,
+                runtime,
               }),
               // The admin writes files the dev server watches; without this every
               // save reloads the page and wipes its state.

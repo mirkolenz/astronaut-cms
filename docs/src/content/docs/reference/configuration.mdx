@@ -12,6 +12,7 @@ interface CmsConfig {
   config?: string;
   mountPoint?: string;
   storage?: StorageConfig;
+  runtime?: "cloudflare" | "node";
   localStorageInDev?: boolean;
   localMediaInDev?: boolean;
   media?: MediaConfig;
@@ -23,19 +24,31 @@ interface CmsConfig {
 }
 ```
 
-| Property     | Type                   | Default                 | Description                                              |
-| ------------ | ---------------------- | ----------------------- | -------------------------------------------------------- |
-| `config`     | `string`               | auto-discovered         | Path to the CMS config file relative to the project root |
-| `mountPoint` | `string`               | `"/admin"`              | URL path for the admin panel                             |
-| `storage`    | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                            |
-| `localStorageInDev` | `boolean`       | `true`                  | Edit the working tree during `astro dev` instead of the configured backend |
-| `localMediaInDev`   | `boolean`       | `true`                  | Keep the media library in the working tree during `astro dev` instead of reaching the object store |
-| `media`      | `MediaConfig`          | `{}`                    | Media library configuration                              |
-| `locale`     | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                          |
-| `i18n`       | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                        |
-| `previewUrl` | `string`               | —                       | URL pattern for branch previews from your host           |
-| `ai`         | `AiConfig`             | disabled                | Built-in assistant, see [AI Assistant](/astronaut-cms/guides/ai-agent/) |
-| `webmcp`     | `WebmcpConfig`         | disabled                | Expose the CMS tools to agents in the editor's browser, see [Browser Agents](/astronaut-cms/guides/browser-agents/) |
+| Property            | Type                   | Default                 | Description                                                                                                         |
+| ------------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                            |
+| `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
+| `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
+| `runtime`           | `"cloudflare" \| "node"` | from the adapter      | Where the injected routes read secrets and bindings from                                                            |
+| `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
+| `localMediaInDev`   | `boolean`              | `true`                  | Keep the media library in the working tree during `astro dev` instead of reaching the object store                  |
+| `media`             | `MediaConfig`          | `{}`                    | Media library configuration                                                                                         |
+| `locale`            | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                                                                                     |
+| `i18n`              | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                                                                                   |
+| `previewUrl`        | `string`               | —                       | URL pattern for branch previews from your host                                                                      |
+| `ai`                | `AiConfig`             | disabled                | Built-in assistant, see [AI Assistant](/astronaut-cms/guides/ai-agent/)                                             |
+| `webmcp`            | `WebmcpConfig`         | disabled                | Expose the CMS tools to agents in the editor's browser, see [Browser Agents](/astronaut-cms/guides/browser-agents/) |
+
+### `runtime`
+
+Where the injected server routes read environment variables and Workers bindings
+from, detected from the Astro adapter: `@astrojs/cloudflare` means the Workers
+`env` module, anything else means `process.env`.
+
+Set it only for an adapter that deploys to Workers under a name the detection
+does not recognise, such as a fork or a wrapper.
+Configuring an R2 `binding` without a Cloudflare runtime is a build error rather
+than a binding that silently reads as missing.
 
 ### `i18n`
 

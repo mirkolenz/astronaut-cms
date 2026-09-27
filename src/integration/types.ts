@@ -11,6 +11,12 @@ export interface CmsConfig {
   mountPoint?: string;
   /** Storage backend configuration */
   storage?: StorageConfig;
+  /**
+   * Where the injected routes read secrets and Workers bindings from. Detected
+   * from the Astro adapter, so set it only for an adapter that wraps or forks a
+   * supported one under a name the detection does not recognise.
+   */
+  runtime?: CmsRuntime;
   /** Substitute the local filesystem backend during `astro dev`, even when a remote storage is configured (default: true) */
   localStorageInDev?: boolean;
   /**
@@ -386,6 +392,13 @@ export type ServerStorageConfig =
  * AI gateway. Imported solely by `server/`, so it is bundled into the SSR output
  * alone.
  */
+/**
+ * Where the injected routes read secrets and bindings from. Detected from the
+ * Astro adapter; set it only for an adapter that wraps or forks a supported one
+ * under a name the detection does not recognise.
+ */
+export type CmsRuntime = "cloudflare" | "node";
+
 export interface CmsServerConfig {
   storage: ServerStorageConfig;
   /** Null when the media library lives in the repository. */
