@@ -266,7 +266,8 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
                 (c) => c.type === "mdxJsxFlowElement" || c.type === "mdxJsxTextElement",
               ).length
             }
-            block={descriptor.kind === "flow"}
+            // Written on one line, a flow component parses as text with inline children.
+            block={mdastNode.type === "mdxJsxFlowElement"}
             getContent={(node) => node.children}
             getUpdatedMdastNode={(node, children) => ({ ...node, children })}
           />
