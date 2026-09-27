@@ -9,7 +9,7 @@
  * the gateway, where the budget actually lives.
  */
 
-interface Window {
+interface Caller {
   /** When the current counting window ends. */
   until: number;
   count: number;
@@ -32,7 +32,7 @@ const SWEEP_THRESHOLD = 64;
 
 export class RateLimiter {
   private readonly config: RateLimitConfig;
-  private readonly callers = new Map<string, Window>();
+  private readonly callers = new Map<string, Caller>();
 
   constructor(config: RateLimitConfig) {
     this.config = config;
@@ -53,13 +53,13 @@ export class RateLimiter {
     cost = 1,
   ): { ok: true; release: () => void } | { ok: false; reason: RateLimitDenial } {
     const now = Date.now();
-    const window = this.window(caller, now);
+    const state = this.caller(caller, now);
 
-    if (window.inFlight >= this.config.concurrency) return { ok: false, reason: "concurrency" };
-    if (window.count + cost > this.config.requests) return { ok: false, reason: "rate" };
+    if (state.inFlight >= this.config.concurrency) return { ok: false, reason: "concurrency" };
+    if (state.count + cost > this.config.requests) return { ok: false, reason: "rate" };
 
-    window.count += cost;
-    window.inFlight++;
+    state.count += cost;
+    state.inFlight++;
 
     let released = false;
 
@@ -69,7 +69,7 @@ export class RateLimiter {
         if (released) return;
 
         released = true;
-        window.inFlight--;
+        state.inFlight--;
       },
     };
   }
@@ -78,7 +78,7 @@ export class RateLimiter {
   // currently active rather than by everyone the instance has served. Only once
   // the map has grown, since the sweep is O(callers) and every request would
   // otherwise pay for it.
-  private window(caller: string, now: number): Window {
+  private caller(caller: string, now: number): Caller {
     if (this.callers.size > SWEEP_THRESHOLD) {
       for (const [key, value] of this.callers) {
         if (value.until <= now && value.inFlight === 0) this.callers.delete(key);
@@ -87,13 +87,18 @@ export class RateLimiter {
 
     const existing = this.callers.get(caller);
 
-    if (existing && existing.until > now) return existing;
+    // Rolled over in place rather than replaced, so a request still in flight
+    // from the previous window keeps being counted against the concurrency cap.
+    if (existing) {
+      if (existing.until <= now) {
+        existing.until = now + this.config.windowMs;
+        existing.count = 0;
+      }
 
-    const fresh: Window = {
-      until: now + this.config.windowMs,
-      count: 0,
-      inFlight: existing?.inFlight ?? 0,
-    };
+      return existing;
+    }
+
+    const fresh: Caller = { until: now + this.config.windowMs, count: 0, inFlight: 0 };
 
     this.callers.set(caller, fresh);
 

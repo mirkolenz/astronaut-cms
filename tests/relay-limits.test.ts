@@ -67,6 +67,28 @@ describe("RateLimiter", () => {
     // Two started in this window is all alice gets, idle or not.
     expect(limiter.acquire("alice")).toMatchObject({ ok: false, reason: "rate" });
   });
+
+  it("releases a request that outlives its rate window", () => {
+    let now = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const limiter = new RateLimiter(config);
+
+    try {
+      const first = limiter.acquire("alice");
+
+      expect(first.ok).toBe(true);
+
+      now = config.windowMs + 1;
+      expect(limiter.acquire("alice")).toMatchObject({ ok: false, reason: "concurrency" });
+
+      if (first.ok) first.release();
+
+      now += config.windowMs + 1;
+      expect(limiter.acquire("alice").ok).toBe(true);
+    } finally {
+      clock.mockRestore();
+    }
+  });
 });
 
 describe("stored content types", () => {
