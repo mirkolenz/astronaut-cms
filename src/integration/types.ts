@@ -183,7 +183,57 @@ export interface MediaConfig {
   alwaysInclude?: string[];
   /** Where the library's files live (default: `{ type: "repo" }`). */
   backend?: MediaBackendConfig;
+  /**
+   * How the browser reshapes an image before it is uploaded. Enabled with the
+   * defaults of {@link ImageOptimizationConfig}; pass `false` to upload every
+   * original untouched.
+   */
+  optimizeImages?: ImageOptimizationConfig | false;
 }
+
+/** The formats a browser canvas can encode to, and therefore convert into. */
+export type ImageOutputFormat = "jpeg" | "png" | "webp" | "avif";
+
+/**
+ * Client-side image processing, applied to every upload the browser can decode
+ * (JPEG, PNG, WebP, AVIF). SVG, GIF and non-images are never touched, and an
+ * image already inside every limit is passed through as its original bytes
+ * rather than re-encoded.
+ *
+ * It is a guard against the 12 MP phone original, not a substitute for astro's
+ * asset pipeline: the library keeps one sensible master, and the build still
+ * derives the per-breakpoint variants a page actually serves.
+ */
+export interface ImageOptimizationConfig {
+  /** Widest an upload may be, in pixels. Wider ones are scaled down, aspect ratio intact (default: 2048). */
+  maxWidth?: number;
+  /** Tallest an upload may be, in pixels (default: 2048). */
+  maxHeight?: number;
+  /**
+   * Size in bytes above which an image is re-encoded even when its dimensions
+   * already fit (default: 8 MiB). Quality steps down from `quality` towards
+   * `minQuality` until the result fits, so this is a threshold rather than a
+   * guarantee: an image that will not compress that far is uploaded at
+   * `minQuality`. Lossless PNG output ignores it entirely.
+   */
+  maxFileSize?: number;
+  /**
+   * Convert every upload into this format, e.g. `"webp"` to keep the library in
+   * one modern format. Omitted, each image keeps the format it arrived in.
+   * `"avif"` falls back to the original in browsers that cannot encode it.
+   */
+  format?: ImageOutputFormat;
+  /** Encoder quality for lossy formats, between 0 and 1 (default: 0.92). */
+  quality?: number;
+  /** Lowest quality the `maxFileSize` ladder descends to (default: 0.5). */
+  minQuality?: number;
+}
+
+/** {@link ImageOptimizationConfig} with every default filled in. */
+export type ResolvedImageOptimization = Required<Omit<ImageOptimizationConfig, "format">> & {
+  /** Null when uploads keep their own format. */
+  format: ImageOutputFormat | null;
+};
 
 /**
  * Where the media library stores its files.
@@ -331,6 +381,8 @@ export interface CmsClientConfig {
   mediaAlwaysInclude: string[];
   /** Where the library's files live, minus everything only the server may know. */
   mediaBackend: ClientMediaBackend;
+  /** How to reshape an image before uploading it, or null when uploads go untouched. */
+  imageOptimization: ResolvedImageOptimization | null;
   /** Default admin panel UI language. Distinct from `contentI18n`, which is about the site's content. */
   locale: SupportedLocale;
   /** The site's content languages, or null when it is single-language. */

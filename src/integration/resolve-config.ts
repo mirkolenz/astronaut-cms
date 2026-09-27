@@ -14,6 +14,7 @@ import type {
   CmsServerConfig,
   MediaBackendConfig,
   MediaServerConfig,
+  ResolvedImageOptimization,
   ServerStorageConfig,
 } from "./types.ts";
 import { presignedUploadOrigin, type ClientMediaBackend } from "../shared/media.ts";
@@ -115,6 +116,7 @@ export function resolveClientConfig(
     maxFileSize: config.media?.maxFileSize ?? null,
     mediaAlwaysInclude: resolveAlwaysInclude(config),
     mediaBackend: resolveClientMediaBackend(config, localMedia),
+    imageOptimization: resolveImageOptimization(config),
     locale: config.locale ?? "en",
     contentI18n: resolveContentI18n(config, astroI18n),
     previewUrl: config.previewUrl,
@@ -133,6 +135,28 @@ export function resolveClientConfig(
         },
       }),
   };
+}
+
+/**
+ * Enough headroom for a print-quality master, low enough that a phone original
+ * does not enter the library at 12 MP. The quality ladder is what makes
+ * `maxFileSize` a threshold rather than a promise.
+ */
+const DEFAULT_IMAGE_OPTIMIZATION: ResolvedImageOptimization = {
+  maxWidth: 2048,
+  maxHeight: 2048,
+  maxFileSize: 8 * 1024 * 1024,
+  format: null,
+  quality: 0.92,
+  minQuality: 0.5,
+};
+
+function resolveImageOptimization(config: CmsConfig): ResolvedImageOptimization | null {
+  const optimize = config.media?.optimizeImages;
+
+  if (optimize === false) return null;
+
+  return { ...DEFAULT_IMAGE_OPTIMIZATION, ...optimize };
 }
 
 const DEFAULT_MEDIA_BACKEND: MediaBackendConfig = { type: "repo" };

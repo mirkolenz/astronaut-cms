@@ -30,12 +30,42 @@ cms({
 | `directory`         | `string`   | `"src/assets"` | Directory where media files are stored, relative to the project root |
 | `allowedExtensions` | `string[]` | See below      | List of allowed file extensions                                      |
 | `maxFileSize`       | `number`   | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled | How an image is reshaped in the browser before it is uploaded |
 
 ### Default Allowed Extensions
 
 If `allowedExtensions` is not set, the following extensions are allowed by default:
 
 `.jpg`, `.jpeg`, `.png`, `.webp`, `.avif`, `.svg`, `.gif`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.csv`
+
+### Image optimization on upload
+
+Images are reshaped in the browser before they are uploaded, so a 12 MP phone original never enters the library at full size.
+By default an image is scaled to fit 2048x2048 and re-encoded if it exceeds 8 MB, keeping its own format.
+
+```ts title="astro.config.ts"
+cms({
+  media: {
+    optimizeImages: {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      format: "webp",
+      quality: 0.85,
+    },
+  },
+});
+```
+
+Only formats a browser can decode and encode are touched (JPEG, PNG, WebP, AVIF).
+SVG, GIF, documents and any image already inside every limit are uploaded byte for byte.
+Set `optimizeImages: false` to turn it off entirely, which is what you want when editors upload masters an object store is meant to hold.
+
+<Aside type="note">
+  This is not a replacement for astro's asset pipeline.
+  The library keeps one sensible master, and the build still derives the per-breakpoint variants a page actually serves.
+</Aside>
+
+See [`ImageOptimizationConfig`](/astronaut-cms/reference/configuration/#imageoptimizationconfig) for every option.
 
 ## Where files are stored
 

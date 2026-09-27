@@ -11,6 +11,7 @@ const config: CmsClientConfig = {
   mediaBackend: { type: "repo" },
   maxFileSize: null,
   mediaAlwaysInclude: [],
+  imageOptimization: null,
   locale: "en",
   contentI18n: { locales: ["en", "de"], defaultLocale: "en" },
   capabilities: { publish: false, update: false },

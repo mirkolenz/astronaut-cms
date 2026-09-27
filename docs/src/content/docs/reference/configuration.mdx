@@ -115,6 +115,7 @@ interface MediaConfig {
   maxFileSize?: number;
   alwaysInclude?: string[];
   backend?: MediaBackendConfig;
+  optimizeImages?: ImageOptimizationConfig | false;
 }
 ```
 
@@ -125,6 +126,7 @@ interface MediaConfig {
 | `maxFileSize`       | `number`             | unlimited          | Maximum upload size in bytes. Checked in the admin, signed into the upload URL, and checked again against the stored object before it enters the library |
 | `alwaysInclude`     | `string[]`           | `[]`               | Globs, relative to `directory`, to bundle regardless (`repo` backend) |
 | `backend`           | `MediaBackendConfig` | `{ type: "repo" }` | Where the library's files live                       |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How the browser reshapes an image before uploading it, or `false` to upload originals untouched |
 
 ## `MediaBackendConfig`
 
@@ -181,3 +183,34 @@ cms({
 
 Patterns are relative to `directory`, so `"og/**"` means `src/assets/og/**` under the default.
 See [Asset Handling](../../guides/asset-handling/#what-a-build-bundles) for how the referenced set is worked out.
+
+## `ImageOptimizationConfig`
+
+How an image is reshaped in the browser before it is uploaded.
+See [Media Library](../../guides/media-library/#image-optimization-on-upload) for what it is for and when to turn it off.
+
+```ts
+interface ImageOptimizationConfig {
+  maxWidth?: number;
+  maxHeight?: number;
+  maxFileSize?: number;
+  format?: "jpeg" | "png" | "webp" | "avif";
+  quality?: number;
+  minQuality?: number;
+}
+```
+
+| Property      | Type                                  | Default            | Description                                                    |
+| ------------- | ------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `maxWidth`    | `number`                              | `2048`             | Widest an upload may be, in pixels. Wider images are scaled down, aspect ratio intact |
+| `maxHeight`   | `number`                              | `2048`             | Tallest an upload may be, in pixels                            |
+| `maxFileSize` | `number`                              | `8388608` (8 MiB)  | Size in bytes above which an image is re-encoded even when its dimensions already fit |
+| `format`      | `"jpeg" \| "png" \| "webp" \| "avif"` | keep the original  | Convert every upload into one format                           |
+| `quality`     | `number`                              | `0.92`             | Encoder quality for lossy formats, between 0 and 1             |
+| `minQuality`  | `number`                              | `0.5`              | Lowest quality the `maxFileSize` ladder descends to            |
+
+`maxFileSize` is a threshold rather than a guarantee: the image is encoded at `quality`, then at steadily lower ones down to `minQuality`, and the first result that fits is uploaded.
+An image that will not compress that far is uploaded at `minQuality` anyway, still smaller than the original.
+PNG output ignores the ladder entirely, since a canvas has no lossy PNG encoder.
+
+It is distinct from `maxFileSize` on `MediaConfig`: that one refuses an upload, this one shrinks it first.
