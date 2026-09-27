@@ -1,8 +1,8 @@
-import type { LucideIcon } from "lucide-react";
+import type { ComponentIcon } from "@/config";
 
 interface EditorCardProps {
   title: string;
-  icon?: LucideIcon | null;
+  icon?: ComponentIcon | null;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }

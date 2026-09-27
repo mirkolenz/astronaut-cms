@@ -6,10 +6,7 @@
  * instance. This module is intentionally free of any `astro:*` / `astro/*`
  * import, so nothing Node-only leaks into the client.
  */
-import type { ComponentType } from "react";
-import type { LucideIcon } from "lucide-react";
-import type { JsxEditorProps } from "@mdxeditor/editor";
-import type { ComponentDefinition } from "../config.ts";
+import type { ComponentDefinition, ComponentIcon, JsxEditor } from "../config.ts";
 import type { ComponentSchema } from "../shared/field-schema.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { schemaHelpers } from "../shared/cms-markers.ts";
@@ -19,8 +16,8 @@ export interface ClientComponentDef extends ComponentSchema {
   source: string | null;
   defaultExport: boolean;
   label: string;
-  icon: LucideIcon | null;
-  editor: ComponentType<JsxEditorProps> | null;
+  icon: ComponentIcon | null;
+  editor: JsxEditor | null;
 }
 
 export type ComponentManifest = Record<string, ClientComponentDef>;

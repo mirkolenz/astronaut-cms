@@ -32,6 +32,7 @@ export const ENTRY_POINTS: EntryPoint[] = [
   { subpath: "./content", source: "content/index.ts" },
   { subpath: "./client", source: "client/index.tsx" },
   { subpath: "./bootstrap", source: "client/bootstrap.ts" },
+  { subpath: "./editor", source: "editor.ts" },
   { subpath: "./internal", source: "internal/index.ts" },
   { subpath: "./styles.css", source: "astro/styles.css" },
   { subpath: "./endpoint", source: "server/endpoint.ts" },

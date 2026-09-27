@@ -60,6 +60,10 @@
     "./bootstrap": {
       "default": "./dist/bootstrap.js"
     },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "default": "./dist/editor.js"
+    },
     "./internal": {
       "types": "./dist/internal/index.d.ts",
       "default": "./dist/internal.js"

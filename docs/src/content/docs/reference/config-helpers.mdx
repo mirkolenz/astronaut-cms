@@ -177,7 +177,7 @@ interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   source?: string;
   defaultExport?: boolean;
   label?: string;
-  icon?: LucideIcon;
-  editor?: ComponentType<JsxEditorProps>;
+  icon?: ComponentIcon;
+  editor?: JsxEditor;
 }
 ```

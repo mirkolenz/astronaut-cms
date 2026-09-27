@@ -73,17 +73,35 @@ A human-readable label shown in the admin panel.
 
 ### `icon`
 
-- **Type:** `LucideIcon`
+- **Type:** `ComponentIcon`
 - **Default:** `undefined`
 
-A [Lucide React](https://lucide.dev) icon shown in the admin panel.
+An icon shown in the admin panel, any React component that takes a `className`, such as a [Lucide React](https://lucide.dev) icon.
 
-### `wrapper`
+### `editor`
 
-- **Type:** `React.ComponentType<{ children: ReactNode }>`
+- **Type:** `JsxEditor`
 - **Default:** `undefined`
 
-A React component that wraps the component preview in the admin panel.
+A React component that edits the element in place of the generated form.
+Build it with the primitives of `astronaut-cms/editor`, which are the admin's own editor instance:
+
+```tsx title="src/cms.config.tsx"
+import { NestedLexicalEditor, type JsxEditorProps } from "astronaut-cms/editor";
+
+function CalloutEditor(_: JsxEditorProps) {
+  return (
+    <NestedLexicalEditor
+      block
+      getContent={(node) => node.children}
+      getUpdatedMdastNode={(node, children) => ({ ...node, children })}
+    />
+  );
+}
+```
+
+`useMdastNodeUpdater()` merges fields into the element, and `useLexicalNodeRemove()` removes it.
+A separate install of `@mdxeditor/editor` would be a second copy whose hooks find none of the admin's state.
 
 ## Nested Components
 

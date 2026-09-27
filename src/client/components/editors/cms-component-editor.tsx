@@ -1,19 +1,18 @@
 import { useCallback, useContext } from "react";
+import { NestedEditorsContext } from "@mdxeditor/editor";
 import {
   type JsxEditorProps,
-  type MdastJsx,
+  type MdxJsxElement,
   NestedLexicalEditor,
-  NestedEditorsContext,
   useMdastNodeUpdater,
   useLexicalNodeRemove,
-} from "@mdxeditor/editor";
+} from "@/editor";
 import { $copyNode } from "lexical";
 import type {
   MdxJsxAttribute,
   MdxJsxExpressionAttribute,
   MdxJsxFlowElement,
 } from "mdast-util-mdx";
-import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
@@ -37,7 +36,7 @@ import {
  * is left out: the form cannot show it, and {@link CmsComponentEditor} rewrites
  * an attribute only when its own field is edited, so it survives untouched.
  */
-function extractProps(node: MdastJsx): Record<string, unknown> {
+function extractProps(node: MdxJsxElement): Record<string, unknown> {
   const props: Record<string, unknown> = {};
 
   for (const attr of node.attributes) {
@@ -117,7 +116,7 @@ function AddChildButton({
  * Can be overridden per-component via `ComponentDefinition.editor`.
  */
 export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
-  const updateMdastNode = useMdastNodeUpdater<MdastJsx>();
+  const updateMdastNode = useMdastNodeUpdater();
   const removeNode = useLexicalNodeRemove();
   const { parentEditor, lexicalNode } = useContext(NestedEditorsContext)!;
 
@@ -204,9 +203,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
         attributes: buildDefaultAttributes(childDef),
         children: [],
       };
-      updateMdastNode({
-        children: [...mdastNode.children, newChild],
-      } as Partial<MdastJsx>);
+      updateMdastNode({ children: [...mdastNode.children, newChild] });
     },
     [mdastNode, updateMdastNode, structuredChildDefs],
   );
@@ -262,15 +259,15 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
         )}
 
         {descriptor.hasChildren && (
-          <NestedLexicalEditor<MdastJsx>
+          <NestedLexicalEditor
             key={
               mdastNode.children.filter(
                 (c) => c.type === "mdxJsxFlowElement" || c.type === "mdxJsxTextElement",
               ).length
             }
             block={descriptor.kind === "flow"}
-            getContent={(node) => node.children as RootContent[]}
-            getUpdatedMdastNode={(node, children) => ({ ...node, children }) as MdastJsx}
+            getContent={(node) => node.children}
+            getUpdatedMdastNode={(node, children) => ({ ...node, children })}
           />
         )}
 

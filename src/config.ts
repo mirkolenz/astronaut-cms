@@ -1,11 +1,13 @@
-import type { ComponentType } from "react";
-import type { LucideIcon } from "lucide-react";
-import type { JsxEditorProps } from "@mdxeditor/editor";
+import type { ReactNode } from "react";
+import type { JsxEditor, JsxEditorProps } from "./editor.ts";
 import type { z } from "zod";
 import type { schemaHelpers } from "./shared/cms-markers.ts";
 import type { CollectionSort } from "./shared/types.ts";
 
-export type { JsxEditorProps };
+export type { JsxEditor, JsxEditorProps };
+
+/** An icon for the admin, such as one of `lucide-react`'s. */
+export type ComponentIcon = (props: { className?: string }) => ReactNode;
 
 /**
  * `file()` names an asset in the media library that is bundled as the file
@@ -36,8 +38,8 @@ export interface ComponentDefinition<
   source?: string;
   defaultExport?: boolean;
   label?: string;
-  icon?: LucideIcon;
-  editor?: ComponentType<JsxEditorProps>;
+  icon?: ComponentIcon;
+  editor?: JsxEditor;
 }
 
 export type { CollectionSort };

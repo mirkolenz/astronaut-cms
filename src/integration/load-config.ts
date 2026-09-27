@@ -23,14 +23,17 @@ import type {
  * resolves exactly as it does in the site: tsconfig `paths` included.
  */
 
-// The two build-time-only Astro modules a content config imports. Everything
-// else (third-party loaders and schemas) runs for real. Matched exactly, since
-// an alias otherwise also claims every subpath of its key.
+// The two build-time-only Astro modules a content config imports, and the
+// admin's editor primitives, which a cms config imports for editors that only
+// ever run in the browser. Everything else (third-party loaders and schemas)
+// runs for real. Matched exactly, since an alias otherwise also claims every
+// subpath of its key.
 const LOADER_STUBS = SOURCE_EXPORTS["astronaut-cms/internal"] ?? "astronaut-cms/internal";
 const ALIASES: Alias[] = Object.entries({
   ...SOURCE_EXPORTS,
   "astro:content": LOADER_STUBS,
   "astro/loaders": LOADER_STUBS,
+  "astronaut-cms/editor": LOADER_STUBS,
 }).map(([specifier, replacement]) => ({
   find: new RegExp(`^${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
   replacement,
