@@ -47,8 +47,8 @@ export function cmsVitePlugin(
     mediaDirectory: config.media?.directory ?? "src/assets",
     locale: config.locale ?? "en",
     previewUrl: config.previewUrl,
-    ...(config.ai?.enabled
-      && config.ai.models?.length && {
+    ...(config.ai?.enabled &&
+      config.ai.models?.length && {
         ai: {
           models: config.ai.models,
           maxSteps: config.ai.maxSteps ?? 24,

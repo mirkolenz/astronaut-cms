@@ -22,9 +22,7 @@ function callSettings() {
   return {
     model: aiProvider.chatModel(model),
     providerOptions:
-      effort === "provider-default"
-        ? undefined
-        : { openaiCompatible: { reasoningEffort: effort } },
+      effort === "provider-default" ? undefined : { openaiCompatible: { reasoningEffort: effort } },
   };
 }
 

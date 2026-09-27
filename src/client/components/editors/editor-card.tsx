@@ -15,9 +15,7 @@ export function EditorCard({ title, icon: Icon, actions, children }: EditorCardP
         <span className="flex-1 text-xs font-medium">{title}</span>
         {actions}
       </div>
-      <div className="space-y-2 border-t border-border p-2">
-        {children}
-      </div>
+      <div className="space-y-2 border-t border-border p-2">{children}</div>
     </div>
   );
 }

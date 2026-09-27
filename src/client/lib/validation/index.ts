@@ -39,9 +39,12 @@ export function validateReorder(existing: string[], ids: string[]): Diagnostic[]
 
   if (unknown.length) diagnostics.push(error(`Unknown entry id(s): ${unknown.join(", ")}.`));
   if (missing.length) {
-    diagnostics.push(error(`Every entry must appear exactly once; missing: ${missing.join(", ")}.`));
+    diagnostics.push(
+      error(`Every entry must appear exactly once; missing: ${missing.join(", ")}.`),
+    );
   }
-  if (duplicates.length) diagnostics.push(error(`Duplicate entry id(s): ${duplicates.join(", ")}.`));
+  if (duplicates.length)
+    diagnostics.push(error(`Duplicate entry id(s): ${duplicates.join(", ")}.`));
 
   return diagnostics;
 }
@@ -73,7 +76,10 @@ async function checkReferences(references: ResolvableLeaf[]): Promise<Diagnostic
       return refs
         .filter((ref) => !ids.has(ref.value))
         .map((ref) =>
-          error(`references "${ref.value}", which does not exist in collection "${collection}".`, ref.path),
+          error(
+            `references "${ref.value}", which does not exist in collection "${collection}".`,
+            ref.path,
+          ),
         );
     }),
   );
@@ -147,7 +153,8 @@ export interface EntryWriteInput {
 export const entryWriteChecks: Array<(input: EntryWriteInput) => Promise<Diagnostic[]>> = [
   async ({ id, skipId }) => (skipId ? [] : validateEntryId(id)),
   async ({ body, format, skipBody }) => (skipBody ? [] : validateMdx(body, format)),
-  ({ col, data, changedDataKeys }) => validateReferencesAndAssets(col.schema, data, changedDataKeys),
+  ({ col, data, changedDataKeys }) =>
+    validateReferencesAndAssets(col.schema, data, changedDataKeys),
 ];
 
 export async function validateEntryWrite(input: EntryWriteInput): Promise<Diagnostic[]> {

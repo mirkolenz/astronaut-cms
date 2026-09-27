@@ -153,7 +153,10 @@ hr {
   text-decoration: none;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .btn:hover {
@@ -229,7 +232,9 @@ hr {
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .nav a:hover,
@@ -330,7 +335,9 @@ hr {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1.6rem;
-  transition: border-color 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .feature:hover {
@@ -509,7 +516,10 @@ figure.figure figcaption {
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .post-card:hover {

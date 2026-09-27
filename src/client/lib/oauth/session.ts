@@ -20,6 +20,9 @@ export async function revokeSession(session: AuthSession): Promise<void> {
   // GitHub tokens are left to expire or be revoked by uninstalling the app.
   if (session.provider !== "gitlab" || !config.gitlab) return;
 
-  const oidcConfig = await getGitLabConfiguration(config.gitlab.instanceUrl, config.gitlab.clientId);
+  const oidcConfig = await getGitLabConfiguration(
+    config.gitlab.instanceUrl,
+    config.gitlab.clientId,
+  );
   await client.tokenRevocation(oidcConfig, session.accessToken);
 }

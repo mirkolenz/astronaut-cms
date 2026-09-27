@@ -16,12 +16,12 @@ It reads and writes files directly on disk through the dev server.
 ```ts title="astro.config.ts"
 cms({
   storage: { type: "local" },
-})
+});
 ```
 
 <Aside type="note">
-  Local storage only works during development (`astro dev`).
-  For production deployments, use the GitHub or GitLab backend.
+  Local storage only works during development (`astro dev`). For production deployments, use the
+  GitHub or GitLab backend.
 </Aside>
 
 ## GitHub Storage
@@ -38,19 +38,19 @@ cms({
     clientId: "your-github-oauth-app-client-id",
     publishMode: "pull-request",
   },
-})
+});
 ```
 
 ### Configuration
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `repo` | `string` | required | GitHub repository in `owner/repo` format |
-| `branch` | `string` | `"main"` | Target branch for reading and writing |
-| `clientId` | `string` | required | GitHub OAuth App or GitHub App client ID |
-| `authMode` | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy (see below) |
-| `scopes` | `string[]` | `["repo"]` | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
-| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published |
+| Option        | Type                          | Default       | Description                                                 |
+| ------------- | ----------------------------- | ------------- | ----------------------------------------------------------- |
+| `repo`        | `string`                      | required      | GitHub repository in `owner/repo` format                    |
+| `branch`      | `string`                      | `"main"`      | Target branch for reading and writing                       |
+| `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                    |
+| `authMode`    | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy (see below)                         |
+| `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
+| `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | How changes are published                                   |
 
 ### Authentication and least privilege
 
@@ -72,7 +72,7 @@ cms({
     clientId: "your-github-app-client-id",
     authMode: "github-app",
   },
-})
+});
 ```
 
 ### Setting up a GitHub App (recommended)
@@ -93,7 +93,8 @@ cms({
 3. Copy the **Client ID** and pass it to the `clientId` option.
 
 <Aside type="tip">
-  Use `publishMode: "pull-request"` for editorial workflows where changes should be reviewed before merging.
+  Use `publishMode: "pull-request"` for editorial workflows where changes should be reviewed before
+  merging.
 </Aside>
 
 ## GitLab Storage
@@ -111,19 +112,19 @@ cms({
     instanceUrl: "https://gitlab.com",
     publishMode: "pull-request",
   },
-})
+});
 ```
 
 ### Configuration
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `project` | `string` | required | GitLab project in `group/project` format |
-| `branch` | `string` | `"main"` | Target branch |
-| `clientId` | `string` | required | GitLab OAuth application ID |
-| `instanceUrl` | `string` | `"https://gitlab.com"` | GitLab instance URL for self-hosted instances |
-| `scopes` | `string[]` | `["api"]` | OAuth scopes |
-| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published |
+| Option        | Type                         | Default                | Description                                   |
+| ------------- | ---------------------------- | ---------------------- | --------------------------------------------- |
+| `project`     | `string`                     | required               | GitLab project in `group/project` format      |
+| `branch`      | `string`                     | `"main"`               | Target branch                                 |
+| `clientId`    | `string`                     | required               | GitLab OAuth application ID                   |
+| `instanceUrl` | `string`                     | `"https://gitlab.com"` | GitLab instance URL for self-hosted instances |
+| `scopes`      | `string[]`                   | `["api"]`              | OAuth scopes                                  |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"`             | How changes are published                     |
 
 ### Setting Up GitLab OAuth
 
@@ -133,11 +134,10 @@ cms({
 4. Copy the **Application ID** and pass it to the `clientId` option.
 
 <Aside type="note">
-  GitLab's API-based writes (commits and merge requests) require the `api`
-  scope. The narrower `write_repository` scope only covers Git-over-HTTP and is
-  insufficient here, so `scopes` cannot be tightened further. GitLab issues
-  short-lived access tokens by default, which bounds exposure; editors sign in
-  again when a token expires.
+  GitLab's API-based writes (commits and merge requests) require the `api` scope. The narrower
+  `write_repository` scope only covers Git-over-HTTP and is insufficient here, so `scopes` cannot be
+  tightened further. GitLab issues short-lived access tokens by default, which bounds exposure;
+  editors sign in again when a token expires.
 </Aside>
 
 ## Publish Modes

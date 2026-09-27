@@ -175,7 +175,8 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
     return { type: "object", shape };
   }
 
-  if (schema instanceof z.ZodRecord) return { type: "record", value: lower(schema.valueType, next) };
+  if (schema instanceof z.ZodRecord)
+    return { type: "record", value: lower(schema.valueType, next) };
 
   if (schema instanceof z.ZodUnion) {
     // `ZodDiscriminatedUnion` extends `ZodUnion`; its discriminator drives the

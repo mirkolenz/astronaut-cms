@@ -25,8 +25,6 @@ export function defineComponent<T extends z.ZodType>(
   return def;
 }
 
-export type InferComponentProps<
-  Components extends Record<string, ComponentDefinition>,
-> = {
+export type InferComponentProps<Components extends Record<string, ComponentDefinition>> = {
   [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
 };

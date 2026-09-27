@@ -5,9 +5,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
 import dts from "unplugin-dts/vite";
 
-const pkg = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, "package.json"), "utf8"),
-);
+const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, "package.json"), "utf8"));
 
 const externalPackages = [
   ...builtinModules,

@@ -24,12 +24,12 @@ export function Sidebar() {
           className="flex items-center gap-2 text-lg font-semibold text-sidebar-foreground"
         >
           <img src={logoUrl} alt="" className="size-8 shrink-0" />
-          {t($ => $.layout.appName)}
+          {t(($) => $.layout.appName)}
         </Link>
       </div>
       <nav className="px-2 pb-4">
         <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {t($ => $.layout.collections)}
+          {t(($) => $.layout.collections)}
         </p>
         {isLoading && (
           <div className="space-y-1 px-2">
@@ -46,25 +46,27 @@ export function Sidebar() {
               params={{ collection: name }}
               className={navLinkClasses}
             >
-              {col.loaderType === "file"
-                ? <FileText className="size-4 text-muted-foreground" />
-                : col.type === "content"
-                  ? <NotebookPen className="size-4 text-muted-foreground" />
-                  : <BarChart3 className="size-4 text-muted-foreground" />}
+              {col.loaderType === "file" ? (
+                <FileText className="size-4 text-muted-foreground" />
+              ) : col.type === "content" ? (
+                <NotebookPen className="size-4 text-muted-foreground" />
+              ) : (
+                <BarChart3 className="size-4 text-muted-foreground" />
+              )}
               {toLabel(name)}
             </Link>
           ))}
         <p className="mt-4 px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {t($ => $.layout.workspace)}
+          {t(($) => $.layout.workspace)}
         </p>
         <Link to="/media" className={navLinkClasses}>
           <Image className="size-4 text-muted-foreground" />
-          {t($ => $.layout.media)}
+          {t(($) => $.layout.media)}
         </Link>
         {aiEnabled && (
           <Link to="/assistant" className={navLinkClasses}>
             <Bot className="size-4 text-muted-foreground" />
-            {t($ => $.ai.title)}
+            {t(($) => $.ai.title)}
           </Link>
         )}
       </nav>

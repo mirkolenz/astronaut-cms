@@ -97,12 +97,8 @@ In MDX content, this renders as:
 
 ```mdx
 <Tabs>
-  <Tab label="First">
-    Content for the first tab.
-  </Tab>
-  <Tab label="Second">
-    Content for the second tab.
-  </Tab>
+  <Tab label="First">Content for the first tab.</Tab>
+  <Tab label="Second">Content for the second tab.</Tab>
 </Tabs>
 ```
 
@@ -149,7 +145,7 @@ First, export a bound `ComponentProps` type from your CMS config:
 import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
 import { z } from "zod";
 
-export const components = { /* ... */ };
+export const components = {/* ... */};
 export type ComponentProps = InferComponentProps<typeof components>;
 ```
 

@@ -23,8 +23,8 @@ function loadFromSession(): AuthSession | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<AuthSession>;
     if (
-      typeof parsed.accessToken === "string"
-      && (parsed.provider === "github" || parsed.provider === "gitlab")
+      typeof parsed.accessToken === "string" &&
+      (parsed.provider === "github" || parsed.provider === "gitlab")
     ) {
       return {
         provider: parsed.provider,

@@ -27,10 +27,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
-        <ErrorFallback
-          error={this.state.error}
-          onReset={() => this.setState({ error: null })}
-        />
+        <ErrorFallback error={this.state.error} onReset={() => this.setState({ error: null })} />
       );
     }
     return this.props.children;
@@ -43,13 +40,11 @@ function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="max-w-md rounded-lg border border-destructive/30 bg-card p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-destructive">
-          {t($ => $.errors.somethingWentWrong)}
+          {t(($) => $.errors.somethingWentWrong)}
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {error.message}
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <Button className="mt-4" onClick={onReset}>
-          {t($ => $.errors.tryAgain)}
+          {t(($) => $.errors.tryAgain)}
         </Button>
       </div>
     </div>

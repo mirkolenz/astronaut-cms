@@ -20,13 +20,13 @@ export function ChatPanel() {
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
         <span className="flex items-center gap-2 text-sm font-medium">
           <Bot className="size-4" />
-          {t($ => $.ai.title)}
+          {t(($) => $.ai.title)}
         </span>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={() => setOpen(false)}
-          aria-label={t($ => $.ai.close)}
+          aria-label={t(($) => $.ai.close)}
         >
           <X className="size-4" />
         </Button>

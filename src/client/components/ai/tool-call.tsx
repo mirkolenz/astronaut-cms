@@ -37,20 +37,20 @@ export function ToolCall({ part, onApprovalResponse }: ToolCallProps) {
 
         {awaitingApproval && (
           <div className="space-y-3 rounded-md border border-yellow-600/30 bg-yellow-600/10 p-3">
-            <p className="text-sm">{t($ => $.ai.approvalPrompt)}</p>
+            <p className="text-sm">{t(($) => $.ai.approvalPrompt)}</p>
             <div className="flex items-center justify-end gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onApprovalResponse({ id: part.approval.id, approved: false })}
               >
-                {t($ => $.ai.deny)}
+                {t(($) => $.ai.deny)}
               </Button>
               <Button
                 size="sm"
                 onClick={() => onApprovalResponse({ id: part.approval.id, approved: true })}
               >
-                {t($ => $.ai.approve)}
+                {t(($) => $.ai.approve)}
               </Button>
             </div>
           </div>

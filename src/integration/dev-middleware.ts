@@ -218,11 +218,7 @@ async function saveFileEntry(
   await writeFile(filePath, content, "utf-8");
 }
 
-async function deleteFileEntry(
-  rootDir: string,
-  id: string,
-  loaderFileName: string,
-): Promise<void> {
+async function deleteFileEntry(rootDir: string, id: string, loaderFileName: string): Promise<void> {
   const filePath = resolveFilePath(rootDir, loaderFileName);
   const format = getFileFormat(loaderFileName);
   const { entries, layout } = await readFileCollection(filePath, format);
@@ -550,8 +546,8 @@ export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
         order: "pre",
         handler({ file }) {
           if (
-            Date.now() < suppressReloadUntil
-            && (isWithin(file, contentDir) || isWithin(file, mediaDir))
+            Date.now() < suppressReloadUntil &&
+            (isWithin(file, contentDir) || isWithin(file, mediaDir))
           ) {
             return [];
           }

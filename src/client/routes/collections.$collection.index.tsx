@@ -73,7 +73,10 @@ function GlobCollectionPage({
       {
         onSuccess: () => {
           setShowNewDialog(false);
-          toast(t($ => $.collection.entryCreated), "success");
+          toast(
+            t(($) => $.collection.entryCreated),
+            "success",
+          );
           void navigate({
             to: "/collections/$collection/$entry",
             params: { collection, entry: id },
@@ -90,17 +93,16 @@ function GlobCollectionPage({
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="h-12 animate-pulse rounded-lg border border-border bg-muted"
-          />
+          <div key={i} className="h-12 animate-pulse rounded-lg border border-border bg-muted" />
         ))}
       </div>
     );
   }
 
   if (error) {
-    return <ErrorBanner>{t($ => $.collection.failedLoad, { message: error.message })}</ErrorBanner>;
+    return (
+      <ErrorBanner>{t(($) => $.collection.failedLoad, { message: error.message })}</ErrorBanner>
+    );
   }
 
   return (
@@ -110,19 +112,19 @@ function GlobCollectionPage({
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
           {collectionInfo && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {collectionInfo.type === "content" ? t($ => $.collection.contentCollection) : t($ => $.collection.dataCollection)} &middot;{" "}
-              {t($ => $.collection.entries, { count: filteredEntries?.length ?? 0 })}
+              {collectionInfo.type === "content"
+                ? t(($) => $.collection.contentCollection)
+                : t(($) => $.collection.dataCollection)}{" "}
+              &middot; {t(($) => $.collection.entries, { count: filteredEntries?.length ?? 0 })}
             </p>
           )}
         </div>
-        <Button onClick={() => setShowNewDialog(true)}>
-          {t($ => $.collection.newEntry)}
-        </Button>
+        <Button onClick={() => setShowNewDialog(true)}>{t(($) => $.collection.newEntry)}</Button>
       </div>
 
       {isEmpty ? (
         <div className="text-center text-muted-foreground">
-          <p>{t($ => $.collection.noEntries)}</p>
+          <p>{t(($) => $.collection.noEntries)}</p>
         </div>
       ) : (
         <div className="divide-y divide-border rounded-lg border border-border">
@@ -150,9 +152,7 @@ function GlobCollectionPage({
             >
               <div className="flex items-center gap-2">
                 <File className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">
-                  {baseName(entry.id)}
-                </span>
+                <span className="text-sm font-medium text-foreground">{baseName(entry.id)}</span>
                 <Badge variant="outline">{entry.format}</Badge>
               </div>
               <ChevronRight className="size-4 text-muted-foreground" />

@@ -34,8 +34,7 @@ export function processUserConfig(
   for (const [name, def] of Object.entries(components ?? {})) {
     result[name] = {
       props: def.props ? zodToFieldSchema(def.props) : null,
-      children:
-        typeof def.children === "object" ? processUserConfig(def.children) : def.children,
+      children: typeof def.children === "object" ? processUserConfig(def.children) : def.children,
       kind: def.kind ?? "flow",
       source: def.source ?? null,
       defaultExport: def.defaultExport ?? false,

@@ -26,7 +26,13 @@ export interface FieldMods {
 // so they remain the one residual gap.
 export type FieldSchema = FieldMods &
   (
-    | { type: "string"; format?: "email" | "url"; minLength?: number; maxLength?: number; pattern?: string }
+    | {
+        type: "string";
+        format?: "email" | "url";
+        minLength?: number;
+        maxLength?: number;
+        pattern?: string;
+      }
     | {
         type: "number";
         integer?: boolean;

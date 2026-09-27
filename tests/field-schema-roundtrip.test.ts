@@ -25,9 +25,18 @@ describe("zodToFieldSchema lowering", () => {
   });
 
   it("threads optional / nullable / default flags onto the base type", () => {
-    expect(zodToFieldSchema(z.string().optional())).toMatchObject({ type: "string", optional: true });
-    expect(zodToFieldSchema(z.string().nullable())).toMatchObject({ type: "string", nullable: true });
-    expect(zodToFieldSchema(z.string().default("hi"))).toMatchObject({ type: "string", default: "hi" });
+    expect(zodToFieldSchema(z.string().optional())).toMatchObject({
+      type: "string",
+      optional: true,
+    });
+    expect(zodToFieldSchema(z.string().nullable())).toMatchObject({
+      type: "string",
+      nullable: true,
+    });
+    expect(zodToFieldSchema(z.string().default("hi"))).toMatchObject({
+      type: "string",
+      default: "hi",
+    });
   });
 
   it("reads CMS asset / reference markers from meta", () => {
@@ -77,7 +86,11 @@ describe("zodToFieldSchema lowering", () => {
       type: "string",
       pattern: "^[a-z]+$",
     });
-    expect(zodToFieldSchema(z.number().min(0).max(10))).toEqual({ type: "number", min: 0, max: 10 });
+    expect(zodToFieldSchema(z.number().min(0).max(10))).toEqual({
+      type: "number",
+      min: 0,
+      max: 10,
+    });
     expect(zodToFieldSchema(z.number().gt(0).lt(5))).toEqual({
       type: "number",
       exclusiveMin: 0,

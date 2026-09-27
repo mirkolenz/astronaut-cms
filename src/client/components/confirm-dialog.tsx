@@ -30,19 +30,22 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
-  const resolvedConfirmLabel = confirmLabel ?? t($ => $.common.confirm);
+  const resolvedConfirmLabel = confirmLabel ?? t(($) => $.common.confirm);
 
   return (
-    <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onCancel();
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>
-            {t($ => $.common.cancel)}
-          </AlertDialogCancel>
+          <AlertDialogCancel>{t(($) => $.common.cancel)}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             variant={variant === "danger" ? "destructive" : "default"}

@@ -82,7 +82,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (oauthPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-muted-foreground">{t($ => $.auth.completingAuth)}</p>
+        <p className="text-sm text-muted-foreground">{t(($) => $.auth.completingAuth)}</p>
       </div>
     );
   }
@@ -111,7 +111,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-muted-foreground">{t($ => $.auth.unsupportedStorage, { type: config.storageType })}</p>
+      <p className="text-muted-foreground">
+        {t(($) => $.auth.unsupportedStorage, { type: config.storageType })}
+      </p>
     </div>
   );
 }
@@ -160,11 +162,11 @@ function GitHubLogin({
   }, [clientId, repo, scopes, setSession]);
 
   return (
-    <LoginShell title={t($ => $.auth.signInGitHub)} error={error}>
+    <LoginShell title={t(($) => $.auth.signInGitHub)} error={error}>
       {userCode && verificationUri ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            {t($ => $.auth.enterCodeAt)}{" "}
+            {t(($) => $.auth.enterCodeAt)}{" "}
             <a
               href={verificationUri}
               target="_blank"
@@ -178,16 +180,14 @@ function GitHubLogin({
             {userCode}
           </div>
           {isPolling && (
-            <p className="text-center text-xs text-muted-foreground">{t($ => $.auth.waitingAuth)}</p>
+            <p className="text-center text-xs text-muted-foreground">
+              {t(($) => $.auth.waitingAuth)}
+            </p>
           )}
         </div>
       ) : (
-        <Button
-          className="w-full"
-          onClick={() => void startLogin()}
-          disabled={isPolling}
-        >
-          {t($ => $.auth.signInGitHub)}
+        <Button className="w-full" onClick={() => void startLogin()} disabled={isPolling}>
+          {t(($) => $.auth.signInGitHub)}
         </Button>
       )}
     </LoginShell>
@@ -219,12 +219,9 @@ function GitLabLogin({
   }, [clientId, instanceUrl, scopes]);
 
   return (
-    <LoginShell title={t($ => $.auth.signInGitLab)} error={error}>
-      <Button
-        className="w-full"
-        onClick={() => void handleLogin()}
-      >
-        {t($ => $.auth.signInGitLab)}
+    <LoginShell title={t(($) => $.auth.signInGitLab)} error={error}>
+      <Button className="w-full" onClick={() => void handleLogin()}>
+        {t(($) => $.auth.signInGitLab)}
       </Button>
     </LoginShell>
   );
@@ -243,7 +240,7 @@ function LoginShell({
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm">
-        <h1 className="mb-1 text-lg font-semibold">{t($ => $.layout.appName)}</h1>
+        <h1 className="mb-1 text-lg font-semibold">{t(($) => $.layout.appName)}</h1>
         <p className="mb-4 text-sm text-muted-foreground">{title}</p>
 
         {error && (

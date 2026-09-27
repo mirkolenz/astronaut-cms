@@ -68,7 +68,10 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget, {
       onSuccess: () => {
-        toast(t($ => $.collection.entryDeleted), "success");
+        toast(
+          t(($) => $.collection.entryDeleted),
+          "success",
+        );
         setDeleteTarget(null);
       },
       onError: (err) => toast(err.message, "error"),
@@ -79,17 +82,16 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="h-16 animate-pulse rounded-lg border border-border bg-muted"
-          />
+          <div key={i} className="h-16 animate-pulse rounded-lg border border-border bg-muted" />
         ))}
       </div>
     );
   }
 
   if (error) {
-    return <ErrorBanner>{t($ => $.collection.failedLoad, { message: error.message })}</ErrorBanner>;
+    return (
+      <ErrorBanner>{t(($) => $.collection.failedLoad, { message: error.message })}</ErrorBanner>
+    );
   }
 
   return (
@@ -98,17 +100,16 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         <div>
           <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {t($ => $.collection.fileCollection)} &middot; {t($ => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
+            {t(($) => $.collection.fileCollection)} &middot;{" "}
+            {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          {t($ => $.collection.addEntry)}
-        </Button>
+        <Button onClick={() => setShowAddDialog(true)}>{t(($) => $.collection.addEntry)}</Button>
       </div>
 
       {(!sortedEntries || sortedEntries.length === 0) && (
         <div className="text-center text-muted-foreground">
-          <p>{t($ => $.collection.noEntries)}</p>
+          <p>{t(($) => $.collection.noEntries)}</p>
         </div>
       )}
 
@@ -140,7 +141,10 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
             {
               onSuccess: () => {
                 setShowAddDialog(false);
-                toast(t($ => $.entry.entryAdded), "success");
+                toast(
+                  t(($) => $.entry.entryAdded),
+                  "success",
+                );
               },
               onError: (err) => toast(err.message, "error"),
             },
@@ -151,9 +155,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={t($ => $.editors.removeEntry)}
-        message={t($ => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
-        confirmLabel={t($ => $.common.remove)}
+        title={t(($) => $.editors.removeEntry)}
+        message={t(($) => $.editors.removeEntryMessage, { id: deleteTarget ?? "" })}
+        confirmLabel={t(($) => $.common.remove)}
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -208,7 +212,10 @@ function FileEntryCard({
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast(t($ => $.entry.changesSaved), "success");
+          toast(
+            t(($) => $.entry.changesSaved),
+            "success",
+          );
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -226,21 +233,33 @@ function FileEntryCard({
           onClick={onToggle}
           className="flex flex-1 items-center justify-start gap-2 rounded-none px-4 py-3 text-left"
         >
-          {expanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
-          <span className="text-sm font-medium text-foreground">{entryId}</span>
-          {isDirty && (
-            <Badge variant="outline">
-              {t($ => $.entry.modified)}
-            </Badge>
+          {expanded ? (
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="size-3.5 text-muted-foreground" />
           )}
+          <span className="text-sm font-medium text-foreground">{entryId}</span>
+          {isDirty && <Badge variant="outline">{t(($) => $.entry.modified)}</Badge>}
         </Button>
         <div className="flex items-center border-l border-border">
           {orderable && (
             <>
-              <Button type="button" variant="ghost" size="icon-xs" onClick={onMoveDown} disabled={!onMoveDown}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={onMoveDown}
+                disabled={!onMoveDown}
+              >
                 <ChevronDown className="size-4" />
               </Button>
-              <Button type="button" variant="ghost" size="icon-xs" onClick={onMoveUp} disabled={!onMoveUp}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={onMoveUp}
+                disabled={!onMoveUp}
+              >
                 <ChevronUp className="size-4" />
               </Button>
             </>
@@ -274,7 +293,7 @@ function FileEntryCard({
                 />
               ))}
               {Object.keys(shape).length === 0 && (
-                <p className="text-sm text-muted-foreground">{t($ => $.entry.noSchemaShort)}</p>
+                <p className="text-sm text-muted-foreground">{t(($) => $.entry.noSchemaShort)}</p>
               )}
             </div>
           )}
@@ -284,7 +303,7 @@ function FileEntryCard({
               onClick={handleSave}
               disabled={saveMutation.isPending || !isDirty}
             >
-              {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
+              {saveMutation.isPending ? t(($) => $.common.saving) : t(($) => $.common.save)}
             </Button>
           </div>
         </div>

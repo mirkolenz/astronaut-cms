@@ -9,11 +9,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@client/components/ai-elements/conversation";
-import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from "@client/components/ai-elements/message";
+import { Message, MessageContent, MessageResponse } from "@client/components/ai-elements/message";
 import { ToolCall } from "@client/components/ai/tool-call";
 import { Button } from "@client/components/ui/button";
 import { getChat, saveMessages } from "@client/lib/ai/chat";
@@ -47,8 +43,8 @@ export function ChatMessages({ chat, className }: { chat: CmsChat; className?: s
         {messages.length === 0 ? (
           <ConversationEmptyState
             icon={<Bot className="size-6" />}
-            title={t($ => $.ai.emptyTitle)}
-            description={t($ => $.ai.emptyDescription)}
+            title={t(($) => $.ai.emptyTitle)}
+            description={t(($) => $.ai.emptyDescription)}
           />
         ) : (
           messages.map((m) => (
@@ -105,13 +101,13 @@ export function ChatError({ chat, className }: { chat: CmsChat; className?: stri
     >
       <div className="flex items-center gap-2 text-sm font-medium text-destructive">
         <AlertTriangle className="size-4 shrink-0" />
-        {t($ => $.ai.errorTitle)}
+        {t(($) => $.ai.errorTitle)}
       </div>
       {error.message && (
         <p className="mt-1 break-words text-xs text-muted-foreground">{error.message}</p>
       )}
       <Button variant="outline" size="sm" className="mt-2" onClick={() => void regenerate()}>
-        {t($ => $.ai.retry)}
+        {t(($) => $.ai.retry)}
       </Button>
     </div>
   );

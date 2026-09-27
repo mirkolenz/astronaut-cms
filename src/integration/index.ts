@@ -12,11 +12,7 @@ import { loadCollections } from "./load-collections.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export { defineComponent, image, file } from "../config.ts";
-export type {
-  ComponentDefinition,
-  InferComponentProps,
-  ChildrenConfig,
-} from "../config.ts";
+export type { ComponentDefinition, InferComponentProps, ChildrenConfig } from "../config.ts";
 
 const CONFIG_EXTENSIONS = ["ts", "mts", "js", "mjs"];
 
@@ -67,9 +63,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const mediaDir = join(rootDir, mediaSubdir);
 
         const overrideToLocal =
-          command === "dev"
-          && (config.localStorageInDev ?? true)
-          && (config.storage?.type ?? "local") !== "local";
+          command === "dev" &&
+          (config.localStorageInDev ?? true) &&
+          (config.storage?.type ?? "local") !== "local";
         const effectiveConfig: CmsConfig = overrideToLocal
           ? { ...config, storage: { type: "local" } }
           : config;
@@ -146,7 +142,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           vite: {
             plugins: [
               tailwindcss(),
-              cmsVitePlugin(effectiveConfig, userConfigPath, collections, astroConfig.trailingSlash),
+              cmsVitePlugin(
+                effectiveConfig,
+                userConfigPath,
+                collections,
+                astroConfig.trailingSlash,
+              ),
               ...devPlugins,
             ],
           },
@@ -175,7 +176,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           }
 
           if (!config.ai.gateway) {
-            throw new Error('AI assistant: \'gateway\' is required (e.g. { type: "netlify" }).');
+            throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
           }
 
           // The relay is a server route. Inject it only where the admin exists,

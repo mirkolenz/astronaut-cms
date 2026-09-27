@@ -60,6 +60,7 @@ The first model is the default, and the relay rejects any model not in the list.
       ],
     });
     ```
+
   </TabItem>
   <TabItem label="Vercel">
     ```ts title="astro.config.ts"
@@ -79,6 +80,7 @@ The first model is the default, and the relay rejects any model not in the list.
       ],
     });
     ```
+
   </TabItem>
   <TabItem label="Cloudflare">
     ```ts title="astro.config.ts"
@@ -100,6 +102,7 @@ The first model is the default, and the relay rejects any model not in the list.
       ],
     });
     ```
+
   </TabItem>
   <TabItem label="Custom">
     ```ts title="astro.config.ts"
@@ -118,13 +121,15 @@ The first model is the default, and the relay rejects any model not in the list.
 </Tabs>
 
 <Aside type="note">
-  With `netlify` and `vercel`, credentials are injected by the platform, so no secret appears in your config or environment.
-  Configure unified billing on the platform so all model usage lands on a single invoice.
+  With `netlify` and `vercel`, credentials are injected by the platform, so no secret appears in
+  your config or environment. Configure unified billing on the platform so all model usage lands on
+  a single invoice.
 </Aside>
 
 <Aside type="note">
-  The gateway config holds no secrets, so an API key can never be committed.
-  Credentials come only from the environment: `CLOUDFLARE_API_TOKEN` for Cloudflare, `ASTRONAUT_CMS_AI_API_KEY` for a custom gateway, and automatic injection for Netlify and Vercel.
+  The gateway config holds no secrets, so an API key can never be committed. Credentials come only
+  from the environment: `CLOUDFLARE_API_TOKEN` for Cloudflare, `ASTRONAUT_CMS_AI_API_KEY` for a
+  custom gateway, and automatic injection for Netlify and Vercel.
 </Aside>
 
 ## Safety
@@ -133,8 +138,9 @@ Every change the agent makes is written to your per-user draft branch (`cms/<use
 Destructive actions (delete, publish, discard) pause and ask you to confirm in a dialog before they run.
 
 <Aside type="caution">
-  Any user with write access to the repository can use the assistant, and its usage counts against your unified bill.
-  Keep the `models` list small and set per-user rate or credit limits in your gateway dashboard.
+  Any user with write access to the repository can use the assistant, and its usage counts against
+  your unified bill. Keep the `models` list small and set per-user rate or credit limits in your
+  gateway dashboard.
 </Aside>
 
 ## Local development

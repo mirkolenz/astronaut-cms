@@ -103,7 +103,9 @@ function validateProps(
 
     if (!result.success) {
       diagnostics.push(
-        error(`<${name}> prop "${prop}" is invalid: ${result.error.issues[0]?.message ?? "type mismatch"}.`),
+        error(
+          `<${name}> prop "${prop}" is invalid: ${result.error.issues[0]?.message ?? "type mismatch"}.`,
+        ),
       );
     }
   }
@@ -143,7 +145,9 @@ function walk(nodes: MdxNode[], parent: Parent, diagnostics: Diagnostic[]): void
 
       if (!def) {
         if (isComponentName(name)) {
-          diagnostics.push(error(`Unknown component <${name}>: it is not defined in this project.`));
+          diagnostics.push(
+            error(`Unknown component <${name}>: it is not defined in this project.`),
+          );
         }
 
         // Unknown name or HTML element: descendants keep the same component context.

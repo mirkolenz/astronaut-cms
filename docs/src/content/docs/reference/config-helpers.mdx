@@ -11,9 +11,7 @@ A type-safe wrapper for component definitions.
 Returns the definition as-is, providing TypeScript inference.
 
 ```ts
-function defineComponent<T extends z.ZodType>(
-  def: ComponentDefinition<T>,
-): ComponentDefinition<T>;
+function defineComponent<T extends z.ZodType>(def: ComponentDefinition<T>): ComponentDefinition<T>;
 ```
 
 ### Usage
@@ -87,9 +85,7 @@ A utility type that maps each component name to its inferred prop types.
 Use this to type-check Astro component props against the CMS schema.
 
 ```ts
-type InferComponentProps<
-  Components extends Record<string, ComponentDefinition>,
-> = {
+type InferComponentProps<Components extends Record<string, ComponentDefinition>> = {
   [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
 };
 ```
@@ -102,7 +98,7 @@ Export a bound `ComponentProps` type from your CMS config file:
 import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
 import { z } from "zod";
 
-export const components = { /* ... */ };
+export const components = {/* ... */};
 export type ComponentProps = InferComponentProps<typeof components>;
 ```
 

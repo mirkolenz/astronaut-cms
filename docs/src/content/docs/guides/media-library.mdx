@@ -18,16 +18,16 @@ cms({
     allowedExtensions: [".jpg", ".jpeg", ".png", ".webp", ".svg", ".pdf"],
     maxFileSize: 10_000_000,
   },
-})
+});
 ```
 
 ### Options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `directory` | `string` | `"src/assets"` | Directory where media files are stored, relative to the project root |
-| `allowedExtensions` | `string[]` | See below | List of allowed file extensions |
-| `maxFileSize` | `number` | unlimited | Maximum file size in bytes |
+| Option              | Type       | Default        | Description                                                          |
+| ------------------- | ---------- | -------------- | -------------------------------------------------------------------- |
+| `directory`         | `string`   | `"src/assets"` | Directory where media files are stored, relative to the project root |
+| `allowedExtensions` | `string[]` | See below      | List of allowed file extensions                                      |
+| `maxFileSize`       | `number`   | unlimited      | Maximum file size in bytes                                           |
 
 ### Default Allowed Extensions
 
@@ -73,8 +73,9 @@ to optimized assets at render time. Render them with `astronaut-cms/Image.astro`
 [Asset Handling](/astronaut-cms/guides/asset-handling/).
 
 <Aside type="note">
-  The `image()` and `file()` helpers from `astronaut-cms/config` are different from the `image()` provided by Astro's schema function.
-  Use `astronaut-cms/config` helpers for CMS component props, and use Astro's `image()` for content collection schemas.
+  The `image()` and `file()` helpers from `astronaut-cms/config` are different from the `image()`
+  provided by Astro's schema function. Use `astronaut-cms/config` helpers for CMS component props,
+  and use Astro's `image()` for content collection schemas.
 </Aside>
 
 ## Operations

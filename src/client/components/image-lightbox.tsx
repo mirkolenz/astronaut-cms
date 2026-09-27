@@ -10,8 +10,16 @@ interface ImageLightboxProps {
 
 export function ImageLightbox({ open, src, alt = "", onClose }: ImageLightboxProps) {
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent showCloseButton={false} className="border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]">
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]"
+      >
         <div className="relative">
           <button
             type="button"

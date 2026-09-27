@@ -15,7 +15,7 @@ export function Header() {
   const params = useParams({ strict: false });
   const search = useSearch({ strict: false }) as { dir?: string };
 
-  const segments: BreadcrumbSegment[] = [{ label: t($ => $.layout.breadcrumbRoot), to: "/" }];
+  const segments: BreadcrumbSegment[] = [{ label: t(($) => $.layout.breadcrumbRoot), to: "/" }];
   if (params?.collection) {
     const collection = params.collection;
     segments.push({

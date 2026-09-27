@@ -109,7 +109,6 @@ function canvasToBlob(
   });
 }
 
-
 function scaledDimensions(width: number, height: number): { width: number; height: number } {
   if (width <= MAX_DIMENSION && height <= MAX_DIMENSION) {
     return { width, height };

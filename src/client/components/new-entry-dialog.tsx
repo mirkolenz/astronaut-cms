@@ -80,15 +80,20 @@ export function NewEntryDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onCancel();
+      }}
+    >
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>{t($ => $.newEntryDialog.title, { collection })}</DialogTitle>
+            <DialogTitle>{t(($) => $.newEntryDialog.title, { collection })}</DialogTitle>
           </DialogHeader>
           <div className="mt-3 space-y-3">
             <div>
-              <Label>{t($ => $.newEntryDialog.entryId)}</Label>
+              <Label>{t(($) => $.newEntryDialog.entryId)}</Label>
               <div className="flex items-center gap-1">
                 {basePath && (
                   <span className="shrink-0 text-sm text-muted-foreground">{basePath}/</span>
@@ -98,16 +103,16 @@ export function NewEntryDialog({
                   type="text"
                   value={id}
                   onChange={(e) => setId(e.target.value)}
-                  placeholder={t($ => $.newEntryDialog.placeholder)}
+                  placeholder={t(($) => $.newEntryDialog.placeholder)}
                   pattern={nested ? "[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*" : "[a-zA-Z0-9_-]+"}
-                  title={t($ => $.newEntryDialog.validationHint)}
+                  title={t(($) => $.newEntryDialog.validationHint)}
                   required
                 />
               </div>
             </div>
             {formats.length > 1 && (
               <div>
-                <Label>{t($ => $.newEntryDialog.format)}</Label>
+                <Label>{t(($) => $.newEntryDialog.format)}</Label>
                 <Select value={format} onValueChange={setFormat}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -125,11 +130,9 @@ export function NewEntryDialog({
           </div>
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
-              {t($ => $.common.cancel)}
+              {t(($) => $.common.cancel)}
             </Button>
-            <Button type="submit">
-              {t($ => $.common.create)}
-            </Button>
+            <Button type="submit">{t(($) => $.common.create)}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

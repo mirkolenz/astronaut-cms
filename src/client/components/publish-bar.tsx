@@ -3,12 +3,7 @@ import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
 import { revokeSession } from "@client/lib/oauth/session";
-import {
-  useBranchStatus,
-  usePublish,
-  useUpdate,
-  useDiscard,
-} from "@client/queries/use-entries";
+import { useBranchStatus, usePublish, useUpdate, useDiscard } from "@client/queries/use-entries";
 import { MergeConflictError } from "@client/lib/storage/types";
 import { buildPreviewUrl } from "@client/lib/preview-url";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -34,18 +29,20 @@ export function PublishBar() {
   const changeRequestUrl = data?.changeRequestUrl;
   const changeRequestLabel =
     config.storageType === "gitlab"
-      ? t($ => $.publish.viewMergeRequest)
-      : t($ => $.publish.viewPullRequest);
+      ? t(($) => $.publish.viewMergeRequest)
+      : t(($) => $.publish.viewPullRequest);
   const previewUrl =
     hasBranch && data?.branch && config.previewUrl
       ? buildPreviewUrl(config.previewUrl, data.branch)
       : null;
-  const busy =
-    publish.isPending || update.isPending || discard.isPending || status.isFetching;
+  const busy = publish.isPending || update.isPending || discard.isPending || status.isFetching;
 
   const reportError = (err: unknown) => {
     if (err instanceof MergeConflictError) {
-      toast(t($ => $.publish.mergeConflict), "error");
+      toast(
+        t(($) => $.publish.mergeConflict),
+        "error",
+      );
     } else {
       toast(err instanceof Error ? err.message : String(err), "error");
     }
@@ -53,14 +50,22 @@ export function PublishBar() {
 
   const handlePublish = () => {
     publish.mutate(undefined, {
-      onSuccess: () => toast(t($ => $.publish.published), "success"),
+      onSuccess: () =>
+        toast(
+          t(($) => $.publish.published),
+          "success",
+        ),
       onError: reportError,
     });
   };
 
   const handleUpdate = () => {
     update.mutate(undefined, {
-      onSuccess: () => toast(t($ => $.publish.updated), "success"),
+      onSuccess: () =>
+        toast(
+          t(($) => $.publish.updated),
+          "success",
+        ),
       onError: reportError,
     });
   };
@@ -68,7 +73,11 @@ export function PublishBar() {
   const handleDiscard = () => {
     setShowDiscardConfirm(false);
     discard.mutate(undefined, {
-      onSuccess: () => toast(t($ => $.publish.discarded), "success"),
+      onSuccess: () =>
+        toast(
+          t(($) => $.publish.discarded),
+          "success",
+        ),
       onError: reportError,
     });
   };
@@ -84,11 +93,11 @@ export function PublishBar() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 text-sm">
           {!hasBranch && (
-            <span className="text-muted-foreground">{t($ => $.publish.upToDate)}</span>
+            <span className="text-muted-foreground">{t(($) => $.publish.upToDate)}</span>
           )}
           {hasBranch && (
             <span className="font-medium">
-              {t($ => $.publish.aheadBehind, { ahead, behind })}
+              {t(($) => $.publish.aheadBehind, { ahead, behind })}
             </span>
           )}
           {changeRequestUrl && (
@@ -109,7 +118,7 @@ export function PublishBar() {
             onClick={handleUpdate}
             disabled={busy || !hasBranch || behind === 0}
           >
-            {update.isPending ? t($ => $.publish.updating) : t($ => $.publish.update)}
+            {update.isPending ? t(($) => $.publish.updating) : t(($) => $.publish.update)}
           </Button>
           <Button
             variant="outline"
@@ -117,33 +126,29 @@ export function PublishBar() {
             onClick={() => setShowDiscardConfirm(true)}
             disabled={busy || !hasBranch}
           >
-            {discard.isPending ? t($ => $.publish.discarding) : t($ => $.common.discard)}
+            {discard.isPending ? t(($) => $.publish.discarding) : t(($) => $.common.discard)}
           </Button>
           {previewUrl && (
             <Button variant="outline" size="sm" asChild>
               <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-                {t($ => $.publish.preview)}
+                {t(($) => $.publish.preview)}
               </a>
             </Button>
           )}
-          <Button
-            size="sm"
-            onClick={handlePublish}
-            disabled={busy || !hasBranch || ahead === 0}
-          >
-            {publish.isPending ? t($ => $.publish.publishing) : t($ => $.publish.publish)}
+          <Button size="sm" onClick={handlePublish} disabled={busy || !hasBranch || ahead === 0}>
+            {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
           </Button>
           <Button variant="ghost" size="xs" onClick={handleSignOut}>
-            {t($ => $.common.signOut)}
+            {t(($) => $.common.signOut)}
           </Button>
         </div>
       </div>
 
       <ConfirmDialog
         open={showDiscardConfirm}
-        title={t($ => $.publish.discardChanges)}
-        message={t($ => $.publish.discardChangesMessage, { ahead })}
-        confirmLabel={t($ => $.common.discard)}
+        title={t(($) => $.publish.discardChanges)}
+        message={t(($) => $.publish.discardChangesMessage, { ahead })}
+        confirmLabel={t(($) => $.common.discard)}
         variant="danger"
         onConfirm={handleDiscard}
         onCancel={() => setShowDiscardConfirm(false)}

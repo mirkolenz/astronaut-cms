@@ -122,7 +122,9 @@ export function fieldSchemaToZod(field: FieldSchema): z.ZodType {
 // In a patch every field is optional (omitted = unchanged) and nullable (null =
 // remove); its default is dropped so an omitted field is never silently auto-filled.
 function patchField(field: FieldSchema): z.ZodType {
-  return fieldSchemaToZod({ ...field, default: undefined }).nullable().optional();
+  return fieldSchemaToZod({ ...field, default: undefined })
+    .nullable()
+    .optional();
 }
 
 /**

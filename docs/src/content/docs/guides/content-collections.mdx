@@ -92,21 +92,22 @@ The admin panel renders reference fields as dropdown selectors populated with en
 
 The CMS admin panel generates appropriate form controls based on the Zod schema type:
 
-| Zod Type | Admin Panel Control |
-|---|---|
-| `z.string()` | Text input |
-| `z.string().email()` | Email input |
-| `z.number()` | Number input |
-| `z.boolean()` | Toggle switch |
-| `z.coerce.date()` | Date picker |
-| `z.enum([...])` | Dropdown select |
-| `image()` | Image picker (from media library) |
-| `file()` | File picker (from media library) |
-| `reference("collection")` | Reference dropdown |
+| Zod Type                  | Admin Panel Control               |
+| ------------------------- | --------------------------------- |
+| `z.string()`              | Text input                        |
+| `z.string().email()`      | Email input                       |
+| `z.number()`              | Number input                      |
+| `z.boolean()`             | Toggle switch                     |
+| `z.coerce.date()`         | Date picker                       |
+| `z.enum([...])`           | Dropdown select                   |
+| `image()`                 | Image picker (from media library) |
+| `file()`                  | File picker (from media library)  |
+| `reference("collection")` | Reference dropdown                |
 
 <Aside type="tip">
-  Use `image()` and `file()` from `astronaut-cms/config` when defining CMS component props.
-  In content collection schemas, use the `image()` helper provided by the schema function parameter instead.
+  Use `image()` and `file()` from `astronaut-cms/config` when defining CMS component props. In
+  content collection schemas, use the `image()` helper provided by the schema function parameter
+  instead.
 </Aside>
 
 ## Supported Content Formats

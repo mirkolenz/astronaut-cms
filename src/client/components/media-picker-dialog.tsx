@@ -70,10 +70,15 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onCancel();
+      }}
+    >
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{t($ => $.media.selectMedia)}</DialogTitle>
+          <DialogTitle>{t(($) => $.media.selectMedia)}</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-2">
@@ -81,12 +86,12 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder={t($ => $.media.filterPlaceholder)}
+            placeholder={t(($) => $.media.filterPlaceholder)}
             className="flex-1"
           />
           <Button asChild>
             <label className="cursor-pointer">
-              {uploading ? t($ => $.common.uploading) : t($ => $.common.upload)}
+              {uploading ? t(($) => $.common.uploading) : t(($) => $.common.upload)}
               <input type="file" onChange={handleUpload} className="hidden" disabled={uploading} />
             </label>
           </Button>
@@ -95,10 +100,7 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
         <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
           {isLoading &&
             [1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-md bg-muted"
-              />
+              <div key={i} className="h-24 animate-pulse rounded-md bg-muted" />
             ))}
           {filtered?.map((file) => {
             const isImage = isImagePath(file.path);
@@ -126,10 +128,7 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
                   )}
                 </div>
                 <div className="border-t border-border px-2 py-1">
-                  <p
-                    className="truncate text-xs text-muted-foreground"
-                    title={file.path}
-                  >
+                  <p className="truncate text-xs text-muted-foreground" title={file.path}>
                     {getFileName(file.path)}
                   </p>
                 </div>
@@ -138,22 +137,22 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
           })}
           {filtered?.length === 0 && !isLoading && (
             <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-              {t($ => $.media.noFilesFound)}
+              {t(($) => $.media.noFilesFound)}
             </p>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            {t($ => $.common.cancel)}
+            {t(($) => $.common.cancel)}
           </Button>
         </DialogFooter>
 
         <ConfirmDialog
           open={duplicateFile !== null}
-          title={t($ => $.media.fileExists)}
-          message={t($ => $.media.fileExistsMessage, { name: duplicateFile?.name ?? "" })}
-          confirmLabel={t($ => $.common.overwrite)}
+          title={t(($) => $.media.fileExists)}
+          message={t(($) => $.media.fileExistsMessage, { name: duplicateFile?.name ?? "" })}
+          confirmLabel={t(($) => $.common.overwrite)}
           variant="danger"
           onConfirm={handleOverwrite}
           onCancel={() => setDuplicateFile(null)}

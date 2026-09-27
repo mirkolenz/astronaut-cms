@@ -54,7 +54,13 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
     }
     return (
       <NullableWrapper name={name} onClear={() => onChange(null)}>
-        <FieldRenderer schema={inner} value={value} onChange={onChange} name={name} required={required} />
+        <FieldRenderer
+          schema={inner}
+          value={value}
+          onChange={onChange}
+          name={name}
+          required={required}
+        />
       </NullableWrapper>
     );
   }
@@ -64,7 +70,12 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
   switch (schema.type) {
     case "image":
       return (
-        <ImageField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+        <ImageField
+          name={name}
+          value={asString(resolved)}
+          onChange={onChange}
+          required={required}
+        />
       );
 
     case "file":
@@ -97,11 +108,21 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
       }
       if (schema.maxLength && schema.maxLength > 200) {
         return (
-          <TextareaField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+          <TextareaField
+            name={name}
+            value={asString(resolved)}
+            onChange={onChange}
+            required={required}
+          />
         );
       }
       return (
-        <StringField name={name} value={asString(resolved)} onChange={onChange} required={required} />
+        <StringField
+          name={name}
+          value={asString(resolved)}
+          onChange={onChange}
+          required={required}
+        />
       );
 
     case "number":
@@ -136,17 +157,32 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
 
     case "array":
       return (
-        <ArrayField element={schema.element} name={name} value={asArray(resolved)} onChange={onChange} />
+        <ArrayField
+          element={schema.element}
+          name={name}
+          value={asArray(resolved)}
+          onChange={onChange}
+        />
       );
 
     case "tuple":
       return (
-        <TupleField items={schema.items} name={name} value={asArray(resolved)} onChange={onChange} />
+        <TupleField
+          items={schema.items}
+          name={name}
+          value={asArray(resolved)}
+          onChange={onChange}
+        />
       );
 
     case "object":
       return (
-        <ObjectField shape={schema.shape} name={name} value={asRecord(resolved)} onChange={onChange} />
+        <ObjectField
+          shape={schema.shape}
+          name={name}
+          value={asRecord(resolved)}
+          onChange={onChange}
+        />
       );
 
     case "record":
@@ -201,11 +237,7 @@ function StringField({
         {name}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input
-        type={type}
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <Input type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
@@ -227,11 +259,7 @@ function TextareaField({
         {name}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      <Textarea
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        rows={4}
-      />
+      <Textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={4} />
     </div>
   );
 }
@@ -364,7 +392,7 @@ function AssetField({
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
-  const label = assetType === "image" ? t($ => $.editors.image) : t($ => $.editors.file);
+  const label = assetType === "image" ? t(($) => $.editors.image) : t(($) => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
 
   // Store root-absolute paths (e.g. "/src/assets/x.png"). The picker yields the
@@ -390,20 +418,11 @@ function AssetField({
           placeholder={label}
           className="flex-1"
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setShowPicker(true)}
-        >
-          {t($ => $.editors.browse)}
+        <Button type="button" variant="outline" onClick={() => setShowPicker(true)}>
+          {t(($) => $.editors.browse)}
         </Button>
         {value && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => onChange("")}
-          >
+          <Button type="button" variant="ghost" size="icon-xs" onClick={() => onChange("")}>
             <X className="size-4" />
           </Button>
         )}
@@ -461,7 +480,13 @@ function FileField({
   required?: boolean;
 }) {
   return (
-    <AssetField name={name} value={value} onChange={onChange} required={required} assetType="file" />
+    <AssetField
+      name={name}
+      value={value}
+      onChange={onChange}
+      required={required}
+      assetType="file"
+    />
   );
 }
 
@@ -501,13 +526,15 @@ function ReferenceField({
       <Label>
         {name}
         {required && <span className="text-destructive"> *</span>}
-        <span className="ml-1 text-xs text-muted-foreground">({t($ => $.editors.ref, { collection })})</span>
+        <span className="ml-1 text-xs text-muted-foreground">
+          ({t(($) => $.editors.ref, { collection })})
+        </span>
       </Label>
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Input
             type="text"
-            value={isOpen ? query : value ?? ""}
+            value={isOpen ? query : (value ?? "")}
             onChange={(e) => {
               setQuery(e.target.value);
               if (!isOpen) setIsOpen(true);
@@ -520,7 +547,11 @@ function ReferenceField({
               // Delay to allow click on dropdown item
               setTimeout(() => setIsOpen(false), 200);
             }}
-            placeholder={isLoading ? t($ => $.editors.loading) : t($ => $.editors.selectFrom, { collection })}
+            placeholder={
+              isLoading
+                ? t(($) => $.editors.loading)
+                : t(($) => $.editors.selectFrom, { collection })
+            }
           />
           {isOpen && filtered.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow-lg">
@@ -541,12 +572,7 @@ function ReferenceField({
           )}
         </div>
         {value && !required && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => onChange("")}
-          >
+          <Button type="button" variant="ghost" size="icon-xs" onClick={() => onChange("")}>
             <X className="size-4" />
           </Button>
         )}
@@ -650,24 +676,21 @@ function ArrayField({
               className="mt-6"
               onClick={() => (needsConfirm ? setConfirmRemoveIndex(i) : removeItem(i))}
             >
-              {t($ => $.common.remove)}
+              {t(($) => $.common.remove)}
             </Button>
           </div>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          onClick={addItem}
-        >
-          {t($ => $.editors.addItem)}
+        <Button type="button" variant="outline" size="xs" onClick={addItem}>
+          {t(($) => $.editors.addItem)}
         </Button>
       </div>
       <ConfirmDialog
         open={confirmRemoveIndex !== null}
-        title={t($ => $.editors.removeItem)}
-        message={t($ => $.editors.removeItemMessage, { index: confirmRemoveIndex !== null ? String(confirmRemoveIndex + 1) : "" })}
-        confirmLabel={t($ => $.common.remove)}
+        title={t(($) => $.editors.removeItem)}
+        message={t(($) => $.editors.removeItemMessage, {
+          index: confirmRemoveIndex !== null ? String(confirmRemoveIndex + 1) : "",
+        })}
+        confirmLabel={t(($) => $.common.remove)}
         variant="danger"
         onConfirm={() => {
           if (confirmRemoveIndex !== null) removeItem(confirmRemoveIndex);
@@ -767,7 +790,7 @@ function RecordField({
               className="mt-1"
               onClick={() => (needsConfirm ? setConfirmRemoveKey(key) : removeField(key))}
             >
-              {t($ => $.common.remove)}
+              {t(($) => $.common.remove)}
             </Button>
           </div>
         ))}
@@ -777,24 +800,19 @@ function RecordField({
             value={newKey}
             onChange={(e) => setNewKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addField()}
-            placeholder={t($ => $.editors.newKey)}
+            placeholder={t(($) => $.editors.newKey)}
             className="max-w-48"
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={addField}
-          >
-            {t($ => $.editors.add)}
+          <Button type="button" variant="outline" size="xs" onClick={addField}>
+            {t(($) => $.editors.add)}
           </Button>
         </div>
       </div>
       <ConfirmDialog
         open={confirmRemoveKey !== null}
-        title={t($ => $.editors.removeField)}
-        message={t($ => $.editors.removeFieldMessage, { key: confirmRemoveKey ?? "" })}
-        confirmLabel={t($ => $.common.remove)}
+        title={t(($) => $.editors.removeField)}
+        message={t(($) => $.editors.removeFieldMessage, { key: confirmRemoveKey ?? "" })}
+        confirmLabel={t(($) => $.common.remove)}
         variant="danger"
         onConfirm={() => {
           if (confirmRemoveKey !== null) removeField(confirmRemoveKey);
@@ -845,7 +863,7 @@ function UnionField({
       <legend className="px-1 text-sm font-medium text-foreground">{name}</legend>
       <div className="space-y-3">
         <div>
-          <Label>{t($ => $.editors.variant)}</Label>
+          <Label>{t(($) => $.editors.variant)}</Label>
           <Select
             value={selectedIndex >= 0 ? String(selectedIndex) : undefined}
             onValueChange={(val) => handleVariantChange(Number(val))}
@@ -875,13 +893,8 @@ function NullableToggle({ name, onEnable }: { name: string; onEnable: () => void
   return (
     <div>
       <Label>{name}</Label>
-      <Button
-        type="button"
-        variant="outline"
-        size="xs"
-        onClick={onEnable}
-      >
-        {t($ => $.editors.setValue)}
+      <Button type="button" variant="outline" size="xs" onClick={onEnable}>
+        {t(($) => $.editors.setValue)}
       </Button>
     </div>
   );
@@ -901,13 +914,8 @@ function NullableWrapper({
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">{name}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          onClick={onClear}
-        >
-          {t($ => $.editors.clear)}
+        <Button type="button" variant="ghost" size="xs" onClick={onClear}>
+          {t(($) => $.editors.clear)}
         </Button>
       </div>
       {children}
@@ -932,7 +940,7 @@ function FallbackField({
   return (
     <div>
       <Label>
-        {name} <span className="text-xs text-muted-foreground">{t($ => $.editors.raw)}</span>
+        {name} <span className="text-xs text-muted-foreground">{t(($) => $.editors.raw)}</span>
       </Label>
       <Textarea
         value={text}

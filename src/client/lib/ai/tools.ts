@@ -337,6 +337,5 @@ export const cmsTools = {
 // Approval is configured per call in AI SDK 7 rather than on the tool: the SDK
 // emits an approval request for these calls and only executes them once the user
 // approves.
-export const cmsToolApproval: ToolApprovalConfiguration<typeof cmsTools, never> = Object.fromEntries(
-  Object.keys(destructiveTools).map((name) => [name, "user-approval"] as const),
-);
+export const cmsToolApproval: ToolApprovalConfiguration<typeof cmsTools, never> =
+  Object.fromEntries(Object.keys(destructiveTools).map((name) => [name, "user-approval"] as const));

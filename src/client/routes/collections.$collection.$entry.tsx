@@ -80,7 +80,10 @@ function EntryEditor() {
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast(t($ => $.entry.changesSaved), "success");
+          toast(
+            t(($) => $.entry.changesSaved),
+            "success",
+          );
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -102,7 +105,10 @@ function EntryEditor() {
   const handleDelete = () => {
     deleteMutation.mutate(entryId, {
       onSuccess: () => {
-        toast(t($ => $.collection.entryDeleted), "success");
+        toast(
+          t(($) => $.collection.entryDeleted),
+          "success",
+        );
         void navigate({
           to: "/collections/$collection",
           params: { collection },
@@ -118,19 +124,34 @@ function EntryEditor() {
   const onMoved = (newId: string, message: string) => ({
     onSuccess: () => {
       toast(message, "success");
-      void navigate({ to: "/collections/$collection/$entry", params: { collection, entry: newId } });
+      void navigate({
+        to: "/collections/$collection/$entry",
+        params: { collection, entry: newId },
+      });
     },
     onError: (err: Error) => toast(err.message, "error"),
   });
 
   const handleRename = (newId: string) => {
     setShowRename(false);
-    renameMutation.mutate({ oldId: entryId, newId }, onMoved(newId, t($ => $.entry.entryRenamed)));
+    renameMutation.mutate(
+      { oldId: entryId, newId },
+      onMoved(
+        newId,
+        t(($) => $.entry.entryRenamed),
+      ),
+    );
   };
 
   const handleDuplicate = (newId: string) => {
     setShowDuplicate(false);
-    duplicateMutation.mutate({ sourceId: entryId, newId }, onMoved(newId, t($ => $.entry.entryDuplicated)));
+    duplicateMutation.mutate(
+      { sourceId: entryId, newId },
+      onMoved(
+        newId,
+        t(($) => $.entry.entryDuplicated),
+      ),
+    );
   };
 
   const handleBodyChange = useCallback((value: string) => {
@@ -159,7 +180,7 @@ function EntryEditor() {
   }
 
   if (error) {
-    return <ErrorBanner>{t($ => $.entry.failedLoad, { message: error.message })}</ErrorBanner>;
+    return <ErrorBanner>{t(($) => $.entry.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   if (!entry) return null;
@@ -180,50 +201,40 @@ function EntryEditor() {
             <span className="ml-2 text-sm font-normal text-muted-foreground">.{entry.format}</span>
           </h1>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              disabled={!isDirty}
-            >
-              {t($ => $.common.cancel)}
+            <Button variant="outline" onClick={handleCancel} disabled={!isDirty}>
+              {t(($) => $.common.cancel)}
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saveMutation.isPending || !isDirty}
-            >
-              {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
+            <Button onClick={handleSave} disabled={saveMutation.isPending || !isDirty}>
+              {saveMutation.isPending ? t(($) => $.common.saving) : t(($) => $.common.save)}
             </Button>
             <Button
               variant="outline"
               onClick={() => setShowRename(true)}
               disabled={isDirty || renameMutation.isPending}
             >
-              {t($ => $.common.rename)}
+              {t(($) => $.common.rename)}
             </Button>
             <Button
               variant="outline"
               onClick={() => setShowDuplicate(true)}
               disabled={isDirty || duplicateMutation.isPending}
             >
-              {t($ => $.entry.duplicate)}
+              {t(($) => $.entry.duplicate)}
             </Button>
             <Button
               variant="destructive"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteMutation.isPending}
             >
-              {t($ => $.common.delete)}
+              {t(($) => $.common.delete)}
             </Button>
           </div>
         </div>
 
-        <div
-          onChangeCapture={() => setIsDirty(true)}
-          className="min-h-0 flex-1 overflow-y-auto"
-        >
+        <div onChangeCapture={() => setIsDirty(true)} className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-4">
             {shape && (
-              <CollapsibleSection title={t($ => $.entry.fields)}>
+              <CollapsibleSection title={t(($) => $.entry.fields)}>
                 <div className="space-y-3">
                   {Object.entries(shape).map(([key, fieldSchema]) => (
                     <FieldRenderer
@@ -239,7 +250,7 @@ function EntryEditor() {
               </CollapsibleSection>
             )}
             {isContentFormat && (
-              <CollapsibleSection title={t($ => $.entry.body)} defaultOpen>
+              <CollapsibleSection title={t(($) => $.entry.body)} defaultOpen>
                 <MdxEditor
                   key={editorKey}
                   markdown={editBody}
@@ -253,9 +264,9 @@ function EntryEditor() {
 
         <ConfirmDialog
           open={showDeleteConfirm}
-          title={t($ => $.entry.deleteEntry)}
-          message={t($ => $.entry.deleteEntryMessage, { id: entryId })}
-          confirmLabel={t($ => $.common.delete)}
+          title={t(($) => $.entry.deleteEntry)}
+          message={t(($) => $.entry.deleteEntryMessage, { id: entryId })}
+          confirmLabel={t(($) => $.common.delete)}
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
@@ -263,8 +274,8 @@ function EntryEditor() {
 
         <EntryIdDialog
           open={showRename}
-          title={t($ => $.entry.renameEntry)}
-          confirmLabel={t($ => $.common.rename)}
+          title={t(($) => $.entry.renameEntry)}
+          confirmLabel={t(($) => $.common.rename)}
           initialId={entryId}
           existingIds={otherIds}
           onSubmit={handleRename}
@@ -273,8 +284,8 @@ function EntryEditor() {
 
         <EntryIdDialog
           open={showDuplicate}
-          title={t($ => $.entry.duplicateEntry)}
-          confirmLabel={t($ => $.entry.duplicate)}
+          title={t(($) => $.entry.duplicateEntry)}
+          confirmLabel={t(($) => $.entry.duplicate)}
           initialId={`${entryId}-copy`}
           existingIds={entryIds}
           onSubmit={handleDuplicate}
@@ -283,9 +294,9 @@ function EntryEditor() {
 
         <ConfirmDialog
           open={blocker.status === "blocked"}
-          title={t($ => $.entry.unsavedChanges)}
-          message={t($ => $.entry.unsavedChangesMessage)}
-          confirmLabel={t($ => $.common.discard)}
+          title={t(($) => $.entry.unsavedChanges)}
+          message={t(($) => $.entry.unsavedChangesMessage)}
+          confirmLabel={t(($) => $.common.discard)}
           variant="danger"
           onConfirm={() => blocker.status === "blocked" && blocker.proceed()}
           onCancel={() => blocker.status === "blocked" && blocker.reset()}
@@ -313,13 +324,10 @@ function CollapsibleSection({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none"
       >
-        <ChevronRight
-          className={`size-4 transition-transform ${open ? "rotate-90" : ""}`}
-        />
+        <ChevronRight className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
         {title}
       </button>
       {open && <div className="pt-2">{children}</div>}
     </div>
   );
 }
-

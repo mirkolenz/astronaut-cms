@@ -12,11 +12,11 @@ Rust `satteri()` processor.
 
 There are three kinds of asset references, each handled differently:
 
-| Reference | Where | How it is handled |
-|---|---|---|
-| Markdown image `![alt](./x.png)` | prose | Native Astro (relative path), no extra wiring |
-| `image()` / `file()` prop | component props, frontmatter, data | Stored as a path string, resolved via `astronaut-cms/assets` |
-| Link to a file `[doc](/files/x.pdf)` | prose | Put the file in `public/` (plain URL) |
+| Reference                            | Where                              | How it is handled                                            |
+| ------------------------------------ | ---------------------------------- | ------------------------------------------------------------ |
+| Markdown image `![alt](./x.png)`     | prose                              | Native Astro (relative path), no extra wiring                |
+| `image()` / `file()` prop            | component props, frontmatter, data | Stored as a path string, resolved via `astronaut-cms/assets` |
+| Link to a file `[doc](/files/x.pdf)` | prose                              | Put the file in `public/` (plain URL)                        |
 
 ## Resolving `image()` props
 
@@ -68,8 +68,8 @@ const entry = Astro.props.entry;
 ```
 
 <Aside type="note">
-  A relative path must resolve into your `media.directory` (the glob only covers that folder).
-  For deeply nested MDX component props, prefer absolute paths so no `base` needs to be threaded down.
+  A relative path must resolve into your `media.directory` (the glob only covers that folder). For
+  deeply nested MDX component props, prefer absolute paths so no `base` needs to be threaded down.
 </Aside>
 
 ## React islands

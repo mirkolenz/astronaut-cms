@@ -136,26 +136,27 @@ function MediaLibrary() {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div
-            key={i}
-            className="h-32 animate-pulse rounded-lg border border-border bg-muted"
-          />
+          <div key={i} className="h-32 animate-pulse rounded-lg border border-border bg-muted" />
         ))}
       </div>
     );
   }
 
   if (error) {
-    return <ErrorBanner>{t($ => $.media.failedLoad, { message: error.message })}</ErrorBanner>;
+    return <ErrorBanner>{t(($) => $.media.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t($ => $.media.title)}</h1>
+        <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
         <Button asChild>
           <label className="cursor-pointer">
-            {optimizing ? t($ => $.common.optimizing) : uploadMutation.isPending ? t($ => $.common.uploading) : t($ => $.common.upload)}
+            {optimizing
+              ? t(($) => $.common.optimizing)
+              : uploadMutation.isPending
+                ? t(($) => $.common.uploading)
+                : t(($) => $.common.upload)}
             <input
               type="file"
               onChange={handleUpload}
@@ -169,12 +170,7 @@ function MediaLibrary() {
       {/* Breadcrumb navigation */}
       {breadcrumbs.length > 0 && (
         <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-          <Button
-            type="button"
-            variant="link"
-            size="xs"
-            onClick={() => setCurrentDir("")}
-          >
+          <Button type="button" variant="link" size="xs" onClick={() => setCurrentDir("")}>
             {config.mediaDirectory}
           </Button>
           {breadcrumbs.map((segment, i) => {
@@ -203,7 +199,7 @@ function MediaLibrary() {
 
       {sortedSubdirs.length === 0 && currentFiles.length === 0 && (
         <div className="text-center text-muted-foreground">
-          <p>{t($ => $.media.noFiles)}</p>
+          <p>{t(($) => $.media.noFiles)}</p>
         </div>
       )}
 
@@ -266,7 +262,7 @@ function MediaLibrary() {
                     setRenameValue(getFileName(file.path));
                   }}
                 >
-                  {t($ => $.common.rename)}
+                  {t(($) => $.common.rename)}
                 </Button>
                 <Button
                   type="button"
@@ -278,7 +274,7 @@ function MediaLibrary() {
                     replaceInputRef.current?.click();
                   }}
                 >
-                  {t($ => $.common.replace)}
+                  {t(($) => $.common.replace)}
                 </Button>
                 <Button
                   type="button"
@@ -287,14 +283,11 @@ function MediaLibrary() {
                   className="bg-black/50 text-white hover:bg-red-600 hover:text-white"
                   onClick={() => setDeleteTarget(file.path)}
                 >
-                  {t($ => $.common.delete)}
+                  {t(($) => $.common.delete)}
                 </Button>
               </div>
               <div className="border-t border-border px-3 py-2">
-                <p
-                  className="truncate text-xs font-medium text-foreground"
-                  title={file.path}
-                >
+                <p className="truncate text-xs font-medium text-foreground" title={file.path}>
                   {getFileName(file.path)}
                 </p>
                 <p className="text-xs text-muted-foreground">{formatSize(file.size)}</p>
@@ -316,9 +309,9 @@ function MediaLibrary() {
       {/* Delete confirmation */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={t($ => $.media.deleteFile)}
-        message={t($ => $.media.deleteFileMessage)}
-        confirmLabel={t($ => $.common.delete)}
+        title={t(($) => $.media.deleteFile)}
+        message={t(($) => $.media.deleteFileMessage)}
+        confirmLabel={t(($) => $.common.delete)}
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
@@ -327,9 +320,11 @@ function MediaLibrary() {
       {/* Overwrite confirmation */}
       <ConfirmDialog
         open={duplicateFile !== null}
-        title={t($ => $.media.fileExists)}
-        message={t($ => $.media.fileExistsMessage, { name: duplicateFile ? getFileName(duplicateFile.path) : "" })}
-        confirmLabel={t($ => $.common.overwrite)}
+        title={t(($) => $.media.fileExists)}
+        message={t(($) => $.media.fileExistsMessage, {
+          name: duplicateFile ? getFileName(duplicateFile.path) : "",
+        })}
+        confirmLabel={t(($) => $.common.overwrite)}
         variant="danger"
         onConfirm={handleOverwrite}
         onCancel={() => setDuplicateFile(null)}
@@ -377,11 +372,16 @@ function RenameDialog({
   const { t } = useTranslation();
 
   return (
-    <Dialog open onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onCancel();
+      }}
+    >
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{t($ => $.media.renameFile)}</DialogTitle>
-          <DialogDescription>{t($ => $.media.current, { name: currentName })}</DialogDescription>
+          <DialogTitle>{t(($) => $.media.renameFile)}</DialogTitle>
+          <DialogDescription>{t(($) => $.media.current, { name: currentName })}</DialogDescription>
         </DialogHeader>
         <Input
           type="text"
@@ -394,13 +394,13 @@ function RenameDialog({
         />
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            {t($ => $.common.cancel)}
+            {t(($) => $.common.cancel)}
           </Button>
           <Button
             onClick={onConfirm}
             disabled={isPending || !value.trim() || value === currentName}
           >
-            {isPending ? t($ => $.media.renaming) : t($ => $.common.rename)}
+            {isPending ? t(($) => $.media.renaming) : t(($) => $.common.rename)}
           </Button>
         </DialogFooter>
       </DialogContent>

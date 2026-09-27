@@ -174,9 +174,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
     (direction: "up" | "down") => {
       parentEditor.update(() => {
         const sibling =
-          direction === "up"
-            ? lexicalNode.getPreviousSibling()
-            : lexicalNode.getNextSibling();
+          direction === "up" ? lexicalNode.getPreviousSibling() : lexicalNode.getNextSibling();
         if (sibling) {
           if (direction === "up") sibling.insertBefore(lexicalNode);
           else sibling.insertAfter(lexicalNode);
@@ -195,10 +193,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
   const handleGapCursor = useCallback(
     (position: "before" | "after") => {
       parentEditor.update(() => {
-        const sel =
-          position === "before"
-            ? lexicalNode.selectPrevious()
-            : lexicalNode.selectNext();
+        const sel = position === "before" ? lexicalNode.selectPrevious() : lexicalNode.selectNext();
         sel.insertParagraph();
       });
       parentEditor.focus();
@@ -234,10 +229,20 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
         icon={Icon}
         actions={
           <>
-            <Button variant="ghost" size="icon-xs" disabled={!hasPrev} onClick={() => handleMove("up")}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              disabled={!hasPrev}
+              onClick={() => handleMove("up")}
+            >
               <ArrowUp className="size-3" />
             </Button>
-            <Button variant="ghost" size="icon-xs" disabled={!hasNext} onClick={() => handleMove("down")}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              disabled={!hasNext}
+              onClick={() => handleMove("down")}
+            >
               <ArrowDown className="size-3" />
             </Button>
             <Button variant="ghost" size="icon-xs" onClick={handleDuplicate}>
@@ -270,11 +275,11 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
 
         {descriptor.hasChildren && (
           <NestedLexicalEditor<MdastJsx>
-            key={mdastNode.children.filter(
-              (c) =>
-                c.type === "mdxJsxFlowElement" ||
-                c.type === "mdxJsxTextElement",
-            ).length}
+            key={
+              mdastNode.children.filter(
+                (c) => c.type === "mdxJsxFlowElement" || c.type === "mdxJsxTextElement",
+              ).length
+            }
             block={descriptor.kind === "flow"}
             getContent={(node) => node.children as RootContent[]}
             getUpdatedMdastNode={(node, children) => ({ ...node, children }) as MdastJsx}
@@ -292,10 +297,7 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
 
 function GapCursor({ onClick }: { onClick: () => void }) {
   return (
-    <div
-      className="group flex h-2 cursor-text items-center"
-      onClick={onClick}
-    >
+    <div className="group flex h-2 cursor-text items-center" onClick={onClick}>
       <div className="h-px w-full bg-transparent transition group-hover:bg-primary/40" />
     </div>
   );
