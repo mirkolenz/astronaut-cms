@@ -6,7 +6,8 @@
  *
  * Introspection goes entirely through Zod's public surface: `instanceof` against
  * the exported schema classes, their public accessors (`.unwrap()`, `.options`,
- * `.element`, `.shape`, `.valueType`, `.meta()`), and the public, typed `.def`.
+ * `.element`, `.shape`, `.valueType`, `.meta()`), the public typed `.def`, and
+ * `z.toJSONSchema()` for declarative constraints (min/max, regex, multipleOf, ...).
  */
 import { z } from "zod";
 import {
@@ -74,6 +75,25 @@ function literalValue(value: unknown): string | number | boolean {
     : String(value);
 }
 
+// Reads a schema's declarative constraints (min/max, regex, multipleOf, ...) via
+// Zod's public `toJSONSchema` projection rather than its internal check list, so
+// the lowering tracks the documented API. `unrepresentable: "any"` keeps an inner
+// type Zod can't project (a Date, a transform) from throwing, and any other
+// failure degrades to an empty schema, i.e. no constraints captured.
+function constraintsOf(schema: z.ZodType): Record<string, unknown> {
+  try {
+    return z.toJSONSchema(schema, { unrepresentable: "any" });
+  } catch {
+    return {};
+  }
+}
+
+// `z.int()` advertises the JS safe-integer range as its bounds; those sentinels
+// are not real user constraints, so they are dropped.
+function realBound(value: unknown, sentinel: number): number | undefined {
+  return typeof value === "number" && value !== sentinel ? value : undefined;
+}
+
 function convertBase(schema: unknown, depth: number): FieldSchema {
   if (!(schema instanceof z.ZodType)) return { type: "unknown" };
 
@@ -86,28 +106,37 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
 
   const next = depth + 1;
 
-  // `z.email()` / `z.url()` are dedicated `ZodStringFormat` classes; plain
-  // strings are `ZodString`. Both carry `.maxLength`.
+  // `z.email()` / `z.url()` are dedicated `ZodStringFormat` classes; plain strings
+  // are `ZodString`. The JSON Schema projection surfaces length, the email/uri
+  // format, and an explicit `.regex()` (or startsWith/endsWith) as `pattern`.
   if (schema instanceof z.ZodString || schema instanceof z.ZodStringFormat) {
+    const js = constraintsOf(schema);
     const field: FieldSchema = { type: "string" };
-    if (schema instanceof z.ZodStringFormat) {
-      if (schema.def.format === "url") field.format = "url";
-      else if (schema.def.format === "email") field.format = "email";
-    }
-    if (typeof schema.maxLength === "number") field.maxLength = schema.maxLength;
+    if (js.format === "email") field.format = "email";
+    else if (js.format === "uri") field.format = "url";
+    if (typeof js.minLength === "number") field.minLength = js.minLength;
+    if (typeof js.maxLength === "number") field.maxLength = js.maxLength;
+    // A formatted string implies its own pattern; only keep an explicit regex.
+    if (!field.format && typeof js.pattern === "string") field.pattern = js.pattern;
     return field;
   }
 
-  // Integer variants (z.int / int32 / int64 / safeint) are a dedicated
-  // `ZodNumberFormat`; its format names the variant. The classic `.def` widens
-  // to the base number def, so read the precise format off Zod's typed `_zod.def`.
-  if (schema instanceof z.ZodNumberFormat) {
-    return schema._zod.def.format.includes("int")
-      ? { type: "number", integer: true }
-      : { type: "number" };
+  // `ZodNumberFormat` (the integer variants z.int / int32 / int64 / safeint)
+  // extends `ZodNumber`, so this catches both. Integers project to JSON Schema
+  // `type: "integer"`; bounds and `multipleOf` project to the numeric keywords.
+  if (schema instanceof z.ZodNumber) {
+    const js = constraintsOf(schema);
+    const field: FieldSchema = { type: "number" };
+    if (js.type === "integer") field.integer = true;
+    const min = realBound(js.minimum, Number.MIN_SAFE_INTEGER);
+    const max = realBound(js.maximum, Number.MAX_SAFE_INTEGER);
+    if (min !== undefined) field.min = min;
+    if (max !== undefined) field.max = max;
+    if (typeof js.exclusiveMinimum === "number") field.exclusiveMin = js.exclusiveMinimum;
+    if (typeof js.exclusiveMaximum === "number") field.exclusiveMax = js.exclusiveMaximum;
+    if (typeof js.multipleOf === "number") field.multipleOf = js.multipleOf;
+    return field;
   }
-
-  if (schema instanceof z.ZodNumber) return { type: "number" };
 
   if (schema instanceof z.ZodBoolean) return { type: "boolean" };
 
@@ -128,7 +157,13 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
     return { type: "literal", value: literalValue(values[0]) };
   }
 
-  if (schema instanceof z.ZodArray) return { type: "array", element: lower(schema.element, next) };
+  if (schema instanceof z.ZodArray) {
+    const js = constraintsOf(schema);
+    const field: FieldSchema = { type: "array", element: lower(schema.element, next) };
+    if (typeof js.minItems === "number") field.minItems = js.minItems;
+    if (typeof js.maxItems === "number") field.maxItems = js.maxItems;
+    return field;
+  }
 
   if (schema instanceof z.ZodTuple) {
     return { type: "tuple", items: schema.def.items.map((item) => lower(item, next)) };

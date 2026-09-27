@@ -19,10 +19,23 @@ export interface FieldMods {
   default?: unknown;
 }
 
+// Declarative Zod checks that lower losslessly (a serializable number / string /
+// regex source). Capturing them keeps the browser-reconstructed validator as
+// faithful as possible without shipping the original schema. Arbitrary
+// `.refine()` / `.transform()` predicates are functions and cannot be serialized,
+// so they remain the one residual gap.
 export type FieldSchema = FieldMods &
   (
-    | { type: "string"; format?: "email" | "url"; maxLength?: number }
-    | { type: "number"; integer?: boolean }
+    | { type: "string"; format?: "email" | "url"; minLength?: number; maxLength?: number; pattern?: string }
+    | {
+        type: "number";
+        integer?: boolean;
+        min?: number;
+        max?: number;
+        exclusiveMin?: number;
+        exclusiveMax?: number;
+        multipleOf?: number;
+      }
     | { type: "boolean" }
     | { type: "date" }
     | { type: "enum"; options: string[] }
@@ -30,7 +43,7 @@ export type FieldSchema = FieldMods &
     | { type: "image" }
     | { type: "file" }
     | { type: "reference"; collection: string }
-    | { type: "array"; element: FieldSchema }
+    | { type: "array"; element: FieldSchema; minItems?: number; maxItems?: number }
     | { type: "tuple"; items: FieldSchema[] }
     | { type: "object"; shape: Record<string, FieldSchema> }
     | { type: "record"; value: FieldSchema }

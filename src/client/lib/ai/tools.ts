@@ -4,6 +4,13 @@ import collections from "virtual:astronaut-cms/collections";
 import { getStorage } from "@client/lib/storage";
 import type { CollectionManifestEntry } from "@shared/types";
 import { collectionDataSchema, collectionPatchSchema, collectionFormatEnum } from "./schema";
+import {
+  validateEntryWrite,
+  validateReorder,
+  validateMediaExists,
+  commitWithDiagnostics,
+  toErrorResult,
+} from "@client/lib/validation";
 import { requestConfirmation, type ConfirmRequest } from "./confirm";
 
 // Runs a destructive action behind a user confirmation, owning the shared
@@ -101,9 +108,18 @@ function writeEntryTool(name: string, col: CollectionManifestEntry): Tool {
       description: `Create or fully overwrite an entry in the "${name}" data collection. \`data\` holds the entry's fields, described by this tool's schema. Use editEntry_${name} to change only part of an existing entry.`,
       inputSchema: z.object({ id: z.string(), data, format }),
       execute: async ({ id, data: entryData, format: entryFormat }) => {
-        await getStorage().saveEntry(name, id, { data: entryData, body: "", format: entryFormat });
+        const diagnostics = await validateEntryWrite({
+          col,
+          id,
+          data: entryData,
+          body: "",
+          format: entryFormat,
+          skipBody: true,
+        });
 
-        return { ok: true };
+        return commitWithDiagnostics(diagnostics, () =>
+          getStorage().saveEntry(name, id, { data: entryData, body: "", format: entryFormat }),
+        );
       },
     });
   }
@@ -112,9 +128,17 @@ function writeEntryTool(name: string, col: CollectionManifestEntry): Tool {
     description: `Create or fully overwrite an entry in the "${name}" content collection. \`data\` is the frontmatter (described by this tool's schema) and \`body\` the markdown content. Use editEntry_${name} to change only part of an existing entry.`,
     inputSchema: z.object({ id: z.string(), data, body: z.string(), format }),
     execute: async ({ id, data: entryData, body, format: entryFormat }) => {
-      await getStorage().saveEntry(name, id, { data: entryData, body, format: entryFormat });
+      const diagnostics = await validateEntryWrite({
+        col,
+        id,
+        data: entryData,
+        body,
+        format: entryFormat,
+      });
 
-      return { ok: true };
+      return commitWithDiagnostics(diagnostics, () =>
+        getStorage().saveEntry(name, id, { data: entryData, body, format: entryFormat }),
+      );
     },
   });
 }
@@ -131,14 +155,22 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
       execute: async ({ id, data: patch }) => {
         const storage = getStorage();
         const current = await storage.getEntry(name, id);
+        const merged = applyDataPatch(current.data, patch);
 
-        await storage.saveEntry(name, id, {
-          data: applyDataPatch(current.data, patch),
-          body: current.body,
+        const diagnostics = await validateEntryWrite({
+          col,
+          id,
+          data: merged,
+          body: "",
           format: current.format,
+          skipId: true,
+          skipBody: true,
+          changedDataKeys: Object.keys(patch),
         });
 
-        return { ok: true };
+        return commitWithDiagnostics(diagnostics, () =>
+          storage.saveEntry(name, id, { data: merged, body: current.body, format: current.format }),
+        );
       },
     });
   }
@@ -153,13 +185,22 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
 
       if ("error" in edited) return edited;
 
-      await storage.saveEntry(name, id, {
-        data: patch ? applyDataPatch(current.data, patch) : current.data,
+      const merged = patch ? applyDataPatch(current.data, patch) : current.data;
+
+      const diagnostics = await validateEntryWrite({
+        col,
+        id,
+        data: merged,
         body: edited.body,
         format: current.format,
+        skipId: true,
+        skipBody: edit === undefined,
+        changedDataKeys: patch ? Object.keys(patch) : [],
       });
 
-      return { ok: true };
+      return commitWithDiagnostics(diagnostics, () =>
+        storage.saveEntry(name, id, { data: merged, body: edited.body, format: current.format }),
+      );
     },
   });
 }
@@ -202,7 +243,13 @@ export const cmsTools = {
     description: "Reorder a collection by giving the complete ordered list of entry ids.",
     inputSchema: z.object({ collection: collectionEnum, ids: z.array(z.string()) }),
     execute: async ({ collection, ids }) => {
-      await getStorage().reorderEntries(collection, ids);
+      const storage = getStorage();
+      const existing = (await storage.listEntries(collection)).map((e) => e.id);
+      const invalid = toErrorResult(validateReorder(existing, ids));
+
+      if (invalid) return invalid;
+
+      await storage.reorderEntries(collection, ids);
 
       return { ok: true };
     },
@@ -241,6 +288,10 @@ export const cmsTools = {
       "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path.",
     inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
     execute: async ({ oldPath, newPath }) => {
+      const invalid = toErrorResult(await validateMediaExists(oldPath));
+
+      if (invalid) return invalid;
+
       await getStorage().renameMedia(oldPath, newPath);
 
       return { ok: true };
@@ -250,11 +301,16 @@ export const cmsTools = {
   deleteMedia: tool({
     description: "Delete a media file. Asks the user to confirm first.",
     inputSchema: z.object({ path: z.string() }),
-    execute: ({ path }) =>
-      confirmed(
+    execute: async ({ path }) => {
+      const invalid = toErrorResult(await validateMediaExists(path));
+
+      if (invalid) return invalid;
+
+      return confirmed(
         { title: "Delete media", message: `Delete "${path}"?`, variant: "danger" },
         () => getStorage().deleteMedia(path),
-      ),
+      );
+    },
   }),
 
   getStatus: tool({

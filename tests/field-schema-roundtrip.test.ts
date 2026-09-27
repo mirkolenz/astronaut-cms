@@ -66,6 +66,44 @@ describe("zodToFieldSchema lowering", () => {
       shape: { a: { type: "string" }, b: { type: "number" } },
     });
   });
+
+  it("captures declarative string / number / array constraints", () => {
+    expect(zodToFieldSchema(z.string().min(2).max(5))).toEqual({
+      type: "string",
+      minLength: 2,
+      maxLength: 5,
+    });
+    expect(zodToFieldSchema(z.string().regex(/^[a-z]+$/))).toEqual({
+      type: "string",
+      pattern: "^[a-z]+$",
+    });
+    expect(zodToFieldSchema(z.number().min(0).max(10))).toEqual({ type: "number", min: 0, max: 10 });
+    expect(zodToFieldSchema(z.number().gt(0).lt(5))).toEqual({
+      type: "number",
+      exclusiveMin: 0,
+      exclusiveMax: 5,
+    });
+    expect(zodToFieldSchema(z.int().multipleOf(2))).toEqual({
+      type: "number",
+      integer: true,
+      multipleOf: 2,
+    });
+    // A plain integer must not leak the JS safe-integer range as bounds...
+    expect(zodToFieldSchema(z.int())).toEqual({ type: "number", integer: true });
+    // ...but real bounds on an integer survive.
+    expect(zodToFieldSchema(z.int().min(0).max(10))).toEqual({
+      type: "number",
+      integer: true,
+      min: 0,
+      max: 10,
+    });
+    expect(zodToFieldSchema(z.array(z.string()).min(1).max(3))).toEqual({
+      type: "array",
+      element: { type: "string" },
+      minItems: 1,
+      maxItems: 3,
+    });
+  });
 });
 
 describe("fieldSchemaToZod reconstruction round-trip", () => {
@@ -124,5 +162,37 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
 
     expect(rebuilt.parse("draft")).toBe("draft");
     expect(rebuilt.safeParse("archived").success).toBe(false);
+  });
+
+  it("re-applies declarative constraints so the rebuilt validator still rejects", () => {
+    const string = fieldSchemaToZod(zodToFieldSchema(z.string().min(2).max(4)));
+    expect(string.safeParse("a").success).toBe(false);
+    expect(string.safeParse("abc").success).toBe(true);
+    expect(string.safeParse("abcde").success).toBe(false);
+
+    const pattern = fieldSchemaToZod(zodToFieldSchema(z.string().regex(/^[a-z]+$/)));
+    expect(pattern.safeParse("abc").success).toBe(true);
+    expect(pattern.safeParse("ABC").success).toBe(false);
+
+    const number = fieldSchemaToZod(zodToFieldSchema(z.number().min(0).max(10)));
+    expect(number.safeParse(-1).success).toBe(false);
+    expect(number.safeParse(11).success).toBe(false);
+
+    const exclusive = fieldSchemaToZod(zodToFieldSchema(z.number().gt(0).lt(5)));
+    expect(exclusive.safeParse(0).success).toBe(false);
+    expect(exclusive.safeParse(3).success).toBe(true);
+    expect(exclusive.safeParse(5).success).toBe(false);
+
+    const multiple = fieldSchemaToZod(zodToFieldSchema(z.int().multipleOf(2)));
+    expect(multiple.safeParse(3).success).toBe(false);
+    expect(multiple.safeParse(4).success).toBe(true);
+
+    const array = fieldSchemaToZod(zodToFieldSchema(z.array(z.string()).min(1)));
+    expect(array.safeParse([]).success).toBe(false);
+    expect(array.safeParse(["x"]).success).toBe(true);
+
+    const email = fieldSchemaToZod(zodToFieldSchema(z.email()));
+    expect(email.safeParse("a@b.com").success).toBe(true);
+    expect(email.safeParse("nope").success).toBe(false);
   });
 });

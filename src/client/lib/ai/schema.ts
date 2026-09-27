@@ -21,12 +21,27 @@ import type { FieldSchema } from "@shared/field-schema";
 function base(field: FieldSchema): z.ZodType {
   switch (field.type) {
     case "string": {
-      const s = z.string();
-      return typeof field.maxLength === "number" ? s.max(field.maxLength) : s;
+      if (field.format === "email") return z.email();
+      if (field.format === "url") return z.url();
+
+      let s = z.string();
+      if (typeof field.minLength === "number") s = s.min(field.minLength);
+      if (typeof field.maxLength === "number") s = s.max(field.maxLength);
+      if (field.pattern) s = s.regex(new RegExp(field.pattern));
+
+      return s;
     }
 
-    case "number":
-      return field.integer ? z.int() : z.number();
+    case "number": {
+      let n = field.integer ? z.int() : z.number();
+      if (typeof field.min === "number") n = n.min(field.min);
+      if (typeof field.max === "number") n = n.max(field.max);
+      if (typeof field.exclusiveMin === "number") n = n.gt(field.exclusiveMin);
+      if (typeof field.exclusiveMax === "number") n = n.lt(field.exclusiveMax);
+      if (typeof field.multipleOf === "number") n = n.multipleOf(field.multipleOf);
+
+      return n;
+    }
 
     case "boolean":
       return z.boolean();
@@ -47,8 +62,13 @@ function base(field: FieldSchema): z.ZodType {
     case "reference":
       return z.string();
 
-    case "array":
-      return z.array(fieldSchemaToZod(field.element));
+    case "array": {
+      let a = z.array(fieldSchemaToZod(field.element));
+      if (typeof field.minItems === "number") a = a.min(field.minItems);
+      if (typeof field.maxItems === "number") a = a.max(field.maxItems);
+
+      return a;
+    }
 
     case "tuple":
       return field.items.length
