@@ -7,88 +7,190 @@ import { Aside } from "@astrojs/starlight/components";
 import Steps from "@/components/Steps.astro";
 import StepItem from "@/components/StepItem.astro";
 
-Astronaut CMS has no backend of its own.
-The admin runs in the browser with the editor's own Git provider token, and the handful of injected routes exist only to hold secrets a browser may not: the OAuth client secret, the object-store credential, the AI gateway key.
+Astronaut CMS runs its repository session on the server.
+The admin panel is an untrusted user interface: it holds no token, speaks to no Git provider, and can ask your deployment for exactly the operations the CMS offers and nothing wider.
 Everything below follows from that.
 
-## What one trust decision buys
+## The two boundaries
 
-There is exactly one authorization check, in every injected route: **the caller holds a token with write access to the configured repository**.
-The Git provider knows nothing about your bucket or your AI gateway, so write access is also what entitles a caller to:
+**The session cookie decides who is asking.** It is an encrypted JWT (a JWE, `dir` + A256GCM), marked `HttpOnly`, `SameSite=Lax` and `Secure`, and scoped to the CMS API path so it is never attached to a request for your site's own pages. The provider token lives inside it and is only ever decrypted inside a server route.
 
-- administer the media object store (upload, rename, delete),
-- spend the shared AI gateway credential,
-- publish, by merging the draft branch.
+**The operation registry decides what asking can accomplish.** Every operation names a CMS capability — an entry in a collection, a file in the library — and none of them takes a repository path, a ref, a commit or a provider parameter. So a browser that has been fully compromised can still only do the things an editor could have done through the interface.
 
-Anyone you trust to push to the repository is trusted with all of it.
-If those need to be separate grants, the repository is the wrong place to express that, and a backend with its own sessions and roles is warranted.
+That second boundary is the one that matters most.
+Successful script injection in the admin can act as the editor while the tab is open, which is unavoidable for any cookie-authenticated application, but it has nothing portable to steal and no way to reach past the CMS into the repository.
 
-A verified token is cached for **60 seconds**, so a revoked collaborator can still reach the server-side capabilities above for up to a minute.
-
-## The browser token
-
-The provider token lives in `sessionStorage` and is readable by any script running on the admin origin.
-That is inherent to a CMS with no server session: the token *is* the session.
-Successful script injection in the admin therefore acquires every permission the token carries, which makes the kind of token you issue the most important single setting.
-
-<Aside type="caution" title="Use a GitHub App">
-  `authMode` defaults to `github-app`, and should stay there. A GitHub App issues tokens limited to
-  the repositories the app is installed on and to the permissions it declares, and can be configured
-  to expire. A classic OAuth App (`authMode: "oauth-app"`) can only issue a coarse, non-expiring
-  `repo` token that reaches *every* repository the editor can — a poor thing to leave in a tab.
+<Aside type="note" title="What this replaced">
+  Earlier versions kept the provider token in the browser, where any script on the admin origin could
+  read it and use it anywhere. Moving it server-side is the whole point of the current architecture,
+  and it is why a production deployment now needs an SSR adapter.
 </Aside>
 
-If your threat model includes malicious collaborators or high-value organization tokens, this architecture is not the right one: put a backend-for-frontend between the admin and the provider, keep the session in an `HttpOnly` cookie, and expose only the operations that backend is willing to perform.
+### Cross-site requests
+
+Cookie authentication is ambient: the browser attaches the cookie to any request to your origin, whoever caused it.
+`SameSite=Lax` already blocks a cross-site `POST`, and every mutating CMS request is additionally checked against `Sec-Fetch-Site` (falling back to `Origin`), so the rule is enforced where it is stated rather than assumed from a cookie attribute.
+
+### Why the cookie is a JWT
+
+Encryption, not signing. A signed JWT is base64, readable by anyone holding it, which would be the wrong choice for a cookie carrying a provider access token. This is a JWE: the same AES-GCM the CMS used before, inside a standard envelope.
+
+The envelope buys two things a hand-rolled seal has to be talked into:
+
+- **`exp` the server enforces.** A cookie's `Max-Age` is the browser's to honour. The token carries its own expiry, so a copied value stops working regardless.
+- **`aud` binding.** Every kind of token the CMS issues shares one key. Without an audience, a session would verify as an OAuth state — and, once MCP lands, an authorization code as an access token. Binding it makes that structural rather than a matter of which fields each reader happens to check.
+
+It is also what MCP's authorization codes and access tokens will be issued as, so there is one token mechanism rather than two.
+
+### Where the cookie key comes from
+
+There is no session secret to generate.
+The key is derived from the OAuth client secret your deployment already holds — high entropy, server-only, identical on every instance, and stable across deploys, which is exactly what a cookie key has to be.
+
+The derivation is HKDF-SHA256 with a fixed `info` string, so the two are separate keys that happen to share one input: the cookie key reveals nothing about the client secret, and a secret used for anything else derives a different key.
+Reusing it costs nothing in strength, because anyone holding the client secret can already impersonate your OAuth app at the provider, which is strictly worse than forging a session.
+
+Set `ASTRONAUT_CMS_SESSION_SECRET` to key sessions off something else instead — to expire every session without touching your OAuth app, or to share one session across several services.
+
+<Aside type="note">
+  The alternative — generating a secret at build time — was rejected deliberately: it would change on
+  every deploy (signing everyone out), differ between instances of a scaled deployment, and land in
+  the build artifact. A secret the deployment already manages has none of those problems.
+</Aside>
+
+### Revocation
+
+The session is stateless, so a serverless deployment needs no database and no sticky instance.
+The cost is that a session cannot be revoked before it expires.
+The token inside it is a GitHub App user-to-server token, which expires in hours and is refreshed in place, so the window is bounded — and a collaborator removed from the repository fails every provider call immediately, because the provider is the authority on that, not a cached check.
+
+Rotating the OAuth client secret invalidates every session at once, which is the thing you would do on compromise anyway.
+
+## The unauthenticated surface
+
+Everything an anonymous request can reach, and what it costs:
+
+| Request | Answer | Work done |
+| --- | --- | --- |
+| `GET /admin` | A sign-in link, under 1 kB | Read one cookie header |
+| `GET /login` | Redirect to the provider | One token encrypt |
+| `GET /callback` | Redirect back | **One outbound call to the provider** |
+| Anything else | `401 Not signed in.` | Read one cookie header |
+
+The admin page is the part worth dwelling on. Without a session it renders neither the bundle, nor the stylesheet, nor the CMS config the bundle carries (your bucket origin, preview URL and model list), and its policy allows nothing at all — there is no script on that page to permit. That removes the whole client dependency tree from anonymous reach.
+
+A request with no session cookie does no cryptography and reads no environment variable before its 401, and a request with a forged one is answered identically to one with none. A deployment that cannot reach its own secret reports that on the sign-in page, where an operator looks, rather than to whoever sends a cookie.
+
+<Aside type="tip" title="Behind an access proxy">
+  Cloudflare Access is free; Vercel's equivalent needs Pro and Netlify's needs a paid plan, so most
+  deployments will not have one. The measures above are what the CMS can do on its own, and they are
+  why it does them rather than assuming a proxy.
+</Aside>
+
+## Denial of service
+
+Moving the work server-side moved the cost with it: what an editor's browser used to spend is now your compute and your provider quota. Three budgets bound it, and all three are in-process.
+
+| Surface | Budget | What it stops |
+| --- | --- | --- |
+| Sign-in (`/login`, `/callback`) | 20/min, 4 at once, per caller address | An unauthenticated flood of code exchanges, each an outbound request to the provider |
+| Everything else (`/rpc`) | 300/min, 12 at once, per editor | A runaway assistant loop or a compromised tab |
+| The reference scan | 10/min, **1 at once**, per editor | The one operation that reads every entry in the repository |
+
+The sign-in cap matters more than its size suggests. Redeeming a code means calling the provider, so a flood costs invocations *and* risks the provider rate-limiting your deployment's address, which would break sign-in for everyone.
+
+<Aside type="caution" title="These bound accidents, not attacks">
+  The limits live in one warm instance's memory, because the CMS holds no shared state and adding a
+  database would put one on the request path. A scaled deployment therefore enforces them N times
+  over, and a cold start resets the counters. They stop a runaway loop, a stuck client, or a flood
+  from one source. A distributed flood is your CDN's problem, and putting the admin path behind an
+  access proxy is the single most effective thing you can do about it.
+</Aside>
+
+The one amplification left is reading an entry whose format the caller did not name: the server tries each extension the collection allows, so up to four provider requests for one call. It is bounded and charged to the editor's own provider quota rather than to a shared one.
+
+## What a session entitles you to
+
+Signing in proves write access to the configured repository.
+The Git provider knows nothing about your bucket or your AI gateway, so that same session is also what entitles a caller to administer the media library and to spend the shared AI gateway credential.
+
+Anyone you trust to push to the repository is trusted with all of it.
+If those need to be separate grants, the repository is the wrong place to express that.
 
 ## Content Security Policy and response headers
 
-The admin ships a strict policy: `default-src 'none'`, `script-src 'self'` with no inline scripts, `frame-ancestors 'none'`, and a `connect-src` naming only your Git provider's API and — for an object-store library — the origin uploads are presigned to.
+Because the admin holds no credential and makes no cross-origin call, its policy is short:
 
-It is delivered as an HTTP header wherever the admin is rendered on demand, which the integration arranges automatically whenever your deployment already runs a server (an object-store library, the AI assistant, or the GitHub redirect flow).
-A `<meta>` policy is always emitted as well, but a browser ignores `frame-ancestors` there.
+```
+default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
+worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none';
+base-uri 'none'; form-action 'self'
+```
 
-<Aside type="caution" title="Static admin deployments">
-  When none of those features is enabled the admin is prerendered, and Astro cannot set headers on a
-  static file. The build log says so. Configure these at your host for the admin path:
+`script-src 'self'` with no inline scripts is what carries the weight: it keeps injected markup from becoming script in the first place.
+`connect-src 'self'` means a script that did get in has nowhere to send anything.
+The one exception is a presigned media upload, whose store origin is added, because those bytes go browser-to-store.
 
-  ```
-  Content-Security-Policy: <the policy in the page's meta tag>
-  X-Frame-Options: DENY
-  Referrer-Policy: no-referrer
-  X-Content-Type-Options: nosniff
-  ```
-</Aside>
-
-Every injected route carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on its own responses.
+The CMS needs an SSR adapter, so the admin always renders on demand and the policy always reaches the browser as a header — which is what lets it carry `frame-ancestors`, something a `<meta>` policy cannot.
+Every CMS response also carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
 
 ## Media
 
 ### Uploads
 
-An upload is never shaped by its caller alone.
-The media route decides the destination, the size and the type, and signs them into the presigned URL so the store itself enforces them:
+The bytes go straight from the browser to the store, and the server's decisions ride along in the signature rather than running beside it.
 
-- **Size** is checked against `media.maxFileSize` and signed as `Content-Length`, so understating it yields a URL the store refuses rather than an unrestricted `PUT`.
-- **Content type** is derived from the file extension, never taken from the uploader, and signed too — the store serves back what it was given, so choosing the type is choosing how the bytes are interpreted.
-- **Destination** is refused if something is already there. Replacing a file is a separate, explicit act (the admin's "Replace" and "Overwrite" actions), not a side effect of uploading under the same name.
-- **Active types** (SVG and friends) are never presigned. They are proxied through the route, which stores them with `Content-Disposition: attachment` so navigating to one downloads it instead of running it.
+<Steps>
+  <StepItem title="The browser asks where to put the bytes">
+    The server checks the path, the extension and the size, then signs a URL for that key, that byte
+    count and that content type. The type comes from the file extension, never from the uploader: a
+    store serves back whatever type it was given, so choosing the type is choosing how the bytes are
+    interpreted. Unless the editor explicitly chose to replace a file, an `If-None-Match: *`
+    precondition is signed in too.
+  </StepItem>
 
-### Deletion is recoverable
+  <StepItem title="The browser uploads directly to the store">
+    The bytes never pass through a serverless function, which is what keeps large files working
+    across hosts with small request-body limits. Every term is part of the signature, so the URL is
+    usable for that file at that key and nothing else: an understated size, a different content type
+    or an occupied destination is refused by the store as the write happens.
+  </StepItem>
+</Steps>
 
-Only the admin can know what content references a file — it is the side that can read the repository — so that check cannot be a precondition the store enforces.
-Instead the store makes deletion undoable: the object is moved to a `.trash/` prefix inside the library rather than dropped.
-A client bug, a stale reference scan or a compromised admin then costs a restore rather than the file.
+Active types (SVG and friends) need a `Content-Disposition: attachment` the store will keep, and there is no request header to sign one into.
+Those uploads, and any store that cannot hand out URLs at all (an R2 Workers binding), take the bytes through the route instead, where they are checked as they arrive.
+
+### Reading
+
+The admin never proxies library bytes through the CMS server.
+A library with a public base is addressed at that base directly, so a page of thumbnails costs no function invocations and leaks nothing the base does not already serve.
+A library without one is read through short-lived signed URLs the server mints per request, so the bucket stays closed and the credential stays on the server either way.
+
+The bucket does not have to be public for the first case: a CDN holding the credential (CloudFront with an origin access control, an R2 custom domain) is a public base as far as the CMS is concerned, and is the setup to prefer.
+See [Reading the library](/astronaut-cms/guides/media-library/#reading-the-library).
+
+### Deletion and renaming are refused while referenced
+
+The server reads every entry and refuses to remove or move a file that content still points at.
+This is a rule of the library rather than caller discipline: the assistant cannot talk its way past it, because only a human who has been shown those references in the media view can acknowledge them and proceed.
+
+Beyond that, deletion is undoable: the object is moved to a `.trash/` prefix inside the library rather than dropped, and the media view restores it from there.
+This is what makes it safe to let the assistant delete media at all, since a wrong delete costs a restore rather than the file.
+Restoring and purging are the media view's alone, so the assistant cannot undo its own deletion, nor make one permanent.
 
 <Aside type="note">
-  Give the `.trash/` prefix a lifecycle rule to decide how long a deletion stays undoable. The prefix
-  is not reachable through the media route, but a public bucket still serves those keys, so a deleted
-  file remains readable to anyone who can guess one until the rule expires it.
+  Give the `.trash/` prefix a lifecycle rule to decide how long a deletion stays undoable. A public
+  bucket still serves those keys, so a deleted file remains readable to anyone who knows one until
+  the rule expires it, or until someone purges it from the trash. Treat deletion here as recoverable
+  rather than as erasure, and purge when a file has to be genuinely gone.
 </Aside>
 
 ### Serve the library from its own origin
 
 Uploaded files are attacker-influenced bytes your site serves back, and some allowed types are documents a browser will run.
 `media.publicUrl` must therefore not share an origin with the site itself; the integration refuses the configuration when your `astro.config` declares a `site` it can check against.
+A private library has no public base to check, and its signed URLs point at the store, so the rule is satisfied by construction.
 
 Serve the bucket from a dedicated host (a CDN subdomain), without cookies, and with `X-Content-Type-Options: nosniff` on its responses.
 
@@ -99,25 +201,27 @@ Serve the bucket from a dedicated host (a CDN subdomain), without cookies, and w
 The agent reads content: entry bodies, attached documents, media listings.
 Any of it can try to instruct the model, so the boundary is not "will the model be fooled" but "what is the worst a fooled model can do".
 
-Every tool the agent can call writes into the **pending changeset** — the draft branch the user reviews and then publishes or discards as a whole — so a destructive call talked out of a model costs a discard.
-The one operation that could not be discarded is not offered at all: see [what the agent may reach](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach).
+Every tool the agent can call is one operation on the CMS server, validated exactly as the interface's own calls are.
+Repository writes land in the **pending changeset** — the draft branch the editor reviews and then publishes or discards as a whole — so a destructive call talked out of a model costs a discard.
+Media deletion and renaming are refused while content still references the file, and an object-store deletion goes to the trash prefix.
+The agent cannot publish.
+
+<Aside type="note">
+  The agent loop itself runs in the browser, which is deliberate: each request to the relay is one
+  model call, so no serverless duration limit can cut a turn in half. What moved to the server is the
+  credential and the enforcement, not the loop, so nothing is lost by leaving it where it is.
+</Aside>
 
 ### Cost
 
-The relay holds the gateway credential, so an editor's token is otherwise a licence to bill your account without bound.
-Request size, output tokens, request rate and concurrency are all capped per editor — see [`ai.limits`](/astronaut-cms/guides/ai-agent/#cost-controls) for the knobs and their defaults.
+The relay holds the gateway credential, so a session is otherwise a licence to bill your account without bound.
+Request size and output tokens are capped per editor by [`ai.limits`](/astronaut-cms/guides/ai-agent/#cost-controls); request rate and concurrency are capped too, but follow from `ai.maxSteps` rather than being configured beside it.
 
 <Aside type="caution">
-  Those limits bind one warm instance, not the deployment: an injected route holds no shared state.
-  They stop a runaway agent loop or a single stolen token from draining a budget unattended. Set a
-  spending cap at the gateway as well — that is the only ceiling that counts across instances.
+  Those limits bind one warm instance, not the deployment: the route holds no shared state. They stop
+  a runaway agent loop or a single hijacked session from draining a budget unattended. Set a spending
+  cap at the gateway as well — that is the only ceiling that counts across instances.
 </Aside>
-
-## The OAuth token exchange
-
-The GitHub redirect flow's token route is deliberately unauthenticated: a request is worth nothing without a live authorization code, which GitHub hands only to the app's registered callback URL and which PKCE binds to the browser that started the flow.
-It relays only `authorization_code` grants, only for the configured `client_id`, and reads at most 4 KB of request body.
-Add rate limiting at your host, which is the only place that sees every instance.
 
 ## Checklist
 
@@ -131,10 +235,6 @@ Add rate limiting at your host, which is the only place that sees every instance
     A CDN subdomain, cookieless, with `nosniff`.
   </StepItem>
 
-  <StepItem title="Set the security headers">
-    Automatic when the admin renders on demand; configure them at your host otherwise.
-  </StepItem>
-
   <StepItem title="Cap AI spend at the gateway">
     `ai.limits` is the brake; the gateway budget is the ceiling.
   </StepItem>
@@ -144,6 +244,6 @@ Add rate limiting at your host, which is the only place that sees every instance
   </StepItem>
 
   <StepItem title="Enable bucket versioning">
-    Recoverable deletion is in the route; versioning is what survives a credential compromise.
+    Recoverable deletion is in the CMS; versioning is what survives a credential compromise.
   </StepItem>
 </Steps>

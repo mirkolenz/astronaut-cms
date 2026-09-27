@@ -3,7 +3,6 @@ import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "@client/components/layout/sidebar";
 import { Header } from "@client/components/layout/header";
-import { AuthGuard } from "@client/components/auth-guard";
 import { PublishBar } from "@client/components/publish-bar";
 import { Toaster } from "@client/components/toast";
 import { Button } from "@client/components/ui/button";
@@ -54,24 +53,22 @@ function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }
 function RootLayout() {
   return (
     <ErrorBoundary>
-      <AuthGuard>
-        <TooltipProvider>
-          <div
-            data-astronaut-cms
-            className="flex h-screen overflow-hidden bg-background text-foreground"
-          >
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Header />
-              <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
-                <Outlet />
-              </main>
-              <PublishBar />
-            </div>
+      <TooltipProvider>
+        <div
+          data-astronaut-cms
+          className="flex h-screen overflow-hidden bg-background text-foreground"
+        >
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Header />
+            <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
+              <Outlet />
+            </main>
+            <PublishBar />
           </div>
-          <Toaster />
-        </TooltipProvider>
-      </AuthGuard>
+        </div>
+        <Toaster />
+      </TooltipProvider>
     </ErrorBoundary>
   );
 }

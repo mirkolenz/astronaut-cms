@@ -3,15 +3,19 @@ title: Storage Backends
 description: Configure local, GitHub, or GitLab storage for your content.
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
 Astronaut CMS supports three storage backends.
 During development you use local storage, and in production you connect to GitHub or GitLab.
 
+Whichever you pick, the browser never talks to the Git provider.
+The admin panel calls your own site, and the server holds the repository session and makes every provider call.
+That is what the [Security Model](/astronaut-cms/guides/security/) is built on, and it is why a production deployment needs an SSR adapter.
+
 ## Local Storage
 
 Local storage is the default.
-It reads and writes files directly on disk through the dev server.
+It reads and writes files directly in the working tree.
 
 ```ts title="astro.config.ts"
 cms({
@@ -20,14 +24,12 @@ cms({
 ```
 
 <Aside type="note">
-  Local storage only works during development (`astro dev`). For production deployments, use the
-  GitHub or GitLab backend.
+  Local storage only works during development (`astro dev`). There is no sign-in: the editor is
+  whoever can reach the dev server, which is the same trust boundary the dev server itself has. For
+  production deployments, use the GitHub or GitLab backend.
 </Aside>
 
 ## GitHub Storage
-
-The GitHub backend uses the GitHub API to read and write content in your repository.
-It supports both direct commits to a branch and pull request workflows.
 
 ```ts title="astro.config.ts"
 cms({
@@ -35,7 +37,7 @@ cms({
     type: "github",
     repo: "owner/repo",
     branch: "main",
-    clientId: "your-github-oauth-app-client-id",
+    clientId: "your-github-app-client-id",
     publishMode: "pull-request",
   },
 });
@@ -43,107 +45,29 @@ cms({
 
 ### Configuration
 
-| Option        | Type                          | Default       | Description                                                 |
-| ------------- | ----------------------------- | ------------- | ----------------------------------------------------------- |
-| `repo`        | `string`                      | required      | GitHub repository in `owner/repo` format                    |
-| `branch`      | `string`                      | `"main"`      | Target branch for reading and writing                       |
-| `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                    |
-| `authMode`    | `"oauth-app" \| "github-app"` | `"github-app"` | Authentication strategy (see below)                         |
-| `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow (see below)                                    |
-| `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
-| `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | How changes are published                                   |
+| Option        | Type                         | Default    | Description                              |
+| ------------- | ---------------------------- | ---------- | ---------------------------------------- |
+| `repo`        | `string`                     | required   | GitHub repository in `owner/repo` format |
+| `branch`      | `string`                     | `"main"`   | Target branch for reading and writing    |
+| `clientId`    | `string`                     | required   | GitHub **App** client ID                 |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | How changes are published                |
 
-### Authentication and least privilege
+### Setting up the GitHub App
 
-The signed-in editor's token lives in the browser, so it should grant as little
-as possible. There are two strategies:
-
-- **`github-app`** (default) — a GitHub App. Its tokens are limited to the
-  repositories the app is installed on and the permissions it declares, and can
-  be set to expire. The token lives in the editor's browser, so this is the one
-  worth issuing: see [Security Model](/astronaut-cms/guides/security/#the-browser-token).
-- **`oauth-app`** — a classic OAuth App. Its tokens cannot be limited to a single
-  repository and do not expire, so a stolen one reaches everything the editor
-  can. Use `scopes: ["public_repo"]` for public-only repositories; private
-  repositories require the broad `["repo"]` scope.
-
-```ts title="astro.config.ts"
-cms({
-  storage: {
-    type: "github",
-    repo: "owner/repo",
-    clientId: "your-github-app-client-id",
-    // authMode: "oauth-app", // only if you registered a classic OAuth App
-  },
-});
-```
-
-### Setting up a GitHub App (recommended)
+A GitHub App is the only GitHub authentication the CMS accepts.
+A classic OAuth App issues a coarse token that covers every repository the editor can reach and never expires, which is a poor thing for a deployment to hold on an editor's behalf.
+A GitHub App issues a token limited to the installation that expires in hours and refreshes itself.
 
 1. Go to **Settings > Developer Settings > GitHub Apps** and create a new app.
-2. Under **Permissions**, grant **Repository permissions → Contents: Read and
-   write** and **Pull requests: Read and write**. Nothing else is needed.
-3. Enable the **Device Flow**. Leave user authorization tokens non-expiring —
-   the token is already limited to a single repository — or enable expiry and
-   accept that editors re-authenticate when a token lapses.
-4. Install the app on the content repository.
-5. Copy the **Client ID** and pass it to `clientId`. This is the default `authMode`, so nothing else is needed.
-
-### Setting up an OAuth App
-
-1. Go to **Settings > Developer Settings > OAuth Apps** in your GitHub account.
-2. Create a new OAuth App with the callback URL set to your site's `/admin` path.
-3. Copy the **Client ID** and pass it to the `clientId` option.
-
-### Sign-in flow
-
-GitHub offers no way for a browser-only app to complete an ordinary OAuth redirect.
-It demands a client secret to redeem the authorization code, and PKCE does not change that, because GitHub does not distinguish public from confidential clients.
-The `flow` option decides how the CMS works around it.
-
-- **`device`** (default) — the device flow, which needs no secret.
-  Everything happens in the browser, so the CMS stays a static site with no server route and nothing to configure at deploy time.
-  The cost is the sign-in itself: the editor copies a code to `github.com/login/device` by hand, and does it again in every new tab, since the token is kept per browser session.
-- **`redirect`** — the ordinary redirect, with PKCE.
-  The CMS injects a token-exchange route that holds the secret and redeems the code server-side.
-  After the first consent GitHub approves the redirect without prompting, so signing in becomes a round-trip the editor barely notices.
-
-```ts title="astro.config.ts"
-cms({
-  storage: {
-    type: "github",
-    repo: "owner/repo",
-    clientId: "your-github-app-client-id",
-    authMode: "github-app",
-    flow: "redirect",
-  },
-});
-```
-
-Using `flow: "redirect"` means:
-
-1. Set `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` in your host's environment.
-   Generate the secret next to the client ID in the app's settings, and never commit it.
-2. Set the app's callback URL to the admin panel's full URL (for example `https://example.com/admin`), which is where GitHub sends the editor back.
-3. Configure an SSR adapter.
-   The exchange runs on demand, like the AI relay.
-
-The relay only ever forwards one request: an authorization-code exchange naming the configured client.
-It stores nothing and issues nothing of its own, so it is safe to leave unauthenticated.
-A request is worth something only when it carries a live code, which GitHub hands exclusively to the registered callback URL and which PKCE binds to the browser that started the flow.
-
-<Aside type="tip">
-  `redirect` is the flow to pick when an access proxy (Cloudflare Access, Vercel Passport, Netlify
-  SSO) already guards the admin panel with the same identity provider. The proxy cannot hand its
-  GitHub token to the CMS, so a second sign-in is unavoidable, but with this flow it costs a redirect
-  rather than a copied code. See [Access proxies](#access-proxies).
-</Aside>
+2. Under **Permissions**, grant **Repository permissions → Contents: Read and write** and **Pull requests: Read and write**. Nothing else is needed.
+3. Set **Callback URL** to `https://your-site.example/_astronaut-cms/api/callback`. Under a site `base`, include it: `https://your-site.example/docs/_astronaut-cms/api/callback`.
+4. Enable **Expire user authorization tokens**. The CMS refreshes them on its own, so editors never notice.
+5. Install the app on the content repository.
+6. Copy the **Client ID** into `clientId`, generate a **Client secret**, and set it as `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` on the server.
 
 ## GitLab Storage
 
-
-The GitLab backend uses the GitLab API.
-It supports self-hosted GitLab instances.
+The GitLab backend uses the GitLab API and supports self-hosted instances.
 
 ```ts title="astro.config.ts"
 cms({
@@ -151,7 +75,7 @@ cms({
     type: "gitlab",
     project: "group/project",
     branch: "main",
-    clientId: "your-gitlab-oauth-app-id",
+    clientId: "your-gitlab-application-id",
     instanceUrl: "https://gitlab.com",
     publishMode: "pull-request",
   },
@@ -164,73 +88,92 @@ cms({
 | ------------- | ---------------------------- | ---------------------- | --------------------------------------------- |
 | `project`     | `string`                     | required               | GitLab project in `group/project` format      |
 | `branch`      | `string`                     | `"main"`               | Target branch                                 |
-| `clientId`    | `string`                     | required               | GitLab OAuth application ID                   |
+| `clientId`    | `string`                     | required               | GitLab application ID                         |
 | `instanceUrl` | `string`                     | `"https://gitlab.com"` | GitLab instance URL for self-hosted instances |
 | `scopes`      | `string[]`                   | `["api"]`              | OAuth scopes                                  |
 | `publishMode` | `"direct" \| "pull-request"` | `"direct"`             | How changes are published                     |
 
-### Setting Up GitLab OAuth
+### Setting up the GitLab application
 
 1. Go to **User Settings > Applications** (or **Admin > Applications** for instance-wide).
-2. Create a new application with the `api` scope and enable PKCE.
-3. Set the callback URL to your site's `/admin` path.
-4. Copy the **Application ID** and pass it to the `clientId` option.
+2. Create a **confidential** application with the `api` scope.
+3. Set the redirect URI to `https://your-site.example/_astronaut-cms/api/callback`.
+4. Copy the **Application ID** into `clientId` and set the **Secret** as `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` on the server.
 
 <Aside type="note">
   GitLab's API-based writes (commits and merge requests) require the `api` scope. The narrower
   `write_repository` scope only covers Git-over-HTTP and is insufficient here, so `scopes` cannot be
-  tightened further. GitLab issues short-lived access tokens by default, which bounds exposure;
-  editors sign in again when a token expires.
+  tightened further.
 </Aside>
+
+## What the server needs
+
+One secret, the one your OAuth app already gave you:
+
+| Variable                             | Purpose                                                         |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` | GitHub App client secret, for redeeming the authorization code.   |
+| `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` | The same, for GitLab.                                             |
+
+The session cookie's key is derived from it, so there is nothing else to generate or seed.
+See [Where the cookie key comes from](/astronaut-cms/guides/security/#where-the-cookie-key-comes-from).
+
+You also need an SSR adapter (`@astrojs/node`, `@astrojs/cloudflare`, `@astrojs/vercel`, `@astrojs/netlify`, ...).
+The CMS holds the repository session on the server, so its API routes render on demand; the build fails with a message saying so if no adapter is registered.
+
+## How signing in works
+
+1. The editor opens the admin panel. The browser asks the server whether it has a session.
+2. If not, they click sign in and the browser navigates to `/_astronaut-cms/api/login`, which redirects to the provider.
+3. The provider sends them back to `/_astronaut-cms/api/callback` with a code. The server redeems it, checks that they may write to the configured repository, and sets an encrypted `HttpOnly` cookie.
+4. Every later call carries that cookie. The token inside it never reaches the browser.
+
+The `state` parameter travels in its own short-lived encrypted cookie rather than in `sessionStorage`, so script in the admin can neither read it nor plant one.
 
 ## Publish Modes
 
 Both GitHub and GitLab backends support two publish modes:
 
-- **`"direct"`** — Changes are committed directly to the configured branch.
-- **`"pull-request"` / `"merge-request"`** — Changes are committed to a new branch and a pull/merge request is created for review.
+- **`"direct"`** — Changes are committed to the editor's draft branch and merged into the configured branch when they publish.
+- **`"pull-request"` / `"merge-request"`** — Publishing opens a pull/merge request for review instead of merging.
+
+Either way the draft branch (`cms/<username>`) is the changeset: everything on it is pending, and publish and discard act on all of it at once.
 
 ## Access proxies
 
-An access proxy sits in front of the whole site and demands a sign-in before any request reaches it: [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), Vercel's [Deployment Protection](https://vercel.com/docs/deployment-protection) (Vercel Authentication on every plan, [Passport](https://vercel.com/docs/passport) with your own identity provider on Enterprise), or Netlify's [password and SSO protection](https://docs.netlify.com/manage/security/secure-access-to-sites/password-protection/).
+An access proxy sits in front of the whole site and demands a sign-in before any request reaches it: [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), Vercel's [Deployment Protection](https://vercel.com/docs/deployment-protection), or Netlify's [password and SSO protection](https://docs.netlify.com/manage/security/secure-access-to-sites/password-protection/).
 Putting one in front of the admin panel is worth doing: it keeps unauthenticated traffic away from `/admin` entirely, and the admin bundle with it.
 
-### The editor still signs in twice
+### The editor still signs in twice, but barely
 
 Pointing the proxy at the same identity provider the CMS uses does not remove the CMS's own sign-in, and no configuration can make it.
 The two prove different things:
 
-- The proxy establishes **identity**.
-  It runs its own OAuth exchange, consumes the resulting token itself, and issues a session cookie for your hostname.
-  The provider's token never reaches the application: Cloudflare passes through custom OIDC claims, Vercel Passport a signed JWT of claims, neither the upstream access token.
-  Cloudflare's GitHub integration only requests read-only organization and email scopes anyway, so the token could not write a commit even if it were forwarded.
-- The CMS needs a **capability**: a repository-scoped token it uses from the browser against the Git provider's API.
-  Only a grant the editor makes to the CMS's own OAuth app produces one.
+- The proxy establishes **identity**. It runs its own OAuth exchange, consumes the resulting token itself, and issues a session cookie for your hostname. The provider's token never reaches the application: Cloudflare passes through custom OIDC claims, Vercel Passport a signed JWT of claims, neither the upstream access token.
+- The CMS needs a **capability**: a repository-scoped token it uses against the Git provider's API. Only a grant the editor makes to the CMS's own app produces one.
 
-What you can do is make the second sign-in cheap.
-On GitHub, set [`flow: "redirect"`](#sign-in-flow): the editor has a live provider session from the proxy sign-in moments earlier, so GitHub approves the redirect without prompting and returns them to the admin panel.
-GitLab already works this way.
+Behind Cloudflare Access the CMS makes the second one invisible.
+Access sets a `Cf-Access-Jwt-Assertion` header on every request it lets through, and when the CMS sees it with no session of its own it starts the provider redirect immediately instead of showing a sign-in button.
+The editor has a live provider session from moments earlier, so the provider approves without prompting and returns them to the admin panel.
+This needs no configuration at all.
+
+<Aside type="note">
+  The header is read as a hint about what to render, never as a permission, so it is deliberately not
+  verified. Forging it buys nothing: the redirect it triggers still has to complete a real OAuth
+  exchange against your app.
+</Aside>
 
 ### Expired proxy sessions
 
-When a proxy session lapses mid-edit, the proxy answers requests with a redirect to its own login origin.
-Reads and writes are unaffected, since those go straight to the Git provider's API, cross-origin, past the proxy entirely.
-The AI relay and the GitHub token exchange are routes on your own site, though, and a browser can only surface that redirect as an opaque network failure.
+When a proxy session lapses mid-edit, the proxy answers requests with a redirect to its own login origin, which a browser can only surface as an opaque network failure.
 The CMS detects it and says so, asking for a page reload, which is the only thing that can complete the proxy's sign-in.
-To make it rare, set the proxy's session lifetime longer than the Git provider's token lifetime.
+To make it rare, set the proxy's session lifetime longer than the CMS session's.
 
 <Aside type="caution">
-  Deployment Protection and Access gate the injected server routes along with everything else, so the
-  AI relay is unreachable to anything that cannot sign in. That is the intent for editors, but it
-  also means uptime checks and automation need the platform's bypass mechanism (Vercel's [Protection
-  Bypass for
+  Deployment Protection and Access gate the CMS API along with everything else, so it is unreachable
+  to anything that cannot sign in. That is the intent for editors, but it also means uptime checks
+  and automation need the platform's bypass mechanism (Vercel's [Protection Bypass for
   Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation),
   a Cloudflare Access [service
   token](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)).
 </Aside>
-
-### Netlify's hosted OAuth
-
-Netlify offers the token exchange as a [hosted service](https://docs.netlify.com/manage/security/secure-access-to-sites/oauth-provider-tokens/): you register the client ID and secret under **Project configuration > Access & security > OAuth** and Netlify signs the exchange.
-It is the same idea as `flow: "redirect"`, with the secret held by Netlify instead of by your own route, and it uses a popup and a Netlify-hosted callback URL rather than a plain redirect.
-The CMS does not use it, because the injected route works identically on every host and keeps the callback URL on your own domain.

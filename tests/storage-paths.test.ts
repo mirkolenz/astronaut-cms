@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { StorageBase } from "@client/lib/storage/base";
+import { StorageBase } from "@server/storage/base";
 import type { CollectionManifest } from "@shared/types";
 
 // A concrete StorageBase that exposes the protected path helpers, so we can pin
 // that glob-collection storage paths come from the loader's `base`
 // (content.config.ts) rather than being hard-coded from the collection key.
 class TestStorage extends StorageBase {
-  readonly capabilities = { publish: false, update: false };
-
   collectionPath(collection: string) {
     return this.getCollectionPath(collection);
   }
@@ -33,13 +31,13 @@ class TestStorage extends StorageBase {
   removeMedia() {
     return Promise.resolve();
   }
-  writeEntry() {
+  readMedia() {
+    return Promise.reject(new Error("n/a"));
+  }
+  commitFile() {
     return Promise.resolve();
   }
-  deleteEntry() {
-    return Promise.resolve();
-  }
-  reorderEntries() {
+  removeFile() {
     return Promise.resolve();
   }
   publish() {
@@ -75,7 +73,13 @@ const schemas: CollectionManifest = {
 };
 
 describe("StorageBase glob paths", () => {
-  const storage = new TestStorage(schemas, "src/assets");
+  const storage = new TestStorage({
+    collections: schemas,
+    mediaDirectory: "src/assets",
+    mediaExtensions: [".png"],
+    maxFileSize: null,
+    login: "test",
+  });
 
   it("resolves the collection path from the loader base, not the key", () => {
     expect(storage.collectionPath("posts")).toBe("src/content/blog");
@@ -89,7 +93,7 @@ describe("StorageBase glob paths", () => {
       "src/content/posts/c.md", // the key's directory, not the base — must be ignored
       "src/assets/x.png",
     ]);
-    expect(entries.map((e) => e.id)).toEqual(["a", "nested/b"]);
+    expect(entries.map((entry) => entry.id)).toEqual(["a", "nested/b"]);
   });
 
   it("falls back to src/content/<name> when no base is captured", () => {

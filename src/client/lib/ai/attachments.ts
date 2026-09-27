@@ -3,7 +3,8 @@ import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
 import config from "virtual:astronaut-cms/config";
 import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@shared/media";
-import { getMedia } from "@client/lib/media";
+import { uploadMedia } from "@client/lib/media";
+import { call } from "@client/lib/api";
 import { optimizeImage } from "@client/lib/image-utils";
 
 const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -94,9 +95,9 @@ export async function prepareMessage(
   // Nobody is asked whether to overwrite here, so every saved attachment gets a
   // free name instead. Listed once and grown as uploads land, so two attachments
   // in one message cannot replace each other either.
-  const taken = new Set(
+  const taken = new Set<string>(
     attachments.some((a) => a.save && isImageAttachment(a.file))
-      ? (await getMedia().listMedia()).map((file) => file.path)
+      ? (await call("listMedia", {})).map((file) => file.path)
       : [],
   );
 
@@ -107,7 +108,7 @@ export async function prepareMessage(
         const path = uniqueMediaPath(optimized.name, taken);
 
         taken.add(path);
-        await getMedia().uploadMedia(path, optimized);
+        await uploadMedia(path, optimized);
         // The model is handed the reference content stores, not the library path,
         // since the only thing it does with it is write it into a field.
         savedPaths.push(mediaRef(path, config));

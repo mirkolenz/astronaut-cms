@@ -8,6 +8,11 @@ export type ContentFormat = (typeof CONTENT_FORMATS)[number];
 export type DataFormat = (typeof DATA_FORMATS)[number];
 export type EntryFormat = (typeof ALL_FORMATS)[number];
 
+/** A file extension as one of the formats the CMS knows, or null for anything else. */
+export function asEntryFormat(value: string): EntryFormat | null {
+  return (ALL_FORMATS as readonly string[]).includes(value) ? (value as EntryFormat) : null;
+}
+
 export type CollectionType = "content" | "data";
 export type StorageType = "local" | "github" | "gitlab";
 export type FileEntryLayout = "array" | "object";
@@ -62,26 +67,41 @@ export function entryFilePath(
 export interface EntryMeta {
   id: string;
   collection: string;
-  format: string;
+  format: EntryFormat;
 }
 
 export interface EntryContent {
   id: string;
   data: Record<string, unknown>;
   body: string;
-  format: string;
+  format: EntryFormat;
 }
 
 export interface SaveEntryRequest {
   data: Record<string, unknown>;
   body: string;
-  format: string;
+  format: EntryFormat;
 }
 
 /** One file in the media library, addressed relative to the library root. */
 export interface MediaFile {
   path: string;
   size: number;
+}
+
+/**
+ * A deletion that can still be undone. Only an object-store library has these: a
+ * repository library's deletions are a commit on the draft branch, which git
+ * keeps whether or not the CMS does.
+ */
+export interface TrashedFile {
+  /** Opaque to the caller, and what restoring or purging addresses. */
+  id: string;
+  /** Where restoring would put it back. */
+  path: string;
+  size: number;
+  /** Epoch milliseconds the file was deleted. */
+  deletedAt: number;
 }
 
 export type ChangeKind = "added" | "modified" | "deleted" | "renamed";

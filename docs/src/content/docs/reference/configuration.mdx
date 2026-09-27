@@ -68,22 +68,18 @@ Only available during development.
   repo: string;
   branch?: string;
   clientId: string;
-  authMode?: "oauth-app" | "github-app";
-  flow?: "device" | "redirect";
-  scopes?: string[];
   publishMode?: "direct" | "pull-request";
 }
 ```
 
-| Property      | Type                          | Default       | Description                                                                      |
-| ------------- | ----------------------------- | ------------- | -------------------------------------------------------------------------------- |
-| `repo`        | `string`                      | required      | Repository in `owner/repo` format                                                |
-| `branch`      | `string`                      | `"main"`      | Target branch                                                                    |
-| `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                                         |
-| `authMode`    | `"oauth-app" \| "github-app"` | `"github-app"` | Authentication strategy. `github-app` issues repository-limited, expiring tokens; `oauth-app` issues a coarse, non-expiring `repo` token. See [Security Model](/astronaut-cms/guides/security/#the-browser-token) |
-| `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow; `redirect` needs a client secret and an SSR adapter                |
-| `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app`                      |
-| `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | Commit strategy                                                                  |
+| Property      | Type                         | Default    | Description                                                          |
+| ------------- | ---------------------------- | ---------- | -------------------------------------------------------------------- |
+| `repo`        | `string`                     | required   | Repository in `owner/repo` format                                    |
+| `branch`      | `string`                     | `"main"`   | Target branch                                                        |
+| `clientId`    | `string`                     | required   | GitHub **App** client ID. A classic OAuth App is not supported       |
+| `publishMode` | `"direct" \| "pull-request"` | `"direct"` | Commit strategy                                                      |
+
+The client secret goes in `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET`; see [Storage Backends](/astronaut-cms/guides/storage-backends/#setting-up-the-github-app).
 
 ### GitLab Storage
 
@@ -126,7 +122,7 @@ interface MediaConfig {
 | ------------------- | -------------------- | ------------------ | ---------------------------------------------------- |
 | `directory`         | `string`             | `"src/assets"`     | Media directory relative to project root (`repo` backend) |
 | `allowedExtensions` | `string[]`           | common types       | Allowed file extensions (with leading dot)           |
-| `maxFileSize`       | `number`             | unlimited          | Maximum upload size in bytes. Checked in the admin, and signed into the presigned upload so the store enforces it too |
+| `maxFileSize`       | `number`             | unlimited          | Maximum upload size in bytes. Checked in the admin, signed into the upload URL, and checked again against the stored object before it enters the library |
 | `alwaysInclude`     | `string[]`           | `[]`               | Globs, relative to `directory`, to bundle regardless (`repo` backend) |
 | `backend`           | `MediaBackendConfig` | `{ type: "repo" }` | Where the library's files live                       |
 
@@ -142,7 +138,7 @@ type MediaBackendConfig =
       type: "s3";
       bucket: string;
       endpoint: string;
-      publicUrl: string;
+      publicUrl?: string;
       region?: string;
       prefix?: string;
       forcePathStyle?: boolean;
@@ -150,7 +146,7 @@ type MediaBackendConfig =
   | {
       type: "r2";
       bucket: string;
-      publicUrl: string;
+      publicUrl?: string;
       accountId?: string;
       binding?: string;
       prefix?: string;
@@ -161,7 +157,7 @@ type MediaBackendConfig =
 | ---------------- | ---------- | --------------------------------------------------------------------------- |
 | `bucket`         | `s3`, `r2` | Bucket holding the library                                                   |
 | `endpoint`       | `s3`       | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                    |
-| `publicUrl`      | `s3`, `r2` | Public base URL the library is served under, and what content resolves against |
+| `publicUrl`      | `s3`, `r2` | Public base URL the library is served under, and what content resolves against. Omit for a [private library](../../guides/media-library/#no-public-base-at-all) |
 | `region`         | `s3`       | Signing region (default `"auto"`)                                            |
 | `prefix`         | `s3`, `r2` | Key prefix the library is rooted at (default: the bucket root)                |
 | `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                               |

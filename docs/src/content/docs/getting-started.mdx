@@ -69,6 +69,29 @@ import StepItem from "@/components/StepItem.astro";
   </StepItem>
 </Steps>
 
+## Deploying
+
+`astro dev` edits the working tree and needs no sign-in, so everything above works with no further setup.
+A deployed CMS is different: it holds the repository session on the server, so it needs two things.
+
+<Steps>
+  <StepItem title="An SSR adapter">
+    `@astrojs/node`, `@astrojs/cloudflare`, `@astrojs/vercel`, `@astrojs/netlify` — whichever suits
+    your host. The rest of your site can stay static. The build fails with a message if one is
+    missing.
+  </StepItem>
+
+  <StepItem title="A Git backend">
+    A [GitHub App or GitLab application](../guides/storage-backends/), whose client id goes in
+    `astro.config.ts` and whose secret goes in the environment as
+    `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` (or `..._GITLAB_...`).
+
+    That is the only secret. The session cookie's key is derived from it, so there is nothing to
+    generate, seed or keep in sync.
+
+  </StepItem>
+</Steps>
+
 ## Next Steps
 
 - Learn how to [configure the integration](../guides/astro-config/).

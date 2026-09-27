@@ -23,6 +23,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@client": resolve(import.meta.dirname, "src/client"),
+      "@server": resolve(import.meta.dirname, "src/server"),
       "@shared": resolve(import.meta.dirname, "src/shared"),
       "@integration": resolve(import.meta.dirname, "src/integration"),
       "@assets": resolve(import.meta.dirname, "assets"),
@@ -52,9 +53,9 @@ export default defineConfig({
         config: "src/config.ts",
         client: "src/client/index.tsx",
         assets: "src/assets/index.ts",
-        "ai-endpoint": "src/ai/endpoint.ts",
-        "auth-endpoint": "src/auth/endpoint.ts",
-        "media-endpoint": "src/media/endpoint.ts",
+        "media-presign": "src/media/presign.ts",
+        endpoint: "src/server/endpoint.ts",
+        "server-local": "src/server/storage/local.ts",
         internal: "src/internal/index.ts",
       },
       formats: ["es"],

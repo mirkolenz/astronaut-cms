@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { EntryFormat } from "@shared/types";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries } from "@client/queries/use-entries";
@@ -80,7 +81,7 @@ function GlobCollectionPage({
 
   // Nothing is written yet: the editor holds the new entry until its first save,
   // so an abandoned one leaves no invalid file behind.
-  const handleCreate = (id: string, format: string) => {
+  const handleCreate = (id: string, format: EntryFormat) => {
     setShowNewDialog(false);
     void navigate({
       to: "/collections/$collection/$entry",

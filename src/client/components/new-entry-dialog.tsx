@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { validatePath, validateSegment } from "@shared/validation";
 import { localeLabel } from "@shared/i18n";
-import { CONTENT_FORMATS, DATA_FORMATS } from "@shared/types";
+import { CONTENT_FORMATS, DATA_FORMATS, type EntryFormat } from "@shared/types";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,7 @@ interface NewEntryDialogProps {
   /** Allow slash-separated ids that create nested folders (glob collections). */
   nested?: boolean;
   allowedFormats?: string[] | null;
-  onSubmit: (id: string, format: string) => void;
+  onSubmit: (id: string, format: EntryFormat) => void;
   onCancel: () => void;
 }
 
@@ -64,7 +64,7 @@ export function NewEntryDialog({
       allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f.value)) : allFormats,
     [allFormats, allowedFormats],
   );
-  const [format, setFormat] = useState<string>(formats[0]?.value ?? allFormats[0].value);
+  const [format, setFormat] = useState<EntryFormat>(formats[0]?.value ?? allFormats[0].value);
 
   useEffect(() => {
     if (open) {
@@ -144,7 +144,7 @@ export function NewEntryDialog({
             {formats.length > 1 && (
               <div>
                 <Label>{t(($) => $.newEntryDialog.format)}</Label>
-                <Select value={format} onValueChange={setFormat}>
+                <Select value={format} onValueChange={(value) => setFormat(value as EntryFormat)}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>

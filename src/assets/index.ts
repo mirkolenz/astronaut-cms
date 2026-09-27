@@ -10,9 +10,11 @@
  *
  * With an object-store media backend there is no map and nothing to bundle: the
  * value content stores is a library key, and resolving it means putting the
- * configured public base in front. `resolveImage` then hands back that URL rather
- * than `ImageMetadata`, which is exactly what `astro:assets` `<Image>` takes for
- * a remote image (`astronaut-cms/Image.astro` passes it on with `inferSize`).
+ * configured public base in front — or, for a library with no public base,
+ * signing a URL for it while the site builds. `resolveImage` then hands back that
+ * URL rather than `ImageMetadata`, which is exactly what `astro:assets` `<Image>`
+ * takes for a remote image (`astronaut-cms/Image.astro` passes it on with
+ * `inferSize`).
  *
  * What needs resolving here is what astro cannot resolve for you: the `image()`
  * and `file()` props of MDX components, and `file()` collection fields. A
@@ -34,6 +36,7 @@ import { mediaPath, remoteMediaUrl, type ClientMediaBackend } from "../shared/me
 import { isAbsoluteUrl } from "../shared/url.ts";
 import config from "virtual:astronaut-cms/config";
 import { images, files, referencedOnly } from "virtual:astronaut-cms/assets";
+import { mediaSourceUrl } from "virtual:astronaut-cms/media-source";
 
 type RemoteBackend = Extract<ClientMediaBackend, { type: "remote" }>;
 
@@ -66,21 +69,28 @@ function libraryKey(path: string): string {
  * under the public base — or, for a dev run whose library is the working tree,
  * the file that key names, loaded through the map like any repository asset.
  */
-function resolve<T>(
+async function resolve<T>(
   map: Record<string, () => Promise<T>>,
   kind: string,
   path: string,
   base?: string,
-): Promise<T> | string {
+): Promise<T | string> {
   if (!remote) return load(map, kind, assetKey(path, base));
 
   if (isAbsoluteUrl(path)) return path;
 
   const key = libraryKey(path);
 
-  return remote.local
-    ? load(map, kind, join("/", config.mediaDirectory, key))
-    : remoteMediaUrl(key, remote.publicUrl);
+  if (remote.local) return load(map, kind, join("/", config.mediaDirectory, key));
+
+  // A public library is pure string work and never reaches the store. A private
+  // one is signed per key, which only a build can do — which is exactly when the
+  // integration links a signer in, so there is no third case here.
+  if (remote.publicUrl) return remoteMediaUrl(key, remote.publicUrl);
+
+  if (!mediaSourceUrl) throw new Error("The media library has no public base and cannot sign one.");
+
+  return mediaSourceUrl(key);
 }
 
 function load<T>(map: Record<string, () => Promise<T>>, kind: string, key: string): Promise<T> {

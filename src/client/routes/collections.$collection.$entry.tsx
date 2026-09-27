@@ -11,7 +11,7 @@ import {
 } from "@client/queries/use-entries";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { isRequired, objectShape } from "@shared/field-schema";
-import { schemaDefaults } from "@client/lib/schema";
+import { schemaDefaults } from "@shared/collection-schema";
 import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { EntryIdDialog } from "@client/components/entry-id-dialog";
@@ -26,13 +26,17 @@ import { TranslationSwitcher } from "@client/components/translation-switcher";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
+import { asEntryFormat, type EntryFormat } from "@shared/types";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
   component: EntryEditor,
   // `new` carries the format of an entry that does not exist yet: the editor
   // holds it as a draft and the first save creates it.
-  validateSearch: (search: Record<string, unknown>): { new?: string } =>
-    typeof search.new === "string" ? { new: search.new } : {},
+  validateSearch: (search: Record<string, unknown>): { new?: EntryFormat } => {
+    const format = typeof search.new === "string" ? asEntryFormat(search.new) : null;
+
+    return format ? { new: format } : {};
+  },
 });
 
 function EntryEditor() {

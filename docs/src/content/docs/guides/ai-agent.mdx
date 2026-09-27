@@ -6,28 +6,27 @@ description: Enable an agentic AI assistant that creates and edits content from 
 import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 The AI assistant adds a chat panel to the admin where you can ask an agent to create, edit, reorder, or remove content.
-The agent runs entirely in the browser and calls the same storage backend the UI uses, so it inherits exactly your permissions and routes every change through your draft branch and pull/merge request.
+Every tool the agent calls is one operation on the CMS server, so it reaches exactly what the interface reaches, is validated exactly as your own edits are, and routes every change through your draft branch and pull/merge request.
 
 ## How it works
 
-Only raw model inference leaves the browser.
-The agent loop, the content tools, and the chat UI all run client-side, so the assistant keeps the CMS fully client-side in spirit.
+The agent loop and the chat interface run in the browser; the tools it calls and the credential it spends do not.
 
-Model requests go to a small relay route that the integration injects at `/_astronaut-cms/ai/chat/completions`.
-The relay holds no secret of its own.
-It re-validates the caller's existing GitHub or GitLab token against your configured repository (the same write-access check the CMS already performs) and then forwards the request to your AI gateway using credentials the hosting platform injects.
+A tool call is an ordinary CMS API request, authenticated by the same session cookie everything else uses.
+Model requests go to a relay the integration serves at `/_astronaut-cms/api/ai/chat/completions`, which adds your gateway credential and forwards the request.
+The relay holds no secret of its own: credentials come from the config or from the environment your platform injects.
 
-This means no new secret is added to your app, and access to the models is gated by your existing login.
+Keeping the loop in the browser is deliberate.
+Each relay call is a single model round-trip rather than a whole multi-step conversation, so no serverless duration limit can cut a turn in half.
 
 ## Requirements
 
-The relay is an on-demand route, so the consuming site needs an Astro server adapter (`@astrojs/netlify`, `@astrojs/vercel`, or `@astrojs/cloudflare`).
-You configure it statically in `astro.config.ts`, and the rest of your site can stay static.
+The CMS needs an Astro server adapter regardless (`@astrojs/node`, `@astrojs/netlify`, `@astrojs/vercel`, `@astrojs/cloudflare`), so the assistant adds no new deployment requirement beyond the gateway itself.
 
 ## Runtime and limits
 
 The relay is a pure Fetch-API streaming proxy with negligible CPU use, so its cost depends on where it runs, not on how long the model takes.
-Because the agent loop runs in the browser, each relay call handles a single model round-trip, never the whole multi-step conversation, so its duration is just one response.
+Each call handles a single model round-trip, so its duration is just one response.
 
 - **Cloudflare**: runs on Workers (the edge). Billed on CPU time, which excludes time spent waiting on the model, so a long generation is effectively free and there is no duration cap to worry about.
 - **Vercel**: runs as a serverless function. The default max duration (300s) comfortably covers a single model response.
@@ -160,19 +159,20 @@ For the same reason a new entry is held in the editor until you first save it �
 The agent reads content: entry bodies, media listings, documents you attach.
 Any of that can try to instruct the model, so what matters is not whether a model can be fooled but what a fooled model could do.
 
-Because every tool writes into the changeset, the answer is "nothing a discard would not undo" — with one exception, which is why it is not offered:
+The answer is bounded by the server rather than by the tool list:
 
-<Aside type="caution" title="Media tools and object stores">
-  `renameMedia` and `deleteMedia` are in the agent's tool set **only when the media library is part
-  of the changeset** — a repository library, or the working-tree library `astro dev` uses. With an
-  object-store backend an object write takes effect immediately, for every visitor, and no
-  changeset holds it, so those tools are absent entirely and the library is managed by hand in the
-  media view.
-</Aside>
+- **Content writes** land in the changeset, so nothing a discard would not undo.
+- **`renameMedia` and `deleteMedia`** are refused while any entry still references the file. That is
+  a rule of the library, not caller discipline: only a human who has been shown those references in
+  the media view can acknowledge them and proceed.
+- **An object-store deletion** moves the file to the library's `.trash/` prefix rather than dropping
+  it, so even an acknowledged one is recoverable.
+- **Publishing** is not offered at all. The agent says what it changed and leaves that decision to
+  you.
 
 ### Cost controls
 
-The relay holds your gateway credential, so an editor's token is otherwise a licence to bill your account without bound.
+The relay holds your gateway credential, so a session is otherwise a licence to bill your account without bound.
 `ai.limits` caps what one editor can spend:
 
 ```ts title="astro.config.ts"
@@ -184,24 +184,26 @@ cms({
     limits: {
       maxRequestBytes: 1024 * 1024, // request body cap (default: 1 MiB)
       maxOutputTokens: 8192, // clamped onto max_tokens, set whether asked for or not
-      requestsPerMinute: 60, // per editor
-      concurrency: 4, // per editor, held until the stream ends
     },
   },
 });
 ```
 
+How *often* an editor may call is not configured, it follows from `maxSteps`.
+A turn is up to `maxSteps` relay requests, so the per-minute ceiling is four turns' worth and a raised `maxSteps` cannot make a single turn throttle itself halfway through.
+Concurrency is capped at four in flight per editor, each slot held until its stream ends.
+
 <Aside type="caution">
   Any user with write access to the repository can use the assistant, and its usage counts against
   your unified bill. The limits above bind one warm instance rather than the whole deployment, since
-  an injected route holds no shared state — they stop a runaway loop, not a determined one. Keep the
+  the route holds no shared state — they stop a runaway loop, not a determined one. Keep the
   `models` list small and set a spending cap in your gateway dashboard, which is the only ceiling
   that counts across instances.
 </Aside>
 
 ## Local development
 
-During `astro dev` the CMS uses local storage and the relay skips token verification, so you can try the assistant without a provider login.
+During `astro dev` the CMS uses local storage, which has no sign-in at all, so you can try the assistant without a provider login.
 For `netlify` and `vercel` gateways, run the dev server through the platform CLI (`netlify dev` or `vercel dev`) so credentials are injected; `cloudflare` and `custom` gateways work directly from the config.
 
 ### Testing against a local model
@@ -221,6 +223,6 @@ ai: {
 }
 ```
 
-No secret is needed: local storage skips token verification and `llama-server` requires no API key.
+No secret is needed: local storage has no sign-in and `llama-server` requires no API key.
 The model id is arbitrary because `llama-server` serves whichever model it loaded, so any value in `models` works as long as the agent picks it.
 Use `--jinja` so the server applies the model's tool-calling chat template, which the agent relies on.

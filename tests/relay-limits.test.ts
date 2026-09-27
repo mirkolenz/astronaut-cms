@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BodyTooLargeError, readBody } from "@shared/http";
-import { RateLimiter } from "@shared/rate-limit";
+import { RateLimiter, callerAddress, limited } from "@shared/rate-limit";
 import { isActiveContentType, mediaContentType } from "@shared/media";
 
 // The injected routes spend something the caller does not own — a gateway
@@ -56,5 +56,53 @@ describe("stored content types", () => {
     expect(mediaContentType("notes.unknown")).toBe("application/octet-stream");
     expect(isActiveContentType(mediaContentType("logo.svg"))).toBe(true);
     expect(isActiveContentType(mediaContentType("logo.png"))).toBe(false);
+  });
+});
+
+describe("limited", () => {
+  const budget = () => new RateLimiter({ requests: 2, windowMs: 60_000, concurrency: 1 });
+  const denied = () => new Error("too many");
+
+  it("releases the slot however the work ends", async () => {
+    const limiter = budget();
+
+    await limited(limiter, "alice", denied, () => Promise.resolve("ok"));
+    await limited(limiter, "alice", denied, () => Promise.reject(new Error("boom"))).catch(
+      () => undefined,
+    );
+
+    // Two requests spent, but neither left a slot held.
+    await expect(limited(limiter, "alice", denied, () => Promise.resolve("x"))).rejects.toThrow(
+      "too many",
+    );
+    await expect(limited(limiter, "bob", denied, () => Promise.resolve("x"))).resolves.toBe("x");
+  });
+
+  // The expensive operations are capped by concurrency rather than by rate: one
+  // reference scan at a time per editor, whatever the interface asks for.
+  it("serializes work when concurrency is one", async () => {
+    const limiter = budget();
+    let release = () => {};
+    const first = limited(limiter, "alice", denied, () => new Promise<void>((r) => (release = r)));
+
+    await expect(
+      limited(limiter, "alice", denied, () => Promise.resolve("second")),
+    ).rejects.toThrow("too many");
+
+    release();
+    await first;
+  });
+});
+
+// The platform sets one of these in front of a serverless function; reached
+// directly they are the caller's to spell, which is why a shared bucket backs them.
+describe("callerAddress", () => {
+  const from = (headers: Record<string, string>) =>
+    callerAddress(new Request("https://x.test/", { headers }));
+
+  it("prefers the platform header and takes the first forwarded hop", () => {
+    expect(from({ "cf-connecting-ip": "1.1.1.1", "x-forwarded-for": "9.9.9.9" })).toBe("1.1.1.1");
+    expect(from({ "x-forwarded-for": "2.2.2.2, 3.3.3.3" })).toBe("2.2.2.2");
+    expect(from({})).toBe("anonymous");
   });
 });

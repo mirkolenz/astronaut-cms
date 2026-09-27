@@ -10,9 +10,6 @@ import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
  * without rewriting entries.
  */
 
-/** Root-relative path of the media route, which serves its whole API from here. */
-export const MEDIA_API_BASE = "/_astronaut-cms/media";
-
 export const S3_ACCESS_KEY_ID_ENV = "ASTRONAUT_CMS_S3_ACCESS_KEY_ID";
 export const S3_SECRET_ACCESS_KEY_ENV = "ASTRONAUT_CMS_S3_SECRET_ACCESS_KEY";
 export const S3_SESSION_TOKEN_ENV = "ASTRONAUT_CMS_S3_SESSION_TOKEN";
@@ -22,15 +19,19 @@ export type ClientMediaBackend =
   | { type: "repo" }
   | {
       type: "remote";
-      /** The base the library's keys are publicly served under. */
-      publicUrl: string;
+      /** The base the library's keys are publicly served under, absent for a private library. */
+      publicUrl?: string;
       /**
-       * Origin the browser PUTs a presigned upload to, absent when the store
-       * cannot presign and every upload is proxied through the site. It says
-       * only where the store lives — the same thing a presigned URL reveals —
-       * and exists so the admin's CSP can allow the connection it has to make.
+       * Origin of the store's own S3 API, absent when it cannot be signed for
+       * and every upload is proxied through the site instead.
+       *
+       * Two things need it, and both need exactly this: the admin's CSP, which
+       * has to allow the upload the browser PUTs there, and astro's
+       * `image.remotePatterns` for a private library, whose images are fetched
+       * from signed URLs on that same origin. It says only where the store
+       * lives, which is what a signed URL reveals anyway.
        */
-      uploadOrigin?: string;
+      storeOrigin?: string;
       /**
        * `astro dev` only: the bytes live in the working tree under the media
        * directory rather than in the store, while references keep the store's
@@ -59,7 +60,7 @@ export function isTransactionalMedia(backend: ClientMediaBackend): boolean {
   return backend.type === "repo" || backend.local === true;
 }
 
-/** Enforced in the admin before sending, and again in the route: a presigned URL enforces nothing. */
+/** Enforced in the admin before sending, and again on the server, which is where it counts. */
 export function assertWithinSizeLimit(size: number, maxFileSize: number | null): void {
   if (maxFileSize != null && size > maxFileSize) {
     throw new Error(
@@ -139,17 +140,35 @@ export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): strin
   }
 }
 
+/** Where a presigned upload is addressed: the endpoint, or the bucket's virtual host. */
+export interface S3Target {
+  endpoint: string;
+  pathStyle: boolean;
+  bucket: string;
+}
+
+/**
+ * Origin a presigned PUT against this target points at. Virtual-host addressing
+ * puts the bucket in the hostname, so it is the endpoint's origin only when
+ * path-style is forced.
+ *
+ * Pure URL arithmetic, and shared because the two things that need it sit on
+ * opposite sides of the build: the SDK the route configures, and the admin's
+ * CSP, which the integration resolves. A `connect-src` that disagrees with the
+ * SDK blocks every upload with no error an operator can read.
+ */
+export function presignedUploadOrigin(target: S3Target): string {
+  const url = new URL(target.endpoint);
+
+  if (!target.pathStyle) url.hostname = `${target.bucket}.${url.hostname}`;
+
+  return url.origin;
+}
+
 /** The public URL a library path is served under by a remote backend. */
 export function remoteMediaUrl(path: string, publicUrl: string): string {
   return joinUrl(publicUrl, encodeKeyPath(path));
 }
-
-/**
- * Where an upload's bytes go, and on what terms. The Git token must never be
- * attached to a store's own URL, and `contentType` is the type the presigned URL
- * was signed for — the browser sends it verbatim rather than its own guess.
- */
-export type UploadTarget = { proxy: false; url: string; contentType: string } | { proxy: true };
 
 // Types the library's default extensions map to. Anything unlisted is stored as
 // a generic download, which is the safe reading of a file the CMS cannot name.

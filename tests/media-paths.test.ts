@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { mediaPath, mediaRef, remoteMediaUrl, uniqueMediaPath } from "@shared/media";
+import { ObjectStoreLibrary } from "@server/media";
+import type { MediaStore } from "../src/media/store";
 
 // One rule maps a library path to the string content stores, and back. The two
 // backends spell it differently — a project path for a library in the
@@ -56,5 +58,114 @@ describe("media paths", () => {
     expect(uniqueMediaPath("logo.png", taken)).toBe("logo-3.png");
     expect(uniqueMediaPath("photos/hero.png", taken)).toBe("photos/hero-2.png");
     expect(uniqueMediaPath("notes", taken)).toBe("notes");
+  });
+});
+
+// Only a library with no public base is read through the server at all: the
+// admin addresses a public one directly. So this route always signs, and the
+// signature is over a key the library admits to holding.
+describe("reading a library", () => {
+  const store = {
+    presignDownload: (key: string) => Promise.resolve(`https://store.example/${key}?sig=x`),
+  } as unknown as MediaStore;
+
+  const library = (from: MediaStore = store) =>
+    new ObjectStoreLibrary(
+      from,
+      { bucket: "b", prefix: "lib/", s3: null, binding: null },
+      { extensions: ["png"], maxFileSize: null },
+    );
+
+  it("signs a read under the configured prefix", async () => {
+    await expect(library().readMedia("photos/hero.png")).resolves.toEqual({
+      redirect: "https://store.example/lib/photos/hero.png?sig=x",
+    });
+  });
+
+  // A read may no more reach the prefix the library keeps for itself, or climb
+  // out of its root, than a write may.
+  it("refuses a reserved or escaping path", async () => {
+    await expect(library().readMedia(".trash/hero.png")).rejects.toThrow(/reserved/);
+    await expect(library().readMedia("../secrets.png")).rejects.toThrow();
+  });
+
+  it("refuses a store that cannot sign", async () => {
+    const binding = { presignDownload: () => Promise.resolve(null) } as unknown as MediaStore;
+
+    await expect(library(binding).readMedia("photos/hero.png")).rejects.toThrow(/cannot sign/);
+  });
+});
+
+// An object store keeps no history, so the trash is the only thing standing
+// between a wrong delete and a lost file. What it stores has to survive the
+// round trip: the original path, and nothing a caller could have spelled.
+describe("the trash", () => {
+  function fakeStore() {
+    const objects = new Map<string, number>([["lib/photos/hero.png", 12]]);
+
+    return {
+      objects,
+      store: {
+        list: (prefix: string) =>
+          Promise.resolve(
+            [...objects].filter(([key]) => key.startsWith(prefix)).map(([key, size]) => ({ key, size })),
+          ),
+        head: (key: string) =>
+          Promise.resolve(objects.has(key) ? { key, size: objects.get(key)! } : null),
+        copy: (from: string, to: string, ifAbsent?: boolean) => {
+          if (ifAbsent && objects.has(to)) return Promise.reject(new Error("PreconditionFailed"));
+
+          objects.set(to, objects.get(from)!);
+
+          return Promise.resolve();
+        },
+        remove: (key: string) => {
+          objects.delete(key);
+
+          return Promise.resolve();
+        },
+      } as unknown as MediaStore,
+    };
+  }
+
+  const libraryOf = (store: MediaStore) =>
+    new ObjectStoreLibrary(
+      store,
+      { bucket: "b", prefix: "lib/", s3: null, binding: null },
+      { extensions: ["png"], maxFileSize: null },
+    );
+
+  it("round-trips a deletion back to its original path", async () => {
+    const { objects, store } = fakeStore();
+    const library = libraryOf(store);
+
+    await library.deleteMedia("photos/hero.png");
+    expect(objects.has("lib/photos/hero.png")).toBe(false);
+
+    const [trashed] = await library.listTrash();
+    expect(trashed.path).toBe("photos/hero.png");
+
+    await library.restoreMedia(trashed.id);
+    expect(objects.has("lib/photos/hero.png")).toBe(true);
+    expect(await library.listTrash()).toEqual([]);
+  });
+
+  it("refuses an id the library never issued", async () => {
+    const library = libraryOf(fakeStore().store);
+
+    await expect(library.restoreMedia("photos/hero.png")).rejects.toThrow(/not a deleted file/);
+    await expect(library.purgeTrash("../elsewhere")).rejects.toThrow(/not a deleted file/);
+  });
+
+  it("refuses a restore onto a name taken since", async () => {
+    const { objects, store } = fakeStore();
+    const library = libraryOf(store);
+
+    await library.deleteMedia("photos/hero.png");
+    const [trashed] = await library.listTrash();
+
+    objects.set("lib/photos/hero.png", 99);
+
+    await expect(library.restoreMedia(trashed.id)).rejects.toThrow(/already exists/);
   });
 });

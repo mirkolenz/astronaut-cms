@@ -27,12 +27,7 @@ const de: TranslationShape<typeof en> = {
     breadcrumbRoot: "CMS",
   },
   auth: {
-    completingAuth: "Authentifizierung wird abgeschlossen...",
-    signInGitHub: "Mit GitHub anmelden",
-    signInGitLab: "Mit GitLab anmelden",
-    enterCodeAt: "Geben Sie diesen Code ein auf",
-    waitingAuth: "Warte auf Autorisierung...",
-    unsupportedStorage: "Nicht unterstützter Speichertyp: {{type}}",
+    signIn: "Anmelden",
   },
   dashboard: {
     noCollections: "Keine Sammlungen gefunden",
@@ -105,6 +100,17 @@ const de: TranslationShape<typeof en> = {
     deleteReferenced: "Ein Löschen macht sie ungültig.",
     renameReferenced: "Ein Umbenennen macht sie ungültig, da Referenzen den alten Pfad behalten.",
     referencesUnavailable: "Referenzen konnten nicht geprüft werden: {{message}}",
+    trash: "Papierkorb",
+    trashCount: "Papierkorb ({{count}})",
+    trashEmpty: "Nichts kürzlich gelöscht.",
+    trashHint:
+      "Gelöschte Dateien bleiben hier, bis die Lifecycle-Regel des Buckets sie entfernt. Bis dahin sind sie weiterhin über ihre öffentliche URL lesbar.",
+    deletedAt: "Gelöscht {{when}}",
+    restore: "Wiederherstellen",
+    restoring: "Wird wiederhergestellt...",
+    purge: "Endgültig löschen",
+    purgeTitle: "Endgültig löschen",
+    purgeMessage: '"{{name}}" endgültig löschen? Das kann nicht rückgängig gemacht werden.',
   },
   publish: {
     publish: "Veröffentlichen",

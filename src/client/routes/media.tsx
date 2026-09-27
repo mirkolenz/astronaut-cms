@@ -6,16 +6,20 @@ import {
   useDeleteMedia,
   useUploadMedia,
   useRenameMedia,
-  useMediaUrl,
   useReferenceIndex,
+  useTrash,
+  useRestoreMedia,
+  usePurgeTrash,
 } from "@client/queries/use-media";
+import config from "virtual:astronaut-cms/config";
 import {
   classifyUsage,
   describeReference,
+  referencesFor,
   staleReferences,
   type AssetReference,
   type Usage,
-} from "@client/lib/media/references";
+} from "@shared/references";
 import { ErrorBanner } from "@client/components/error-banner";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { ImageLightbox } from "@client/components/image-lightbox";
@@ -24,7 +28,8 @@ import { isImagePath, getFileName } from "@client/lib/asset-utils";
 import { MediaImage } from "@client/components/media-image";
 import { dirSegments, listDirectory } from "@client/lib/entry-tree";
 import { optimizeImage } from "@client/lib/image-utils";
-import { mediaIsTransactional } from "@client/lib/media";
+import { mediaUrl } from "@client/lib/media";
+import { isTransactionalMedia } from "@shared/media";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +72,8 @@ function MediaLibrary() {
   const writeError = uploadMutation.error ?? deleteMutation.error ?? renameMutation.error;
 
   const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
-  const referencesOf = (path: string | null): AssetReference[] => (path && index?.get(path)) || [];
+  const referencesOf = (path: string | null): AssetReference[] =>
+    path && index ? referencesFor(index, path) : [];
 
   // Every destructive action needs to know what it would break, so opening one
   // asks for the index just as the usage view does.
@@ -76,14 +82,12 @@ function MediaLibrary() {
     setTarget(path);
   };
 
-  const lightboxUrl = useMediaUrl(lightboxPath);
-
   // Library-wide, so it survives folder navigation and filter toggles.
   const { usage, stale } = useMemo(() => {
     const paths = files?.map((file) => file.path) ?? [];
 
     return {
-      usage: index && classifyUsage(paths, index),
+      usage: index && classifyUsage(paths, index, config),
       stale: index ? staleReferences(index, paths) : [],
     };
   }, [files, index]);
@@ -140,7 +144,7 @@ function MediaLibrary() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget);
+    deleteMutation.mutate({ path: deleteTarget, force: true });
     setDeleteTarget(null);
   };
 
@@ -150,6 +154,9 @@ function MediaLibrary() {
     renameMutation.mutate({
       oldPath: renameTarget,
       newPath: join(dirname(renameTarget), name),
+      // The dialog above has just shown the editor what references this file,
+      // which is exactly the acknowledgement the server asks for.
+      force: true,
     });
     setRenameTarget(null);
   };
@@ -183,7 +190,7 @@ function MediaLibrary() {
           <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
           {/* An object store has no draft branch: what is uploaded or deleted here
               is live at once, unlike a library in the repository. */}
-          {!mediaIsTransactional && (
+          {!isTransactionalMedia(config.mediaBackend) && (
             <p className="text-xs text-muted-foreground">{t(($) => $.media.immediate)}</p>
           )}
         </div>
@@ -261,7 +268,7 @@ function MediaLibrary() {
             {t(($) => $.media.staleTitle, { count: stale.length })}
           </p>
           <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
-            {stale.map((reference, i) => (
+            {stale.map((reference, i: number) => (
               <li key={i}>
                 {reference.collection} / {reference.entryId} ({reference.where}) &rarr;{" "}
                 <code>{reference.path}</code>
@@ -371,6 +378,8 @@ function MediaLibrary() {
         })}
       </div>
 
+      <TrashPanel />
+
       {/* Hidden file input for replace */}
       <input
         ref={replaceInputRef}
@@ -432,8 +441,101 @@ function MediaLibrary() {
 
       <ImageLightbox
         open={lightboxPath !== null}
-        src={lightboxUrl ?? ""}
+        src={lightboxPath ? mediaUrl(lightboxPath) : ""}
         onClose={() => setLightboxPath(null)}
+      />
+    </div>
+  );
+}
+
+/**
+ * Deletions that can still be undone.
+ *
+ * Renders nothing at all when there are none, which is also how a repository
+ * library behaves: its deletions are a commit, so `listTrash` answers empty and
+ * this never appears. No branch on the backend is needed here.
+ */
+function TrashPanel() {
+  const { t } = useTranslation();
+  const { data: trashed } = useTrash();
+  const restore = useRestoreMedia();
+  const purge = usePurgeTrash();
+  const [open, setOpen] = useState(false);
+  const [purgeTarget, setPurgeTarget] = useState<string | null>(null);
+
+  if (!trashed?.length) return null;
+
+  const target = trashed.find((file) => file.id === purgeTarget);
+
+  return (
+    <div className="mt-6 rounded-md border border-border">
+      <Button
+        type="button"
+        variant="ghost"
+        className="w-full justify-between"
+        onClick={() => setOpen(!open)}
+      >
+        <span>{t(($) => $.media.trashCount, { count: trashed.length })}</span>
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </Button>
+
+      {open && (
+        <div className="border-t border-border p-3">
+          <p className="mb-3 text-xs text-muted-foreground">{t(($) => $.media.trashHint)}</p>
+
+          <ul className="grid gap-2">
+            {trashed.map((file) => (
+              <li key={file.id} className="flex items-center gap-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium" title={file.path}>
+                    {file.path}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatSize(file.size)} ·{" "}
+                    {t(($) => $.media.deletedAt, {
+                      when: new Date(file.deletedAt).toLocaleString(config.locale),
+                    })}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={restore.isPending}
+                  onClick={() => restore.mutate({ id: file.id })}
+                >
+                  {restore.isPending ? t(($) => $.media.restoring) : t(($) => $.media.restore)}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setPurgeTarget(file.id)}
+                >
+                  {t(($) => $.media.purge)}
+                </Button>
+              </li>
+            ))}
+          </ul>
+
+          {/* A restore refused because the name was taken again has nowhere else to go. */}
+          {restore.error && <ErrorBanner>{restore.error.message}</ErrorBanner>}
+          {purge.error && <ErrorBanner>{purge.error.message}</ErrorBanner>}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={target !== undefined}
+        title={t(($) => $.media.purgeTitle)}
+        message={t(($) => $.media.purgeMessage, { name: target?.path ?? "" })}
+        confirmLabel={t(($) => $.common.delete)}
+        variant="danger"
+        onConfirm={() => {
+          if (target) purge.mutate({ id: target.id });
+
+          setPurgeTarget(null);
+        }}
+        onCancel={() => setPurgeTarget(null)}
       />
     </div>
   );

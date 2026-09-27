@@ -1,21 +1,55 @@
 /**
- * Root-relative path for the OAuth token-exchange relay. GitHub-only: it is the
- * one provider that requires a client secret to redeem an authorization code
- * even under PKCE, so its redirect login cannot finish in the browser. GitLab
- * redeems its own codes and never reaches this route. Astro prepends the site
- * `base`.
+ * Where the CMS server lives and what it needs from the environment. Shared so
+ * the browser addresses exactly the routes the integration injects.
  */
-const AUTH_API_BASE = "/_astronaut-cms/auth";
-
-/** Injected-route pattern for the token-exchange endpoint. */
-export const AUTH_TOKEN_PATTERN = `${AUTH_API_BASE}/token`;
-
-/** Environment variable holding the GitHub client secret the relay redeems codes with. */
-export const GITHUB_CLIENT_SECRET_ENV = "ASTRONAUT_CMS_GITHUB_CLIENT_SECRET";
 
 /**
- * Where a GitHub authorization code is redeemed. The relay posts here with the
- * secret added; the device flow posts here straight from the browser, since it
- * needs no secret.
+ * Who issued the session. `local` is `astro dev` against the working tree, which
+ * has no provider and therefore no sign-in at all.
  */
-export const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
+export type Provider = "github" | "gitlab" | "local";
+
+/** Root-relative base of the CMS API. Astro prepends the site `base`. */
+export const API_BASE = "/_astronaut-cms/api";
+
+/** Injected-route pattern covering every CMS API path (see `server/endpoint.ts`). */
+export const API_PATTERN = `${API_BASE}/[...path]`;
+
+/**
+ * The API's paths. Everything except the session probe and the sign-in dance is
+ * one operation on {@link API_RPC}, so the surface a compromised browser can
+ * reach is the operation registry and nothing wider.
+ */
+export const API_SESSION = `${API_BASE}/session`;
+export const API_LOGIN = `${API_BASE}/login`;
+export const API_CALLBACK = `${API_BASE}/callback`;
+export const API_LOGOUT = `${API_BASE}/logout`;
+export const API_RPC = `${API_BASE}/rpc`;
+/** Media bytes, addressed as `${API_MEDIA}/<library path>`. */
+export const API_MEDIA = `${API_BASE}/media`;
+/** Upload bytes, for a store the server cannot hand the browser a URL to. */
+export const API_UPLOAD = `${API_BASE}/upload`;
+
+/**
+ * Optional. The session cookie's key is derived from the OAuth client secret by
+ * default, which every deployment already holds, so nothing has to be generated
+ * or seeded. Set this to key sessions off something else instead — to expire
+ * them without touching the OAuth app, or to share one session across services.
+ */
+export const SESSION_SECRET_ENV = "ASTRONAUT_CMS_SESSION_SECRET";
+
+/** The OAuth client secret of the configured GitHub App or GitLab application. */
+export const GITHUB_CLIENT_SECRET_ENV = "ASTRONAUT_CMS_GITHUB_CLIENT_SECRET";
+export const GITLAB_CLIENT_SECRET_ENV = "ASTRONAUT_CMS_GITLAB_CLIENT_SECRET";
+
+/**
+ * Set by Cloudflare Access on every request it lets through. Its presence means
+ * the editor has already signed in to the identity provider in front of this
+ * site, which is why the admin starts the provider redirect itself instead of
+ * showing a sign-in button.
+ *
+ * Deliberately not verified: it is read as a hint about what to render, never as
+ * a permission. Forging it buys nothing, because the redirect it triggers still
+ * has to complete a real OAuth exchange.
+ */
+export const CF_ACCESS_HEADER = "cf-access-jwt-assertion";

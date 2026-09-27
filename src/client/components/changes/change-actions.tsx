@@ -9,8 +9,7 @@ import {
   useUpdate,
   useDiscard,
 } from "@client/queries/use-entries";
-import { getStorage } from "@client/lib/storage";
-import { MergeConflictError } from "@client/lib/storage/types";
+import { isMergeConflict } from "@client/lib/api";
 import { buildPreviewUrl } from "@client/lib/preview-url";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { Button } from "@client/components/ui/button";
@@ -30,7 +29,7 @@ export function ChangeActions() {
   const discard = useDiscard();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  const { publish: canPublish, update: canUpdate } = getStorage().capabilities;
+  const { publish: canPublish, update: canUpdate } = config.capabilities;
   const count = changes.data?.length ?? 0;
   const behind = status.data?.behind ?? 0;
   const branch = status.data?.branch;
@@ -40,7 +39,7 @@ export function ChangeActions() {
 
   const reportError = (err: unknown) => {
     toast(
-      err instanceof MergeConflictError
+      isMergeConflict(err)
         ? t(($) => $.publish.mergeConflict)
         : err instanceof Error
           ? err.message
@@ -49,7 +48,7 @@ export function ChangeActions() {
     );
   };
 
-  const run = (mutation: UseMutationResult<void, Error, void>, message: string): void => {
+  const run = (mutation: UseMutationResult<unknown, Error, void>, message: string): void => {
     mutation.mutate(undefined, {
       onSuccess: () => toast(message, "success"),
       onError: reportError,

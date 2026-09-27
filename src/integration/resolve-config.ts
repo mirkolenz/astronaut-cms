@@ -1,9 +1,9 @@
 /**
- * The one place CMS defaults are applied. Every consumer — the integration hook,
- * the virtual `config` module and therefore the whole admin bundle — reads the
- * resolved {@link CmsClientConfig}, so a default can never be restated (and drift)
- * at a second site. Fields are non-optional here by design: the client may rely on
- * them being present rather than re-defaulting.
+ * The one place CMS defaults are applied, and the one place the config is split
+ * in two: what the admin bundle may hold ({@link CmsClientConfig}) and what only
+ * the injected route may ({@link CmsServerConfig}). Every consumer reads a
+ * resolved config, so a default can never be restated (and drift) at a second
+ * site, and nothing server-only can reach the browser by accident.
  */
 import type { AstroConfig } from "astro";
 import type {
@@ -11,15 +11,16 @@ import type {
   AiServerConfig,
   CmsClientConfig,
   CmsConfig,
-  GitHubAuthMode,
+  CmsServerConfig,
   MediaBackendConfig,
   MediaServerConfig,
+  ServerStorageConfig,
 } from "./types.ts";
-import type { ClientMediaBackend } from "../shared/media.ts";
+import { presignedUploadOrigin, type ClientMediaBackend } from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
 import { DEFAULT_AI_MAX_STEPS } from "../shared/ai.ts";
-import { presignedUploadOrigin } from "../media/store.ts";
+import { parseRepo } from "../shared/repo.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
 export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
@@ -87,72 +88,47 @@ export function resolveContentI18n(
   return { locales, defaultLocale };
 }
 
+export const storageType = (config: CmsConfig): "local" | "github" | "gitlab" =>
+  config.storage?.type ?? "local";
+
+/** Lower-cased once, so `hasAllowedExtension` never re-normalizes the list. */
+const mediaExtensions = (config: CmsConfig): string[] =>
+  (config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS).map((ext) => ext.toLowerCase());
+
+const mediaDirectory = (config: CmsConfig): string =>
+  config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY;
+
 export function resolveClientConfig(
   config: CmsConfig,
   trailingSlash: "always" | "never" | "ignore",
   astroI18n: AstroI18n | undefined,
   localMedia: boolean,
 ): CmsClientConfig {
-  const storage = config.storage ?? { type: "local" as const };
+  const type = storageType(config);
 
   return {
     mountPoint: config.mountPoint ?? DEFAULT_MOUNT_POINT,
-    storageType: storage.type,
+    storageType: type,
     trailingSlash,
-    mediaDirectory: config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY,
-    // Lower-cased once here, so `hasAllowedExtension` never re-normalizes the list.
-    mediaExtensions: (config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS).map((ext) =>
-      ext.toLowerCase(),
-    ),
+    mediaDirectory: mediaDirectory(config),
+    mediaExtensions: mediaExtensions(config),
     maxFileSize: config.media?.maxFileSize ?? null,
     mediaAlwaysInclude: resolveAlwaysInclude(config),
     mediaBackend: resolveClientMediaBackend(config, localMedia),
     locale: config.locale ?? "en",
     contentI18n: resolveContentI18n(config, astroI18n),
     previewUrl: config.previewUrl,
+    // The working tree is already the live content: there is no draft branch to
+    // merge in either direction, only changes to keep or throw away.
+    capabilities: { publish: type !== "local", update: type !== "local" },
     ...(config.ai?.enabled &&
       config.ai.models?.length && {
         ai: {
           models: config.ai.models,
-          maxSteps: config.ai.maxSteps ?? DEFAULT_AI_MAX_STEPS,
+          maxSteps: maxSteps(config),
         },
       }),
-    ...(storage.type === "github" && {
-      github: {
-        repo: storage.repo,
-        branch: storage.branch ?? "main",
-        clientId: storage.clientId,
-        flow: storage.flow ?? "device",
-        // A GitHub App derives its permissions from the installation and ignores
-        // the scope parameter, so it resolves to none rather than to a default
-        // the client would then have to know to drop.
-        scopes: githubAuthMode(storage) === "github-app" ? [] : (storage.scopes ?? ["repo"]),
-        publishMode: storage.publishMode ?? "direct",
-      },
-    }),
-    ...(storage.type === "gitlab" && {
-      gitlab: {
-        project: storage.project,
-        branch: storage.branch ?? "main",
-        clientId: storage.clientId,
-        instanceUrl: storage.instanceUrl ?? "https://gitlab.com",
-        scopes: storage.scopes ?? ["api"],
-        publishMode: storage.publishMode ?? "direct",
-      },
-    }),
   };
-}
-
-/**
- * How the editor's GitHub token is issued. A GitHub App is the default because
- * the token it hands the browser is the least dangerous one to hold: limited to
- * the repositories the app is installed on, to the permissions it declares, and
- * — when the app is configured that way — expiring. A classic OAuth App can only
- * issue a coarse, non-expiring `repo` token covering everything the editor can
- * reach, which is a poor thing to keep in a tab.
- */
-export function githubAuthMode(storage: { authMode?: GitHubAuthMode }): GitHubAuthMode {
-  return storage.authMode ?? "github-app";
 }
 
 const DEFAULT_MEDIA_BACKEND: MediaBackendConfig = { type: "repo" };
@@ -172,20 +148,20 @@ function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): Clie
 
   if (backend.type === "repo") return { type: "repo" };
 
-  const uploadOrigin = presignOrigin(resolveMediaServer(config));
+  const storeOrigin = presignOrigin(resolveMediaServer(config));
 
   return {
     type: "remote",
-    publicUrl: trimSlashes(backend.publicUrl),
-    ...(uploadOrigin && { uploadOrigin }),
+    ...(backend.publicUrl && { publicUrl: trimSlashes(backend.publicUrl) }),
+    ...(storeOrigin && { storeOrigin }),
     ...(localMedia && { local: true }),
   };
 }
 
 /**
- * Origin of the presigned URL the browser uploads to, which the admin's CSP has
- * to allow. A store reached solely through a Workers binding presigns nothing
- * and proxies instead, so it has none.
+ * Origin the store's S3 API is reached at, which is where every signed URL
+ * points. A store reached solely through a Workers binding signs nothing and
+ * proxies instead, so it has none.
  */
 function presignOrigin(media: MediaServerConfig | null): string | undefined {
   if (!media?.s3) return undefined;
@@ -223,7 +199,53 @@ export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null 
     bucket: backend.bucket,
     prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
     s3,
-    binding: backend.type === "r2" ? backend.binding ?? null : null,
+    binding: backend.type === "r2" ? (backend.binding ?? null) : null,
+  };
+}
+
+function resolveServerStorage(config: CmsConfig, rootDir: string): ServerStorageConfig {
+  const storage = config.storage;
+
+  if (storage?.type === "github") {
+    const { owner, repo } = parseRepo(storage.repo);
+
+    return {
+      type: "github",
+      owner,
+      repo,
+      branch: storage.branch ?? "main",
+      clientId: storage.clientId,
+      publishMode: storage.publishMode ?? "direct",
+    };
+  }
+
+  if (storage?.type === "gitlab") {
+    return {
+      type: "gitlab",
+      project: storage.project,
+      branch: storage.branch ?? "main",
+      instanceUrl: storage.instanceUrl ?? "https://gitlab.com",
+      clientId: storage.clientId,
+      scopes: storage.scopes ?? ["api"],
+      publishMode: storage.publishMode ?? "direct",
+    };
+  }
+
+  return { type: "local", rootDir };
+}
+
+export function resolveServerConfig(
+  config: CmsConfig,
+  rootDir: string,
+  media: MediaServerConfig | null,
+): CmsServerConfig {
+  return {
+    storage: resolveServerStorage(config, rootDir),
+    media,
+    ai: resolveAiServer(config),
+    mediaDirectory: mediaDirectory(config),
+    mediaExtensions: mediaExtensions(config),
+    maxFileSize: config.media?.maxFileSize ?? null,
   };
 }
 
@@ -240,19 +262,16 @@ export function resolveAlwaysInclude(config: CmsConfig): string[] {
 const DEFAULT_AI_LIMITS: Required<AiLimits> = {
   maxRequestBytes: 1024 * 1024,
   maxOutputTokens: 8192,
-  requestsPerMinute: 60,
-  concurrency: 4,
 };
 
-/**
- * Server-only gateway config. It is imported solely by the relay route, so it is
- * bundled into the SSR output and never reaches the client.
- */
-export function resolveAiServer(config: CmsConfig): AiServerConfig | null {
+const maxSteps = (config: CmsConfig): number => config.ai?.maxSteps ?? DEFAULT_AI_MAX_STEPS;
+
+function resolveAiServer(config: CmsConfig): AiServerConfig | null {
   if (!config.ai?.enabled || !config.ai.gateway) return null;
 
   return {
     gateway: config.ai.gateway,
+    maxSteps: maxSteps(config),
     limits: { ...DEFAULT_AI_LIMITS, ...config.ai.limits },
   };
 }

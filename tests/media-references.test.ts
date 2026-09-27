@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { indexEntry } from "@server/references";
 import {
   classifyUsage,
-  indexEntry,
+  referencesFor,
   staleReferences,
+  type AssetReference,
   type ReferenceIndex,
-} from "@client/lib/media/references";
+} from "@shared/references";
+import config from "virtual:astronaut-cms/config";
 import type { CollectionManifestEntry } from "@shared/types";
 
 // What may be deleted is decided by two different kinds of evidence: a schema
@@ -23,7 +26,7 @@ const posts: CollectionManifestEntry = {
 };
 
 function index(): ReferenceIndex {
-  const result: ReferenceIndex = new Map();
+  const result = new Map<string, AssetReference[]>();
 
   indexEntry(result, posts, {
     id: "hello",
@@ -32,23 +35,26 @@ function index(): ReferenceIndex {
     body: "Prose with ![alt](../../assets/inline.png) and no other asset.",
   });
 
-  return result;
+  return [...result];
 }
 
 describe("asset references", () => {
   it("collects a schema-declared field and a path only the body mentions", () => {
     const references = index();
 
-    expect(references.get("cover.png")?.[0]).toMatchObject({
+    expect(referencesFor(references, "cover.png")[0]).toMatchObject({
       collection: "posts",
       entryId: "hello",
       declared: true,
     });
-    expect(references.get("inline.png")?.[0]).toMatchObject({ where: "body", declared: false });
+    expect(referencesFor(references, "inline.png")[0]).toMatchObject({
+      where: "body",
+      declared: false,
+    });
   });
 
   it("treats only unreferenced files as orphans", () => {
-    const usage = classifyUsage(["cover.png", "inline.png", "stray.png"], index());
+    const usage = classifyUsage(["cover.png", "inline.png", "stray.png"], index(), config);
 
     expect([...usage]).toEqual([
       ["cover.png", "used"],

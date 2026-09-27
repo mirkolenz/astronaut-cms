@@ -49,20 +49,10 @@
       "source": "./src/assets/index.ts",
       "default": "./dist/assets.js"
     },
-    "./ai-endpoint": {
-      "types": "./dist/ai/endpoint.d.ts",
-      "source": "./src/ai/endpoint.ts",
-      "default": "./dist/ai-endpoint.js"
-    },
-    "./auth-endpoint": {
-      "types": "./dist/auth/endpoint.d.ts",
-      "source": "./src/auth/endpoint.ts",
-      "default": "./dist/auth-endpoint.js"
-    },
-    "./media-endpoint": {
-      "types": "./dist/media/endpoint.d.ts",
-      "source": "./src/media/endpoint.ts",
-      "default": "./dist/media-endpoint.js"
+    "./media-presign": {
+      "types": "./dist/media/presign.d.ts",
+      "source": "./src/media/presign.ts",
+      "default": "./dist/media-presign.js"
     },
     "./client": {
       "source": "./src/client/index.tsx",
@@ -76,6 +66,16 @@
     "./styles.css": {
       "source": "./src/astro/styles.css",
       "default": "./dist/astro/styles.css"
+    },
+    "./endpoint": {
+      "types": "./dist/server/endpoint.d.ts",
+      "source": "./src/server/endpoint.ts",
+      "default": "./dist/endpoint.js"
+    },
+    "./server-local": {
+      "types": "./dist/server/storage/local.d.ts",
+      "source": "./src/server/storage/local.ts",
+      "default": "./dist/server-local.js"
     }
   },
   "publishConfig": {
@@ -91,9 +91,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3",
     "@ai-sdk/react": "^4",
-    "@gitbeaker/rest": "^43",
     "@mdxeditor/editor": "^4",
-    "@octokit/rest": "^22",
     "@streamdown/cjk": "^1",
     "@streamdown/code": "^1",
     "@streamdown/math": "^1",
@@ -110,13 +108,13 @@
     "es-module-lexer": "^2",
     "i18next": "^26",
     "jiti": "^2",
+    "jose": "^6",
     "lucide-react": "^1",
     "mammoth": "^1",
     "mdast-util-from-markdown": "^2",
     "mdast-util-mdx-jsx": "^3",
     "micromark-extension-mdx-jsx": "^3",
     "nanoid": "^6",
-    "openid-client": "^6",
     "pathe": "^2",
     "radix-ui": "^1",
     "react-i18next": "^17",

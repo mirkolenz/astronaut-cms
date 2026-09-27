@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  assertEntryWritable,
-  validateAgainstSchema,
-  ContentValidationError,
-} from "@client/lib/validation";
+import { assertEntryWritable, validateAgainstSchema } from "@server/validation";
+import { ContentValidationError } from "@shared/diagnostics";
 import type { CollectionManifestEntry } from "@shared/types";
 
 // An entry that does not match its collection schema is fatal to the site: Astro
@@ -103,10 +100,11 @@ describe("assertEntryWritable", () => {
 // "Unknown collection" instead of being validated.
 describe("storage knows the content model", () => {
   it("validates a write rather than rejecting the collection", async () => {
-    const { getStorage } = await import("@client/lib/storage");
+    const { createStorage } = await import("@server/storage");
+    const storage = createStorage({ provider: "local", token: "", login: "test" });
 
     await expect(
-      getStorage().saveEntry("posts", "hello", { data: {}, body: "", format: "md" }),
+      storage.saveEntry("posts", "hello", { data: {}, body: "", format: "md" }),
     ).rejects.toBeInstanceOf(ContentValidationError);
   });
 });

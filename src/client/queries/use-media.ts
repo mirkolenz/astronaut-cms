@@ -1,86 +1,91 @@
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import config from "virtual:astronaut-cms/config";
 import { mediaPath } from "@shared/media";
-import { getMedia } from "@client/lib/media";
+import type { ReferenceIndex } from "@shared/references";
+import { call } from "@client/lib/api";
+import { mediaUrl, uploadMedia } from "@client/lib/media";
 import { useEntryContext } from "@client/lib/entry-context";
-import { REFERENCES_QUERY } from "@client/lib/media/references";
 
 export const MEDIA_KEY = ["cms", "media"];
+export const TRASH_KEY = ["cms", "trash"];
+
+/**
+ * The reference scan. Derived from entries, not from the library, so it
+ * deliberately sits outside the media key that every upload and delete
+ * invalidates — and it reads every entry, so nothing fetches it eagerly.
+ */
+export const REFERENCES_QUERY = {
+  queryKey: ["cms", "references"],
+  queryFn: () => call("getReferences", {}),
+  staleTime: 5 * 60 * 1000,
+};
 
 export function useMedia() {
-  return useQuery({
-    queryKey: MEDIA_KEY,
-    queryFn: () => getMedia().listMedia(),
-  });
+  return useQuery({ queryKey: MEDIA_KEY, queryFn: () => call("listMedia", {}) });
 }
 
+/**
+ * Every media write moves a file between the library and the trash, so the two
+ * lists go stale together. The reference index deliberately stays out of it (see
+ * `REFERENCES_QUERY`), since it is derived from entries and costs a full scan.
+ */
 function useMediaMutation<T>(mutationFn: (variables: T) => Promise<unknown>) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: MEDIA_KEY }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: MEDIA_KEY });
+      await queryClient.invalidateQueries({ queryKey: TRASH_KEY });
+    },
   });
 }
 
+/**
+ * `force` is how a human says they have seen what references the file. The
+ * server refuses a referenced path without it, which is what stops anything that
+ * has *not* seen them — the assistant above all — from deleting one.
+ */
 export function useDeleteMedia() {
-  return useMediaMutation((path: string) => getMedia().deleteMedia(path));
-}
-
-/** Uploads a file. `overwrite` is what allows it to replace one already at `path`. */
-export function useUploadMedia() {
-  return useMediaMutation(
-    ({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
-      getMedia().uploadMedia(path, file, overwrite),
+  return useMediaMutation(({ path, force }: { path: string; force?: boolean }) =>
+    call("deleteMedia", { path, force }),
   );
 }
 
 export function useRenameMedia() {
-  return useMediaMutation(({ oldPath, newPath }: { oldPath: string; newPath: string }) =>
-    getMedia().renameMedia(oldPath, newPath),
+  return useMediaMutation(({ oldPath, newPath, force }: { oldPath: string; newPath: string; force?: boolean }) =>
+    call("renameMedia", { from: oldPath, to: newPath, force }),
   );
 }
 
 /**
- * A resolved URL is not permanently valid: GitHub's `download_url` carries a
- * short-lived token for a private repository, so it is re-resolved well before
- * that expires rather than cached for the life of the session.
+ * What a restore could bring back. Empty for a repository library, whose
+ * deletions git keeps, so the media view can ask without knowing which backend
+ * it is talking to.
  */
-const URL_TTL = 4 * 60 * 1000;
+export function useTrash() {
+  return useQuery({ queryKey: TRASH_KEY, queryFn: () => call("listTrash", {}) });
+}
 
-/**
- * Resolved once per path and cached: a repository backend pays an API call for
- * each. A backend that can only hand over bytes returns a Blob, and the object
- * URL wrapping it is created and revoked here, where its lifetime is known.
- */
-export function useMediaUrl(path: string | null | undefined): string | undefined {
-  const { data } = useQuery({
-    // Outside MEDIA_KEY: a listing change must not throw away resolved URLs.
-    queryKey: ["cms", "media-url", path],
-    queryFn: () => getMedia().readUrl(path!),
-    enabled: path != null,
-    staleTime: URL_TTL,
-    retry: false,
-  });
-  const [objectUrl, setObjectUrl] = useState<string>();
+export function useRestoreMedia() {
+  return useMediaMutation(({ id }: { id: string }) => call("restoreMedia", { id }));
+}
 
-  useEffect(() => {
-    if (!(data instanceof Blob)) return;
+export function usePurgeTrash() {
+  return useMediaMutation(({ id }: { id: string }) => call("purgeTrash", { id }));
+}
 
-    const url = URL.createObjectURL(data);
-
-    setObjectUrl(url);
-
-    return () => URL.revokeObjectURL(url);
-  }, [data]);
-
-  return data instanceof Blob ? objectUrl : data;
+/** Uploads a file. `overwrite` is what allows it to replace one already at `path`. */
+export function useUploadMedia() {
+  return useMediaMutation(({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
+    uploadMedia(path, file, overwrite),
+  );
 }
 
 const SETTLE_DELAY = 400;
 
-/** Waits for typing to stop, since every distinct value costs the backend a request. */
+/** Waits for typing to stop, since every distinct value would load a new image. */
 function useSettled<T>(value: T): T {
   const [settled, setSettled] = useState(value);
 
@@ -94,25 +99,26 @@ function useSettled<T>(value: T): T {
 }
 
 /**
- * The same, for an asset reference as content stores it. The reference is an
- * editable text field, so it settles first: resolving every keystroke would
- * spend a Git API call on each prefix of the path being typed.
+ * The URL for an asset reference as content stores it, resolved against the
+ * entry it is written in — the same base entry validation and the render-time
+ * resolver use, so the preview shows exactly what the site will.
  *
- * A relative reference is resolved against the entry it is written in, the same
- * base entry validation and the render-time resolver use, so the preview shows
- * exactly what the site will.
+ * The reference is an editable text field, so it settles first: every keystroke
+ * would otherwise start an image load for a prefix of the path being typed.
  */
-export function useAssetUrl(ref: string | undefined) {
+export function useAssetUrl(ref: string | undefined): string | undefined {
   const entry = useEntryContext();
   const settled = useSettled(ref);
 
-  return useMediaUrl(settled ? mediaPath(settled, config, entry?.contentFilePath) : null);
+  if (!settled) return undefined;
+
+  const path = mediaPath(settled, config, entry?.contentFilePath);
+
+  return path == null ? undefined : mediaUrl(path);
 }
 
 /**
- * The reference index, built by reading every entry, so it is only fetched when
- * something actually asks (the unused filter, or a delete about to happen). And
- * the one thing every caller needs to know about it:
+ * The reference index, and the one thing every caller needs to know about it:
  * whether it has been asked for yet. A disabled query reports `isPending`, so
  * "not scanned" and "scanning" are told apart here rather than at each use.
  */
@@ -121,7 +127,7 @@ export function useReferenceIndex() {
   const { data, isFetching, error } = useQuery({ ...REFERENCES_QUERY, enabled: requested });
 
   return {
-    index: data,
+    index: data as ReferenceIndex | undefined,
     /** A scan is in flight, which is what the trigger and the empty state react to. */
     scanning: isFetching,
     /** Nothing can be said about references yet, whether or not a scan is running. */

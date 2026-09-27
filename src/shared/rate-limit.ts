@@ -92,3 +92,44 @@ export class RateLimiter {
     return fresh;
   }
 }
+
+/**
+ * Runs `work` in a slot, releasing it however the work ends. For a streaming
+ * response the slot has to outlive the handler, so the AI relay holds its own
+ * (see `ai/handler.ts`); everything else is a request that finishes.
+ */
+export async function limited<T>(
+  limiter: RateLimiter,
+  caller: string,
+  denied: () => Error,
+  work: () => Promise<T>,
+): Promise<T> {
+  const slot = limiter.acquire(caller);
+
+  if (!slot.ok) throw denied();
+
+  try {
+    return await work();
+  } finally {
+    slot.release();
+  }
+}
+
+/**
+ * Who to charge a request to when there is no session yet.
+ *
+ * The platform sets one of these in front of a serverless function, and behind
+ * one they are trustworthy. Reached directly they are the caller's to spell, so
+ * a determined attacker rotates them and falls through to the shared bucket —
+ * which is why the shared bucket exists and why the real ceiling belongs at the
+ * CDN. This stops a flood from one source, not a distributed one.
+ */
+export function callerAddress(request: Request): string {
+  for (const header of ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]) {
+    const value = request.headers.get(header);
+
+    if (value) return value.split(",")[0].trim();
+  }
+
+  return "anonymous";
+}

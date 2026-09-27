@@ -1,7 +1,6 @@
 import collections from "virtual:astronaut-cms/collections";
 import { extractFormatsFromLoader } from "@shared/types";
 import config from "virtual:astronaut-cms/config";
-import { mediaIsTransactional } from "@client/lib/storage";
 
 // Compact view of the content model: which collections exist, their kind, and the
 // file formats they accept. Each collection's field schema is not repeated here,
@@ -32,15 +31,13 @@ const i18nGuidelines = config.contentI18n
     ]
   : [];
 
-// Renaming and deleting a library file are offered only where the library joins
-// the pending changeset (see `mediaWriteTools`), so the prompt says so too
-// rather than inviting calls to tools that are not there.
 const attachments =
   "The user can attach files to a message: attached images may be saved to the media library (their paths are given to you so you can reference them in content), and attached documents (text, PDF, Word) are extracted to text and included in the message for you to use.";
 
-const mediaGuideline = mediaIsTransactional
-  ? `- Manage media with listMedia, renameMedia, and deleteMedia; you cannot upload new binary files yourself. ${attachments}`
-  : `- Read the media library with listMedia. This site keeps it in an object store, where a change takes effect at once instead of joining the changeset, so renaming and deleting files is the user's to do in the media view — say what you would change and leave it to them. ${attachments}`;
+// Renaming and deleting are always offered: the server refuses either while
+// content still references the file, and an object-store deletion is moved to
+// the library's trash prefix rather than dropped.
+const mediaGuideline = `- Manage media with listMedia, renameMedia, and deleteMedia; you cannot upload new binary files yourself. Renaming or deleting a file that content still references is refused, so update the entries first. ${attachments}`;
 
 // The content model is a static build-time import, so the prompt is invariant
 // for the life of the page and is built once here rather than per turn.

@@ -1,3 +1,5 @@
+import type { S3Target as SharedS3Target } from "../shared/media.ts";
+
 /**
  * The object store as the media route uses it. The S3 implementation lives in
  * `s3-store.ts` and is loaded on demand, so a deployment reaching R2 through a
@@ -6,10 +8,11 @@
 
 /**
  * What an upload is allowed to be, decided by the route and never by its caller.
- * All three are enforced by the store itself: the length because a presigned URL
- * is signed for it, the type because the store serves back what it was given,
- * and the disposition because it is what stops an uploaded SVG from becoming a
- * page of its own.
+ * Every one of these is enforced by the store itself rather than by a check
+ * around it: the length because a presigned URL is signed for it, the type
+ * because the store serves back what it was given, the disposition because it is
+ * what stops an uploaded SVG from becoming a page of its own, and the
+ * precondition because a destination checked beforehand can be taken in between.
  */
 export interface UploadTerms {
   /** Exact byte count. A stream carries none of its own, and S3 refuses one without it. */
@@ -18,6 +21,19 @@ export interface UploadTerms {
   contentType: string;
   /** Set for a type a browser would otherwise run as a document. */
   attachment: boolean;
+  /** Refuses the write if anything is already at the key. Cleared to replace deliberately. */
+  ifAbsent: boolean;
+}
+
+/**
+ * A delegated upload: where the browser may PUT, and the headers it has to send
+ * because they are signed into that URL. The browser reproduces them verbatim
+ * or the store rejects the signature, which is what makes them terms rather
+ * than suggestions.
+ */
+export interface PresignedUpload {
+  url: string;
+  headers: Record<string, string>;
 }
 
 /** One object in the library, keyed absolutely (prefix included). */
@@ -31,39 +47,27 @@ export interface MediaStore {
   head(key: string): Promise<StoredObject | null>;
   /**
    * A URL the browser may PUT these exact terms to, or null when the bytes have
-   * to come through the route instead. Length and type are signed into it, so a
+   * to come through the route instead. The terms are signed into it, so a
    * declared size is a promise the caller has to keep rather than a number to be
-   * trusted, and an upload cannot choose how the store will serve it back.
+   * trusted, an upload cannot choose how the store will serve it back, and an
+   * occupied destination is refused by the store as the write happens.
    */
-  presignUpload(key: string, terms: UploadTerms): Promise<string | null>;
+  presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload | null>;
+  /**
+   * A URL the bytes may be read from without a credential, for a library that is
+   * not publicly readable. Null when the store cannot sign one, which is what
+   * makes a private library unsupported there.
+   */
+  presignDownload(key: string): Promise<string | null>;
   put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void>;
   /** `ifAbsent` refuses a destination that already exists, in the store rather than in a prior check. */
   copy(from: string, to: string, ifAbsent?: boolean): Promise<void>;
   remove(key: string): Promise<void>;
 }
 
-export interface S3Target {
-  endpoint: string;
+/** What the SDK is configured from. `region` is signing-only, so it is not in the shared shape. */
+export interface S3Target extends SharedS3Target {
   region: string;
-  pathStyle: boolean;
-  bucket: string;
-}
-
-/**
- * Origin a presigned PUT against this target points at. Virtual-host addressing
- * puts the bucket in the hostname, so it is the endpoint's origin only when
- * path-style is forced.
- *
- * It lives here, beside the target the SDK is configured from, because the only
- * other place that needs it is the admin's CSP — and a `connect-src` that
- * disagrees with the SDK blocks every upload with no error an operator can read.
- */
-export function presignedUploadOrigin(target: S3Target): string {
-  const url = new URL(target.endpoint);
-
-  if (!target.pathStyle) url.hostname = `${target.bucket}.${url.hostname}`;
-
-  return url.origin;
 }
 
 export interface S3Credentials {
@@ -74,6 +78,12 @@ export interface S3Credentials {
 
 /** How long a presigned upload URL stays valid. Long enough for a slow upload of a large file. */
 export const UPLOAD_EXPIRY_SECONDS = 900;
+
+/**
+ * How long a presigned read URL stays valid. Long enough to outlast a build that
+ * signs one per referenced image and downloads them as it renders.
+ */
+export const DOWNLOAD_EXPIRY_SECONDS = 3600;
 
 export const MAX_KEYS = 1000;
 
@@ -139,13 +149,20 @@ export class BindingStore implements MediaStore {
     return this.bucket.head(key);
   }
 
-  /** A binding cannot delegate the upload, so the route takes the bytes itself. */
+  /** A binding signs nothing, so the route moves the bytes in both directions. */
   async presignUpload(): Promise<null> {
     return null;
   }
 
+  async presignDownload(): Promise<null> {
+    return null;
+  }
+
   async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
-    await this.bucket.put(key, stream, { httpMetadata: httpMetadata(terms) });
+    await this.bucket.put(key, stream, {
+      httpMetadata: httpMetadata(terms),
+      ...(terms.ifAbsent && { onlyIf: { etagDoesNotMatch: "*" } }),
+    });
   }
 
   /**

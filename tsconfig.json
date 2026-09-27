@@ -21,6 +21,7 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@client/*": ["./src/client/*"],
+      "@server/*": ["./src/server/*"],
       "@shared/*": ["./src/shared/*"],
       "@integration/*": ["./src/integration/*"],
       "@assets/*": ["./assets/*"]

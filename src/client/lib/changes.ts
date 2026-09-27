@@ -1,6 +1,6 @@
 import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
-import { stripExtension, stripMediaPrefix } from "@client/lib/storage/utils";
+import { stripExtension, stripMediaPrefix } from "@shared/paths";
 import { collectionBase, type FileChange } from "@shared/types";
 
 /** A changed file mapped back onto the content model the user recognizes. */

@@ -9,14 +9,17 @@ declare module "virtual:astronaut-cms/config" {
   export default config;
 }
 
-declare module "virtual:astronaut-cms/ai-server" {
-  const ai: import("./integration/types").AiServerConfig | null;
-  export default ai;
+declare module "virtual:astronaut-cms/server" {
+  const config: import("./integration/types").CmsServerConfig;
+  export default config;
 }
 
-declare module "virtual:astronaut-cms/media-server" {
-  const media: import("./integration/types").MediaServerConfig | null;
-  export default media;
+/**
+ * The filesystem backend, or null in any build that is not a dev run. The
+ * integration stubs it out so `node:fs` never reaches a Workers or edge bundle.
+ */
+declare module "virtual:astronaut-cms/local-storage" {
+  export const LocalStorage: typeof import("./server/storage/local").LocalStorage | null;
 }
 
 declare module "virtual:astronaut-cms/assets" {
@@ -25,6 +28,14 @@ declare module "virtual:astronaut-cms/assets" {
   export const files: Record<string, () => Promise<string>>;
   /** Whether the maps hold only content-referenced assets (a build) or the whole media directory (dev). */
   export const referencedOnly: boolean;
+}
+
+/**
+ * Signs a read URL for a library key, or null when the library is served from a
+ * public base and needs no signing. See `astronaut-cms/media-presign`.
+ */
+declare module "virtual:astronaut-cms/media-source" {
+  export const mediaSourceUrl: ((key: string) => Promise<string>) | null;
 }
 
 declare module "virtual:astronaut-cms/collections" {

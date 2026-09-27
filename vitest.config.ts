@@ -16,7 +16,13 @@ export default defineConfig({
         import.meta.dirname,
         "tests/fixtures/user-config.ts",
       ),
+      "virtual:astronaut-cms/server": resolve(import.meta.dirname, "tests/fixtures/server.ts"),
+      "virtual:astronaut-cms/local-storage": resolve(
+        import.meta.dirname,
+        "tests/fixtures/local-storage.ts",
+      ),
       "@client": resolve(import.meta.dirname, "src/client"),
+      "@server": resolve(import.meta.dirname, "src/server"),
       "@shared": resolve(import.meta.dirname, "src/shared"),
       "@integration": resolve(import.meta.dirname, "src/integration"),
       "@assets": resolve(import.meta.dirname, "assets"),

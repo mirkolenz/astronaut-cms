@@ -182,7 +182,9 @@ import Image from "astronaut-cms/Image.astro";
 
 For a remote image it passes `inferSize` to `astro:assets`, which reads the real dimensions from the
 image itself, at build time for a prerendered page. Pass an explicit `width` and `height` to skip that.
-The integration adds your `publicUrl` to astro's `image.remotePatterns` for you, which is what allows
+The integration adds your `publicUrl` to astro's `image.remotePatterns` for you (or, for a
+[private library](/astronaut-cms/guides/media-library/#no-public-base-at-all), the store's own
+origin, since that is where the build fetches from), which is what allows
 astro to fetch and optimize those images at all.
 
 <Aside type="caution">

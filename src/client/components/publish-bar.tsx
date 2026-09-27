@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
-import { useAuthStore } from "@client/stores/auth-store";
-import { revokeSession } from "@client/lib/oauth/session";
+import { useQueryClient } from "@tanstack/react-query";
+import { signOut } from "@client/lib/api";
 import { useBranchStatus, useChanges } from "@client/queries/use-entries";
 import { ChangeActions } from "@client/components/changes/change-actions";
 import { Button } from "@client/components/ui/button";
@@ -15,8 +15,7 @@ import { Button } from "@client/components/ui/button";
  */
 export function PublishBar() {
   const { t } = useTranslation();
-  const session = useAuthStore((s) => s.session);
-  const clearSession = useAuthStore((s) => s.clearSession);
+  const queryClient = useQueryClient();
   const status = useBranchStatus();
   const changes = useChanges();
 
@@ -27,10 +26,10 @@ export function PublishBar() {
       ? t(($) => $.publish.viewMergeRequest)
       : t(($) => $.publish.viewPullRequest);
 
+  // The cookie is the session, so ending it is the server's to do; the probe is
+  // then refetched, which drops the admin back to the sign-in screen.
   const handleSignOut = () => {
-    const current = session;
-    clearSession();
-    if (current) void revokeSession(current).catch(() => {});
+    void signOut().finally(() => queryClient.invalidateQueries({ queryKey: ["cms", "session"] }));
   };
 
   return (
@@ -57,7 +56,7 @@ export function PublishBar() {
         </div>
         <div className="flex items-center gap-2">
           <ChangeActions />
-          {session && (
+          {config.storageType !== "local" && (
             <Button variant="ghost" size="xs" onClick={handleSignOut}>
               {t(($) => $.common.signOut)}
             </Button>

@@ -29,7 +29,7 @@ cms({
 | ------------------- | ---------- | -------------- | -------------------------------------------------------------------- |
 | `directory`         | `string`   | `"src/assets"` | Directory where media files are stored, relative to the project root |
 | `allowedExtensions` | `string[]` | See below      | List of allowed file extensions                                      |
-| `maxFileSize`       | `number`   | unlimited      | Maximum upload size in bytes, refused by the admin and by the media route |
+| `maxFileSize`       | `number`   | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
 
 ### Default Allowed Extensions
 
@@ -123,35 +123,124 @@ Content then stores library keys instead of project paths, and the site loads th
     ASTRONAUT_CMS_S3_SESSION_TOKEN=...
     ```
 
-    They are read by the injected media route alone and never reach the browser.
+    They are read by the CMS server alone and never reach the browser.
   </StepItem>
 
-  <StepItem title="Add an SSR adapter">
-    The media route is an on-demand route, like the AI relay, so the site needs `@astrojs/netlify`,
-    `@astrojs/vercel` or `@astrojs/cloudflare`.
-  </StepItem>
+  <StepItem title="Decide how the library is read, and set publicUrl to match">
+    Content stores plain keys, so a signed, expiring URL can never be written into an entry.
+    `publicUrl` is the base those keys are served from. See
+    [Reading the library](#reading-the-library) for the three ways to provide one, including
+    keeping the bucket itself closed.
 
-  <StepItem title="Make the bucket publicly readable under publicUrl, on its own origin">
-    Content stores plain keys, so a signed, expiring URL can never be written into an entry. On R2
-    that means a custom domain: the `*.r2.dev` hostname is rate-limited and not meant for production.
-
-    `publicUrl` must **not** share an origin with the site itself — uploaded files would then be
+    Whatever serves it must **not** share an origin with the site — uploaded files would then be
     same-origin content in the admin. The integration refuses the configuration when your
     `astro.config` declares a `site` it can check against. See
     [Security Model](/astronaut-cms/guides/security/#serve-the-library-from-its-own-origin).
   </StepItem>
 
   <StepItem title="Allow browser uploads in the bucket's CORS policy">
-    A `PUT` from your admin's origin. Uploads go straight from the browser to the store, which is
-    what keeps them clear of the 4.5 MB (Vercel) and 6 MB (Netlify) function body limits.
+    A `PUT` from your admin's origin, with `if-none-match` among the allowed request headers: the
+    server signs that precondition into the upload URL, so the browser has to send it. Uploads go
+    straight from the browser to the store, which is what keeps them clear of the 4.5 MB (Vercel) and
+    6 MB (Netlify) function body limits.
+  </StepItem>
+
+  <StepItem title="Set a lifecycle rule on the .trash/ prefix">
+    The library keeps it for itself: deletions are moved there rather than dropped, and the media
+    view restores them from it. The rule decides how long a deletion stays undoable, and is the only
+    thing that eventually removes the bytes. See [Deleting and restoring](#deleting-and-restoring).
   </StepItem>
 </Steps>
 
+### Reading the library
+
+Writing is always authenticated and always signed. Reading is the choice, and there are three shapes.
+
+#### A public bucket or CDN
+
+The ordinary setup: `publicUrl` points at something anonymous readers can fetch.
+On R2 that means a custom domain, since the `*.r2.dev` hostname is rate-limited and not meant for production traffic.
+
+The admin then loads library files straight from that base.
+It does not ask the CMS server where they are, because the key already is the URL, so a grid of thumbnails costs no function invocations at all.
+
+#### A closed bucket behind a credentialed CDN (recommended)
+
+You do not need the bucket itself to be public.
+Put a CDN in front that holds the credential, deny everything else, and point `publicUrl` at the CDN:
+
+- **AWS**: CloudFront with an [Origin Access Control](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html), and a bucket policy allowing only that distribution.
+- **Cloudflare R2**: a [custom domain](https://developers.cloudflare.com/r2/buckets/public-buckets/#custom-domains) on the bucket. The bucket is not otherwise reachable.
+- **Anything S3-compatible**: any CDN that can sign or authenticate to the origin.
+
+As far as the CMS is concerned this is a public library, so nothing else changes and every optimization above still applies.
+This is the setup to reach for when "the bucket must not be public" is the requirement.
+
+#### No public base at all
+
+Leave `publicUrl` out entirely and the library becomes private:
+
+```ts title="src/cms.config.ts"
+media: {
+  backend: {
+    type: "s3",
+    bucket: "my-media",
+    endpoint: "https://s3.eu-central-1.amazonaws.com",
+    // no publicUrl
+  },
+}
+```
+
+- **The admin** reads through signed URLs the CMS server mints per request. Fully supported.
+- **The site** signs a URL per referenced image *while building*, astro downloads it and emits an
+  optimized asset, and the built output refers to the store nowhere.
+
+<Aside type="caution">
+  This needs **every page that renders library media to be prerendered**. A signed URL expires, so a
+  page rendered on demand would hand visitors a link that stops working. The integration warns at
+  build time when `publicUrl` is absent. It also needs S3 API access to sign with: a
+  binding-only R2 backend is refused, since a Workers binding signs nothing.
+</Aside>
+
+### Deleting and restoring
+
+An object store keeps no history, so deleting through the CMS moves the object to a `.trash/` prefix instead of dropping it.
+The media view shows a **Trash** section listing what can still be brought back, with the path it would return to and when it was deleted.
+**Restore** puts it back, refusing if something has taken the name since; **Delete permanently** is the one media action nothing undoes.
+
+The trash is not a place you can otherwise address: it never appears in the library listing, no path can point into it, and it is reachable only through those two actions.
+
+<Aside type="caution">
+  A trashed object is still an object. On a public bucket it remains readable at its own URL until
+  the lifecycle rule removes it, so "deleted" here means "recoverable", not "gone". When you need a
+  file actually gone — someone asked you to remove their photo — delete it and then purge it from the
+  trash.
+</Aside>
+
+The assistant can delete media but cannot restore or purge: those are the media view's alone.
+That is deliberate, since the point of the trash is to catch a delete that should not have happened, including one the assistant made.
+
+**A repository library has no trash and needs none.** Its deletions are a commit on the draft branch, so the file is still in Git: discard the changeset to bring it back before publishing, and it stays in history afterwards.
+
+### Image optimization and adapter image services
+
+| Setup | Public base | Private library |
+| --- | --- | --- |
+| Astro's built-in service, prerendered page | Optimized at build into `dist/` | Signed at build, optimized into `dist/` |
+| Astro's built-in service, on-demand page | Optimized per request by `/_image` | Not supported |
+| Vercel / Netlify / Cloudflare image service | Optimized at the edge | Not supported |
+
+The adapter image services — `@astrojs/vercel` with `imageService: true`, `@astrojs/netlify`'s Image CDN, `@astrojs/cloudflare` with `imageService: "cloudflare"` — rewrite an `<Image>` into a CDN URL that carries your source URL as a parameter, and the CDN fetches that source **from its own edge at request time**.
+
+That works well with a public base: the integration already registers it in astro's `image.remotePatterns`, which each adapter translates into its own allowlist (`vercel.json` image domains, netlify.toml `remote_images`), so there is nothing further to configure.
+
+It cannot work with a private library. None of those CDNs can sign an S3 request, and deferring optimization to request time is exactly what a build-time signature cannot survive. Use astro's built-in service there.
+
 ### How it differs from a repository library
 
-- **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted file stops being served to every visitor at once, even if the entry referencing it is still a draft — which is also why the AI assistant is given no media rename or delete tools for this backend (see [AI Assistant](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach)).
-- **Deletion is recoverable.** The media route moves the object to a `.trash/` prefix inside the library rather than dropping it, so a mistake costs a restore. Give that prefix a lifecycle rule to decide how long a deletion stays undoable.
-- **An upload cannot silently replace a file.** The route refuses a destination that is already occupied; replacing is the admin's explicit "Replace"/"Overwrite" action. It also decides the stored content type from the file extension rather than trusting the uploader, and stores active types (SVG) with `Content-Disposition: attachment`.
+- **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted file stops being served to every visitor at once, even if the entry referencing it is still a draft.
+- **Deletion is recoverable.** The object is moved to a `.trash/` prefix inside the library rather than dropped, and the media view restores it. See [Deleting and restoring](#deleting-and-restoring).
+- **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition; replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) are proxied through the server so they can be stored with `Content-Disposition: attachment`.
 - **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
 - **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `image()`/`file()` markers for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
 - **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.
@@ -160,9 +249,9 @@ Content then stores library keys instead of project paths, and the site loads th
   `astro dev` keeps the library in the working tree rather than the bucket, exactly as it substitutes
   local storage for content, so running the admin locally needs no bucket credentials and cannot
   touch what the deployed site serves. Only the bytes move: references are still written as keys, so
-  an entry edited in dev builds unchanged. It needs local storage, since the files are reached
-  through the dev server's own file API. Set `localMediaInDev: false` to point dev at the configured
-  store instead — and note that the dev route skips the write-access check, as the AI relay does.
+  an entry edited in dev builds unchanged. It needs local storage, since the files live in the
+  working tree. Set `localMediaInDev: false` to point dev at the configured store instead — and note
+  that a dev run has no sign-in at all, so anyone who can reach the dev server can reach the bucket.
 </Aside>
 
 ## Using Media in Content

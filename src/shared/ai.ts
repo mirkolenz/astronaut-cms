@@ -1,13 +1,12 @@
-/**
- * Root-relative base path for the AI assistant relay. The browser talks to this
- * as an OpenAI-compatible endpoint; the relay (a stateless on-demand route)
- * verifies the caller's Git provider token and forwards to the configured AI
- * gateway with platform-injected credentials. Astro prepends the site `base`.
- */
-export const AI_API_BASE = "/_astronaut-cms/ai";
+import { API_BASE } from "./auth.ts";
 
-/** Injected-route pattern for the relay's OpenAI-compatible chat-completions endpoint. */
-export const AI_CHAT_COMPLETIONS_PATTERN = `${AI_API_BASE}/chat/completions`;
+/**
+ * The AI relay, as the browser addresses it. It sits under the CMS API so one
+ * injected route covers everything and one session cookie authenticates it; the
+ * browser talks to it as an OpenAI-compatible endpoint, so the provider appends
+ * `/chat/completions` itself.
+ */
+export const AI_API_BASE = `${API_BASE}/ai`;
 
 /** Default maximum model/tool round-trips per assistant turn. */
 export const DEFAULT_AI_MAX_STEPS = 24;

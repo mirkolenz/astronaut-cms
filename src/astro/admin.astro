@@ -2,35 +2,38 @@
 import "astronaut-cms/styles.css";
 import config from "virtual:astronaut-cms/config";
 import { HARDENING_HEADERS } from "astronaut-cms/internal";
+import { adminState, signInPage } from "astronaut-cms/endpoint";
 
-// Restrict where the admin (which holds a Git provider token in the browser) may
-// load code from and connect to. `script-src 'self'` with no inline scripts is
-// the part that carries real weight: it keeps injected markup from becoming
-// script in the first place. `connect-src` is limited to the configured
-// provider's API origins and, when the media library is an object store the
-// browser uploads to directly, that store's origin.
+// Nothing here is worth rendering without a session, so the session is settled
+// before anything is. An anonymous request gets a sign-in link and no more: not
+// the admin bundle, not the CMS config it carries (bucket origin, preview URL,
+// model list), not any of the client dependencies. That is the largest
+// unauthenticated surface the CMS has, and this is what removes it.
 //
-// This narrows the blast radius, it does not seal it: `img-src https:` (needed
-// for remote images in previews) and `style-src 'unsafe-inline'` both remain
-// usable as exfiltration channels by a script that already runs here. Treat it
-// as defense in depth behind "the admin renders no untrusted HTML", not as a
-// containment guarantee.
+// A session that lapses with the tab open lands here too: the API answers 401,
+// the admin reloads, and this renders the sign-in page.
+const state = await adminState(Astro);
+
+// Returned rather than branched in the template below: Astro hoists a `<script>`
+// whatever encloses it, so a conditional there would still ship the bundle.
+if (!state.signedIn) return signInPage(state, config.locale);
+
+// The admin holds no credential: the repository session is a cookie the browser
+// cannot read, and every provider call is made by the server. So this policy no
+// longer has to allow a connection to github.com or to an object store, and
+// `connect-src 'self'` is the whole of it — a script that got in here can act as
+// the editor while the tab is open, but it has nothing to send anywhere.
 //
-// Emitted only in production builds — the dev server is local-storage only and
-// needs looser connections for HMR.
-function providerConnectSrc(): string[] {
-  if (config.storageType === "github") return ["https://github.com", "https://api.github.com"];
-  if (config.storageType === "gitlab") return [new URL(config.gitlab!.instanceUrl).origin];
-  return [];
-}
+// `script-src 'self'` with no inline scripts is still what carries the weight:
+// it keeps injected markup from becoming script in the first place.
+//
+// A presigned upload is the one exception: the bytes go browser-to-store, so
+// that store's origin has to be reachable or the browser refuses the request
+// before it is sent.
+const connectSrc = ["'self'"];
 
-// A presigned upload goes browser-to-store, so the store's origin has to be
-// reachable or the browser refuses the request before it is sent. A proxied
-// upload needs nothing here: it goes to `self`.
-const connectSrc = ["'self'", ...providerConnectSrc()];
-
-if (config.mediaBackend.type === "remote" && config.mediaBackend.uploadOrigin) {
-  connectSrc.push(config.mediaBackend.uploadOrigin);
+if (config.mediaBackend.type === "remote" && config.mediaBackend.storeOrigin) {
+  connectSrc.push(config.mediaBackend.storeOrigin);
 }
 
 const csp = [
@@ -42,28 +45,25 @@ const csp = [
   `connect-src ${connectSrc.join(" ")}`,
   "worker-src 'self' blob:",
   "frame-src 'none'",
-  // Only ever honoured from the header below: a browser ignores `frame-ancestors`
-  // in a meta policy, which is precisely why the header form matters here.
   "frame-ancestors 'none'",
   "base-uri 'none'",
+  // Sign-in is a link to the CMS's own route, which then redirects to the
+  // provider, so nothing here ever posts off-origin.
   "form-action 'self'",
 ].join("; ");
 
-// The header is the real policy: it carries `frame-ancestors`, which a meta tag
-// cannot, and it applies before the document parses rather than from the meta
-// tag onwards. It reaches the browser whenever this page is rendered on demand,
-// which the integration arranges wherever the deployment already runs a server
-// (see `injectRoute` in `integration/index.ts`). A fully static admin keeps only
-// the meta policy below, so set these at the host — they are the same values.
-if (import.meta.env.PROD) {
-  for (const [name, value] of Object.entries({
-    ...HARDENING_HEADERS,
-    "content-security-policy": csp,
-    // For the handful of agents that still read only this one.
-    "x-frame-options": "DENY",
-  })) {
-    Astro.response.headers.set(name, value);
-  }
+// The CMS needs an SSR adapter, so this page always renders on demand and the
+// policy always reaches the browser as a header — which is what lets it carry
+// `frame-ancestors`, something a meta policy cannot.
+for (const [name, value] of Object.entries({
+  ...HARDENING_HEADERS,
+  "content-security-policy": csp,
+  // For the handful of agents that still read only this one.
+  "x-frame-options": "DENY",
+  // What this page is depends on the caller's cookie, so no cache may keep it.
+  "cache-control": "private, no-store",
+})) {
+  Astro.response.headers.set(name, value);
 }
 
 // The admin mounts React from an external module script (see body) rather than an
@@ -92,7 +92,6 @@ window.$RefreshSig$ = () => (type) => type;`;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {import.meta.env.PROD && <meta http-equiv="Content-Security-Policy" content={csp} />}
     {import.meta.env.DEV && <script is:inline type="module" set:html={fastRefreshPreamble} />}
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />

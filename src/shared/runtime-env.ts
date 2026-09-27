@@ -1,11 +1,13 @@
-import type { APIContext } from "astro";
-
 /**
  * The Cloudflare Workers environment, where the adapter puts one on `locals`.
  * The only place that knows this shape, so a reader of a variable and a reader
  * of a binding cannot disagree about where to look.
  */
-function runtimeEnv(context: APIContext): Record<string, unknown> | undefined {
+export interface RuntimeContext {
+  locals: unknown;
+}
+
+function runtimeEnv(context: RuntimeContext): Record<string, unknown> | undefined {
   return (context.locals as { runtime?: { env?: Record<string, unknown> } }).runtime?.env;
 }
 
@@ -15,7 +17,7 @@ function runtimeEnv(context: APIContext): Record<string, unknown> | undefined {
  * Shared by the injected server routes, which are the only code that may see a
  * secret and therefore the only code that reads the environment at all.
  */
-export function readEnv(context: APIContext, name: string): string | undefined {
+export function readEnv(context: RuntimeContext, name: string): string | undefined {
   const value = runtimeEnv(context)?.[name];
 
   if (typeof value === "string") return value;
@@ -30,7 +32,7 @@ export function readEnv(context: APIContext, name: string): string | undefined {
 }
 
 /** A Workers binding (an R2 bucket, say), which is an object rather than a string. */
-export function readBinding(context: APIContext, name: string): unknown {
+export function readBinding(context: RuntimeContext, name: string): unknown {
   return runtimeEnv(context)?.[name];
 }
 
@@ -39,11 +41,11 @@ export type EnvReader = (name: string) => string | undefined;
 export type BindingReader = (name: string) => unknown;
 
 export const envReader =
-  (context: APIContext): EnvReader =>
+  (context: RuntimeContext): EnvReader =>
   (name) =>
     readEnv(context, name);
 
 export const bindingReader =
-  (context: APIContext): BindingReader =>
+  (context: RuntimeContext): BindingReader =>
   (name) =>
     readBinding(context, name);

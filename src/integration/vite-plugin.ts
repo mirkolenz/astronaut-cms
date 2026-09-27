@@ -1,48 +1,19 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "pathe";
-import { fileURLToPath } from "node:url";
+import { join } from "pathe";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
-import type { AiServerConfig, CmsClientConfig, MediaServerConfig } from "./types.ts";
+import type { CmsClientConfig, CmsServerConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
 import { loadComponents, type ConfigLogger } from "./load-config.ts";
+import { SOURCE_EXPORTS } from "./self-resolve.ts";
 
 type AstroCommand = HookParameters<"astro:config:setup">["command"];
 
-// Derive source paths from package.json exports for workspace-linked dev.
-// For published packages the source files don't exist and the existsSync
-// guard in resolveId falls through to default (dist/) resolution.
-const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const PKG_JSON_PATH = resolve(PKG_ROOT, "package.json");
-const SOURCE_EXPORTS: Record<string, string> = existsSync(PKG_JSON_PATH)
-  ? buildSourceExports(PKG_ROOT, PKG_JSON_PATH)
-  : {};
-
-function buildSourceExports(root: string, pkgPath: string): Record<string, string> {
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as {
-    name: string;
-    exports?: Record<string, { source?: string }>;
-  };
-  const map: Record<string, string> = {};
-  for (const [subpath, conditions] of Object.entries(pkg.exports ?? {})) {
-    // Existence is fixed for the process (workspace-linked source vs published
-    // dist), so resolve it once here and keep `resolveId` a pure lookup.
-    const sourcePath = conditions.source && resolve(root, conditions.source);
-    if (sourcePath && existsSync(sourcePath)) {
-      const specifier = subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
-      map[specifier] = sourcePath;
-    }
-  }
-  return map;
-}
-
 export interface CmsVitePluginOptions {
   clientConfig: CmsClientConfig;
-  aiServer: AiServerConfig | null;
-  /** Object-store media config for the injected route, null for a repository library. */
-  mediaServer: MediaServerConfig | null;
+  /** Everything only the injected route may see: credentials’ identity, bucket, gateway. */
+  serverConfig: CmsServerConfig;
   userConfigPath: string | null;
   collections: CollectionManifest;
   command: AstroCommand;
@@ -53,15 +24,22 @@ export interface CmsVitePluginOptions {
 }
 
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
-  const { clientConfig, aiServer, userConfigPath, collections } = options;
+  const { clientConfig, serverConfig, userConfigPath, collections } = options;
 
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
-    "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiServer)};`,
-    "virtual:astronaut-cms/media-server": `export default ${JSON.stringify(options.mediaServer)};`,
+    "virtual:astronaut-cms/server": `export default ${JSON.stringify(serverConfig)};`,
+    // The filesystem backend is Node-only, so it is linked in exactly where it
+    // can run and stubbed everywhere else: without this, `node:fs` would follow
+    // the injected route into a Workers or edge bundle and fail it outright.
+    "virtual:astronaut-cms/local-storage":
+      serverConfig.storage.type === "local"
+        ? `export { LocalStorage } from "astronaut-cms/server-local";`
+        : `export const LocalStorage = null;`,
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
     "virtual:astronaut-cms/assets": generateAssetsModule(options),
+    "virtual:astronaut-cms/media-source": generateMediaSourceModule(options),
   };
 
   return {
@@ -94,6 +72,25 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       });
     },
   };
+}
+
+/**
+ * How the site turns a library key into a URL it can load, for the one backend
+ * where that is not a lookup.
+ *
+ * A public library needs nothing at runtime, so the module is a constant the
+ * resolver never calls. A private one has to sign, which means the AWS SDK and
+ * the bucket credentials — linked in here alone, so a public library and a
+ * repository library carry neither.
+ */
+function generateMediaSourceModule(options: CmsVitePluginOptions): string {
+  const { mediaBackend } = options.clientConfig;
+
+  if (mediaBackend.type !== "remote" || mediaBackend.local || mediaBackend.publicUrl) {
+    return "export const mediaSourceUrl = null;";
+  }
+
+  return `export { presignedMediaUrl as mediaSourceUrl } from "astronaut-cms/media-presign";`;
 }
 
 // Emits the lazy loader maps that back `astronaut-cms/assets`, keyed by

@@ -24,12 +24,7 @@ const en = {
     breadcrumbRoot: "CMS",
   },
   auth: {
-    completingAuth: "Completing authentication...",
-    signInGitHub: "Sign in with GitHub",
-    signInGitLab: "Sign in with GitLab",
-    enterCodeAt: "Enter this code at",
-    waitingAuth: "Waiting for authorization...",
-    unsupportedStorage: "Unsupported storage type: {{type}}",
+    signIn: "Sign in",
   },
   dashboard: {
     noCollections: "No collections found",
@@ -100,6 +95,17 @@ const en = {
     deleteReferenced: "Deleting it will break them.",
     renameReferenced: "Renaming it will break them, since references keep the old path.",
     referencesUnavailable: "Could not check references: {{message}}",
+    trash: "Trash",
+    trashCount: "Trash ({{count}})",
+    trashEmpty: "Nothing deleted recently.",
+    trashHint:
+      "Deleted files are kept here until the bucket's lifecycle rule removes them. They stay readable at their public URL until then.",
+    deletedAt: "Deleted {{when}}",
+    restore: "Restore",
+    restoring: "Restoring...",
+    purge: "Delete permanently",
+    purgeTitle: "Delete permanently",
+    purgeMessage: 'Permanently delete "{{name}}"? This cannot be undone.',
   },
   publish: {
     publish: "Publish",

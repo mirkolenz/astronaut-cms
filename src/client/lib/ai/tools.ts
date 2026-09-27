@@ -3,21 +3,14 @@ import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
 import { mediaRef } from "@shared/media";
-import { getStorage, mediaIsTransactional } from "@client/lib/storage";
-import { getMedia } from "@client/lib/media";
-import { validateNoReferences } from "@client/lib/media/references";
+import { call } from "@client/lib/api";
 import type { CollectionManifestEntry, SaveEntryRequest } from "@shared/types";
 import {
   collectionDataSchema,
   collectionPatchSchema,
   collectionFormatEnum,
-} from "@client/lib/schema";
-import {
-  validateReorder,
-  validateMediaExists,
-  ContentValidationError,
-  toErrorResult,
-} from "@client/lib/validation";
+} from "@shared/collection-schema";
+import { ContentValidationError } from "@shared/diagnostics";
 
 // The collection set is statically known, so every tool that names a collection
 // constrains it to this enum rather than an open string.
@@ -42,6 +35,23 @@ const bodyEdit = z.discriminatedUnion("mode", [
 ]);
 
 type BodyEdit = z.infer<typeof bodyEdit>;
+
+/**
+ * Every tool is one call into the server's operation registry, so the model
+ * reaches exactly what the UI reaches and is bound by the same rules. A refusal
+ * the content caused comes back as a result rather than a failure: it says what
+ * to fix, so the model corrects and retries, while a real failure (offline, the
+ * session lapsed) still surfaces as a failed tool call.
+ */
+async function guarded<T>(run: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ContentValidationError) return { error: error.message };
+
+    throw error;
+  }
+}
 
 // Merges a partial patch into existing data: provided fields are set, `null`
 // (or `undefined`) removes the field, and absent fields are left untouched.
@@ -77,34 +87,20 @@ function applyBodyEdit(
     }
 
     const end = Math.min(edit.endLine, lines.length);
+
     lines.splice(edit.startLine - 1, end - edit.startLine + 1, ...edit.text.split("\n"));
 
     return { body: lines.join("\n") };
   }
 
-  if (!body.includes(edit.find)) {
-    return { error: "Body text to replace was not found." };
-  }
+  if (!body.includes(edit.find)) return { error: "Body text to replace was not found." };
 
   // Function replacement so `$`-sequences in `replace` are inserted literally.
   return { body: body.replace(edit.find, () => edit.replace) };
 }
 
-// Storage validates every write, so a refusal comes back as a thrown
-// ContentValidationError. Turning it into a result keeps it in the model's loop
-// (it says exactly what to fix, so the model corrects and retries), while a real
-// failure — offline, no write access — still surfaces as a failed tool call.
-async function saveEntry(collection: string, id: string, entry: SaveEntryRequest) {
-  try {
-    await getStorage().saveEntry(collection, id, entry);
-
-    return { ok: true };
-  } catch (error) {
-    if (error instanceof ContentValidationError) return { error: error.message };
-
-    throw error;
-  }
-}
+const saveEntry = (collection: string, id: string, entry: SaveEntryRequest) =>
+  guarded(() => call("saveEntry", { collection, id, entry }));
 
 // One full-overwrite tool per collection, carrying that collection's exact data
 // schema and format set. Content collections add a markdown `body`.
@@ -139,7 +135,7 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
       description: `Partially update an existing entry in the "${name}" data collection. Only the \`data\` fields you provide change; set a field to null to remove it.`,
       inputSchema: z.object({ id: z.string(), data }),
       execute: async ({ id, data: patch }) => {
-        const current = await getStorage().getEntry(name, id);
+        const current = await call("getEntry", { collection: name, id });
 
         return saveEntry(name, id, {
           data: applyDataPatch(current.data, patch),
@@ -154,7 +150,7 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
     description: `Partially update an existing entry in the "${name}" content collection. \`data\` changes only the frontmatter fields you provide (set a field to null to remove it); \`body\` edits the markdown by line range or text replacement. Both are optional.`,
     inputSchema: z.object({ id: z.string(), data: data.optional(), body: bodyEdit.optional() }),
     execute: async ({ id, data: patch, body: edit }) => {
-      const current = await getStorage().getEntry(name, id);
+      const current = await call("getEntry", { collection: name, id });
       const edited = applyBodyEdit(current.body, edit);
 
       if ("error" in edited) return edited;
@@ -177,127 +173,64 @@ const entryTools: Record<string, Tool> = Object.fromEntries(
 
 /**
  * The tools that only read. Calling one changes nothing, so it neither
- * invalidates cached content nor appears as a change in the conversation.
+ * invalidates cached content nor appears as a change in the conversation. Every
+ * tool is named after the operation it calls, so the answer is the same one the
+ * server and the dev reloader use.
  */
-export const readOnlyTools: ReadonlySet<string> = new Set([
-  "listEntries",
-  "getEntry",
-  "listMedia",
-  "getChanges",
-]);
+export { READ_ONLY_OPERATIONS as readOnlyTools } from "@shared/operations";
 
 /**
- * Renaming and deleting a library file, offered only where the library is part
- * of the pending changeset.
+ * The assistant's tools, which are the operation registry minus the ones only a
+ * human should reach.
  *
- * That is what makes it safe for the agent to run them unattended: every other
- * tool lands in a changeset the user reviews and can discard whole, so a model
- * talked into a destructive call by text it read — an entry's body, an attached
- * document — costs a discard. An object store has no changeset: the object is
- * gone the moment the tool returns, for every visitor at once. Those libraries
- * are managed by hand in the media view, where a human sees what references the
- * file before agreeing to it.
+ * Nothing here runs behind an approval prompt, and nothing publishes: a
+ * repository change lands in the pending changeset, which the user reviews and
+ * then publishes or discards as a whole, and an object-store deletion is moved
+ * to the library's trash prefix rather than dropped. What keeps a model talked
+ * into a destructive call by text it read — an entry body, an attached document
+ * — from doing real damage is that the server refuses to remove or move a file
+ * anything still references, and only a human who has been shown those
+ * references can say otherwise.
  */
-const mediaWriteTools: Record<string, Tool> = mediaIsTransactional
-  ? {
-      renameMedia: tool({
-        description:
-          "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path. Refused while content still references the file, since references keep the old path.",
-        inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
-        execute: async ({ oldPath, newPath }) => {
-          const invalid = toErrorResult(await validateMediaExists(getMedia(), oldPath));
-
-          if (invalid) return invalid;
-
-          const referenced = toErrorResult(await validateNoReferences(oldPath));
-
-          if (referenced) return referenced;
-
-          await getMedia().renameMedia(oldPath, newPath);
-
-          return { ok: true };
-        },
-      }),
-
-      deleteMedia: tool({
-        description: "Delete a media file. Refused while content still references it.",
-        inputSchema: z.object({ path: z.string() }),
-        execute: async ({ path }) => {
-          const invalid = toErrorResult(await validateMediaExists(getMedia(), path));
-
-          if (invalid) return invalid;
-
-          const referenced = toErrorResult(await validateNoReferences(path));
-
-          if (referenced) return referenced;
-
-          await getMedia().deleteMedia(path);
-
-          return { ok: true };
-        },
-      }),
-    }
-  : {};
-
-// Tools execute in the browser against the same storage backend the UI uses, so
-// the agent inherits exactly the user's permissions and the draft-branch + PR
-// review flow. Writes go through the per-collection `writeEntry_<collection>` /
-// `editEntry_<collection>` tools.
-//
-// No tool runs behind an approval prompt, and none of them publishes: every
-// change lands in the pending changeset, which the user reviews and then
-// publishes or discards as a whole. Deleting is as reversible as any other
-// change there, so it needs no separate gate — which is exactly why a tool that
-// would write outside the changeset is not offered at all (see mediaWriteTools).
 export const cmsTools = {
   listEntries: tool({
     description: "List the ids of all entries in a collection.",
     inputSchema: z.object({ collection: collectionEnum }),
-    execute: ({ collection }) => getStorage().listEntries(collection),
+    execute: ({ collection }) => call("listEntries", { collection }),
   }),
 
   getEntry: tool({
     description: "Read an entry's full content: its `data` fields and markdown `body`.",
     inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
-    execute: ({ collection, id }) => getStorage().getEntry(collection, id),
+    execute: ({ collection, id }) => call("getEntry", { collection, id }),
   }),
 
   reorderEntries: tool({
     description: "Reorder a collection by giving the complete ordered list of entry ids.",
     inputSchema: z.object({ collection: collectionEnum, ids: z.array(z.string()) }),
-    execute: async ({ collection, ids }) => {
-      const storage = getStorage();
-      const existing = (await storage.listEntries(collection)).map((e) => e.id);
-      const invalid = toErrorResult(validateReorder(existing, ids));
-
-      if (invalid) return invalid;
-
-      await storage.reorderEntries(collection, ids);
-
-      return { ok: true };
-    },
+    execute: ({ collection, ids }) => guarded(() => call("reorderEntries", { collection, ids })),
   }),
 
   renameEntry: tool({
     description:
       "Rename an entry (change its id) while keeping its content. Fails if an entry with the new id already exists.",
     inputSchema: z.object({ collection: collectionEnum, id: z.string(), newId: z.string() }),
-    execute: async ({ collection, id, newId }) => {
-      await getStorage().renameEntry(collection, id, newId);
-
-      return { ok: true };
-    },
+    execute: ({ collection, id, newId }) =>
+      guarded(() => call("renameEntry", { collection, id, newId })),
   }),
 
   duplicateEntry: tool({
     description:
       "Duplicate an entry under a new id, copying its data and body. Fails if an entry with the new id already exists.",
     inputSchema: z.object({ collection: collectionEnum, id: z.string(), newId: z.string() }),
-    execute: async ({ collection, id, newId }) => {
-      await getStorage().duplicateEntry(collection, id, newId);
+    execute: ({ collection, id, newId }) =>
+      guarded(() => call("duplicateEntry", { collection, id, newId })),
+  }),
 
-      return { ok: true };
-    },
+  deleteEntry: tool({
+    description: "Delete an entry.",
+    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
+    execute: ({ collection, id }) => guarded(() => call("deleteEntry", { collection, id })),
   }),
 
   listMedia: tool({
@@ -307,34 +240,36 @@ export const cmsTools = {
     // The library addresses a file by its own path, while content stores a
     // reference built from it, so both are reported rather than left to be guessed.
     execute: async () =>
-      (await getMedia().listMedia()).map((file) => ({ ...file, ref: mediaRef(file.path, config) })),
+      (await call("listMedia", {})).map((file) => ({ ...file, ref: mediaRef(file.path, config) })),
+  }),
+
+  renameMedia: tool({
+    description:
+      "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path. Refused while content still references the file, since references keep the old path.",
+    inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
+    execute: ({ oldPath, newPath }) =>
+      guarded(() => call("renameMedia", { from: oldPath, to: newPath })),
+  }),
+
+  deleteMedia: tool({
+    description: "Delete a media file. Refused while content still references it.",
+    inputSchema: z.object({ path: z.string() }),
+    execute: ({ path }) => guarded(() => call("deleteMedia", { path })),
   }),
 
   getChanges: tool({
     description:
       "List the changes pending in the current changeset: every file changed since the last publish, with how it changed.",
     inputSchema: z.object({}),
-    execute: async () => {
-      // The diffs themselves are for the user to read in the review screen; the
-      // model only needs to know what is pending.
-      return (await getStorage().getChanges()).map(({ path, kind, previousPath }) => ({
+    // The diffs themselves are for the user to read in the review screen; the
+    // model only needs to know what is pending.
+    execute: async () =>
+      (await call("getChanges", {})).map(({ path, kind, previousPath }) => ({
         path,
         kind,
         previousPath,
-      }));
-    },
+      })),
   }),
 
-  deleteEntry: tool({
-    description: "Delete an entry.",
-    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
-    execute: async ({ collection, id }) => {
-      await getStorage().deleteEntry(collection, id);
-
-      return { ok: true };
-    },
-  }),
-
-  ...mediaWriteTools,
   ...entryTools,
 };

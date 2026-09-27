@@ -1,49 +1,47 @@
 /**
- * Platform-agnostic relay core: a pure Web-standard streaming proxy between the
- * browser-side agent loop and the configured AI gateway. It holds no secret of
- * its own (the gateway credential comes from the config or the platform-injected
- * environment) and gates access by re-validating the caller's Git provider token
- * against the configured repository. Request/response bodies are proxied verbatim
- * so the client can keep using a plain OpenAI-compatible provider.
+ * A stateless streaming proxy between the browser-side agent loop and the
+ * configured AI gateway. It holds no secret of its own (the gateway credential
+ * comes from the config or the platform-injected environment) and answers only
+ * to a request the CMS server has already authenticated.
  *
- * `endpoint.ts` is the Astro-route shell over this core. To also run it on a true
- * edge runtime later (e.g. a Netlify Edge Function, to escape the serverless
- * duration limit) add a second thin shell that calls `handle`, without changing
- * this file:
- *   1. Expose this module from the package (a `./ai-handler` entry in
- *      package.json `exports` and a matching Vite lib entry in vite.config.ts).
- *   2. Have the integration generate `netlify/edge-functions/astronaut-cms-ai.mjs`
- *      at build time: it imports `handle`, bakes in the `RelayConfig` (storage +
- *      gateway, read from the integration config), reads secrets via
- *      `Netlify.env.get`, and declares
- *      `export const config = { path: "/_astronaut-cms/ai/chat/completions" }`.
- *   3. Skip injecting the Astro route on Netlify deploys so the two do not
- *      handle the same path.
+ * The agent loop stays in the browser deliberately. Every request through here
+ * is one model call, so nothing depends on how long a whole turn takes and no
+ * serverless duration limit can cut a conversation in half; the tools the model
+ * calls go through the same operation registry as the UI, so they are bounded by
+ * the same rules rather than by where they run.
  */
 import type { AiGateway, AiServerConfig } from "../integration/types.ts";
-import { bearer, bearerToken, denyUnlessWritable, type AccessConfig } from "../shared/access.ts";
 import { BodyTooLargeError, readBody } from "../shared/http.ts";
 import { RateLimiter } from "../shared/rate-limit.ts";
-import { jsonError } from "../shared/response.ts";
 import { unreachable } from "../shared/unreachable.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 import { joinUrl } from "../shared/url.ts";
 
-export interface RelayConfig extends AccessConfig {
-  /** Null when the assistant is disabled, in which case this route is not injected. */
-  ai: AiServerConfig | null;
-  models?: string[];
-}
+/** The `Authorization` header for a gateway credential, or none when it has none. */
+export const bearer = (token: string | undefined): Record<string, string> =>
+  token ? { authorization: `Bearer ${token}` } : {};
+
+/**
+ * Assistant turns one editor may start per minute, which is how the request
+ * ceiling is expressed. A turn is up to `maxSteps` relay requests, so a rate
+ * configured beside `maxSteps` could contradict it: raise `maxSteps` past the
+ * per-minute budget and a single turn throttles itself halfway through. Deriving
+ * the one from the other removes both the knob and the contradiction.
+ */
+const TURNS_PER_MINUTE = 4;
+
+/** Requests one editor may have in flight at once. Streaming, so each is held for a while. */
+const CONCURRENCY = 4;
 
 // One limiter per warm instance. The config is a build-time constant, so it
 // cannot change under a running instance and the limiter is simply built once.
 let limiter: RateLimiter | null = null;
 
-function rateLimiter({ limits }: AiServerConfig): RateLimiter {
+function rateLimiter({ maxSteps }: AiServerConfig): RateLimiter {
   limiter ??= new RateLimiter({
-    requests: limits.requestsPerMinute,
+    requests: maxSteps * TURNS_PER_MINUTE,
     windowMs: 60_000,
-    concurrency: limits.concurrency,
+    concurrency: CONCURRENCY,
   });
 
   return limiter;
@@ -85,12 +83,11 @@ function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
       // path is deprecated). The gateway is selected by header, and a Cloudflare
       // API token with AI Gateway permission authenticates the call. Provider
       // credentials are managed by the gateway (unified billing).
-      const gatewayId = gateway.gatewayId ?? "default";
       const key = getEnv("CLOUDFLARE_API_TOKEN");
 
       return {
         url: `https://api.cloudflare.com/client/v4/accounts/${gateway.accountId}/ai/v1/chat/completions`,
-        headers: { ...bearer(key), "cf-aig-gateway-id": gatewayId },
+        headers: { ...bearer(key), "cf-aig-gateway-id": gateway.gatewayId ?? "default" },
       };
     }
 
@@ -116,25 +113,24 @@ function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
   }
 }
 
-export async function handle(
-  request: Request,
-  getEnv: EnvReader,
-  config: RelayConfig,
-): Promise<Response> {
-  const denied = await denyUnlessWritable(request, config);
+export interface RelayRequest {
+  request: Request;
+  getEnv: EnvReader;
+  ai: AiServerConfig;
+  /** Model ids this deployment allows, from the client config. */
+  models: string[];
+  /** The signed-in editor, which is what a per-editor limit binds to. */
+  caller: string;
+  /** How a refusal is spelled, so the relay does not restate the server's envelope. */
+  fail: (message: string, status: number) => Response;
+}
 
-  if (denied) return denied;
-
-  if (!config.ai) {
-    return jsonError("AI gateway is not configured.", 500);
-  }
-
-  // Write access is the only identity an injected route has, so it is also what
-  // a per-editor limit binds to.
-  const slot = rateLimiter(config.ai).acquire(bearerToken(request) ?? "");
+export async function relay(options: RelayRequest): Promise<Response> {
+  const { ai, caller, fail } = options;
+  const slot = rateLimiter(ai).acquire(caller);
 
   if (!slot.ok) {
-    return jsonError(
+    return fail(
       slot.reason === "concurrency"
         ? "Too many assistant requests at once. Wait for the current one to finish."
         : "Too many assistant requests. Wait a moment and try again.",
@@ -144,11 +140,11 @@ export async function handle(
 
   // A cancelled request never reaches the stream's end, so the slot is freed
   // from here too; `release` is idempotent, so both paths may run.
-  request.signal.addEventListener("abort", slot.release, { once: true });
+  options.request.signal.addEventListener("abort", slot.release, { once: true });
 
   let response: Response;
   try {
-    response = await relay(request, getEnv, config, config.ai);
+    response = await forward(options);
   } catch (err) {
     slot.release();
 
@@ -170,27 +166,22 @@ export async function handle(
   );
 }
 
-async function relay(
-  request: Request,
-  getEnv: EnvReader,
-  config: RelayConfig,
-  ai: AiServerConfig,
-): Promise<Response> {
+async function forward({ request, getEnv, ai, models, fail }: RelayRequest): Promise<Response> {
   const { limits } = ai;
 
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(await readBody(request, limits.maxRequestBytes)) as Record<string, unknown>;
   } catch (err) {
-    if (err instanceof BodyTooLargeError) return jsonError(err.message, 413);
+    if (err instanceof BodyTooLargeError) return fail(err.message, 413);
 
-    return jsonError("Malformed request body.", 400);
+    return fail("Malformed request body.", 400);
   }
 
   const model = body.model;
 
-  if (config.models && typeof model === "string" && !config.models.includes(model)) {
-    return jsonError(`Model not allowed: ${model}`, 400);
+  if (typeof model === "string" && !models.includes(model)) {
+    return fail(`Model not allowed: ${model}`, 400);
   }
 
   let gateway: Gateway;
@@ -199,7 +190,7 @@ async function relay(
   } catch (err) {
     console.error("[astronaut-cms] Failed to resolve AI gateway:", err);
 
-    return jsonError(err instanceof Error ? err.message : "Gateway not configured", 500);
+    return fail(err instanceof Error ? err.message : "Gateway not configured", 500);
   }
 
   let upstream: Response;
@@ -214,22 +205,20 @@ async function relay(
       signal: request.signal,
     });
   } catch (err) {
-    if (request.signal.aborted) return jsonError("The request was cancelled.", 499);
+    if (request.signal.aborted) return fail("The request was cancelled.", 499);
 
     // A connection-level failure (gateway down, DNS, TLS) never reaches the
     // browser as a useful status, so log the full error and return a clear one.
     console.error(`[astronaut-cms] Failed to reach AI gateway at ${gateway.url}:`, err);
 
-    return jsonError(
-      `Could not reach the AI gateway at ${gateway.url}.${err instanceof Error ? ` ${err.message}` : ""}`,
-      502,
-    );
+    return fail(`Could not reach the AI gateway at ${gateway.url}.`, 502);
   }
 
   if (!upstream.ok) {
     // Forward the gateway's error body verbatim (the client provider parses
     // `{ error: { message } }`) and log the complete response server-side.
     const detail = await upstream.text();
+
     console.error(`[astronaut-cms] AI gateway returned HTTP ${upstream.status}: ${detail}`);
 
     return new Response(detail, {

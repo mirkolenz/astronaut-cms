@@ -12,7 +12,8 @@ import {
 import { useCollections } from "@client/queries/use-collections";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { isRequired, objectShape, type FieldSchema } from "@shared/field-schema";
-import { schemaDefaults } from "@client/lib/schema";
+import { schemaDefaults } from "@shared/collection-schema";
+import { asEntryFormat, type EntryFormat } from "@shared/types";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
@@ -30,7 +31,8 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const { data: collections } = useCollections();
   const schema = collections?.[collection]?.schema ?? undefined;
   const meta = collectionMeta[collection];
-  const format = (meta?.loaderFileName && getFileExtension(meta.loaderFileName)) || "json";
+  const format =
+    (meta?.loaderFileName && asEntryFormat(getFileExtension(meta.loaderFileName))) || "json";
   const { data: layout } = useFileLayout(collection);
   // Every entry of a file collection lives in the same file, so a relative asset
   // reference in any of them resolves against that one path.
@@ -195,7 +197,7 @@ function FileEntryCard({
   entryId: string;
   schema?: FieldSchema;
   /** File format, needed for a draft that has nothing stored to read it from. */
-  format?: string;
+  format?: EntryFormat;
   /** This entry does not exist yet; saving creates it. */
   draft?: boolean;
   expanded: boolean;

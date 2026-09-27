@@ -14,6 +14,13 @@ export const HARDENING_HEADERS: Record<string, string> = {
   "referrer-policy": "no-referrer",
 };
 
+/**
+ * Marks a request that is about to change content, for the dev server's reload
+ * suppression. Set by the admin rather than inferred from the method, because
+ * every operation is a POST and only the caller knows which one it is sending.
+ */
+export const WRITE_HEADER = "x-astronaut-cms-write";
+
 /** Thrown by {@link readBody} when a request body exceeds a route's limit. */
 export class BodyTooLargeError extends Error {
   constructor(maxBytes: number) {

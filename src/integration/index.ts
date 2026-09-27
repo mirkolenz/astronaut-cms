@@ -6,18 +6,22 @@ import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
-import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
-import { AUTH_TOKEN_PATTERN, GITHUB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
-import { MEDIA_API_BASE, S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
+import {
+  API_PATTERN,
+  GITHUB_CLIENT_SECRET_ENV,
+  GITLAB_CLIENT_SECRET_ENV,
+} from "../shared/auth.ts";
+import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
+import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-config.ts";
 import {
-  githubAuthMode,
-  resolveAiServer,
   resolveAlwaysInclude,
   resolveClientConfig,
   resolveMediaServer,
+  resolveServerConfig,
+  storageType,
 } from "./resolve-config.ts";
 
 export type {
@@ -106,13 +110,15 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
 
   if (!backend.bucket) throw new Error(`${backend.type} media: 'bucket' is required.`);
 
-  if (!backend.publicUrl) {
+  // No public base means a private library, which is reached by signing a URL
+  // per read — so the store has to be one that can sign.
+  if (!backend.publicUrl && backend.type === "r2" && !backend.accountId) {
     throw new Error(
-      `${backend.type} media: 'publicUrl' is required — it is the base the library is publicly served under, and what content references resolve against.`,
+      "r2 media: a private library (no 'publicUrl') needs 'accountId' so the S3 API can sign read URLs. A Workers binding signs nothing.",
     );
   }
 
-  validateMediaOrigin(backend.publicUrl, site);
+  if (backend.publicUrl) validateMediaOrigin(backend.publicUrl, site);
 
   if (backend.type === "s3" && !backend.endpoint) {
     throw new Error(
@@ -140,17 +146,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // `astro dev` edits the working tree rather than the configured backends, so
         // running the admin needs neither OAuth credentials nor the production bucket.
-        const storageType = config.storage?.type ?? "local";
+        const configuredStorage = storageType(config);
         const backendType = config.media?.backend?.type ?? "repo";
         const devStorage =
-          command === "dev" && (config.localStorageInDev ?? true) && storageType !== "local";
+          command === "dev" && (config.localStorageInDev ?? true) && configuredStorage !== "local";
         // The working-tree library is reached through the dev file API, so it only
         // exists where content is edited locally too. Only the bytes move: the
         // reference format stays the store's, so an entry edited in dev builds
         // unchanged (which the repository substitution this replaced did not).
         const wantsLocalMedia =
           command === "dev" && (config.localMediaInDev ?? true) && backendType !== "repo";
-        const localMedia = wantsLocalMedia && (devStorage || storageType === "local");
+        const localMedia = wantsLocalMedia && (devStorage || configuredStorage === "local");
 
         const effectiveConfig: CmsConfig = {
           ...config,
@@ -167,13 +173,13 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.info(
             localMedia
               ? `Media library served from the working tree for "astro dev" (the configured "${backendType}" store is used in build; references keep its key format either way)`
-              : `Editing the configured "${backendType}" media store in "astro dev": localMediaInDev needs local storage, and this run uses "${storageType}". Uploads and deletions here reach the bucket the deployed site serves.`,
+              : `Editing the configured "${backendType}" media store in "astro dev": localMediaInDev needs local storage, and this run uses "${configuredStorage}". Uploads and deletions here reach the bucket the deployed site serves.`,
           );
         }
 
         // Before anything reads the backend: resolving it assumes a complete one,
-        // and a `publicUrl` that is missing rather than wrong would otherwise
-        // surface as a TypeError from deep inside the resolver.
+        // and a field that is missing rather than wrong would otherwise surface
+        // as a TypeError from deep inside the resolver.
         validateMediaBackend(effectiveConfig, astroConfig.site);
 
         // Every default is applied once, here; `clientConfig` is what the admin
@@ -185,7 +191,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           localMedia,
         );
         const mountPoint = clientConfig.mountPoint;
-        const mediaDir = join(rootDir, clientConfig.mediaDirectory);
 
         if (clientConfig.contentI18n) {
           const { locales, defaultLocale } = clientConfig.contentI18n;
@@ -196,25 +201,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;
-        if (storage) {
-          if (storage.type === "github") {
-            if (!storage.repo)
-              throw new Error("GitHub storage: 'repo' is required (e.g., 'owner/repo').");
-            if (!storage.clientId)
-              throw new Error("GitHub storage: 'clientId' is required for OAuth.");
 
-            // Which kind of app issued the browser's token decides what it is
-            // worth, and the default changed to the narrower one, so it is
-            // stated rather than left to be discovered at the sign-in prompt.
-            logger.info(
-              `GitHub sign-in uses authMode "${githubAuthMode(storage)}" (a GitHub App issues repository-limited, expiring tokens; set authMode: "oauth-app" if you registered a classic OAuth App)`,
-            );
-          } else if (storage.type === "gitlab") {
-            if (!storage.project)
-              throw new Error("GitLab storage: 'project' is required (e.g., 'group/project').");
-            if (!storage.clientId)
-              throw new Error("GitLab storage: 'clientId' is required for OAuth.");
-          }
+        if (storage?.type === "github") {
+          if (!storage.repo)
+            throw new Error("GitHub storage: 'repo' is required (e.g., 'owner/repo').");
+          if (!storage.clientId)
+            throw new Error("GitHub storage: 'clientId' is the GitHub App's client id.");
+        } else if (storage?.type === "gitlab") {
+          if (!storage.project)
+            throw new Error("GitLab storage: 'project' is required (e.g., 'group/project').");
+          if (!storage.clientId)
+            throw new Error("GitLab storage: 'clientId' is required for OAuth.");
         }
 
         // Nothing reaches the store while the library is the working tree, so the
@@ -259,17 +256,31 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
+        const serverConfig = resolveServerConfig(effectiveConfig, rootDir, mediaServer);
+
+        // A private library is signed at build time, so what astro has to trust
+        // is the store's own origin rather than a public base it never sees.
+        const remoteMedia =
+          clientConfig.mediaBackend.type === "remote" ? clientConfig.mediaBackend : null;
+        const mediaOrigin = remoteMedia && (remoteMedia.publicUrl ?? remoteMedia.storeOrigin);
+
+        // Only where a signed URL can actually reach a visitor: a dev run serving
+        // the library from the working tree signs nothing, and a site that
+        // prerenders by default has already satisfied this.
+        if (remoteMedia && !remoteMedia.publicUrl && !remoteMedia.local && astroConfig.output === "server") {
+          logger.warn(
+            "Media library is private (no 'publicUrl') and this site renders on demand by default: every page showing library media must set 'export const prerender = true', since its URLs are signed while building and expire.",
+          );
+        }
+
         updateConfig({
-          ...(clientConfig.mediaBackend.type === "remote" && {
-            image: { remotePatterns: [mediaRemotePattern(clientConfig.mediaBackend.publicUrl)] },
-          }),
+          ...(mediaOrigin && { image: { remotePatterns: [mediaRemotePattern(mediaOrigin)] } }),
           vite: {
             plugins: [
               tailwindcss(),
               cmsVitePlugin({
                 clientConfig,
-                aiServer: resolveAiServer(effectiveConfig),
-                mediaServer,
+                serverConfig,
                 userConfigPath,
                 collections,
                 command,
@@ -277,89 +288,62 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 logger,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
               }),
-              // Dev-only filesystem API for the local storage backend, plus the
-              // reload suppression that keeps the admin's state across its own saves.
-              ...(command === "dev" ? [cmsDevPlugin({ mediaDir, rootDir, collections })] : []),
+              // The admin writes files the dev server watches; without this every
+              // save reloads the page and wipes its state.
+              ...(command === "dev" ? [cmsDevPlugin()] : []),
             ],
           },
         });
 
-        // The admin (and therefore the AI relay it calls) is only reachable via
-        // `astro dev` when storage is local; a remote backend keeps it in the
-        // production build too.
-        const adminAvailable = command === "dev" || effectiveConfig.storage?.type !== "local";
+        // The admin is only reachable via `astro dev` when storage is local; a
+        // remote backend keeps it in the production build too.
+        const adminAvailable = command === "dev" || storageType(effectiveConfig) !== "local";
 
-        // Whether this deployment can render on demand. The admin's security
-        // headers — `frame-ancestors` above all, which a meta policy cannot carry
-        // — only exist on a rendered response, so the page is served that way
-        // wherever it is possible at no cost. An adapter settles it; the feature
-        // list covers the case where one is registered by a later integration and
-        // is therefore not yet visible here, but already implies an adapter
-        // because each of these injects an on-demand route of its own.
-        const serverRendered =
-          Boolean(astroConfig.adapter) ||
-          Boolean(mediaServer) ||
-          Boolean(effectiveConfig.ai?.enabled) ||
-          clientConfig.github?.flow === "redirect";
-
-        if (adminAvailable) {
-          injectRoute({
-            pattern: mountPoint,
-            entrypoint: "astronaut-cms/admin.astro",
-            ...(serverRendered && { prerender: false }),
-          });
-          logger.info(
-            serverRendered
-              ? `Admin panel will be available at ${mountPoint} (rendered on demand, with security headers)`
-              : `Admin panel will be available at ${mountPoint} (prerendered: set Content-Security-Policy, X-Frame-Options, Referrer-Policy and X-Content-Type-Options for it at your host)`,
-          );
-        } else {
+        if (!adminAvailable) {
           logger.info(
             `Admin panel disabled for "${command}" with local storage (only available via "astro dev")`,
           );
+
+          return;
         }
 
-        /**
-         * A server route the admin calls. Injected only where the admin exists,
-         * so a static local-storage build (which has no adapter) is not forced
-         * on-demand — and reported the same way for every route.
-         */
-        const injectServerRoute = (
-          pattern: string,
-          entrypoint: string,
-          label: string,
-          detail = "",
-        ) => {
-          if (adminAvailable) {
-            injectRoute({ pattern, entrypoint, prerender: false });
-            logger.info(`${label} will be available at ${pattern}${detail}`);
-          } else {
-            logger.info(
-              `${label} disabled for "${command}" with local storage (only available via "astro dev")`,
-            );
-          }
-        };
-
-        // The redirect flow redeems its code through a server route (see `src/auth/handler.ts`).
-        if (clientConfig.github?.flow === "redirect") {
-          injectServerRoute(
-            AUTH_TOKEN_PATTERN,
-            "astronaut-cms/auth-endpoint",
-            "GitHub token exchange",
-            ` (set ${GITHUB_CLIENT_SECRET_ENV} on the server)`,
+        // Everything the admin does is a server request now, so the admin page
+        // and the API are rendered on demand together. An adapter is what makes
+        // that possible; `astro dev` renders on demand regardless, which is why
+        // this is a warning there and an error in a build.
+        if (command === "build" && !astroConfig.adapter) {
+          throw new Error(
+            "astronaut-cms needs an SSR adapter: the CMS holds the repository session on the server, so its API routes have to render on demand. Add one (e.g. @astrojs/node, @astrojs/cloudflare, @astrojs/vercel, @astrojs/netlify) to astro.config.",
           );
         }
 
-        // The store credential lives here, so the route exists only where the admin does.
-        if (mediaServer) {
-          injectServerRoute(
-            MEDIA_API_BASE,
-            "astronaut-cms/media-endpoint",
-            "Media backend",
-            mediaServer.binding
-              ? ` (R2 binding "${mediaServer.binding}")`
-              : ` (set ${S3_ACCESS_KEY_ID_ENV} and its secret on the server)`,
-          );
+        injectRoute({
+          pattern: mountPoint,
+          entrypoint: routeEntrypoint("astronaut-cms/admin.astro"),
+          prerender: false,
+        });
+        injectRoute({
+          pattern: API_PATTERN,
+          entrypoint: routeEntrypoint("astronaut-cms/endpoint"),
+          prerender: false,
+        });
+
+        logger.info(`Admin panel will be available at ${mountPoint}`);
+
+        // Named once here rather than discovered at the sign-in screen: every one
+        // of these is a deploy-time secret the CMS cannot invent for itself. The
+        // session cookie's key is derived from the OAuth client secret, so it is
+        // deliberately not on this list.
+        const required: string[] = [];
+
+        if (serverConfig.storage.type === "github") required.push(GITHUB_CLIENT_SECRET_ENV);
+        if (serverConfig.storage.type === "gitlab") required.push(GITLAB_CLIENT_SECRET_ENV);
+        if (mediaServer && !mediaServer.binding) required.push(S3_ACCESS_KEY_ID_ENV);
+
+        if (required.length) logger.info(`Set these on the server: ${required.join(", ")}`);
+
+        if (mediaServer?.binding) {
+          logger.info(`Media library reached through the R2 binding "${mediaServer.binding}"`);
         }
 
         if (config.ai?.enabled) {
@@ -371,11 +355,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
           }
 
-          injectServerRoute(
-            AI_CHAT_COMPLETIONS_PATTERN,
-            "astronaut-cms/ai-endpoint",
-            "AI assistant relay",
-          );
+          logger.info("AI assistant enabled");
         }
       },
     },

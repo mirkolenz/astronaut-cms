@@ -13,6 +13,7 @@ const config: CmsClientConfig = {
   mediaAlwaysInclude: [],
   locale: "en",
   contentI18n: { locales: ["en", "de"], defaultLocale: "en" },
+  capabilities: { publish: false, update: false },
 };
 
 export default config;

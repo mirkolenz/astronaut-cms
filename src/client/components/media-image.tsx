@@ -1,11 +1,10 @@
 import { extname } from "pathe";
 import { isImagePath } from "@client/lib/asset-utils";
-import { useMediaUrl } from "@client/queries/use-media";
+import { mediaUrl } from "@client/lib/media";
 
 /** A library file's thumbnail, or its file type when it has no preview. Decorative, so never captioned. */
 export function MediaImage({ path, className }: { path: string; className?: string }) {
   const isImage = isImagePath(path);
-  const url = useMediaUrl(isImage ? path : null);
 
   if (!isImage) {
     return (
@@ -15,11 +14,9 @@ export function MediaImage({ path, className }: { path: string; className?: stri
     );
   }
 
-  if (!url) return <div className={className} />;
-
   return (
     <img
-      src={url}
+      src={mediaUrl(path)}
       alt=""
       className={className}
       onError={(e) => {
