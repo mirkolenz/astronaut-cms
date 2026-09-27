@@ -9,8 +9,14 @@ import {
 } from "ai";
 import { aiConfig } from "./config";
 import { aiProvider } from "./provider";
+import type { ReasoningEffort } from "./reasoning";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import { cmsTools } from "./tools";
+
+export interface ChatSettings {
+  model: string;
+  effort: ReasoningEffort;
+}
 
 // Maps a streaming failure to a concise line for the UI. The complete error is
 // logged separately, so this only needs to be readable, not exhaustive.
@@ -35,24 +41,31 @@ function toUserErrorMessage(error: unknown): string {
 // (through the relay) and executes tool calls locally against the storage
 // backend. The relay only ever sees raw, stateless inference requests.
 export class LocalAgentTransport implements ChatTransport<UIMessage> {
-  private readonly getModelId: () => string;
+  private readonly getSettings: () => ChatSettings;
 
-  // The model id is read lazily on each request so a single transport (and the
-  // Chat that owns it) can outlive model switches instead of being recreated.
-  constructor(getModelId: () => string) {
-    this.getModelId = getModelId;
+  // Settings are read lazily on each request so a single transport (and the
+  // Chat that owns it) can outlive model and effort switches instead of being
+  // recreated.
+  constructor(getSettings: () => ChatSettings) {
+    this.getSettings = getSettings;
   }
 
   async sendMessages(
     options: Parameters<ChatTransport<UIMessage>["sendMessages"]>[0],
   ): Promise<ReadableStream<UIMessageChunk>> {
+    const { model, effort } = this.getSettings();
+
     const result = streamText({
-      model: aiProvider.chatModel(this.getModelId()),
+      model: aiProvider.chatModel(model),
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(options.messages),
       tools: cmsTools,
       stopWhen: stepCountIs(aiConfig?.maxSteps ?? 24),
       abortSignal: options.abortSignal,
+      // Forwarded to the relay as the OpenAI-compatible `reasoning_effort` field;
+      // omitted when "off" so non-reasoning models are unaffected.
+      providerOptions:
+        effort === "off" ? undefined : { openaiCompatible: { reasoningEffort: effort } },
     });
 
     return result.toUIMessageStream({

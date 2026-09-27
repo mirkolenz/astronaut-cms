@@ -79,6 +79,7 @@
     "i18next": "^26",
     "jiti": "^2",
     "lucide-react": "^1",
+    "mammoth": "^1",
     "mdast-util-from-markdown": "^2",
     "mdast-util-mdx-jsx": "^3",
     "micromark-extension-mdx-jsx": "^3",
@@ -94,6 +95,7 @@
     "tailwind-merge": "^3",
     "tailwind-scrollbar-hide": "^4",
     "tailwindcss": "^4",
+    "unpdf": "^1",
     "use-stick-to-bottom": "^1",
     "yaml": "^2",
     "zustand": "^5"

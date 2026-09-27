@@ -35,7 +35,11 @@ let instance: Chat<UIMessage> | undefined;
 export function getChat(): Chat<UIMessage> {
   instance ??= new Chat({
     messages: loadMessages(),
-    transport: new LocalAgentTransport(() => useAiPanelStore.getState().model),
+    transport: new LocalAgentTransport(() => {
+      const { model, effort } = useAiPanelStore.getState();
+
+      return { model, effort };
+    }),
     // Once the user has approved or denied every pending tool call, resume the
     // run automatically so the agent loop continues without a manual resend.
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,

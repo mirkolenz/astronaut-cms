@@ -167,6 +167,14 @@ const de: TranslationShape<typeof en> = {
     approve: "Genehmigen",
     deny: "Ablehnen",
     approvalPrompt: "Diese Aktion erfordert deine Genehmigung, bevor sie ausgeführt wird.",
+    attach: "Dateien anhängen",
+    saveToLibrary: "In Medienbibliothek speichern",
+    attachError: "Eine der angehängten Dateien konnte nicht gelesen werden.",
+    reasoning: "Denkaufwand",
+    reasoningOff: "Aus",
+    reasoningLow: "Niedrig",
+    reasoningMedium: "Mittel",
+    reasoningHigh: "Hoch",
   },
 } as const;
 

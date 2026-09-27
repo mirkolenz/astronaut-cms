@@ -161,6 +161,14 @@ const en = {
     approve: "Approve",
     deny: "Deny",
     approvalPrompt: "This action needs your approval before it runs.",
+    attach: "Attach files",
+    saveToLibrary: "Save to media library",
+    attachError: "Could not read one of the attached files.",
+    reasoning: "Thinking effort",
+    reasoningOff: "Off",
+    reasoningLow: "Low",
+    reasoningMedium: "Medium",
+    reasoningHigh: "High",
   },
 } as const;
 

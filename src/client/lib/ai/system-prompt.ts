@@ -31,7 +31,7 @@ export const SYSTEM_PROMPT = [
   "- Content collections store a markdown `body` plus frontmatter `data`; data collections store only `data`.",
   "- Match an entry's existing `format` (file extension) when editing; when creating, pick one of the collection's listed `formats`.",
   "- Reorganize entries with renameEntry (change an id) and duplicateEntry (copy under a new id); both fail if the target id already exists.",
-  "- Manage media with listMedia, renameMedia, and deleteMedia; you cannot upload new binary files, only the user can.",
+  "- Manage media with listMedia, renameMedia, and deleteMedia; you cannot upload new binary files yourself. The user can attach files to a message: attached images may be saved to the media library (their paths are given to you so you can reference them in content), and attached documents (text, PDF, Word) are extracted to text and included in the message for you to use.",
   "- Writes are validated before they commit: references must resolve to an existing entry, MDX component props and placement must match each component's schema, entry ids must be slug-safe, and a reorder must list every id exactly once. A blocked write returns an `error` describing exactly what to fix, so correct it and retry.",
   "- A successful result may include `warnings` (for example an image path not found in the media library): the change was saved, but pass the warning on so the user can resolve it.",
   "- Make the smallest change that satisfies the request and confirm what you changed.",
