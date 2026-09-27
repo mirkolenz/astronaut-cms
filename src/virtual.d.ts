@@ -9,6 +9,19 @@ declare module "virtual:astronaut-cms/config" {
   export default config;
 }
 
+/**
+ * What the admin needs to address the CMS API, which it has to do before the
+ * session probe can tell it anything else. Separate from the config so the rest
+ * of the config can stay behind that probe.
+ */
+declare module "virtual:astronaut-cms/routing" {
+  const routing: {
+    base: string;
+    trailingSlash: import("./integration/types").CmsClientConfig["trailingSlash"];
+  };
+  export default routing;
+}
+
 declare module "virtual:astronaut-cms/server" {
   const config: import("./integration/types").CmsServerConfig;
   export default config;

@@ -119,10 +119,11 @@ export async function limited<T>(
  * Who to charge a request to when there is no session yet.
  *
  * The platform sets one of these in front of a serverless function, and behind
- * one they are trustworthy. Reached directly they are the caller's to spell, so
- * a determined attacker rotates them and falls through to the shared bucket —
- * which is why the shared bucket exists and why the real ceiling belongs at the
- * CDN. This stops a flood from one source, not a distributed one.
+ * one they are trustworthy. Reached directly they are the caller's to spell and
+ * to rotate, which buys a fresh budget per request — so a bucket keyed on this
+ * has to sit inside one charged to everybody at once (see the sign-in limiters
+ * in `server/handler.ts`), and the real ceiling still belongs at the CDN. This
+ * separates honest callers, it does not identify dishonest ones.
  */
 export function callerAddress(request: Request): string {
   for (const header of ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]) {

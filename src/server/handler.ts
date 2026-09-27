@@ -11,9 +11,17 @@
  */
 import serverConfig from "virtual:astronaut-cms/server";
 import clientConfig from "virtual:astronaut-cms/config";
-import { API_BASE, API_LOGIN, CF_ACCESS_HEADER, SESSION_SECRET_ENV } from "../shared/auth.ts";
+import {
+  API_BASE,
+  API_CALLBACK,
+  API_LOGIN,
+  CF_ACCESS_HEADER,
+  SESSION_SECRET_ENV,
+  type SessionState,
+} from "../shared/auth.ts";
 import { ContentValidationError, type Diagnostic } from "../shared/diagnostics.ts";
-import { BodyTooLargeError, HARDENING_HEADERS, readBody } from "../shared/http.ts";
+import { BodyTooLargeError, HARDENING_HEADERS, readBody, readBytes } from "../shared/http.ts";
+import { isActiveContentType } from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
@@ -28,13 +36,14 @@ import {
   exchangeCode,
   OAuthError,
   refreshSession,
+  verifyAccess,
   type ProviderConfig,
 } from "./oauth.ts";
 import {
   SESSION_COOKIE,
   SESSION_TTL,
+  basePath,
   cmsCookie,
-  cookiePath,
   isSameOrigin,
   issue,
   needsRefresh,
@@ -60,10 +69,18 @@ const STATE_MAX_AGE = 600;
  * on the outbound call rather than on the bytes.
  *
  * Generous against real use: a deployment sees one exchange per editor per
- * session. Keyed by caller address where the platform supplies one, and by a
- * shared bucket where it does not.
+ * session.
  */
 const signIn = new RateLimiter({ requests: 20, windowMs: 60_000, concurrency: 4 });
+
+/**
+ * The same thing charged to everybody at once. Behind a proxy the forwarded
+ * address above is trustworthy, but reached directly it is the caller's to
+ * spell and to rotate, which makes the per-address bucket alone a formality.
+ * This is the ceiling that holds whatever the request claims to be, set high
+ * enough that it is only ever reached by a flood.
+ */
+const signInTotal = new RateLimiter({ requests: 120, windowMs: 60_000, concurrency: 16 });
 
 /**
  * What one signed-in editor may ask of the server. The admin is chatty — a
@@ -77,21 +94,6 @@ const tooMany = (message: string) => () => new HttpError(message, 429);
 
 /** What the state cookie carries between the redirect out and the redirect back. */
 type LoginState = { state: string };
-
-/**
- * What the admin page needs to decide what to render. It is deliberately the
- * whole of the answer: nothing here identifies a token, and an unauthenticated
- * request learns only that it is unauthenticated.
- */
-export interface AdminState {
-  signedIn: boolean;
-  /** Where the sign-in link goes. */
-  loginUrl: string;
-  /** What the provider said, when the editor has just come back from a failed callback. */
-  error?: string;
-  /** Whether to start the redirect without waiting for a click. */
-  autoLogin: boolean;
-}
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -109,9 +111,20 @@ function fail(message: string, status: number, validation?: Diagnostic[]): Respo
   return json({ error: { message, ...(validation && { validation }) } }, status);
 }
 
+/** The site's `base`, read off the API path every CMS request is under. */
+const sitePath = (url: URL): string => basePath(url.pathname, API_BASE);
+
+/**
+ * Where the CMS's cookies apply: its own API routes and nothing else, so they are
+ * never attached to a request for the site's own pages. The admin page is a
+ * static shell that reads no session (see `astro/admin.astro`), which is what
+ * lets the scope stay this narrow.
+ */
+const cookieScope = (url: URL): string => `${sitePath(url)}${API_BASE}`;
+
 /** The session cookie, or the expired form of it that signing out sets. */
 function sessionCookie(url: URL, value?: string): string {
-  return cmsCookie({ name: SESSION_COOKIE, url, apiBase: API_BASE, value });
+  return cmsCookie({ name: SESSION_COOKIE, url, path: cookieScope(url), value });
 }
 
 /** The token inside it, whose own `exp` matches the cookie's `Max-Age`. */
@@ -120,10 +133,8 @@ const issueSession = (session: Session, secret: string): Promise<string> =>
 
 /** The CMS's own absolute URL for a path under {@link API_BASE} or the admin. */
 function siteUrl(url: URL, path: string): string {
-  const prefix = cookiePath(url, API_BASE).slice(0, -API_BASE.length);
-
   return conformTrailingSlash(
-    new URL(`${prefix}${path}`, url.origin).href,
+    new URL(`${sitePath(url)}${path}`, url.origin).href,
     clientConfig.trailingSlash,
   );
 }
@@ -188,6 +199,8 @@ type Authenticated =
       cookie?: string;
     }
   | { kind: "anonymous" }
+  /** A real session whose editor no longer has repository access. */
+  | { kind: "revoked"; error: string }
   | { kind: "misconfigured"; error: string };
 
 async function authenticate(
@@ -218,56 +231,102 @@ async function authenticate(
 
   if (!session || session.provider !== provider.provider) return { kind: "anonymous" };
 
-  if (!needsRefresh(session)) return { kind: "session", session };
+  if (!needsRefresh(session)) return revocable(provider, session);
 
   const renewed = await refreshSession(provider, getEnv, session);
 
   if (!renewed) return { kind: "anonymous" };
 
-  return {
-    kind: "session",
-    session: renewed,
-    cookie: sessionCookie(url, await issueSession(renewed, secret)),
-  };
+  return revocable(provider, renewed, sessionCookie(url, await issueSession(renewed, secret)));
+}
+
+/**
+ * The session, unless the editor behind it has lost repository access.
+ *
+ * Every call the CMS makes on the editor's own token is re-decided by the
+ * provider, so for the repository a stale session is already harmless. The
+ * surfaces that are not are the reason this exists: the assistant relay and an
+ * object-store media library both spend the *deployment's* credentials and ask
+ * the provider nothing, so without this, losing access would still leave someone
+ * able to spend the AI account and rewrite the bucket until their cookie expired
+ * thirty days later.
+ *
+ * Here rather than at a route, so a route added later cannot forget it.
+ */
+async function revocable(
+  provider: ProviderConfig,
+  session: Session,
+  cookie?: string,
+): Promise<Authenticated> {
+  const error = await revoked(provider, session.token);
+
+  return error ? { kind: "revoked", error } : { kind: "session", session, cookie };
 }
 
 const describeFailure = (err: unknown): string =>
   err instanceof OAuthError ? err.message : "Sign-in is unavailable.";
 
+/** How long a confirmed authorization stands before the provider is asked again. */
+const ACCESS_TTL_MS = 5 * 60_000;
+
 /**
- * Whether this request may see the admin at all.
- *
- * The admin page is the largest unauthenticated surface the CMS has — a page, a
- * bundle and the client config — and none of it is worth anything without a
- * session. Asking here means an anonymous request is answered with a sign-in
- * link and nothing else.
+ * Token to the check that cleared it. The *promise* is cached, not just its
+ * expiry, so the several requests one admin navigation fires share a single
+ * provider call rather than each starting their own on a cold instance.
  */
-export async function readAdminState(
+const checks = new Map<string, { expiry: number; done: Promise<string | undefined> }>();
+
+/** Why this token may no longer be used, or undefined while it still may. */
+function revoked(provider: ProviderConfig, token: string): Promise<string | undefined> {
+  const now = Date.now();
+  const cached = checks.get(token);
+
+  if (cached && cached.expiry > now) return cached.done;
+
+  // One entry per token in flight, so this is a handful of editors and it keeps
+  // a long-lived instance from accumulating dead sessions.
+  for (const [key, check] of checks) {
+    if (check.expiry <= now) checks.delete(key);
+  }
+
+  // Fails closed: a provider outage reads as "no longer permitted", which is the
+  // right direction for a gate and the same answer signing in would give.
+  const done = verifyAccess(provider, token).then(
+    () => undefined,
+    (err: unknown) => describeFailure(err),
+  );
+
+  checks.set(token, { expiry: now + ACCESS_TTL_MS, done });
+
+  return done;
+}
+
+/**
+ * Answers the shell's one anonymous question: is there a session, and if so,
+ * what is this deployment?
+ *
+ * The only route that answers without one, which is what lets the admin page be
+ * a static shell. An anonymous caller learns whether it is signed in and where
+ * to go to change that, and nothing else.
+ */
+function sessionState(
   request: Request,
   url: URL,
-  getEnv: EnvReader,
-): Promise<AdminState> {
-  const provider = providerConfig();
-  const outcome = await authenticate(request, url, getEnv, provider);
-
-  // Whatever the provider put on the callback, unless the deployment has a
-  // problem of its own to report first.
-  const error =
-    outcome.kind === "misconfigured"
-      ? outcome.error
-      : (url.searchParams.get("error") ?? undefined);
-
+  authenticated: Authenticated,
+): SessionState {
   return {
-    signedIn: outcome.kind === "session",
     loginUrl: siteUrl(url, API_LOGIN),
-    error,
-    // Already signed in at the edge, so the provider round trip is invisible.
-    // Suppressed once a sign-in has just been attempted, so a browser that drops
-    // the session cookie lands on the page rather than in a redirect loop.
+    // Already signed in at the edge, so the provider round trip can be made
+    // invisible. Suppressed once a sign-in is in flight, so a browser that drops
+    // the session cookie lands on the page rather than in a redirect loop; the
+    // shell suppresses it again once anything has gone wrong.
     autoLogin:
-      request.headers.get(CF_ACCESS_HEADER) != null &&
-      readCookie(request, STATE_COOKIE) == null &&
-      !error,
+      request.headers.get(CF_ACCESS_HEADER) != null && readCookie(request, STATE_COOKIE) == null,
+    // A deployment that cannot reach its own secret, or an editor who has lost
+    // access, is the one thing worth reporting: both leave someone staring at a
+    // sign-in button that will not work.
+    ...("error" in authenticated && { error: authenticated.error }),
+    ...(authenticated.kind === "session" && { config: clientConfig }),
   };
 }
 
@@ -277,8 +336,10 @@ export async function handle(
   getBinding: BindingReader,
 ): Promise<Response> {
   const url = new URL(request.url);
+  // The same split the cookie scope uses, so a site base that itself contains
+  // the API segment cannot be read one way here and another way there.
   const path = url.pathname
-    .slice(url.pathname.indexOf(API_BASE) + API_BASE.length)
+    .slice(sitePath(url).length + API_BASE.length)
     .replace(/\/+$/, "");
 
   try {
@@ -304,33 +365,54 @@ async function route(
   // Both halves of the sign-in dance share a budget: the redirect out mints a
   // state cookie, and only a caller holding one can reach the exchange.
   if (path === "/login" || path === "/callback") {
-    return limited(
-      signIn,
-      callerAddress(request),
-      tooMany("Too many sign-in attempts. Wait a moment and try again."),
-      () => (path === "/login" ? startLogin(url, getEnv) : completeLogin(request, url, getEnv)),
+    const denied = tooMany("Too many sign-in attempts. Wait a moment and try again.");
+
+    return limited(signInTotal, "all", denied, () =>
+      limited(signIn, callerAddress(request), denied, () =>
+        path === "/login" ? startLogin(url, getEnv) : completeLogin(request, url, getEnv),
+      ),
     );
   }
 
-  if (path === "/logout") {
+  // A POST, so the same-origin check above covers it: as a GET, any third-party
+  // page could sign an editor out with a top-level navigation, which carries the
+  // `SameSite=Lax` cookie.
+  if (path === "/logout" && request.method === "POST") {
     return json({ ok: true }, 200, { "set-cookie": sessionCookie(url) });
   }
 
   const authenticated = await authenticate(request, url, getEnv, providerConfig());
+  const renewed = authenticated.kind === "session" ? authenticated.cookie : undefined;
+  const extra: Record<string, string> = renewed ? { "set-cookie": renewed } : {};
 
-  // A misconfigured deployment reads as unsigned here; it says why on the
-  // sign-in page, not to whoever sent a cookie.
+  // Answered for anyone, signed in or not: it is the question the shell asks to
+  // find out which it is.
+  if (path === "/session" && request.method === "GET") {
+    return json(sessionState(request, url, authenticated), 200, extra);
+  }
+
+  if (authenticated.kind === "revoked") return fail(authenticated.error, 403);
+
+  // A misconfigured deployment reads as unsigned here; it says why to the shell's
+  // probe, not to whoever sent a cookie.
   if (authenticated.kind !== "session") return fail("Not signed in.", 401);
 
-  const { session, cookie } = authenticated;
-  const extra: Record<string, string> = cookie ? { "set-cookie": cookie } : {};
+  const { session } = authenticated;
   const ctx = createContext(session, getEnv, getBinding);
 
   if (path === "/rpc" && request.method === "POST") {
-    const { op, input } = JSON.parse(await readBody(request, MAX_RPC_BYTES)) as {
-      op?: unknown;
-      input?: unknown;
-    };
+    const body = await readBody(request, MAX_RPC_BYTES);
+
+    let call: { op?: unknown; input?: unknown };
+    try {
+      call = JSON.parse(body) as typeof call;
+    } catch {
+      // A body this server could not parse is a malformed request, not a failure
+      // of its own, and saying so keeps the parser's message out of the answer.
+      return fail("Malformed request body.", 400);
+    }
+
+    const { op, input } = call;
 
     if (typeof op !== "string") return fail("An operation name is required.", 400);
 
@@ -366,6 +448,14 @@ async function route(
     return new Response(content.bytes, {
       headers: {
         "content-type": content.contentType,
+        // These bytes are served same-origin with the admin's own cookie, so a
+        // type a browser would run as a document is stored XSS waiting for an
+        // editor to open it. An object store is told the same thing at upload
+        // (see `UploadTerms.attachment`); bytes proxied from a repository have
+        // no such record, so the decision is remade from the type here.
+        ...(isActiveContentType(content.contentType) && {
+          "content-disposition": "attachment",
+        }),
         // The library is the editor's own repository or bucket, so it is cached
         // per browser and never by a shared proxy.
         "cache-control": "private, max-age=300",
@@ -380,7 +470,7 @@ async function route(
 
     if (!ai) return fail("The assistant is not configured.", 404);
 
-    return relay({
+    const response = await relay({
       request,
       getEnv,
       ai,
@@ -388,6 +478,12 @@ async function route(
       caller: session.login,
       fail,
     });
+
+    // A long streaming answer is exactly when a token lapses mid-request, so the
+    // renewal cannot be the one response that drops it.
+    for (const [name, value] of Object.entries(extra)) response.headers.set(name, value);
+
+    return response;
   }
 
   if (path === "/upload" && request.method === "PUT") {
@@ -396,7 +492,7 @@ async function route(
 
     if (!uploadPath) return fail("An upload path is required.", 400);
 
-    const bytes = new Uint8Array(await readArrayBuffer(request, MAX_PROXY_UPLOAD_BYTES));
+    const bytes = await readBytes(request, MAX_PROXY_UPLOAD_BYTES);
 
     await (await ctx.media()).uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
 
@@ -412,7 +508,7 @@ async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
   if (!provider) return fail("This deployment does not sign in.", 400);
 
   const state = crypto.randomUUID();
-  const redirectUri = siteUrl(url, `${API_BASE}/callback`);
+  const redirectUri = siteUrl(url, API_CALLBACK);
 
   return new Response(null, {
     status: 302,
@@ -423,7 +519,7 @@ async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {
       "set-cookie": cmsCookie({
         name: STATE_COOKIE,
         url,
-        apiBase: API_BASE,
+        path: cookieScope(url),
         value: await issue(
           "oauth-state",
           { state } satisfies LoginState,
@@ -461,7 +557,7 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
     return failed("The sign-in link expired. Try again.");
   }
 
-  const session = await exchangeCode(provider, getEnv, code, siteUrl(url, `${API_BASE}/callback`));
+  const session = await exchangeCode(provider, getEnv, code, siteUrl(url, API_CALLBACK));
 
   return new Response(null, {
     status: 302,
@@ -471,19 +567,6 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
       "set-cookie": sessionCookie(url, await issueSession(session, sessionSecret(provider, getEnv))),
     },
   });
-}
-
-/** Reads a body of unknown type, refusing anything over `maxBytes` as it arrives. */
-async function readArrayBuffer(request: Request, maxBytes: number): Promise<ArrayBuffer> {
-  const declared = Number(request.headers.get("content-length"));
-
-  if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError(maxBytes);
-
-  const buffer = await request.arrayBuffer();
-
-  if (buffer.byteLength > maxBytes) throw new BodyTooLargeError(maxBytes);
-
-  return buffer;
 }
 
 function toResponse(err: unknown): Response {

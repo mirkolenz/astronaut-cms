@@ -1,7 +1,7 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import { mediaRef } from "@shared/media";
 import { call } from "@client/lib/api";
 import type { CollectionManifestEntry, SaveEntryRequest } from "@shared/types";

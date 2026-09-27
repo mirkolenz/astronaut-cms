@@ -52,6 +52,7 @@ export default defineConfig({
         integration: "src/integration/index.ts",
         config: "src/config.ts",
         client: "src/client/index.tsx",
+        bootstrap: "src/client/bootstrap.ts",
         assets: "src/assets/index.ts",
         "media-presign": "src/media/presign.ts",
         endpoint: "src/server/endpoint.ts",

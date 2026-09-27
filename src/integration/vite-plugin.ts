@@ -21,6 +21,8 @@ export interface CmsVitePluginOptions {
   logger: ConfigLogger;
   /** Media-directory-relative globs to bundle even when no content references them. */
   alwaysInclude: string[];
+  /** The host site's Astro `base`, which the admin needs to address the API. */
+  base: string;
 }
 
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
@@ -28,6 +30,15 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
 
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
+    // Split out of the config so the admin can address the API before it has
+    // one. The config is delivered by the session probe and therefore only to a
+    // recognised editor, but a request has to be made to reach the probe at all,
+    // and these two are what makes that request land on the injected route. They
+    // are the site's own public URL shape, so bundling them gives nothing away.
+    "virtual:astronaut-cms/routing": `export default ${JSON.stringify({
+      base: options.base,
+      trailingSlash: clientConfig.trailingSlash,
+    })};`,
     "virtual:astronaut-cms/server": `export default ${JSON.stringify(serverConfig)};`,
     // The filesystem backend is Node-only, so it is linked in exactly where it
     // can run and stubbed everywhere else: without this, `node:fs` would follow

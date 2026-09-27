@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "virtual:astronaut-cms/config": resolve(import.meta.dirname, "tests/fixtures/config.ts"),
+      "virtual:astronaut-cms/routing": resolve(import.meta.dirname, "tests/fixtures/routing.ts"),
       "virtual:astronaut-cms/collections": resolve(
         import.meta.dirname,
         "tests/fixtures/collections.ts",

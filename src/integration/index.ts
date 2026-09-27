@@ -287,6 +287,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 rootDir,
                 logger,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
+                base: astroConfig.base,
               }),
               // The admin writes files the dev server watches; without this every
               // save reloads the page and wipes its state.

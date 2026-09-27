@@ -58,6 +58,10 @@
       "source": "./src/client/index.tsx",
       "default": "./dist/client.js"
     },
+    "./bootstrap": {
+      "source": "./src/client/bootstrap.ts",
+      "default": "./dist/bootstrap.js"
+    },
     "./internal": {
       "types": "./dist/internal/index.d.ts",
       "source": "./src/internal/index.ts",

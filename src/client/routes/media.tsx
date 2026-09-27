@@ -11,7 +11,7 @@ import {
   useRestoreMedia,
   usePurgeTrash,
 } from "@client/queries/use-media";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import {
   classifyUsage,
   describeReference,

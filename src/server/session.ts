@@ -8,9 +8,8 @@
  * nothing portable to steal.
  *
  * Stateless on purpose. A serverless deployment needs no KV, no database and no
- * sticky instance, and the cost is that a session cannot be revoked before it
- * expires. The token inside it is a GitHub App user-to-server token, which
- * expires on its own, so the window is hours rather than forever.
+ * sticky instance, and the cost is that the cookie itself cannot be torn up
+ * before it expires. What it grants can be: see `revocable` in `handler.ts`.
  *
  * The format is a JWE (`dir` + A256GCM) rather than a bare AES-GCM blob. Same
  * primitive, standard envelope — which buys the two things a hand-rolled seal
@@ -144,36 +143,42 @@ export function readCookie(request: Request, name: string): string | undefined {
 }
 
 /**
- * Where the session cookie applies: the CMS's own API routes and nothing else,
- * so it is never attached to a request for the site's own pages. Astro prepends
- * the site `base` to an injected route, so the path is taken from the request
- * that is being answered rather than assumed to be root-relative.
+ * The site's `base`, recovered from the request rather than configured.
+ *
+ * Astro prepends `base` to an injected route, so at runtime it appears only as
+ * whatever precedes the mounted path being answered. The cookie's scope and the
+ * sign-in link both hang off it, and both are built from an API request, which
+ * is the one path guaranteed to carry it.
  */
-export function cookiePath(url: URL, apiBase: string): string {
-  const index = url.pathname.indexOf(apiBase);
+export function basePath(pathname: string, mounted: string): string {
+  const index = pathname.lastIndexOf(mounted);
 
-  return index <= 0 ? apiBase : `${url.pathname.slice(0, index)}${apiBase}`;
+  return index > 0 ? pathname.slice(0, index) : "";
 }
 
 interface CookieOptions {
   name: string;
   url: URL;
-  apiBase: string;
+  /** Where the cookie applies; see {@link cmsCookie}. */
+  path: string;
   /** Omitted to expire the cookie, which is what signing out is. */
   value?: string;
   maxAge?: number;
 }
 
 /**
- * A `Set-Cookie` for one of the CMS's own cookies. Scoped to the API path, so it
- * is never attached to a request for the site's own pages; `SameSite=Lax` so it
- * survives the top-level redirect back from the provider but not a cross-site
- * form post.
+ * A `Set-Cookie` for one of the CMS's own cookies. `SameSite=Lax` so it survives
+ * the top-level redirect back from the provider but not a cross-site form post.
+ *
+ * `path` is the caller's to decide; both callers scope it to the CMS API, so the
+ * cookie is never attached to a request for the site's own pages. That is only
+ * possible because the admin page reads no session (see `astro/admin.astro`): a
+ * page that had to would need the cookie scoped wide enough to reach it.
  */
-export function cmsCookie({ name, url, apiBase, value, maxAge }: CookieOptions): string {
+export function cmsCookie({ name, url, path, value, maxAge }: CookieOptions): string {
   const attributes = [
     `${name}=${value ?? ""}`,
-    `Path=${cookiePath(url, apiBase)}`,
+    `Path=${path}`,
     "HttpOnly",
     "SameSite=Lax",
     `Max-Age=${value ? (maxAge ?? SESSION_TTL) : 0}`,

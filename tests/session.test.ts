@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cmsCookie,
-  cookiePath,
+  basePath,
   isSameOrigin,
   needsRefresh,
   readCookie,
@@ -9,7 +9,6 @@ import {
   verify,
   type Session,
 } from "@server/session";
-import { signInPage } from "@server/sign-in-page";
 
 // The session cookie is now the only thing standing between a visitor and the
 // repository, so these pin the three properties it has to have: it cannot be
@@ -83,23 +82,20 @@ describe("sealed session", () => {
 });
 
 describe("cookie scope", () => {
-  it("is confined to the CMS API, under a site base too", () => {
-    expect(cookiePath(new URL("https://x.test/_astronaut-cms/api/rpc"), "/_astronaut-cms/api")).toBe(
-      "/_astronaut-cms/api",
-    );
-    expect(
-      cookiePath(new URL("https://x.test/docs/_astronaut-cms/api/rpc"), "/_astronaut-cms/api"),
-    ).toBe("/docs/_astronaut-cms/api");
+  it("finds the site base under the API path", () => {
+    expect(basePath("/_astronaut-cms/api/rpc", "/_astronaut-cms/api")).toBe("");
+    expect(basePath("/docs/_astronaut-cms/api/rpc", "/_astronaut-cms/api")).toBe("/docs");
   });
 
   it("is HttpOnly and Lax, and Secure only where that is not self-defeating", () => {
     const attributes = cmsCookie({
       name: "s",
       url: new URL("https://x.test/_astronaut-cms/api/rpc"),
-      apiBase: "/_astronaut-cms/api",
+      path: "/_astronaut-cms/api",
       value: "v",
     });
 
+    expect(attributes).toContain("Path=/_astronaut-cms/api");
     expect(attributes).toContain("HttpOnly");
     expect(attributes).toContain("SameSite=Lax");
     expect(attributes).toContain("Secure");
@@ -108,7 +104,7 @@ describe("cookie scope", () => {
       cmsCookie({
         name: "s",
         url: new URL("http://localhost:4321/_astronaut-cms/api/rpc"),
-        apiBase: "/_astronaut-cms/api",
+        path: "/_astronaut-cms/api",
         value: "v",
       }),
     ).not.toContain("Secure");
@@ -118,8 +114,8 @@ describe("cookie scope", () => {
     expect(
       cmsCookie({
         name: "s",
-        url: new URL("https://x.test/_astronaut-cms/api/logout"),
-        apiBase: "/_astronaut-cms/api",
+        url: new URL("https://x.test/docs/_astronaut-cms/api/logout"),
+        path: "/docs/_astronaut-cms/api",
       }),
     ).toContain("Max-Age=0");
   });
@@ -151,46 +147,5 @@ describe("same-origin gate", () => {
     expect(withHeaders({ origin: "https://evil.test" })).toBe(false);
     // A direct navigation is never a mutating CMS request.
     expect(withHeaders({ "sec-fetch-site": "none" })).toBe(false);
-  });
-});
-
-// The admin page is the largest unauthenticated surface the CMS has. This is
-// what an anonymous request gets instead of it.
-describe("sign-in page", () => {
-  const page = async (state: Partial<Parameters<typeof signInPage>[0]> = {}) =>
-    (
-      await signInPage(
-        { signedIn: false, loginUrl: "https://x.test/api/login", autoLogin: false, ...state },
-        "en",
-      ).text()
-    ).toString();
-
-  it("ships no bundle, no stylesheet and no config", async () => {
-    const html = await page();
-
-    expect(html).not.toContain("<script");
-    expect(html).not.toContain("astronaut-cms/client");
-    expect(html).toContain('href="https://x.test/api/login"');
-  });
-
-  // Nothing on it needs script, so nothing on it is allowed to have any.
-  it("allows nothing in its own policy", () => {
-    const headers = signInPage(
-      { signedIn: false, loginUrl: "/login", autoLogin: false },
-      "en",
-    ).headers;
-
-    expect(headers.get("content-security-policy")).toContain("default-src 'none'");
-    expect(headers.get("content-security-policy")).not.toContain("script-src 'self'");
-    expect(headers.get("cache-control")).toBe("private, no-store");
-  });
-
-  // `error` is whatever the provider put on the callback URL, so it arrives
-  // through the query string and is the one attacker-influenced value here.
-  it("escapes the provider's message", async () => {
-    const html = await page({ error: '<img src=x onerror="alert(1)">' });
-
-    expect(html).not.toContain("<img");
-    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 });

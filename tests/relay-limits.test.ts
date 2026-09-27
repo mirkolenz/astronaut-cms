@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BodyTooLargeError, readBody } from "@shared/http";
+import { BodyTooLargeError, readBody, readBytes } from "@shared/http";
 import { RateLimiter, callerAddress, limited } from "@shared/rate-limit";
 import { isActiveContentType, mediaContentType } from "@shared/media";
 
@@ -22,6 +22,25 @@ describe("readBody", () => {
     await expect(
       readBody(post("x".repeat(100), { "content-length": "5" }), 10),
     ).rejects.toBeInstanceOf(BodyTooLargeError);
+  });
+
+  // An upload arrives as bytes and may declare no length at all, so the ceiling
+  // has to hold while the stream is read rather than after it is all in memory.
+  it("measures an undeclared binary body as it arrives", async () => {
+    const undeclared = new Request("https://example.com/", {
+      method: "PUT",
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(8));
+          controller.enqueue(new Uint8Array(8));
+          controller.close();
+        },
+      }),
+      // @ts-expect-error undici requires this for a streaming body, the types do not list it.
+      duplex: "half",
+    });
+
+    await expect(readBytes(undeclared, 10)).rejects.toBeInstanceOf(BodyTooLargeError);
   });
 });
 

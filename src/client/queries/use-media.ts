@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import { mediaPath } from "@shared/media";
 import type { ReferenceIndex } from "@shared/references";
 import { call } from "@client/lib/api";

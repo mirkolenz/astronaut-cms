@@ -1,6 +1,6 @@
 import collections from "virtual:astronaut-cms/collections";
 import { extractFormatsFromLoader } from "@shared/types";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 
 // Compact view of the content model: which collections exist, their kind, and the
 // file formats they accept. Each collection's field schema is not repeated here,

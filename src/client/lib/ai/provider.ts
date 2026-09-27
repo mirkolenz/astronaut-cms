@@ -1,5 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { apiFetch, apiUrl } from "@client/lib/api";
+import { apiFetch, apiUrl } from "@client/lib/routes";
 import { AI_API_BASE } from "@shared/ai";
 
 export const aiProvider = createOpenAICompatible({

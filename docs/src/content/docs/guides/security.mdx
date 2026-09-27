@@ -13,7 +13,7 @@ Everything below follows from that.
 
 ## The two boundaries
 
-**The session cookie decides who is asking.** It is an encrypted JWT (a JWE, `dir` + A256GCM), marked `HttpOnly`, `SameSite=Lax` and `Secure`, and scoped to the CMS API path so it is never attached to a request for your site's own pages. The provider token lives inside it and is only ever decrypted inside a server route.
+**The session cookie decides who is asking.** It is an encrypted JWT (a JWE, `dir` + A256GCM), marked `HttpOnly`, `SameSite=Lax` and `Secure`, and scoped to the CMS API path, so it is never attached to a request for your site's own pages. The provider token lives inside it and is only ever decrypted inside a server route.
 
 **The operation registry decides what asking can accomplish.** Every operation names a CMS capability — an entry in a collection, a file in the library — and none of them takes a repository path, a ref, a commit or a provider parameter. So a browser that has been fully compromised can still only do the things an editor could have done through the interface.
 
@@ -61,10 +61,16 @@ Set `ASTRONAUT_CMS_SESSION_SECRET` to key sessions off something else instead �
 ### Revocation
 
 The session is stateless, so a serverless deployment needs no database and no sticky instance.
-The cost is that a session cannot be revoked before it expires.
-The token inside it is a GitHub App user-to-server token, which expires in hours and is refreshed in place, so the window is bounded — and a collaborator removed from the repository fails every provider call immediately, because the provider is the authority on that, not a cached check.
+The cost is that the cookie itself cannot be torn up before it expires.
+What it grants can be, though.
+
+A call that carries the editor's own token is re-decided by the provider every time, so a collaborator removed from the repository fails it immediately.
+Two things in the CMS do not work that way: the assistant relay and an object-store media library both spend the deployment's own credentials, and neither asks the provider anything.
+So the server re-checks repository access before it serves any request, caching the answer for five minutes.
+Removing someone's access therefore stops them spending your AI budget and rewriting your bucket within that window, not in thirty days.
 
 Rotating the OAuth client secret invalidates every session at once, which is the thing you would do on compromise anyway.
+That is the immediate lever, and the five-minute re-check is the one that follows a routine offboarding.
 
 ## The unauthenticated surface
 
@@ -72,14 +78,30 @@ Everything an anonymous request can reach, and what it costs:
 
 | Request | Answer | Work done |
 | --- | --- | --- |
-| `GET /admin` | A sign-in link, under 1 kB | Read one cookie header |
+| `GET /admin` | A shell, a stylesheet and a ~1 kB bootstrap | None: the page reads no cookie |
+| `GET /_astronaut-cms/api/session` | Where to sign in, and no config | Read one cookie header |
 | `GET /login` | Redirect to the provider | One token encrypt |
 | `GET /callback` | Redirect back | **One outbound call to the provider** |
 | Anything else | `401 Not signed in.` | Read one cookie header |
 
-The admin page is the part worth dwelling on. Without a session it renders neither the bundle, nor the stylesheet, nor the CMS config the bundle carries (your bucket origin, preview URL and model list), and its policy allows nothing at all — there is no script on that page to permit. That removes the whole client dependency tree from anonymous reach.
+The admin page is the part worth dwelling on.
+It is a static shell that reads no session at all, which is what keeps the cookie off your site's own traffic: a page that had to read the cookie would need it scoped wide enough to reach that page.
 
-A request with no session cookie does no cryptography and reads no environment variable before its 401, and a request with a forged one is answered identically to one with none. A deployment that cannot reach its own secret reports that on the sign-in page, where an operator looks, rather than to whoever sends a cookie.
+What the shell loads is a bootstrap that asks the session endpoint who is asking.
+Your deployment's configuration, the inventory of bucket origin, preview URL and model list, is part of that endpoint's answer and only for a recognised editor.
+It used to be compiled into the admin bundle, where anyone who knew the chunk's URL could read it.
+
+Be precise about what the rest of that split buys, because it is less than it looks.
+The admin bundle sits behind a dynamic import, so an anonymous visitor does not download it, but a dynamic import is not an access check.
+The chunk is a static asset your host serves to whoever asks for it by name, and the collection manifest inside it, which describes every collection's fields and file layout, is still compiled in.
+So treat the bundle as public and the config as private, and if the manifest is sensitive for your site, put an access proxy in front of `/admin`.
+
+One piece of configuration the shell cannot hold back either.
+A content security policy has to be in place before any script runs, so if your media library uploads straight to an object store, that store's origin is named in the page's `connect-src` to anyone who loads it.
+It says where the store lives and nothing about what is in it.
+
+A request with no session cookie does no cryptography and reads no environment variable before its 401, and a request with a forged one is answered identically to one with none.
+A deployment that cannot reach its own secret reports that through the session endpoint, so it reaches the sign-in screen where an operator looks, rather than whoever sends a cookie.
 
 <Aside type="tip" title="Behind an access proxy">
   Cloudflare Access is free; Vercel's equivalent needs Pro and Netlify's needs a paid plan, so most

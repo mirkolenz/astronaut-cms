@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import config from "virtual:astronaut-cms/config";
-import { useQueryClient } from "@tanstack/react-query";
+import config from "@client/lib/config";
 import { signOut } from "@client/lib/api";
 import { useBranchStatus, useChanges } from "@client/queries/use-entries";
 import { ChangeActions } from "@client/components/changes/change-actions";
@@ -15,7 +14,6 @@ import { Button } from "@client/components/ui/button";
  */
 export function PublishBar() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const status = useBranchStatus();
   const changes = useChanges();
 
@@ -26,10 +24,13 @@ export function PublishBar() {
       ? t(($) => $.publish.viewMergeRequest)
       : t(($) => $.publish.viewPullRequest);
 
-  // The cookie is the session, so ending it is the server's to do; the probe is
-  // then refetched, which drops the admin back to the sign-in screen.
+  // The cookie is the session, so ending it is the server's to do. Reloading
+  // afterwards is the point rather than a nicety: the admin holds fetched
+  // repository content in memory and in the query cache, and on a shared machine
+  // none of it may outlive the click. The reload re-renders the page anonymous,
+  // which is the sign-in screen.
   const handleSignOut = () => {
-    void signOut().finally(() => queryClient.invalidateQueries({ queryKey: ["cms", "session"] }));
+    void signOut().finally(() => window.location.reload());
   };
 
   return (

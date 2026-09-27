@@ -1,7 +1,7 @@
 import type { FileUIPart } from "ai";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@shared/media";
 import { uploadMedia } from "@client/lib/media";
 import { call } from "@client/lib/api";

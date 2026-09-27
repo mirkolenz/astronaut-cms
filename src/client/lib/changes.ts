@@ -1,5 +1,5 @@
 import collections from "virtual:astronaut-cms/collections";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import { stripExtension, stripMediaPrefix } from "@shared/paths";
 import { collectionBase, type FileChange } from "@shared/types";
 

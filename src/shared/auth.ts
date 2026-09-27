@@ -2,6 +2,7 @@
  * Where the CMS server lives and what it needs from the environment. Shared so
  * the browser addresses exactly the routes the integration injects.
  */
+import type { CmsClientConfig } from "../integration/types.ts";
 
 /**
  * Who issued the session. `local` is `astro dev` against the working tree, which
@@ -21,6 +22,7 @@ export const API_PATTERN = `${API_BASE}/[...path]`;
  * reach is the operation registry and nothing wider.
  */
 export const API_SESSION = `${API_BASE}/session`;
+
 export const API_LOGIN = `${API_BASE}/login`;
 export const API_CALLBACK = `${API_BASE}/callback`;
 export const API_LOGOUT = `${API_BASE}/logout`;
@@ -29,6 +31,27 @@ export const API_RPC = `${API_BASE}/rpc`;
 export const API_MEDIA = `${API_BASE}/media`;
 /** Upload bytes, for a store the server cannot hand the browser a URL to. */
 export const API_UPLOAD = `${API_BASE}/upload`;
+
+/**
+ * What {@link API_SESSION} answers: the one question the admin shell can ask
+ * without a session. Declared here rather than beside the handler so the client
+ * can name the shape without importing the server, whose module graph reaches
+ * the deployment's credentials.
+ *
+ * `config` doubles as the answer to "am I signed in": it is present for a
+ * recognised editor and absent for everyone else, so there is no second field to
+ * keep in agreement with it.
+ */
+export interface SessionState {
+  /** Where the sign-in link goes. */
+  loginUrl: string;
+  /** Whether the shell should start the redirect without waiting for a click. */
+  autoLogin: boolean;
+  /** Why nobody can sign in, or why this session stopped counting. */
+  error?: string;
+  /** Sent only to a recognised editor: it is an inventory of the deployment. */
+  config?: CmsClientConfig;
+}
 
 /**
  * Optional. The session cookie's key is derived from the OAuth client secret by

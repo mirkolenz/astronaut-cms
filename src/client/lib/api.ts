@@ -7,27 +7,16 @@
  * reaches this bundle), which is what keeps the two from drifting: adding an
  * operation makes it callable here, and changing its input breaks the call site.
  */
-import config from "virtual:astronaut-cms/config";
 import type {
   OperationInput,
   OperationName,
   OperationOutput,
 } from "@server/operations";
-import { API_BASE } from "@shared/auth";
+import { API_LOGOUT, API_RPC } from "@shared/auth";
 import { ContentValidationError, type Diagnostic } from "@shared/diagnostics";
 import { WRITE_HEADER } from "@shared/http";
 import { isWriteOperation } from "@shared/operations";
-import { conformTrailingSlash, joinUrl } from "@shared/url";
-
-const base = import.meta.env.BASE_URL;
-
-/** Absolute URL for a CMS API path, in the form the host's `trailingSlash` makes Astro match. */
-export function apiUrl(path: string): string {
-  return conformTrailingSlash(
-    new URL(joinUrl(base, path), window.location.origin).href,
-    config.trailingSlash,
-  );
-}
+import { apiFetch, apiUrl } from "@client/lib/routes";
 
 /** A refusal from the CMS server, keeping the status the UI reacts to. */
 export class CmsError extends Error {
@@ -53,9 +42,9 @@ export class UnauthenticatedError extends Error {
 }
 
 /**
- * A lapsed session is the server's to report: it renders the sign-in page when
- * there is none, so reloading is the whole of the recovery. Guarded so a burst
- * of failing requests reloads once rather than once each.
+ * A lapsed session is the shell's to report: reloading re-runs the bootstrap,
+ * which asks the server again and renders the sign-in link when the answer is
+ * no. Guarded so a burst of failing requests reloads once rather than once each.
  */
 let reloading = false;
 
@@ -65,43 +54,6 @@ function signInAgain(): void {
   reloading = true;
   window.location.reload();
 }
-
-const ACCESS_PROXY_MESSAGE =
-  "The request never reached the CMS. If an access proxy protects this site " +
-  "(Cloudflare Access, Vercel Deployment Protection, Netlify SSO), its session " +
-  "has expired — reload the page to sign in again.";
-
-// A proxy that answers inline rather than redirecting sends its login page as
-// HTML; the CMS routes only ever answer JSON or an event stream.
-function isLoginInterstitial(response: Response): boolean {
-  return (
-    (response.status === 401 || response.status === 403) &&
-    (response.headers.get("content-type") ?? "").includes("text/html")
-  );
-}
-
-/**
- * `fetch` for the CMS's own routes, hardened against an access proxy in front of
- * the site. Those proxies answer an unauthenticated request with a redirect to
- * their own origin, which a browser `fetch` can only surface as an opaque CORS
- * failure — a lapsed proxy session would otherwise reach the user as a bare
- * "network error" on a site that is plainly still up. The CMS's own routes never
- * redirect except on the sign-in path, which is a navigation rather than a fetch,
- * so `redirect: "manual"` is a safe signal.
- */
-export const apiFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, {
-    ...init,
-    credentials: "same-origin",
-    redirect: "manual",
-  });
-
-  if (response.type === "opaqueredirect" || isLoginInterstitial(response)) {
-    throw new Error(ACCESS_PROXY_MESSAGE);
-  }
-
-  return response;
-};
 
 interface ErrorBody {
   error?: { message?: string; validation?: Diagnostic[] };
@@ -136,7 +88,7 @@ export async function call<K extends OperationName>(
   input: OperationInput<K>,
 ): Promise<OperationOutput<K>> {
   return unwrap<OperationOutput<K>>(
-    await apiFetch(apiUrl(`${API_BASE}/rpc`), {
+    await apiFetch(apiUrl(API_RPC), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -150,6 +102,6 @@ export async function call<K extends OperationName>(
 }
 
 export async function signOut(): Promise<void> {
-  await apiFetch(apiUrl(`${API_BASE}/logout`), { method: "POST" });
+  await apiFetch(apiUrl(API_LOGOUT), { method: "POST" });
 }
 

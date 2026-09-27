@@ -30,22 +30,24 @@ export class BodyTooLargeError extends Error {
 }
 
 /**
- * The request body as text, refusing anything over `maxBytes`. A route that
- * forwards a body to a paid upstream, or spends a secret on it, cannot let the
- * caller choose its size — and `content-length` is only a claim, so the stream
- * is measured as it is read rather than trusted up front.
+ * The body as it arrives, refusing anything over `maxBytes`. A route that
+ * forwards a body to a paid upstream, spends a secret on it, or holds it in a
+ * serverless instance's memory cannot let the caller choose its size, and
+ * `content-length` is only a claim, so the stream is measured as it is read and
+ * abandoned the moment it goes over.
+ *
+ * Yields the chunks rather than a body, so the two readers below each build the
+ * shape they want without either paying for the other's.
  */
-export async function readBody(request: Request, maxBytes: number): Promise<string> {
+async function* chunks(request: Request, maxBytes: number): AsyncGenerator<Uint8Array> {
   const declared = Number(request.headers.get("content-length"));
 
   if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError(maxBytes);
 
   const reader = request.body?.getReader();
 
-  if (!reader) return "";
+  if (!reader) return;
 
-  const decoder = new TextDecoder();
-  let text = "";
   let size = 0;
 
   for (;;) {
@@ -61,8 +63,45 @@ export async function readBody(request: Request, maxBytes: number): Promise<stri
       throw new BodyTooLargeError(maxBytes);
     }
 
-    // Streaming, so a multi-byte character split across two chunks survives.
-    text += decoder.decode(value, { stream: true });
+    yield value;
+  }
+}
+
+/** The body as bytes, for an upload. */
+export async function readBytes(
+  request: Request,
+  maxBytes: number,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const parts: Uint8Array[] = [];
+  let size = 0;
+
+  for await (const chunk of chunks(request, maxBytes)) {
+    parts.push(chunk);
+    size += chunk.length;
+  }
+
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+
+  for (const part of parts) {
+    bytes.set(part, offset);
+    offset += part.length;
+  }
+
+  return bytes;
+}
+
+/**
+ * The body as text, for the routes whose bodies are JSON. Decoded as it arrives,
+ * so a multi-byte character split across two chunks survives and the bytes are
+ * never held twice.
+ */
+export async function readBody(request: Request, maxBytes: number): Promise<string> {
+  const decoder = new TextDecoder();
+  let text = "";
+
+  for await (const chunk of chunks(request, maxBytes)) {
+    text += decoder.decode(chunk, { stream: true });
   }
 
   return text + decoder.decode();

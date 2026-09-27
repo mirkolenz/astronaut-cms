@@ -178,9 +178,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
   /**
    * Only a file collection has an order to change: a glob collection's entries
-   * are separate files, which the site orders however it likes.
+   * are separate files, which the site orders however it likes. Refused rather
+   * than attempted, because a glob collection has no container file and the
+   * rewrite would otherwise write to the directory the collection lives in.
    */
   async reorderEntries(collection: string, ids: string[]): Promise<void> {
+    if (!this.isFileCollection(collection)) {
+      throw new Error(`Collection is not ordered: ${collection}`);
+    }
+
     const { path, content } = await this.editFileCollection(collection, (entries) =>
       Object.fromEntries(
         [...ids, ...Object.keys(entries)]

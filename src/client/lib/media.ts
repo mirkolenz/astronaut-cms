@@ -10,10 +10,11 @@
  * to wherever they really live. Either way an `<img>` addresses a library file
  * the same way, with no fetch, no object URL and no lifetime to manage.
  */
-import config from "virtual:astronaut-cms/config";
-import { API_BASE } from "@shared/auth";
+import config from "@client/lib/config";
+import { API_MEDIA, API_UPLOAD } from "@shared/auth";
 import { assertWithinSizeLimit, encodeKeyPath, remoteMediaUrl } from "@shared/media";
-import { apiFetch, apiUrl, call, unwrap } from "./api";
+import { call, unwrap } from "@client/lib/api";
+import { apiFetch, apiUrl } from "@client/lib/routes";
 
 /** Where the admin loads one library file from. */
 export function mediaUrl(path: string): string {
@@ -23,7 +24,7 @@ export function mediaUrl(path: string): string {
     return remoteMediaUrl(path, backend.publicUrl);
   }
 
-  return apiUrl(`${API_BASE}/media/${encodeKeyPath(path)}`);
+  return apiUrl(`${API_MEDIA}/${encodeKeyPath(path)}`);
 }
 
 /**
@@ -48,7 +49,7 @@ export async function uploadMedia(path: string, file: File, overwrite = false): 
     // envelope, so a lapsed session and a refused destination read the same way
     // here as they do everywhere else.
     await unwrap(
-      await apiFetch(apiUrl(`${API_BASE}/upload?${query}`), { method: "PUT", body: file }),
+      await apiFetch(apiUrl(`${API_UPLOAD}?${query}`), { method: "PUT", body: file }),
     );
 
     return;

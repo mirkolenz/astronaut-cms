@@ -2,34 +2,35 @@
 import "astronaut-cms/styles.css";
 import config from "virtual:astronaut-cms/config";
 import { HARDENING_HEADERS } from "astronaut-cms/internal";
-import { adminState, signInPage } from "astronaut-cms/endpoint";
 
-// Nothing here is worth rendering without a session, so the session is settled
-// before anything is. An anonymous request gets a sign-in link and no more: not
-// the admin bundle, not the CMS config it carries (bucket origin, preview URL,
-// model list), not any of the client dependencies. That is the largest
-// unauthenticated surface the CMS has, and this is what removes it.
+// A shell. It reads no session and carries no configuration: the bootstrap it
+// loads asks the server who is asking, and only then imports the admin. That is
+// what keeps the session cookie scoped to the API alone, since a page that had
+// to read the cookie would need it scoped wide enough to reach this path, which
+// means sending it with every request for the site's own pages.
 //
-// A session that lapses with the tab open lands here too: the API answers 401,
-// the admin reloads, and this renders the sign-in page.
-const state = await adminState(Astro);
+// An anonymous visitor therefore gets this markup, the stylesheet and a
+// bootstrap of a few hundred bytes. A session that lapses with the tab open
+// lands here too: the API answers 401, the admin reloads, and the bootstrap
+// reveals the sign-in panel below.
 
-// Returned rather than branched in the template below: Astro hoists a `<script>`
-// whatever encloses it, so a conditional there would still ship the bundle.
-if (!state.signedIn) return signInPage(state, config.locale);
+// The admin holds no credential, so a script that got in here can act as the
+// editor while the tab is open but has nothing to send anywhere: every provider
+// call is made by the server, and `connect-src 'self'` is the whole of it.
+// `script-src 'self'` with no inline scripts is what carries the weight, by
+// keeping injected markup from becoming script in the first place.
+//
+// The one exception is a presigned upload, whose bytes go browser-to-store: that
+// origin has to be reachable or the browser refuses the request before sending
+// it. It is also the one piece of configuration this page cannot hold back,
+// since a policy has to be in place before any script runs.
 
-// The admin holds no credential: the repository session is a cookie the browser
-// cannot read, and every provider call is made by the server. So this policy no
-// longer has to allow a connection to github.com or to an object store, and
-// `connect-src 'self'` is the whole of it — a script that got in here can act as
-// the editor while the tab is open, but it has nothing to send anywhere.
-//
-// `script-src 'self'` with no inline scripts is still what carries the weight:
-// it keeps injected markup from becoming script in the first place.
-//
-// A presigned upload is the one exception: the bytes go browser-to-store, so
-// that store's origin has to be reachable or the browser refuses the request
-// before it is sent.
+// The only inline script here is the dev-only Fast Refresh preamble below. A
+// nonce admits that element and nothing an injection could write, which
+// `'unsafe-inline'` would not, and it is minted per response so it cannot be
+// replayed.
+const nonce = import.meta.env.DEV ? crypto.randomUUID() : null;
+
 const connectSrc = ["'self'"];
 
 if (config.mediaBackend.type === "remote" && config.mediaBackend.storeOrigin) {
@@ -38,7 +39,7 @@ if (config.mediaBackend.type === "remote" && config.mediaBackend.storeOrigin) {
 
 const csp = [
   "default-src 'none'",
-  "script-src 'self'",
+  `script-src 'self'${nonce ? ` 'nonce-${nonce}'` : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
@@ -60,15 +61,16 @@ for (const [name, value] of Object.entries({
   "content-security-policy": csp,
   // For the handful of agents that still read only this one.
   "x-frame-options": "DENY",
-  // What this page is depends on the caller's cookie, so no cache may keep it.
+  // The page is the same for everyone, but it carries a per-response nonce in
+  // dev and a policy that has to match what is served, so nothing may keep it.
   "cache-control": "private, no-store",
 })) {
   Astro.response.headers.set(name, value);
 }
 
 // The admin mounts React from an external module script (see body) rather than an
-// Astro island, so the page ships no inline scripts and runs under the strict
-// `script-src 'self'` CSP above without hashes. The trade-off: Astro's React
+// Astro island, so a production page ships no inline scripts at all and runs
+// under the strict `script-src 'self'` CSP above. The trade-off: Astro's React
 // integration only injects the Fast Refresh preamble on island pages, so in dev
 // we install it ourselves. It is dev-only, production builds carry no Fast Refresh
 // transform, so no preamble is needed and the CSP stays inline-script free.
@@ -88,21 +90,35 @@ window.$RefreshReg$ = () => {};
 window.$RefreshSig$ = () => (type) => type;`;
 ---
 
-<html lang={config.locale}>
+<!-- The shell states only what it needs before the probe answers, and the
+     admin's language is not that: the bootstrap sets it from the config. -->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {import.meta.env.DEV && <script is:inline type="module" set:html={fastRefreshPreamble} />}
+    {nonce && <script is:inline type="module" nonce={nonce} set:html={fastRefreshPreamble} />}
     <title>Astronaut CMS</title>
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body>
     <div id="astronaut-cms-root"></div>
+    <!-- The whole of the anonymous admin, rendered here rather than built in
+         script: the shell already emits HTML, so the sign-in screen costs no
+         second rendering path and no escaping of the provider's message. Hidden
+         until the bootstrap knows there is no session. -->
+    <main id="astronaut-cms-signin" hidden class="grid min-h-screen place-items-center p-4">
+      <div class="text-center">
+        <h1 class="text-lg font-semibold">Astronaut CMS</h1>
+        <p hidden class="mx-auto mt-2 max-w-md text-sm text-destructive"></p>
+        <a
+          href=""
+          class="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-primary-foreground no-underline"
+          >Sign in</a
+        >
+      </div>
+    </main>
     <script>
-      import { mount } from "astronaut-cms/client";
-
-      const root = document.getElementById("astronaut-cms-root");
-      if (root) mount(root);
+      import "astronaut-cms/bootstrap";
     </script>
   </body>
 </html>

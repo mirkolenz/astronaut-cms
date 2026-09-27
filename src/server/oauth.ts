@@ -187,11 +187,12 @@ const optional = <T>(lookup: Promise<T>): Promise<T | null> => lookup.catch(() =
 
 /**
  * The editor's username, once it is established they may write to the target.
- * Run once at sign-in rather than per request: the token itself carries the
- * permission, so every later call is checked by the provider for free. This only
- * turns "every write fails" into one clear message at the door.
+ *
+ * At sign-in this turns "every write fails" into one clear message at the door.
+ * It is also what a live session is re-checked against, for the reason given by
+ * `revocable` in `handler.ts`.
  */
-async function verifyAccess(config: ProviderConfig, token: string): Promise<string> {
+export async function verifyAccess(config: ProviderConfig, token: string): Promise<string> {
   return config.provider === "github"
     ? verifyGitHub(token, config.target)
     : verifyGitLab(token, config.target, config.instanceUrl ?? "https://gitlab.com");

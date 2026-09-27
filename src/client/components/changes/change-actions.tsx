@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import type { UseMutationResult } from "@tanstack/react-query";
 import {
   useBranchStatus,

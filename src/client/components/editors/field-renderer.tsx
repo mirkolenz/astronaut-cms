@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { isRequired, type FieldSchema } from "@shared/field-schema";
 import { mediaRef } from "@shared/media";
-import config from "virtual:astronaut-cms/config";
+import config from "@client/lib/config";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { useEntries } from "@client/queries/use-entries";
