@@ -1,0 +1,20 @@
+import type { ClientComponentDef, ComponentManifest } from "../../src/internal/user-config.ts";
+
+// Stand-in for the build-time `virtual:astronaut-cms/user-config` module. One
+// component with an asset prop is enough to exercise MDX body validation.
+export type { ClientComponentDef };
+
+export const components: ComponentManifest = {
+  Figure: {
+    props: {
+      type: "object",
+      shape: { src: { type: "image" }, alt: { type: "string" } },
+    },
+    kind: "flow",
+    source: null,
+    defaultExport: false,
+    label: "Figure",
+    icon: null,
+    editor: null,
+  },
+};

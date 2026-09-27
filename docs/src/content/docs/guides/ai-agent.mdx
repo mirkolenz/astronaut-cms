@@ -132,10 +132,28 @@ The first model is the default, and the relay rejects any model not in the list.
   custom gateway, and automatic injection for Netlify and Vercel.
 </Aside>
 
+## Reviewing what the agent did
+
+The agent never asks for approval before a tool call, and it cannot publish or discard.
+Instead every change it makes joins the pending changeset, which you review and then accept or throw away as a whole.
+
+Each write shows up in the conversation as a line saying what changed, with a link to the entry, so you can follow along while the agent works.
+The **Changes** screen lists the full changeset: every file added, edited, renamed or deleted since the last publish, each with its diff.
+Publishing and discarding act on all of it at once, from that screen or from the bar at the bottom of the admin.
+
+This works the same way in local development, where there is no draft branch: the CMS reads the changeset from git and discards by restoring the files it manages.
+Only the collection directories, file-collection files and the media directory are ever touched, so discarding pending content changes never reverts your own source edits.
+
 ## Safety
 
 Every change the agent makes is written to your per-user draft branch (`cms/<username>`) and surfaces as a pull or merge request, just like edits made by hand.
-Destructive actions (delete, publish, discard) pause and ask you to confirm in a dialog before they run.
+Nothing reaches your default branch until you publish, so a change is never final on its own and a single tool call cannot do damage that discarding the changeset would not undo.
+
+Writes are validated before they land, in the storage layer itself, so the check applies to the assistant and to hand edits alike.
+The entry has to satisfy its collection's schema, referenced entries have to exist, images and files have to be in the media library, and MDX components have to match their prop schemas.
+A blocked write returns the reason to the agent, which corrects it and retries.
+This matters most in development: Astro refuses to start when a content file does not match its schema, so an unchecked write could otherwise leave your dev server unable to boot.
+For the same reason a new entry is held in the editor until you first save it — it appears in its collection once it is valid, not before.
 
 <Aside type="caution">
   Any user with write access to the repository can use the assistant, and its usage counts against

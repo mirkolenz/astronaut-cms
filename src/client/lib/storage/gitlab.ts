@@ -1,6 +1,12 @@
 import { Gitlab } from "@gitbeaker/rest";
 import { join } from "pathe";
-import type { CollectionInfo, EntryMeta, MediaFile, SaveEntryRequest } from "@shared/types";
+import type {
+  CollectionManifest,
+  EntryMeta,
+  FileChange,
+  MediaFile,
+  SaveEntryRequest,
+} from "@shared/types";
 import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
 import type { ChangeRequestSummary, PublishMode } from "./types";
@@ -29,7 +35,7 @@ export class GitLabStorage extends BranchedStorage {
 
   constructor(
     config: GitLabConfig,
-    schemas: Record<string, CollectionInfo>,
+    schemas: CollectionManifest,
     mediaDirectory: string,
   ) {
     super(schemas, mediaDirectory, config.publishMode);
@@ -115,7 +121,11 @@ export class GitLabStorage extends BranchedStorage {
     }
   }
 
-  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
+  protected async writeEntry(
+    collection: string,
+    id: string,
+    data: SaveEntryRequest,
+  ): Promise<void> {
     const message = `Update ${collection}/${id}`;
     let path: string;
     let content: string;
@@ -209,15 +219,30 @@ export class GitLabStorage extends BranchedStorage {
     }
   }
 
-  protected async computeAheadBehind(branch: string): Promise<{ ahead: number; behind: number }> {
-    const [aheadCmp, behindCmp] = await Promise.all([
-      this.api.Repositories.compare(this.config.project, this.config.branch, branch),
-      this.api.Repositories.compare(this.config.project, branch, this.config.branch),
-    ]);
-    return {
-      ahead: aheadCmp.commits?.length ?? 0,
-      behind: behindCmp.commits?.length ?? 0,
-    };
+  protected async diffAgainstDefault(branch: string): Promise<FileChange[]> {
+    const cmp = await this.api.Repositories.compare(this.config.project, this.config.branch, branch);
+
+    return (cmp.diffs ?? []).map((diff) => ({
+      path: diff.new_path,
+      kind: diff.new_file
+        ? "added"
+        : diff.deleted_file
+          ? "deleted"
+          : diff.renamed_file
+            ? "renamed"
+            : "modified",
+      previousPath: diff.renamed_file ? diff.old_path : undefined,
+      patch: diff.diff || undefined,
+    }));
+  }
+
+  protected async computeBehind(branch: string): Promise<number> {
+    const cmp = await this.api.Repositories.compare(
+      this.config.project,
+      branch,
+      this.config.branch,
+    );
+    return cmp.commits?.length ?? 0;
   }
 
   protected async findOpenChangeRequest(branch: string): Promise<ChangeRequestSummary | null> {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getStorage } from "@client/lib/storage";
 import type { BranchStatus } from "@client/lib/storage/types";
+import type { FileChange } from "@shared/types";
 import { fetchJson } from "@client/lib/api";
 import type { SaveEntryRequest } from "@shared/types";
 
@@ -12,8 +13,11 @@ function invalidateEntry(qc: QueryClient, collection: string, id: string) {
   void qc.invalidateQueries({ queryKey: ["cms", "entry", collection, id] });
 }
 
-function invalidateBranchStatus(qc: QueryClient) {
+// Every write changes both what the publish bar reports and what the pending
+// changeset contains, so the two always refresh together.
+function invalidateStatus(qc: QueryClient) {
   void qc.invalidateQueries({ queryKey: ["cms", "branch-status"] });
+  void qc.invalidateQueries({ queryKey: ["cms", "changes"] });
 }
 
 export function useEntries(collection: string) {
@@ -36,21 +40,11 @@ export function useSaveEntry(collection: string, id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SaveEntryRequest) => getStorage().saveEntry(collection, id, data),
-    onSuccess: () => {
-      invalidateEntry(queryClient, collection, id);
-      invalidateBranchStatus(queryClient);
-    },
-  });
-}
-
-export function useCreateEntry(collection: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, format }: { id: string; format: string }) =>
-      getStorage().saveEntry(collection, id, { data: {}, body: "", format }),
+    // A save creates the entry when it is the first one, so the listing refreshes too.
     onSuccess: () => {
       invalidateEntries(queryClient, collection);
-      invalidateBranchStatus(queryClient);
+      invalidateEntry(queryClient, collection, id);
+      invalidateStatus(queryClient);
     },
   });
 }
@@ -62,7 +56,7 @@ export function useDeleteEntry(collection: string) {
     onSuccess: (_, id) => {
       invalidateEntries(queryClient, collection);
       invalidateEntry(queryClient, collection, id);
-      invalidateBranchStatus(queryClient);
+      invalidateStatus(queryClient);
     },
   });
 }
@@ -75,7 +69,7 @@ export function useRenameEntry(collection: string) {
     onSuccess: (_, { oldId }) => {
       invalidateEntries(queryClient, collection);
       invalidateEntry(queryClient, collection, oldId);
-      invalidateBranchStatus(queryClient);
+      invalidateStatus(queryClient);
     },
   });
 }
@@ -87,7 +81,7 @@ export function useDuplicateEntry(collection: string) {
       getStorage().duplicateEntry(collection, sourceId, newId),
     onSuccess: () => {
       invalidateEntries(queryClient, collection);
-      invalidateBranchStatus(queryClient);
+      invalidateStatus(queryClient);
     },
   });
 }
@@ -116,7 +110,7 @@ export function useReorderFileEntries(collection: string) {
     mutationFn: (ids: string[]) => getStorage().reorderEntries(collection, ids),
     onSuccess: () => {
       invalidateEntries(queryClient, collection);
-      invalidateBranchStatus(queryClient);
+      invalidateStatus(queryClient);
     },
   });
 }
@@ -129,12 +123,25 @@ export function useBranchStatus() {
   });
 }
 
+/**
+ * The pending changeset: everything written since the last publish, whoever
+ * wrote it. The agent invalidates after each write tool, so this refreshes on
+ * its own while a session runs.
+ */
+export function useChanges() {
+  return useQuery<FileChange[]>({
+    queryKey: ["cms", "changes"],
+    queryFn: () => getStorage().getChanges(),
+    staleTime: 5_000,
+  });
+}
+
 export function usePublish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => getStorage().publish(),
     onSuccess: () => {
-      invalidateBranchStatus(queryClient);
+      invalidateStatus(queryClient);
     },
   });
 }

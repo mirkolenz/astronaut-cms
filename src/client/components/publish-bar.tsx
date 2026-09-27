@@ -1,86 +1,31 @@
-import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
 import { revokeSession } from "@client/lib/oauth/session";
-import { useBranchStatus, usePublish, useUpdate, useDiscard } from "@client/queries/use-entries";
-import { MergeConflictError } from "@client/lib/storage/types";
-import { buildPreviewUrl } from "@client/lib/preview-url";
-import { ConfirmDialog } from "./confirm-dialog";
+import { useBranchStatus, useChanges } from "@client/queries/use-entries";
+import { ChangeActions } from "@client/components/changes/change-actions";
 import { Button } from "@client/components/ui/button";
-import { toast } from "@client/components/toast";
 
+/**
+ * Standing summary of the pending changeset, with the actions that resolve it.
+ * It is shown for every backend, including local storage: writes go straight to
+ * the working tree there, but git still knows what changed, so the same review
+ * and discard flow applies.
+ */
 export function PublishBar() {
   const { t } = useTranslation();
   const session = useAuthStore((s) => s.session);
   const clearSession = useAuthStore((s) => s.clearSession);
   const status = useBranchStatus();
-  const publish = usePublish();
-  const update = useUpdate();
-  const discard = useDiscard();
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const changes = useChanges();
 
-  if (config.storageType === "local") return null;
-
-  const data = status.data;
-  const ahead = data?.ahead ?? 0;
-  const behind = data?.behind ?? 0;
-  const hasBranch = data?.hasBranch ?? false;
-  const changeRequestUrl = data?.changeRequestUrl;
+  const count = changes.data?.length ?? 0;
+  const changeRequestUrl = status.data?.changeRequestUrl;
   const changeRequestLabel =
     config.storageType === "gitlab"
       ? t(($) => $.publish.viewMergeRequest)
       : t(($) => $.publish.viewPullRequest);
-  const previewUrl =
-    hasBranch && data?.branch && config.previewUrl
-      ? buildPreviewUrl(config.previewUrl, data.branch)
-      : null;
-  const busy = publish.isPending || update.isPending || discard.isPending || status.isFetching;
-
-  const reportError = (err: unknown) => {
-    if (err instanceof MergeConflictError) {
-      toast(
-        t(($) => $.publish.mergeConflict),
-        "error",
-      );
-    } else {
-      toast(err instanceof Error ? err.message : String(err), "error");
-    }
-  };
-
-  const handlePublish = () => {
-    publish.mutate(undefined, {
-      onSuccess: () =>
-        toast(
-          t(($) => $.publish.published),
-          "success",
-        ),
-      onError: reportError,
-    });
-  };
-
-  const handleUpdate = () => {
-    update.mutate(undefined, {
-      onSuccess: () =>
-        toast(
-          t(($) => $.publish.updated),
-          "success",
-        ),
-      onError: reportError,
-    });
-  };
-
-  const handleDiscard = () => {
-    setShowDiscardConfirm(false);
-    discard.mutate(undefined, {
-      onSuccess: () =>
-        toast(
-          t(($) => $.publish.discarded),
-          "success",
-        ),
-      onError: reportError,
-    });
-  };
 
   const handleSignOut = () => {
     const current = session;
@@ -92,13 +37,12 @@ export function PublishBar() {
     <div className="border-t border-border bg-muted px-4 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3 text-sm">
-          {!hasBranch && (
-            <span className="text-muted-foreground">{t(($) => $.publish.upToDate)}</span>
-          )}
-          {hasBranch && (
-            <span className="font-medium">
-              {t(($) => $.publish.aheadBehind, { ahead, behind })}
-            </span>
+          {count === 0 ? (
+            <span className="text-muted-foreground">{t(($) => $.changes.none)}</span>
+          ) : (
+            <Link to="/changes" className="font-medium underline-offset-4 hover:underline">
+              {t(($) => $.changes.pending, { count })}
+            </Link>
           )}
           {changeRequestUrl && (
             <a
@@ -112,47 +56,14 @@ export function PublishBar() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleUpdate}
-            disabled={busy || !hasBranch || behind === 0}
-          >
-            {update.isPending ? t(($) => $.publish.updating) : t(($) => $.publish.update)}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDiscardConfirm(true)}
-            disabled={busy || !hasBranch}
-          >
-            {discard.isPending ? t(($) => $.publish.discarding) : t(($) => $.common.discard)}
-          </Button>
-          {previewUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-                {t(($) => $.publish.preview)}
-              </a>
+          <ChangeActions />
+          {session && (
+            <Button variant="ghost" size="xs" onClick={handleSignOut}>
+              {t(($) => $.common.signOut)}
             </Button>
           )}
-          <Button size="sm" onClick={handlePublish} disabled={busy || !hasBranch || ahead === 0}>
-            {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
-          </Button>
-          <Button variant="ghost" size="xs" onClick={handleSignOut}>
-            {t(($) => $.common.signOut)}
-          </Button>
         </div>
       </div>
-
-      <ConfirmDialog
-        open={showDiscardConfirm}
-        title={t(($) => $.publish.discardChanges)}
-        message={t(($) => $.publish.discardChangesMessage, { ahead })}
-        confirmLabel={t(($) => $.common.discard)}
-        variant="danger"
-        onConfirm={handleDiscard}
-        onCancel={() => setShowDiscardConfirm(false)}
-      />
     </div>
   );
 }

@@ -1,22 +1,32 @@
-import { getStorage } from "@client/lib/storage";
+import config from "virtual:astronaut-cms/config";
+import { collectionDataSchema, normalizeDates } from "@client/lib/schema";
 import { validatePath } from "@shared/validation";
 import type { CollectionManifestEntry } from "@shared/types";
 import type { FieldSchema } from "@shared/field-schema";
 import { collectResolvableLeaves, type ResolvableLeaf } from "./walk";
 import { validateMdx } from "./mdx";
-import { error, warning, type Diagnostic } from "./types";
+import { diagnostic, ContentValidationError, type Diagnostic } from "./types";
 
 export * from "./types";
-export { validateMdx } from "./mdx";
+
+/**
+ * What the checks need to look things up. The storage backend is passed in
+ * rather than taken from `getStorage()` so that the backend itself can validate
+ * its own writes without depending on the module that constructs it.
+ */
+export interface ContentSource {
+  listEntries(collection: string): Promise<{ id: string }[]>;
+  listMedia(): Promise<{ path: string }[]>;
+}
 
 /** An entry id must be a safe, slug-like path (the same rule the storage layer enforces). */
-export function validateEntryId(id: string): Diagnostic[] {
+function validateEntryId(id: string): Diagnostic[] {
   try {
     validatePath(id, "entry id");
 
     return [];
   } catch (e) {
-    return [error(e instanceof Error ? e.message : String(e))];
+    return [diagnostic(e instanceof Error ? e.message : String(e))];
   }
 }
 
@@ -37,29 +47,22 @@ export function validateReorder(existing: string[], ids: string[]): Diagnostic[]
   const missing = existing.filter((id) => !seen.has(id));
   const diagnostics: Diagnostic[] = [];
 
-  if (unknown.length) diagnostics.push(error(`Unknown entry id(s): ${unknown.join(", ")}.`));
+  if (unknown.length) diagnostics.push(diagnostic(`Unknown entry id(s): ${unknown.join(", ")}.`));
   if (missing.length) {
     diagnostics.push(
-      error(`Every entry must appear exactly once; missing: ${missing.join(", ")}.`),
+      diagnostic(`Every entry must appear exactly once; missing: ${missing.join(", ")}.`),
     );
   }
   if (duplicates.length)
-    diagnostics.push(error(`Duplicate entry id(s): ${duplicates.join(", ")}.`));
+    diagnostics.push(diagnostic(`Duplicate entry id(s): ${duplicates.join(", ")}.`));
 
   return diagnostics;
 }
 
-/** A media path must resolve to a file in the media library. */
-export async function validateMediaExists(path: string): Promise<Diagnostic[]> {
-  const normalized = path.replace(/^\//, "");
-  const exists = (await getStorage().listMedia()).some(
-    (m) => m.path === normalized || m.path === path,
-  );
-
-  return exists ? [] : [error(`No media file at "${path}".`)];
-}
-
-async function checkReferences(references: ResolvableLeaf[]): Promise<Diagnostic[]> {
+async function checkReferences(
+  source: ContentSource,
+  references: ResolvableLeaf[],
+): Promise<Diagnostic[]> {
   const byCollection = new Map<string, ResolvableLeaf[]>();
 
   for (const ref of references) {
@@ -71,12 +74,12 @@ async function checkReferences(references: ResolvableLeaf[]): Promise<Diagnostic
 
   const groups = await Promise.all(
     [...byCollection].map(async ([collection, refs]) => {
-      const ids = new Set((await getStorage().listEntries(collection)).map((e) => e.id));
+      const ids = new Set((await source.listEntries(collection)).map((e) => e.id));
 
       return refs
         .filter((ref) => !ids.has(ref.value))
         .map((ref) =>
-          error(
+          diagnostic(
             `references "${ref.value}", which does not exist in collection "${collection}".`,
             ref.path,
           ),
@@ -87,76 +90,131 @@ async function checkReferences(references: ResolvableLeaf[]): Promise<Diagnostic
   return groups.flat();
 }
 
-async function checkAssets(assets: ResolvableLeaf[]): Promise<Diagnostic[]> {
+/**
+ * An `image`/`file` field must name a file in the media directory, and nothing
+ * else. This is not a house rule: the site resolves these paths through a glob
+ * rooted at the media directory (see the generated `virtual:astronaut-cms/assets`
+ * module), so a path outside it cannot resolve at render time no matter what the
+ * file system holds, and a path inside it that does not exist fails the same way.
+ * Both are therefore errors rather than warnings.
+ */
+async function checkAssets(source: ContentSource, assets: ResolvableLeaf[]): Promise<Diagnostic[]> {
   if (assets.length === 0) return [];
 
-  const paths = new Set((await getStorage().listMedia()).map((m) => m.path));
+  const mediaDirectory = config.mediaDirectory.replace(/^\/|\/$/g, "");
+  const paths = new Set((await source.listMedia()).map((m) => m.path));
 
-  return assets
-    .filter((asset) => !paths.has(asset.value.replace(/^\//, "")))
-    .map((asset) =>
-      warning(`points at "${asset.value}", which is not in the media library.`, asset.path),
-    );
+  return assets.flatMap((asset) => {
+    const normalized = asset.value.replace(/^\//, "");
+
+    if (!normalized.startsWith(`${mediaDirectory}/`)) {
+      return diagnostic(
+        `"${asset.value}" is outside the media directory ("${mediaDirectory}"). Assets must live in the media library; upload the file there and use the path listMedia reports.`,
+        asset.path,
+      );
+    }
+
+    if (!paths.has(normalized)) {
+      return diagnostic(
+        `"${asset.value}" is not in the media library. Use a path listMedia reports.`,
+        asset.path,
+      );
+    }
+
+    return [];
+  });
+}
+
+/** A media path names an existing file in the media library, by the same rule. */
+export function validateMediaExists(source: ContentSource, path: string): Promise<Diagnostic[]> {
+  return checkAssets(source, [{ kind: "file", value: path, path: "" }]);
+}
+
+/**
+ * The data must satisfy the collection's own schema. Writing an entry that does
+ * not is the one CMS mistake the site cannot survive: Astro's content sync
+ * throws on it, and the full sync it runs at startup is uncaught, so the dev
+ * server exits and will not come back until the file is fixed by hand.
+ *
+ * The reconstructed schema is never stricter than the original (see
+ * `fieldSchemaToZod`), so this catches every structural violation while never
+ * blocking a write the real schema would have accepted.
+ */
+export function validateAgainstSchema(
+  col: CollectionManifestEntry,
+  data: Record<string, unknown>,
+): Diagnostic[] {
+  const result = collectionDataSchema(col).safeParse(normalizeDates(data));
+
+  if (result.success) return [];
+
+  return result.error.issues.map((issue) => diagnostic(issue.message, issue.path.join(".") || undefined));
 }
 
 /**
  * Cross-resource integrity for the fields the lowered schema can only type as
- * `string`: a `reference` must resolve to an existing entry (error), and an
- * `image`/`file` should resolve to a media file (warning, since assets may live
- * outside the managed media directory). `onlyKeys` restricts the check to the
- * changed top-level fields of a partial edit.
+ * `string`: a `reference` must resolve to an existing entry and an `image`/`file`
+ * to a file in the media library. These are the values a model can get past the
+ * tool's JSON Schema while still pointing at nothing, so they are checked here
+ * rather than by the schema.
  */
-export async function validateReferencesAndAssets(
-  schema: FieldSchema | null | undefined,
-  data: Record<string, unknown>,
-  onlyKeys?: string[],
+async function checkResolvableLeaves(
+  source: ContentSource,
+  leaves: ResolvableLeaf[],
 ): Promise<Diagnostic[]> {
-  if (schema?.type !== "object") return [];
-
-  const leaves = onlyKeys
-    ? onlyKeys.flatMap((key) =>
-        schema.shape[key] ? collectResolvableLeaves(schema.shape[key], data[key], key) : [],
-      )
-    : collectResolvableLeaves(schema, data);
-
   if (leaves.length === 0) return [];
 
   const [references, assets] = await Promise.all([
-    checkReferences(leaves.filter((l) => l.kind === "reference")),
-    checkAssets(leaves.filter((l) => l.kind !== "reference")),
+    checkReferences(source, leaves.filter((l) => l.kind === "reference")),
+    checkAssets(source, leaves.filter((l) => l.kind !== "reference")),
   ]);
 
   return [...references, ...assets];
 }
 
-// --- Entry-write check registry -------------------------------------------
+/** The assets and references an entry's data points at. */
+function dataLeaves(
+  schema: FieldSchema | null | undefined,
+  data: Record<string, unknown>,
+): ResolvableLeaf[] {
+  return schema?.type === "object" ? collectResolvableLeaves(schema, data) : [];
+}
 
-export interface EntryWriteInput {
+// --- Entry writes ----------------------------------------------------------
+
+export interface EntryWrite {
   col: CollectionManifestEntry;
   id: string;
   data: Record<string, unknown>;
   body: string;
   format: string;
-  /** Restrict reference/asset checks to these changed top-level keys (edits). */
-  changedDataKeys?: string[];
-  /** Skip id validation; an edit keeps its already-valid id. */
-  skipId?: boolean;
-  /** Skip body validation; an edit that does not touch the body. */
-  skipBody?: boolean;
 }
 
 /**
- * Ordered checks applied to a pending entry write. To add a validation, append a
- * function returning {@link Diagnostic}s here. They run concurrently and their
- * findings are merged; error-level findings block the write, warnings do not.
+ * Everything that has to hold before an entry may be written: a slug-safe id,
+ * data matching the collection's schema, well-formed MDX components, and every
+ * asset and reference — from the frontmatter and from the component props alike
+ * — resolving to something that exists. The two leaf sources are resolved
+ * together so the media library and each referenced collection are listed once
+ * per write.
  */
-export const entryWriteChecks: Array<(input: EntryWriteInput) => Promise<Diagnostic[]>> = [
-  async ({ id, skipId }) => (skipId ? [] : validateEntryId(id)),
-  async ({ body, format, skipBody }) => (skipBody ? [] : validateMdx(body, format)),
-  ({ col, data, changedDataKeys }) =>
-    validateReferencesAndAssets(col.schema, data, changedDataKeys),
-];
+async function validateEntryWrite(
+  source: ContentSource,
+  { col, id, data, body, format }: EntryWrite,
+): Promise<Diagnostic[]> {
+  const mdx = validateMdx(body, format);
 
-export async function validateEntryWrite(input: EntryWriteInput): Promise<Diagnostic[]> {
-  return (await Promise.all(entryWriteChecks.map((check) => check(input)))).flat();
+  return [
+    ...validateEntryId(id),
+    ...validateAgainstSchema(col, data),
+    ...mdx.diagnostics,
+    ...(await checkResolvableLeaves(source, [...dataLeaves(col.schema, data), ...mdx.leaves])),
+  ];
+}
+
+/** Throws {@link ContentValidationError} unless the entry is safe to write. */
+export async function assertEntryWritable(source: ContentSource, write: EntryWrite): Promise<void> {
+  const diagnostics = await validateEntryWrite(source, write);
+
+  if (diagnostics.length > 0) throw new ContentValidationError(diagnostics);
 }

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { StorageBase } from "@client/lib/storage/base";
-import type { CollectionInfo } from "@shared/types";
+import type { CollectionManifest } from "@shared/types";
 
 // A concrete StorageBase that exposes the protected path helpers, so we can pin
 // that glob-collection storage paths come from the loader's `base`
 // (content.config.ts) rather than being hard-coded from the collection key.
 class TestStorage extends StorageBase {
+  readonly capabilities = { publish: false, update: false };
+
   collectionPath(collection: string) {
     return this.getCollectionPath(collection);
   }
@@ -34,7 +36,7 @@ class TestStorage extends StorageBase {
   deleteMedia() {
     return Promise.resolve();
   }
-  saveEntry() {
+  writeEntry() {
     return Promise.resolve();
   }
   deleteEntry() {
@@ -53,15 +55,20 @@ class TestStorage extends StorageBase {
     return Promise.resolve();
   }
   getStatus() {
-    return Promise.resolve({ hasBranch: false, branch: "", ahead: 0, behind: 0 });
+    return Promise.resolve({ branch: "", behind: 0 });
+  }
+  getChanges() {
+    return Promise.resolve([]);
   }
 }
 
-const schemas: Record<string, CollectionInfo> = {
+const glob = { type: "content", loaderType: "glob", schema: null, loaderPattern: null, loaderFileName: null } as const;
+
+const schemas: CollectionManifest = {
   // Collection key ("posts") differs from its directory ("blog").
-  posts: { name: "posts", type: "content", loaderType: "glob", loaderBase: "src/content/blog" },
+  posts: { name: "posts", ...glob, loaderBase: "src/content/blog" },
   // No base captured -> conventional fallback.
-  notes: { name: "notes", type: "content", loaderType: "glob", loaderBase: null },
+  notes: { name: "notes", ...glob, loaderBase: null },
 };
 
 describe("StorageBase glob paths", () => {

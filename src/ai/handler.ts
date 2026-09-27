@@ -142,7 +142,12 @@ export async function handle(
     return jsonError(err instanceof Error ? err.message : "Forbidden", 403);
   }
 
-  const body = (await request.json()) as { model?: string };
+  let body: { model?: string };
+  try {
+    body = (await request.json()) as { model?: string };
+  } catch {
+    return jsonError("Malformed request body.", 400);
+  }
 
   if (config.models && body.model && !config.models.includes(body.model)) {
     return jsonError(`Model not allowed: ${body.model}`, 400);
@@ -167,8 +172,14 @@ export async function handle(
       method: "POST",
       headers: { "content-type": "application/json", ...gateway.headers },
       body: JSON.stringify(body),
+      // Tie the upstream call to the browser's request: when the user stops a
+      // run or navigates away, the gateway request is cancelled with it instead
+      // of streaming on into a response nobody is reading.
+      signal: request.signal,
     });
   } catch (err) {
+    if (request.signal.aborted) return jsonError("The request was cancelled.", 499);
+
     // A connection-level failure (gateway down, DNS, TLS) never reaches the
     // browser as a useful status, so log the full error and return a clear one.
     console.error(`[astronaut-cms] Failed to reach AI gateway at ${gateway.url}:`, err);

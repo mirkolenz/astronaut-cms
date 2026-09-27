@@ -1,11 +1,17 @@
-import type { EntryMeta, EntryContent, SaveEntryRequest, MediaFile } from "@shared/types";
+import type { EntryMeta, EntryContent, FileChange, SaveEntryRequest, MediaFile } from "@shared/types";
 
 export type PublishMode = "direct" | "pull-request";
 
+/**
+ * The draft branch's standing relative to the default branch. What is *on* the
+ * branch is the changeset (see `getChanges`); this only covers what the
+ * changeset cannot say: where it lives, whether the default branch has moved on,
+ * and where to review it.
+ */
 export interface BranchStatus {
-  hasBranch: boolean;
+  /** Draft branch name, empty for a backend without one. */
   branch: string;
-  ahead: number;
+  /** Commits the default branch is ahead of the draft, i.e. what `update` would merge in. */
   behind: number;
   changeRequestUrl?: string;
 }
@@ -39,7 +45,21 @@ export function mapMergeError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
 
+/**
+ * What a backend can do with its pending changes, fixed by the backend rather
+ * than by the changes themselves. Local storage writes straight to the working
+ * tree: there is no draft to merge in either direction, only changes to keep or
+ * throw away.
+ */
+export interface StorageCapabilities {
+  /** Integrate the pending changes into the published content. */
+  publish: boolean;
+  /** Merge newer published content back into the pending changes. */
+  update: boolean;
+}
+
 export interface StorageBackend {
+  readonly capabilities: StorageCapabilities;
   listEntries(collection: string): Promise<EntryMeta[]>;
   getEntry(collection: string, id: string): Promise<EntryContent>;
   saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
@@ -57,4 +77,6 @@ export interface StorageBackend {
   update(): Promise<void>;
   discard(): Promise<void>;
   getStatus(): Promise<BranchStatus>;
+  /** Everything pending since the last publish, as one reviewable unit. */
+  getChanges(): Promise<FileChange[]>;
 }

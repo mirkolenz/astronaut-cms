@@ -1,6 +1,13 @@
 import { Octokit } from "@octokit/rest";
 import { join } from "pathe";
-import type { CollectionInfo, EntryMeta, MediaFile, SaveEntryRequest } from "@shared/types";
+import type {
+  ChangeKind,
+  CollectionManifest,
+  EntryMeta,
+  FileChange,
+  MediaFile,
+  SaveEntryRequest,
+} from "@shared/types";
 import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
 import type { ChangeRequestSummary, PublishMode } from "./types";
@@ -21,6 +28,18 @@ type TreeEntry = {
   sha: string | null;
 };
 
+// GitHub reports "copied" and "changed" alongside the familiar statuses; both
+// read as an ordinary modification to a content editor.
+const FILE_STATUS: Record<string, ChangeKind> = {
+  added: "added",
+  removed: "deleted",
+  modified: "modified",
+  renamed: "renamed",
+  copied: "added",
+  changed: "modified",
+  unchanged: "modified",
+};
+
 export class GitHubStorage extends BranchedStorage {
   private config: GitHubConfig;
   private cachedOctokit: Octokit | null = null;
@@ -28,7 +47,7 @@ export class GitHubStorage extends BranchedStorage {
 
   constructor(
     config: GitHubConfig,
-    schemas: Record<string, CollectionInfo>,
+    schemas: CollectionManifest,
     mediaDirectory: string,
   ) {
     super(schemas, mediaDirectory, config.publishMode);
@@ -124,7 +143,11 @@ export class GitHubStorage extends BranchedStorage {
     }
   }
 
-  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
+  protected async writeEntry(
+    collection: string,
+    id: string,
+    data: SaveEntryRequest,
+  ): Promise<void> {
     const message = `Update ${collection}/${id}`;
     let path: string;
     let content: string;
@@ -208,13 +231,27 @@ export class GitHubStorage extends BranchedStorage {
     }
   }
 
-  protected async computeAheadBehind(branch: string): Promise<{ ahead: number; behind: number }> {
-    const { data: cmp } = await this.octokit.rest.repos.compareCommitsWithBasehead({
+  private async compare(branch: string) {
+    const { data } = await this.octokit.rest.repos.compareCommitsWithBasehead({
       owner: this.config.owner,
       repo: this.config.repo,
       basehead: `${this.config.branch}...${branch}`,
     });
-    return { ahead: cmp.ahead_by, behind: cmp.behind_by };
+    return data;
+  }
+
+  protected async computeBehind(branch: string): Promise<number> {
+    return (await this.compare(branch)).behind_by;
+  }
+
+  protected async diffAgainstDefault(branch: string): Promise<FileChange[]> {
+    const cmp = await this.compare(branch);
+    return (cmp.files ?? []).map((file) => ({
+      path: file.filename,
+      kind: FILE_STATUS[file.status] ?? "modified",
+      previousPath: file.previous_filename,
+      patch: file.patch,
+    }));
   }
 
   protected async findOpenChangeRequest(branch: string): Promise<ChangeRequestSummary | null> {

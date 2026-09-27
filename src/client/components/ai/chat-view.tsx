@@ -23,7 +23,7 @@ export type CmsChat = ReturnType<typeof useCmsChat>;
 
 export function ChatMessages({ chat, className }: { chat: CmsChat; className?: string }) {
   const { t } = useTranslation();
-  const { messages, addToolApprovalResponse } = chat;
+  const { messages } = chat;
 
   return (
     <Conversation className="min-h-0 flex-1">
@@ -56,9 +56,7 @@ export function ChatMessages({ chat, className }: { chat: CmsChat; className?: s
 
                   // Every CMS tool is statically defined, so no dynamic tool parts.
                   if (isStaticToolUIPart(part)) {
-                    return (
-                      <ToolCall key={i} part={part} onApprovalResponse={addToolApprovalResponse} />
-                    );
+                    return <ToolCall key={i} part={part} />;
                   }
 
                   return null;

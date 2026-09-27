@@ -1,59 +1,40 @@
-// Severity-tagged validation finding plus the helpers that turn a batch of them
-// into the ok / warning / error envelope the AI tools return. Errors block the
-// write. Warnings let it through but ride along so the model can react.
-
-export type Severity = "error" | "warning";
+// A validation finding, plus the helpers that turn a batch of them into the ok /
+// error envelope the AI tools return. Every finding blocks: a write that would
+// leave content the site cannot build must not land, so there is no severity to
+// distinguish and nothing that merely rides along with a successful write.
 
 export interface Diagnostic {
-  severity: Severity;
   message: string;
   /** Dotted path to the offending value, e.g. "author" or "seo.image". */
   path?: string;
 }
 
-export const error = (message: string, path?: string): Diagnostic => ({
-  severity: "error",
-  message,
-  path,
-});
+export const diagnostic = (message: string, path?: string): Diagnostic => ({ message, path });
 
-export const warning = (message: string, path?: string): Diagnostic => ({
-  severity: "warning",
-  message,
-  path,
-});
-
-export type OkResult = { ok: true } | { ok: true; warnings: string[] };
 export type ErrorResult = { error: string };
 
 const line = (d: Diagnostic): string => (d.path ? `${d.path}: ${d.message}` : d.message);
 
-function format(title: string, diagnostics: Diagnostic[]): string {
-  return `${title}:\n${diagnostics.map((d) => `- ${line(d)}`).join("\n")}`;
+function report(diagnostics: Diagnostic[]): string {
+  return `Validation failed:\n${diagnostics.map((d) => `- ${line(d)}`).join("\n")}`;
 }
 
-/** Error envelope for a pure pre-check, or null when there are no errors. */
+/** Error envelope for a batch of findings, or null when there are none. */
 export function toErrorResult(diagnostics: Diagnostic[]): ErrorResult | null {
-  const errors = diagnostics.filter((d) => d.severity === "error");
-
-  return errors.length ? { error: format("Validation failed", errors) } : null;
+  return diagnostics.length > 0 ? { error: report(diagnostics) } : null;
 }
 
 /**
- * Commits a write only when no error-level diagnostics are present. Warnings do
- * not block: the write lands and the warnings ride along so the model can react.
+ * Refusal of a write that would leave content the site cannot build. Distinct
+ * from an ordinary failure so callers can tell "this content is wrong" (worth
+ * reporting back for correction) from "the write did not go through".
  */
-export async function commitWithDiagnostics(
-  diagnostics: Diagnostic[],
-  commit: () => Promise<void>,
-): Promise<OkResult | ErrorResult> {
-  const blocking = toErrorResult(diagnostics);
+export class ContentValidationError extends Error {
+  readonly diagnostics: Diagnostic[];
 
-  if (blocking) return blocking;
-
-  await commit();
-
-  const warnings = diagnostics.filter((d) => d.severity === "warning");
-
-  return warnings.length ? { ok: true, warnings: warnings.map(line) } : { ok: true };
+  constructor(diagnostics: Diagnostic[]) {
+    super(report(diagnostics));
+    this.name = "ContentValidationError";
+    this.diagnostics = diagnostics;
+  }
 }

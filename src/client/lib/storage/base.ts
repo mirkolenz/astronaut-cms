@@ -1,8 +1,14 @@
-import type { BranchStatus, ChangeRequestSummary, PublishMode, StorageBackend } from "./types";
+import type {
+  BranchStatus,
+  ChangeRequestSummary,
+  PublishMode,
+  StorageBackend,
+  StorageCapabilities,
+} from "./types";
 import { mapMergeError } from "./types";
 import { getToken } from "./utils";
 import type {
-  CollectionInfo,
+  CollectionManifest,
   EntryMeta,
   EntryContent,
   SaveEntryRequest,
@@ -11,7 +17,7 @@ import type {
   CONTENT_FORMATS,
   DATA_FORMATS,
 } from "@shared/types";
-import { ALL_FORMATS } from "@shared/types";
+import { ALL_FORMATS, collectionBase, type FileChange } from "@shared/types";
 import {
   parseContent,
   parseMultiEntryFile,
@@ -19,15 +25,18 @@ import {
   getFileExtension,
 } from "@shared/content-parser";
 import { validateSegment, validatePath, validateFormat } from "@shared/validation";
+import { assertEntryWritable } from "@client/lib/validation";
 import { stripExtension } from "./utils";
 
 const BRANCH_PREFIX = "cms/";
 
 export abstract class StorageBase implements StorageBackend {
-  protected schemas: Record<string, CollectionInfo>;
+  abstract readonly capabilities: StorageCapabilities;
+
+  protected schemas: CollectionManifest;
   protected mediaDirectory: string;
 
-  constructor(schemas: Record<string, CollectionInfo>, mediaDirectory: string) {
+  constructor(schemas: CollectionManifest, mediaDirectory: string) {
     this.schemas = schemas;
     this.mediaDirectory = mediaDirectory;
   }
@@ -38,7 +47,12 @@ export abstract class StorageBase implements StorageBackend {
   abstract replaceMedia(path: string, file: File): Promise<MediaFile>;
   abstract renameMedia(oldPath: string, newPath: string): Promise<MediaFile>;
   abstract deleteMedia(path: string): Promise<void>;
-  abstract saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
+  /** Persists an entry that has already been validated. */
+  protected abstract writeEntry(
+    collection: string,
+    id: string,
+    data: SaveEntryRequest,
+  ): Promise<void>;
   abstract deleteEntry(collection: string, id: string): Promise<void>;
   abstract reorderEntries(collection: string, ids: string[]): Promise<void>;
 
@@ -46,6 +60,22 @@ export abstract class StorageBase implements StorageBackend {
   abstract update(): Promise<void>;
   abstract discard(): Promise<void>;
   abstract getStatus(): Promise<BranchStatus>;
+  abstract getChanges(): Promise<FileChange[]>;
+
+  /**
+   * The single funnel for content writes, and therefore where content validity is
+   * enforced: an entry that does not satisfy its collection's schema (or points
+   * at an asset or reference that does not exist) breaks the site's content sync,
+   * so it never reaches storage. Every other write composes this one.
+   */
+  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
+    const col = this.schemas[collection];
+
+    if (!col) throw new Error(`Unknown collection: ${collection}`);
+
+    await assertEntryWritable(this, { col, id, ...data });
+    await this.writeEntry(collection, id, data);
+  }
 
   async getEntry(collection: string, id: string): Promise<EntryContent> {
     const col = this.schemas[collection];
@@ -207,11 +237,8 @@ export abstract class StorageBase implements StorageBackend {
 
   // --- Glob collection helpers ---
 
-  // Glob collections live at their loader's configured `base` (from
-  // content.config.ts), not necessarily a directory named after the collection.
-  // Fall back to the conventional location when no base was captured.
   protected getCollectionPath(collection: string): string {
-    return this.schemas[collection]?.loaderBase ?? `src/content/${collection}`;
+    return collectionBase(collection, this.schemas[collection]);
   }
 
   protected getEntryPath(collection: string, entryId: string, format: string): string {
@@ -249,6 +276,8 @@ export abstract class StorageBase implements StorageBackend {
  * and explicit branch creation/deletion via markBranchExists.
  */
 export abstract class BranchedStorage extends StorageBase {
+  readonly capabilities: StorageCapabilities = { publish: true, update: true };
+
   private userBranch: string | null = null;
   private cacheToken: string | null = null;
   private branchExistsCache: boolean | null = null;
@@ -256,7 +285,7 @@ export abstract class BranchedStorage extends StorageBase {
   protected publishMode: PublishMode;
 
   constructor(
-    schemas: Record<string, CollectionInfo>,
+    schemas: CollectionManifest,
     mediaDirectory: string,
     publishMode: PublishMode,
   ) {
@@ -273,7 +302,9 @@ export abstract class BranchedStorage extends StorageBase {
   protected abstract acceptChangeRequest(request: ChangeRequestSummary): Promise<void>;
   protected abstract deleteUserBranch(branch: string): Promise<void>;
   protected abstract doUpdate(branch: string): Promise<void>;
-  protected abstract computeAheadBehind(branch: string): Promise<{ ahead: number; behind: number }>;
+  protected abstract computeBehind(branch: string): Promise<number>;
+  /** Files the draft branch changes relative to the default branch. */
+  protected abstract diffAgainstDefault(branch: string): Promise<FileChange[]>;
 
   protected changeRequestTitle(branch: string): string {
     return `CMS draft (${branch})`;
@@ -352,13 +383,20 @@ export abstract class BranchedStorage extends StorageBase {
     this.markBranchExists(false);
   }
 
+  // The draft branch is the changeset: everything on it is pending, and publish
+  // and discard act on all of it at once.
+  async getChanges(): Promise<FileChange[]> {
+    const branch = await this.getUserBranch();
+
+    return (await this.branchExists(branch)) ? this.diffAgainstDefault(branch) : [];
+  }
+
   async getStatus(): Promise<BranchStatus> {
     const branch = await this.getUserBranch();
     if (!(await this.branchExists(branch))) {
-      return { hasBranch: false, branch, ahead: 0, behind: 0 };
+      return { branch: "", behind: 0 };
     }
-    const counts = await this.computeAheadBehind(branch);
-    const status: BranchStatus = { hasBranch: true, branch, ...counts };
+    const status: BranchStatus = { branch, behind: await this.computeBehind(branch) };
     if (this.publishMode === "pull-request") {
       const cr = await this.findOpenChangeRequest(branch);
       if (cr) status.changeRequestUrl = cr.url;

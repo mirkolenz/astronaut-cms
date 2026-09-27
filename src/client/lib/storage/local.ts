@@ -1,15 +1,15 @@
-import type { EntryMeta, EntryContent, MediaFile, SaveEntryRequest } from "@shared/types";
+import type { EntryMeta, EntryContent, FileChange, MediaFile, SaveEntryRequest } from "@shared/types";
 import { StorageBase } from "./base";
-import type { BranchStatus } from "./types";
+import type { BranchStatus, StorageCapabilities } from "./types";
 import { fileToBase64, stripMediaPrefix } from "./utils";
 import { fetchJson } from "@client/lib/api";
 
 // Writes go straight to the filesystem via dev middleware; branch lifecycle
 // methods are no-ops.
 export class LocalStorage extends StorageBase {
-  constructor(mediaDirectory: string) {
-    super({}, mediaDirectory);
-  }
+  // Writes land in the working tree, which is already the live content: there is
+  // no draft branch to merge in either direction.
+  readonly capabilities: StorageCapabilities = { publish: false, update: false };
 
   async listEntries(collection: string): Promise<EntryMeta[]> {
     return fetchJson(`/entries/${collection}`);
@@ -19,7 +19,11 @@ export class LocalStorage extends StorageBase {
     return fetchJson(`/entries/${collection}/${encodeURIComponent(id)}`);
   }
 
-  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
+  protected async writeEntry(
+    collection: string,
+    id: string,
+    data: SaveEntryRequest,
+  ): Promise<void> {
     await fetchJson(`/entries/${collection}/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -80,10 +84,20 @@ export class LocalStorage extends StorageBase {
     await fetchJson(`/media/${encodeURIComponent(relativePath)}`, { method: "DELETE" });
   }
 
+  // Discard is still meaningful without a branch: it is git restoring the files
+  // the CMS manages (see the dev middleware).
   async publish(): Promise<void> {}
   async update(): Promise<void> {}
-  async discard(): Promise<void> {}
+
+  async discard(): Promise<void> {
+    await fetchJson("/changes", { method: "DELETE" });
+  }
+
   async getStatus(): Promise<BranchStatus> {
-    return { hasBranch: false, branch: "", ahead: 0, behind: 0 };
+    return { branch: "", behind: 0 };
+  }
+
+  async getChanges(): Promise<FileChange[]> {
+    return fetchJson("/changes");
   }
 }

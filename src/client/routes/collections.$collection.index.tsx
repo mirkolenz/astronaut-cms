@@ -2,11 +2,10 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEntries, useCreateEntry } from "@client/queries/use-entries";
+import { useEntries } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
-import { toast } from "@client/components/toast";
 import { toLabel } from "@client/lib/to-label";
 import { baseName, listDirectory } from "@client/lib/entry-tree";
 import { extractFormatsFromLoader } from "@shared/types";
@@ -47,7 +46,6 @@ function GlobCollectionPage({
   const navigate = useNavigate();
   const { dir = "" } = Route.useSearch();
   const { data: entries, isLoading, error } = useEntries(collection);
-  const createMutation = useCreateEntry(collection);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const allowedFormats = useMemo(
     () =>
@@ -67,26 +65,15 @@ function GlobCollectionPage({
   );
   const isEmpty = folders.length === 0 && files.length === 0;
 
+  // Nothing is written yet: the editor holds the new entry until its first save,
+  // so an abandoned one leaves no invalid file behind.
   const handleCreate = (id: string, format: string) => {
-    createMutation.mutate(
-      { id, format },
-      {
-        onSuccess: () => {
-          setShowNewDialog(false);
-          toast(
-            t(($) => $.collection.entryCreated),
-            "success",
-          );
-          void navigate({
-            to: "/collections/$collection/$entry",
-            params: { collection, entry: id },
-          });
-        },
-        onError: (err) => {
-          toast(err.message, "error");
-        },
-      },
-    );
+    setShowNewDialog(false);
+    void navigate({
+      to: "/collections/$collection/$entry",
+      params: { collection, entry: id },
+      search: { new: format },
+    });
   };
 
   if (isLoading) {

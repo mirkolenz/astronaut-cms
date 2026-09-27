@@ -1,14 +1,13 @@
-import { tool, type Tool, type ToolApprovalConfiguration } from "ai";
+import { tool, type Tool } from "ai";
 import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
 import { getStorage } from "@client/lib/storage";
-import type { CollectionManifestEntry } from "@shared/types";
-import { collectionDataSchema, collectionPatchSchema, collectionFormatEnum } from "./schema";
+import type { CollectionManifestEntry, SaveEntryRequest } from "@shared/types";
+import { collectionDataSchema, collectionPatchSchema, collectionFormatEnum } from "@client/lib/schema";
 import {
-  validateEntryWrite,
   validateReorder,
   validateMediaExists,
-  commitWithDiagnostics,
+  ContentValidationError,
   toErrorResult,
 } from "@client/lib/validation";
 
@@ -83,6 +82,22 @@ function applyBodyEdit(
   return { body: body.replace(edit.find, () => edit.replace) };
 }
 
+// Storage validates every write, so a refusal comes back as a thrown
+// ContentValidationError. Turning it into a result keeps it in the model's loop
+// (it says exactly what to fix, so the model corrects and retries), while a real
+// failure — offline, no write access — still surfaces as a failed tool call.
+async function saveEntry(collection: string, id: string, entry: SaveEntryRequest) {
+  try {
+    await getStorage().saveEntry(collection, id, entry);
+
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ContentValidationError) return { error: error.message };
+
+    throw error;
+  }
+}
+
 // One full-overwrite tool per collection, carrying that collection's exact data
 // schema and format set. Content collections add a markdown `body`.
 function writeEntryTool(name: string, col: CollectionManifestEntry): Tool {
@@ -93,39 +108,16 @@ function writeEntryTool(name: string, col: CollectionManifestEntry): Tool {
     return tool({
       description: `Create or fully overwrite an entry in the "${name}" data collection. \`data\` holds the entry's fields, described by this tool's schema. Use editEntry_${name} to change only part of an existing entry.`,
       inputSchema: z.object({ id: z.string(), data, format }),
-      execute: async ({ id, data: entryData, format: entryFormat }) => {
-        const diagnostics = await validateEntryWrite({
-          col,
-          id,
-          data: entryData,
-          body: "",
-          format: entryFormat,
-          skipBody: true,
-        });
-
-        return commitWithDiagnostics(diagnostics, () =>
-          getStorage().saveEntry(name, id, { data: entryData, body: "", format: entryFormat }),
-        );
-      },
+      execute: ({ id, data: entryData, format: entryFormat }) =>
+        saveEntry(name, id, { data: entryData, body: "", format: entryFormat }),
     });
   }
 
   return tool({
     description: `Create or fully overwrite an entry in the "${name}" content collection. \`data\` is the frontmatter (described by this tool's schema) and \`body\` the markdown content. Use editEntry_${name} to change only part of an existing entry.`,
     inputSchema: z.object({ id: z.string(), data, body: z.string(), format }),
-    execute: async ({ id, data: entryData, body, format: entryFormat }) => {
-      const diagnostics = await validateEntryWrite({
-        col,
-        id,
-        data: entryData,
-        body,
-        format: entryFormat,
-      });
-
-      return commitWithDiagnostics(diagnostics, () =>
-        getStorage().saveEntry(name, id, { data: entryData, body, format: entryFormat }),
-      );
-    },
+    execute: ({ id, data: entryData, body, format: entryFormat }) =>
+      saveEntry(name, id, { data: entryData, body, format: entryFormat }),
   });
 }
 
@@ -139,24 +131,13 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
       description: `Partially update an existing entry in the "${name}" data collection. Only the \`data\` fields you provide change; set a field to null to remove it.`,
       inputSchema: z.object({ id: z.string(), data }),
       execute: async ({ id, data: patch }) => {
-        const storage = getStorage();
-        const current = await storage.getEntry(name, id);
-        const merged = applyDataPatch(current.data, patch);
+        const current = await getStorage().getEntry(name, id);
 
-        const diagnostics = await validateEntryWrite({
-          col,
-          id,
-          data: merged,
-          body: "",
+        return saveEntry(name, id, {
+          data: applyDataPatch(current.data, patch),
+          body: current.body,
           format: current.format,
-          skipId: true,
-          skipBody: true,
-          changedDataKeys: Object.keys(patch),
         });
-
-        return commitWithDiagnostics(diagnostics, () =>
-          storage.saveEntry(name, id, { data: merged, body: current.body, format: current.format }),
-        );
       },
     });
   }
@@ -165,28 +146,16 @@ function editEntryTool(name: string, col: CollectionManifestEntry): Tool {
     description: `Partially update an existing entry in the "${name}" content collection. \`data\` changes only the frontmatter fields you provide (set a field to null to remove it); \`body\` edits the markdown by line range or text replacement. Both are optional.`,
     inputSchema: z.object({ id: z.string(), data: data.optional(), body: bodyEdit.optional() }),
     execute: async ({ id, data: patch, body: edit }) => {
-      const storage = getStorage();
-      const current = await storage.getEntry(name, id);
+      const current = await getStorage().getEntry(name, id);
       const edited = applyBodyEdit(current.body, edit);
 
       if ("error" in edited) return edited;
 
-      const merged = patch ? applyDataPatch(current.data, patch) : current.data;
-
-      const diagnostics = await validateEntryWrite({
-        col,
-        id,
-        data: merged,
+      return saveEntry(name, id, {
+        data: patch ? applyDataPatch(current.data, patch) : current.data,
         body: edited.body,
         format: current.format,
-        skipId: true,
-        skipBody: edit === undefined,
-        changedDataKeys: patch ? Object.keys(patch) : [],
       });
-
-      return commitWithDiagnostics(diagnostics, () =>
-        storage.saveEntry(name, id, { data: merged, body: edited.body, format: current.format }),
-      );
     },
   });
 }
@@ -198,60 +167,26 @@ const entryTools: Record<string, Tool> = Object.fromEntries(
   ]),
 );
 
-// Destructive tools. Membership in this object is what marks a tool as
-// approval-gated: `cmsToolApproval` is derived from its keys, so a tool cannot
-// be renamed or added here without its approval policy following along.
-const destructiveTools = {
-  deleteEntry: tool({
-    description: "Delete an entry. Requires user approval before it runs.",
-    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
-    execute: async ({ collection, id }) => {
-      await getStorage().deleteEntry(collection, id);
-
-      return { ok: true };
-    },
-  }),
-
-  deleteMedia: tool({
-    description: "Delete a media file. Requires user approval before it runs.",
-    inputSchema: z.object({ path: z.string() }),
-    execute: async ({ path }) => {
-      const invalid = toErrorResult(await validateMediaExists(path));
-
-      if (invalid) return invalid;
-
-      await getStorage().deleteMedia(path);
-
-      return { ok: true };
-    },
-  }),
-
-  publish: tool({
-    description:
-      "Publish all pending draft changes (merge the draft branch or open a pull request). Requires user approval before it runs.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      await getStorage().publish();
-
-      return { ok: true };
-    },
-  }),
-
-  discard: tool({
-    description: "Discard all pending draft changes. Requires user approval before it runs.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      await getStorage().discard();
-
-      return { ok: true };
-    },
-  }),
-};
+/**
+ * The tools that only read. Calling one changes nothing, so it neither
+ * invalidates cached content nor appears as a change in the conversation.
+ */
+export const readOnlyTools: ReadonlySet<string> = new Set([
+  "listEntries",
+  "getEntry",
+  "listMedia",
+  "getChanges",
+]);
 
 // Tools execute in the browser against the same storage backend the UI uses, so
 // the agent inherits exactly the user's permissions and the draft-branch + PR
 // review flow. Writes go through the per-collection `writeEntry_<collection>` /
 // `editEntry_<collection>` tools.
+//
+// No tool runs behind an approval prompt, and none of them publishes: every
+// change lands in the pending changeset, which the user reviews and then
+// publishes or discards as a whole. Deleting is as reversible as any other
+// change there, so it needs no separate gate.
 export const cmsTools = {
   listEntries: tool({
     description: "List the ids of all entries in a collection.",
@@ -314,7 +249,7 @@ export const cmsTools = {
       "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path.",
     inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
     execute: async ({ oldPath, newPath }) => {
-      const invalid = toErrorResult(await validateMediaExists(oldPath));
+      const invalid = toErrorResult(await validateMediaExists(getStorage(), oldPath));
 
       if (invalid) return invalid;
 
@@ -324,18 +259,44 @@ export const cmsTools = {
     },
   }),
 
-  getStatus: tool({
-    description: "Get the draft branch status: pending changes and how far it is ahead/behind.",
+  getChanges: tool({
+    description:
+      "List the changes pending in the current changeset: every file changed since the last publish, with how it changed.",
     inputSchema: z.object({}),
-    execute: () => getStorage().getStatus(),
+    execute: async () => {
+      // The diffs themselves are for the user to read in the review screen; the
+      // model only needs to know what is pending.
+      return (await getStorage().getChanges()).map(({ path, kind, previousPath }) => ({
+        path,
+        kind,
+        previousPath,
+      }));
+    },
   }),
 
-  ...destructiveTools,
+  deleteEntry: tool({
+    description: "Delete an entry.",
+    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
+    execute: async ({ collection, id }) => {
+      await getStorage().deleteEntry(collection, id);
+
+      return { ok: true };
+    },
+  }),
+
+  deleteMedia: tool({
+    description: "Delete a media file.",
+    inputSchema: z.object({ path: z.string() }),
+    execute: async ({ path }) => {
+      const invalid = toErrorResult(await validateMediaExists(getStorage(), path));
+
+      if (invalid) return invalid;
+
+      await getStorage().deleteMedia(path);
+
+      return { ok: true };
+    },
+  }),
+
   ...entryTools,
 };
-
-// Approval is configured per call in AI SDK 7 rather than on the tool: the SDK
-// emits an approval request for these calls and only executes them once the user
-// approves.
-export const cmsToolApproval: ToolApprovalConfiguration<typeof cmsTools, never> =
-  Object.fromEntries(Object.keys(destructiveTools).map((name) => [name, "user-approval"] as const));

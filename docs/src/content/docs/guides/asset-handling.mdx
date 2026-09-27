@@ -88,6 +88,17 @@ const images = await Promise.all(Astro.props.srcs.map((s) => resolveImage(s)));
 <Carousel client:visible images={images.map((i) => i.src)} />
 ```
 
+## Assets live in the media directory
+
+`image()` and `file()` values are resolved through a glob rooted at your media directory, so a path
+outside it can never resolve, however real the file is. The CMS enforces this when content is
+written, by hand or by the assistant: an `image()`/`file()` field must name an existing file in the
+media library, and any other path is rejected with the reason. This is what keeps a mistyped or
+invented asset path out of your content, where it would otherwise surface as a broken build.
+
+Plain markdown links and `public/` URLs are unaffected — they are ordinary strings, not asset
+fields.
+
 ## Downloadable files
 
 For files you only link to (PDFs, archives), place them in `public/` and reference them by URL

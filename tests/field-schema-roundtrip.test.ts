@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { zodToFieldSchema } from "@shared/zod-to-field";
 import { CMS_IMAGE, CMS_REFERENCE } from "@shared/field-schema";
-import { fieldSchemaToZod } from "@client/lib/ai/schema";
+import { fieldSchemaToZod } from "@client/lib/schema";
+import type { FieldSchema } from "@shared/field-schema";
 
 // The browser reconstructs a live Zod validator from the serialized FieldSchema
 // that Node lowered. These tests pin the full round-trip: lowering must capture
@@ -207,5 +208,38 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
     const email = fieldSchemaToZod(zodToFieldSchema(z.email()));
     expect(email.safeParse("a@b.com").success).toBe(true);
     expect(email.safeParse("nope").success).toBe(false);
+  });
+});
+
+// The reconstructed schema is what the AI tools expose as JSON Schema, so a
+// check that lowers to a large regex costs context on every call and cannot be
+// compiled by grammar-constrained samplers (llama.cpp rejects the request
+// outright). Dates and emails keep their strictness as refinements instead.
+describe("tool JSON Schema stays simple", () => {
+  const jsonSchema = (field: FieldSchema) =>
+    z.toJSONSchema(z.object({ f: fieldSchemaToZod(field) }), {
+      io: "input",
+      unrepresentable: "any",
+    });
+
+  it("emits no regex for dates and emails", () => {
+    for (const field of [{ type: "date" }, { type: "string", format: "email" }] as FieldSchema[]) {
+      expect(JSON.stringify(jsonSchema(field))).not.toContain("pattern");
+    }
+  });
+
+  it("still rejects values those checks exist for", () => {
+    expect(fieldSchemaToZod({ type: "date" }).safeParse("next week").success).toBe(false);
+    expect(fieldSchemaToZod({ type: "date" }).safeParse("2026-01-31").success).toBe(true);
+    expect(
+      fieldSchemaToZod({ type: "string", format: "email" }).safeParse("nope").success,
+    ).toBe(false);
+    expect(
+      fieldSchemaToZod({ type: "string", format: "email" }).safeParse("a@b.com").success,
+    ).toBe(true);
+  });
+
+  it("keeps a pattern the schema author wrote themselves", () => {
+    expect(JSON.stringify(jsonSchema({ type: "string", pattern: "^[a-z]+$" }))).toContain("pattern");
   });
 });

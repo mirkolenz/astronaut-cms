@@ -8,8 +8,9 @@ import {
 import { components, type ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { findComponent } from "@client/lib/component-lookup";
 import { objectShape, type FieldSchema } from "@shared/field-schema";
-import { fieldSchemaToZod } from "@client/lib/ai/schema";
-import { error, type Diagnostic } from "./types";
+import { fieldSchemaToZod } from "@client/lib/schema";
+import { collectResolvableLeaves, type ResolvableLeaf } from "./walk";
+import { diagnostic, type Diagnostic } from "./types";
 
 // A statically-known attribute value, or `unknown` for a dynamic `{expr}` we can
 // not evaluate without running JS (left unchecked rather than guessed).
@@ -75,6 +76,7 @@ function validateProps(
   def: ClientComponentDef,
   attributes: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>,
   diagnostics: Diagnostic[],
+  leaves: ResolvableLeaf[],
 ): void {
   const shape = objectShape(def.props);
 
@@ -84,7 +86,7 @@ function validateProps(
 
   for (const [prop, field] of Object.entries(shape)) {
     if (isRequired(field) && !values.has(prop) && !hasSpread) {
-      diagnostics.push(error(`<${name}> is missing required prop "${prop}".`));
+      diagnostics.push(diagnostic(`<${name}> is missing required prop "${prop}".`));
     }
   }
 
@@ -92,7 +94,7 @@ function validateProps(
     const field = shape[prop];
 
     if (!field) {
-      if (!hasSpread) diagnostics.push(error(`<${name}> has an unknown prop "${prop}".`));
+      if (!hasSpread) diagnostics.push(diagnostic(`<${name}> has an unknown prop "${prop}".`));
 
       continue;
     }
@@ -103,11 +105,17 @@ function validateProps(
 
     if (!result.success) {
       diagnostics.push(
-        error(
+        diagnostic(
           `<${name}> prop "${prop}" is invalid: ${result.error.issues[0]?.message ?? "type mismatch"}.`,
         ),
       );
+
+      continue;
     }
+
+    // An asset or reference prop is a well-typed string that still has to point
+    // at something real; the caller resolves these against storage.
+    leaves.push(...collectResolvableLeaves(field, attr.value, `<${name}> prop "${prop}"`));
   }
 }
 
@@ -133,7 +141,12 @@ function placementMessage(name: string, parent: Parent, allowed: ReadonlySet<str
   return `<${name}> is not allowed inside <${parent.name}>${list}.`;
 }
 
-function walk(nodes: MdxNode[], parent: Parent, diagnostics: Diagnostic[]): void {
+function walk(
+  nodes: MdxNode[],
+  parent: Parent,
+  diagnostics: Diagnostic[],
+  leaves: ResolvableLeaf[],
+): void {
   const allowed = allowedChildren(parent);
 
   for (const node of nodes) {
@@ -146,26 +159,32 @@ function walk(nodes: MdxNode[], parent: Parent, diagnostics: Diagnostic[]): void
       if (!def) {
         if (isComponentName(name)) {
           diagnostics.push(
-            error(`Unknown component <${name}>: it is not defined in this project.`),
+            diagnostic(`Unknown component <${name}>: it is not defined in this project.`),
           );
         }
 
         // Unknown name or HTML element: descendants keep the same component context.
-        if (node.children) walk(node.children, parent, diagnostics);
+        if (node.children) walk(node.children, parent, diagnostics, leaves);
 
         continue;
       }
 
-      if (!allowed.has(name)) diagnostics.push(error(placementMessage(name, parent, allowed)));
+      if (!allowed.has(name)) diagnostics.push(diagnostic(placementMessage(name, parent, allowed)));
 
-      validateProps(name, def, node.attributes ?? [], diagnostics);
+      validateProps(name, def, node.attributes ?? [], diagnostics, leaves);
 
-      if (node.children) walk(node.children, { name, def }, diagnostics);
+      if (node.children) walk(node.children, { name, def }, diagnostics, leaves);
     } else if (node.children) {
       // Fragments and plain markdown nodes pass the component context through.
-      walk(node.children, parent, diagnostics);
+      walk(node.children, parent, diagnostics, leaves);
     }
   }
+}
+
+export interface MdxValidation {
+  diagnostics: Diagnostic[];
+  /** Asset and reference props found on components, for the caller to resolve. */
+  leaves: ResolvableLeaf[];
 }
 
 /**
@@ -173,8 +192,8 @@ function walk(nodes: MdxNode[], parent: Parent, diagnostics: Diagnostic[]): void
  * schemas: unknown components, missing/unknown/ill-typed props, and components
  * placed where their parent does not allow them. Non-MDX formats short-circuit.
  */
-export function validateMdx(body: string, format: string): Diagnostic[] {
-  if (format !== "mdx") return [];
+export function validateMdx(body: string, format: string): MdxValidation {
+  if (format !== "mdx") return { diagnostics: [], leaves: [] };
 
   let tree: MdxNode;
 
@@ -184,12 +203,18 @@ export function validateMdx(body: string, format: string): Diagnostic[] {
       mdastExtensions: [mdxJsxFromMarkdown()],
     }) as MdxNode;
   } catch (err) {
-    return [error(`Failed to parse MDX: ${err instanceof Error ? err.message : String(err)}`)];
+    return {
+      diagnostics: [
+        diagnostic(`Failed to parse MDX: ${err instanceof Error ? err.message : String(err)}`),
+      ],
+      leaves: [],
+    };
   }
 
   const diagnostics: Diagnostic[] = [];
+  const leaves: ResolvableLeaf[] = [];
 
-  if (tree.children) walk(tree.children, null, diagnostics);
+  if (tree.children) walk(tree.children, null, diagnostics, leaves);
 
-  return diagnostics;
+  return { diagnostics, leaves };
 }

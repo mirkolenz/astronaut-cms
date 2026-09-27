@@ -12,15 +12,6 @@ export type StorageType = "local" | "github" | "gitlab";
 export type FileEntryLayout = "array" | "object";
 export type LoaderType = "glob" | "file";
 
-export interface CollectionInfo {
-  name: string;
-  type: CollectionType;
-  loaderType?: LoaderType;
-  /** Glob loader base directory (from `content.config.ts`), e.g. "src/content/blog". */
-  loaderBase?: string | null;
-  loaderFileName?: string | null;
-}
-
 /**
  * Fully-resolved description of one content collection, extracted from the
  * user's `content.config.ts` in Node and serialized into the admin bundle.
@@ -36,6 +27,19 @@ export interface CollectionManifestEntry {
 }
 
 export type CollectionManifest = Record<string, CollectionManifestEntry>;
+
+/**
+ * Project-relative directory holding a glob collection's entries: the loader's
+ * configured `base`, falling back to the conventional folder for a collection
+ * that captured none. The single source of this rule — the storage backends, the
+ * dev middleware and the changeset all map paths with it.
+ */
+export function collectionBase(
+  name: string,
+  collection?: { loaderBase?: string | null } | null,
+): string {
+  return collection?.loaderBase ?? `src/content/${name}`;
+}
 
 export interface EntryMeta {
   id: string;
@@ -62,6 +66,19 @@ export interface MediaFile {
   size: number;
   lastModified: string;
 }
+
+export type ChangeKind = "added" | "modified" | "deleted" | "renamed";
+
+/** One changed file in the pending changeset, with its unified diff when available. */
+export interface FileChange {
+  path: string;
+  kind: ChangeKind;
+  /** Previous path, for a rename. */
+  previousPath?: string;
+  /** Unified diff hunks, omitted for binary files and when no diff can be produced. */
+  patch?: string;
+}
+
 
 // Extracts allowed file extensions from loader metadata.
 // Handles glob patterns (e.g. "**/*.{md,mdx}") and file loader filenames (e.g. "data.json").

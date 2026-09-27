@@ -21,7 +21,17 @@ import type { FieldSchema } from "@shared/field-schema";
 function base(field: FieldSchema): z.ZodType {
   switch (field.type) {
     case "string": {
-      if (field.format === "email") return z.email();
+      // Zod's own email check, wrapped so the schema stays a plain string: its
+      // lowered form is a ~130-character regex that no model needs to read and
+      // that grammar-constrained samplers cannot compile. `url` lowers to a bare
+      // `format`, so it passes through as it is.
+      if (field.format === "email") {
+        return z
+          .string()
+          .refine((value) => z.email().safeParse(value).success, "Expected an email address.")
+          .describe("Email address.");
+      }
+
       if (field.format === "url") return z.url();
 
       let s = z.string();
@@ -46,9 +56,17 @@ function base(field: FieldSchema): z.ZodType {
     case "boolean":
       return z.boolean();
 
-    // Dates are written as ISO strings in frontmatter, so validate them as such.
+    // Dates are written as ISO strings in frontmatter, and an unparseable one is
+    // what takes the dev server down: Astro coerces it to an Invalid Date, which
+    // fails its own content sync. The check is a refinement rather than an ISO
+    // format so that it stays out of the JSON Schema — zod lowers those to a
+    // several-hundred-character regex, which bloats every tool the model sees and
+    // defeats grammar-constrained samplers such as llama.cpp's.
     case "date":
-      return z.string();
+      return z
+        .string()
+        .refine((value) => !Number.isNaN(Date.parse(value)), "Expected a date.")
+        .describe('ISO date, e.g. "2026-01-31".');
 
     case "enum":
       return field.options.length ? z.enum(field.options as [string, ...string[]]) : z.string();
@@ -56,11 +74,15 @@ function base(field: FieldSchema): z.ZodType {
     case "literal":
       return z.literal(field.value);
 
-    // Assets and references are stored as string paths / entry ids.
+    // Assets and references are stored as string paths / entry ids, so the field
+    // alone tells the model nothing about what makes one valid. A short note
+    // costs a few dozen bytes and saves the round trip a rejected write costs.
     case "image":
     case "file":
+      return z.string().describe('Media library path from listMedia, e.g. "/src/assets/hero.png".');
+
     case "reference":
-      return z.string();
+      return z.string().describe(`Id of an entry in the "${field.collection}" collection.`);
 
     case "array": {
       let a = z.array(fieldSchemaToZod(field.element));
@@ -155,6 +177,40 @@ export function collectionPatchSchema(
   }
 
   return z.record(z.string(), z.unknown()) as z.ZodType<Record<string, unknown>>;
+}
+
+/**
+ * Starting data for a new entry: the defaults the schema declares and nothing
+ * else. Required fields are deliberately left empty — a synthesized value would
+ * either be wrong (a reference or asset has to name something that exists) or
+ * silently satisfy a check the editor is meant to prompt for.
+ */
+export function schemaDefaults(shape: Record<string, FieldSchema> | undefined): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(shape ?? {})
+      .filter(([, field]) => field.default !== undefined)
+      .map(([key, field]) => [key, field.default]),
+  );
+}
+
+/**
+ * Recursively replaces `Date` instances with ISO strings, the form the parsers
+ * produce for every other format. Only TOML yields real dates, so an entry read
+ * back from storage has to be normalized before it can be checked against the
+ * reconstructed (string-based) schema.
+ */
+export function normalizeDates(value: unknown): unknown {
+  if (value instanceof Date) return value.toISOString();
+
+  if (Array.isArray(value)) return value.map(normalizeDates);
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, v]) => [key, normalizeDates(v)]),
+    );
+  }
+
+  return value;
 }
 
 /**

@@ -5,7 +5,6 @@ import {
   useEntries,
   useEntry,
   useSaveEntry,
-  useCreateEntry,
   useDeleteEntry,
   useFileLayout,
   useReorderFileEntries,
@@ -13,6 +12,7 @@ import {
 import { useCollections } from "@client/queries/use-collections";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { objectShape, type FieldSchema } from "@shared/field-schema";
+import { schemaDefaults } from "@client/lib/schema";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
@@ -33,12 +33,14 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const { data: layout } = useFileLayout(collection);
   const isOrderable = layout === "array";
 
-  const createMutation = useCreateEntry(collection);
   const deleteMutation = useDeleteEntry(collection);
   const reorderMutation = useReorderFileEntries(collection);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // A new entry is held here until its first save creates it, so an abandoned
+  // one never lands in the file as an empty (schema-invalid) record.
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   const sortedEntries = useMemo(() => {
     if (!entries) return undefined;
@@ -128,6 +130,20 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
             onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
           />
         ))}
+        {draftId && (
+          <FileEntryCard
+            collection={collection}
+            entryId={draftId}
+            schema={schema}
+            format={format}
+            draft
+            expanded
+            onToggle={() => setDraftId(null)}
+            onDelete={() => setDraftId(null)}
+            onCreated={() => setDraftId(null)}
+            orderable={false}
+          />
+        )}
       </div>
 
       <NewEntryDialog
@@ -136,19 +152,8 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         collectionType="data"
         allowedFormats={[format]}
         onSubmit={(id) => {
-          createMutation.mutate(
-            { id, format },
-            {
-              onSuccess: () => {
-                setShowAddDialog(false);
-                toast(
-                  t(($) => $.entry.entryAdded),
-                  "success",
-                );
-              },
-              onError: (err) => toast(err.message, "error"),
-            },
-          );
+          setShowAddDialog(false);
+          setDraftId(id);
         }}
         onCancel={() => setShowAddDialog(false)}
       />
@@ -170,9 +175,12 @@ function FileEntryCard({
   collection,
   entryId,
   schema,
+  format,
+  draft,
   expanded,
   onToggle,
   onDelete,
+  onCreated,
   orderable,
   onMoveUp,
   onMoveDown,
@@ -180,18 +188,27 @@ function FileEntryCard({
   collection: string;
   entryId: string;
   schema?: FieldSchema;
+  /** File format, needed for a draft that has nothing stored to read it from. */
+  format?: string;
+  /** This entry does not exist yet; saving creates it. */
+  draft?: boolean;
   expanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onCreated?: () => void;
   orderable: boolean;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
 }) {
   const { t } = useTranslation();
-  const { data: entry, isLoading } = useEntry(collection, entryId, { enabled: expanded });
+  const { data: entry, isLoading } = useEntry(collection, entryId, {
+    enabled: expanded && !draft,
+  });
   const saveMutation = useSaveEntry(collection, entryId);
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
-  const [isDirty, setIsDirty] = useState(false);
+  const [formData, setFormData] = useState<Record<string, unknown>>(() =>
+    draft ? schemaDefaults(objectShape(schema)) : {},
+  );
+  const [isDirty, setIsDirty] = useState(!!draft);
 
   useEffect(() => {
     if (entry) {
@@ -206,16 +223,20 @@ function FileEntryCard({
   }, []);
 
   const handleSave = () => {
-    if (!entry) return;
+    const entryFormat = entry?.format ?? format;
+
+    if (!entryFormat) return;
+
     saveMutation.mutate(
-      { data: formData, body: "", format: entry.format },
+      { data: formData, body: "", format: entryFormat },
       {
         onSuccess: () => {
           setIsDirty(false);
           toast(
-            t(($) => $.entry.changesSaved),
+            draft ? t(($) => $.entry.entryAdded) : t(($) => $.entry.changesSaved),
             "success",
           );
+          onCreated?.();
         },
         onError: (err) => toast(err.message, "error"),
       },

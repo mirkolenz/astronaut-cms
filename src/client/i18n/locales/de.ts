@@ -55,10 +55,7 @@ const de: TranslationShape<typeof en> = {
     entryDeleted: "Eintrag gelöscht",
   },
   entry: {
-    form: "Formular",
-    raw: "Roh",
     fields: "Felder",
-    dataJson: "Daten (JSON)",
     body: "Inhalt",
     unsavedChanges: "Ungespeicherte Änderungen",
     unsavedChangesMessage:
@@ -74,8 +71,6 @@ const de: TranslationShape<typeof en> = {
     entryDuplicated: "Eintrag dupliziert",
     entryIdExists: 'Ein Eintrag namens "{{id}}" existiert bereits',
     entryAdded: "Eintrag hinzugefügt",
-    invalidJson: "Ungültiges JSON im Roh-Editor",
-    noSchema: "Kein Schema verfügbar. Verwenden Sie den Roh-Modus zur Bearbeitung.",
     noSchemaShort: "Kein Schema verfügbar.",
     modified: "geändert",
     failedLoad: "Eintrag konnte nicht geladen werden: {{message}}",
@@ -97,8 +92,6 @@ const de: TranslationShape<typeof en> = {
     failedLoad: "Medien konnten nicht geladen werden: {{message}}",
   },
   publish: {
-    upToDate: "Ihr Branch ist auf dem neuesten Stand",
-    aheadBehind: "{{ahead}} unveröffentlicht, {{behind}} hinterher",
     publish: "Veröffentlichen",
     publishing: "Veröffentlichen...",
     published: "Branch wurde in den Standard-Branch übernommen",
@@ -108,13 +101,25 @@ const de: TranslationShape<typeof en> = {
     updated: "Neueste Änderungen in Ihren Branch übernommen",
     viewPullRequest: "Pull Request anzeigen",
     viewMergeRequest: "Merge Request anzeigen",
-    discardChanges: "Branch verwerfen",
-    discardChangesMessage:
-      "Sind Sie sicher, dass Sie Ihren Branch löschen und {{ahead}} unveröffentlichte(n) Commit(s) verwerfen möchten? Dies kann nicht rückgängig gemacht werden.",
     discarding: "Verwerfen...",
-    discarded: "Branch verworfen",
     mergeConflict:
       "Merge-Konflikt – Ihr Branch und der Standard-Branch sind auseinandergelaufen. Bitte wenden Sie sich an einen Administrator.",
+  },
+  changes: {
+    title: "Änderungen",
+    pending: "{{count}} ausstehende Änderungen",
+    none: "Keine ausstehenden Änderungen",
+    empty: "Seit der letzten Veröffentlichung hat sich nichts geändert.",
+    added: "Neu",
+    modified: "Bearbeitet",
+    deleted: "Gelöscht",
+    renamed: "Umbenannt",
+    openEntry: "Öffnen",
+    noDiff: "Für diese Datei ist keine Vorschau verfügbar.",
+    discardAll: "Alle verwerfen",
+    discardAllMessage:
+      "Alle {{count}} ausstehenden Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
+    discarded: "Ausstehende Änderungen verworfen",
   },
   newEntryDialog: {
     title: "Neuer Eintrag in {{collection}}",
@@ -159,9 +164,6 @@ const de: TranslationShape<typeof en> = {
     placeholder: "Bitte den Assistenten, deine Inhalte zu ändern...",
     errorTitle: "Der Assistent konnte deine Anfrage nicht abschließen",
     retry: "Erneut versuchen",
-    approve: "Genehmigen",
-    deny: "Ablehnen",
-    approvalPrompt: "Diese Aktion erfordert deine Genehmigung, bevor sie ausgeführt wird.",
     attach: "Dateien anhängen",
     newChat: "Neuer Chat",
     saveToLibrary: "In Medienbibliothek speichern",
@@ -172,6 +174,16 @@ const de: TranslationShape<typeof en> = {
     reasoningLow: "Niedrig",
     reasoningMedium: "Mittel",
     reasoningHigh: "Hoch",
+    tools: {
+      wrote: "{{collection}} / {{id}} geschrieben",
+      edited: "{{collection}} / {{id}} bearbeitet",
+      deletedEntry: "{{collection}} / {{id}} gelöscht",
+      renamedEntry: "{{collection}} / {{id}} in {{newId}} umbenannt",
+      duplicatedEntry: "{{collection}} / {{id}} als {{newId}} dupliziert",
+      reordered: "{{collection}} neu sortiert",
+      renamedMedia: "{{oldPath}} in {{newPath}} umbenannt",
+      deletedMedia: "{{path}} gelöscht",
+    },
   },
 } as const;
 

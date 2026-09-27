@@ -9,9 +9,9 @@ import {
   useRenameEntry,
   useDuplicateEntry,
 } from "@client/queries/use-entries";
-import { useCollections } from "@client/queries/use-collections";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { objectShape } from "@shared/field-schema";
+import { schemaDefaults } from "@client/lib/schema";
 import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { EntryIdDialog } from "@client/components/entry-id-dialog";
@@ -27,22 +27,30 @@ import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
   component: EntryEditor,
+  // `new` carries the format of an entry that does not exist yet: the editor
+  // holds it as a draft and the first save creates it.
+  validateSearch: (search: Record<string, unknown>): { new?: string } =>
+    typeof search.new === "string" ? { new: search.new } : {},
 });
 
 function EntryEditor() {
   const { t } = useTranslation();
   const { collection, entry: entryId } = Route.useParams();
+  const { new: newFormat } = Route.useSearch();
+  const isNew = newFormat !== undefined;
   const navigate = useNavigate();
-  const { data: entry, isLoading, error } = useEntry(collection, entryId);
+  const { data: entry, isLoading, error } = useEntry(collection, entryId, { enabled: !isNew });
   const { data: entries } = useEntries(collection);
-  const { data: collections } = useCollections();
   const saveMutation = useSaveEntry(collection, entryId);
   const deleteMutation = useDeleteEntry(collection);
   const renameMutation = useRenameEntry(collection);
   const duplicateMutation = useDuplicateEntry(collection);
 
-  const shape = objectShape(collections?.[collection]?.schema);
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const shape = objectShape(collectionMeta[collection]?.schema);
+  const format = entry?.format ?? newFormat;
+  const [formData, setFormData] = useState<Record<string, unknown>>(() =>
+    isNew ? schemaDefaults(shape) : {},
+  );
   const [editBody, setEditBody] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRename, setShowRename] = useState(false);
@@ -51,7 +59,8 @@ function EntryEditor() {
   const entryIds = (entries ?? []).map((e) => e.id);
   const otherIds = entryIds.filter((id) => id !== entryId);
 
-  const [isDirty, setIsDirty] = useState(false);
+  // A draft has nothing saved yet, so it starts dirty: Save is what creates it.
+  const [isDirty, setIsDirty] = useState(isNew);
 
   useEffect(() => {
     if (entry) {
@@ -74,16 +83,26 @@ function EntryEditor() {
   // Use ref for save to avoid event listener churn
   const saveRef = useRef<() => void>(() => {});
   saveRef.current = () => {
-    if (!entry) return;
+    if (!format) return;
     saveMutation.mutate(
-      { data: formData, body: editBody, format: entry.format },
+      { data: formData, body: editBody, format },
       {
         onSuccess: () => {
           setIsDirty(false);
           toast(
-            t(($) => $.entry.changesSaved),
+            isNew ? t(($) => $.collection.entryCreated) : t(($) => $.entry.changesSaved),
             "success",
           );
+
+          // The draft is now a stored entry: drop the flag so the editor loads it.
+          if (isNew) {
+            void navigate({
+              to: "/collections/$collection/$entry",
+              params: { collection, entry: entryId },
+              search: {},
+              replace: true,
+            });
+          }
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -183,13 +202,13 @@ function EntryEditor() {
     return <ErrorBanner>{t(($) => $.entry.failedLoad, { message: error.message })}</ErrorBanner>;
   }
 
-  if (!entry) return null;
+  if (!format) return null;
 
-  const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(entry.format);
+  const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(format);
 
   const loaderBase = collectionMeta[collection]?.loaderBase;
   const contentFilePath = loaderBase
-    ? getContentFilePath(loaderBase, entryId, entry.format)
+    ? getContentFilePath(loaderBase, entryId, format)
     : undefined;
 
   return (
@@ -198,7 +217,7 @@ function EntryEditor() {
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-semibold">
             {baseName(entryId)}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">.{entry.format}</span>
+            <span className="ml-2 text-sm font-normal text-muted-foreground">.{format}</span>
           </h1>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleCancel} disabled={!isDirty}>
@@ -207,27 +226,31 @@ function EntryEditor() {
             <Button onClick={handleSave} disabled={saveMutation.isPending || !isDirty}>
               {saveMutation.isPending ? t(($) => $.common.saving) : t(($) => $.common.save)}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowRename(true)}
-              disabled={isDirty || renameMutation.isPending}
-            >
-              {t(($) => $.common.rename)}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowDuplicate(true)}
-              disabled={isDirty || duplicateMutation.isPending}
-            >
-              {t(($) => $.entry.duplicate)}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={deleteMutation.isPending}
-            >
-              {t(($) => $.common.delete)}
-            </Button>
+            {!isNew && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRename(true)}
+                  disabled={isDirty || renameMutation.isPending}
+                >
+                  {t(($) => $.common.rename)}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDuplicate(true)}
+                  disabled={isDirty || duplicateMutation.isPending}
+                >
+                  {t(($) => $.entry.duplicate)}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {t(($) => $.common.delete)}
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -255,7 +278,7 @@ function EntryEditor() {
                   key={editorKey}
                   markdown={editBody}
                   onChange={handleBodyChange}
-                  format={entry.format as "md" | "mdx"}
+                  format={format as "md" | "mdx"}
                 />
               </CollapsibleSection>
             )}

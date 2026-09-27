@@ -10,7 +10,7 @@ import { useAiSettingsStore } from "@client/stores/ai-settings-store";
 import { aiConfig } from "./config";
 import { aiProvider } from "./provider";
 import { SYSTEM_PROMPT } from "./system-prompt";
-import { cmsTools, cmsToolApproval } from "./tools";
+import { cmsTools, readOnlyTools } from "./tools";
 
 // Read from the panel store on every call (via `prepareCall`) so one agent
 // outlives model and effort switches instead of being recreated. The effort goes
@@ -38,14 +38,15 @@ export const cmsAgent = new ToolLoopAgent({
   model: aiProvider.chatModel(aiConfig?.models[0] ?? ""),
   instructions: SYSTEM_PROMPT,
   tools: cmsTools,
-  toolApproval: cmsToolApproval,
   stopWhen: isStepCount(aiConfig?.maxSteps ?? 24),
   prepareCall: (settings) => ({ ...settings, ...callSettings() }),
   // Tools write through the storage layer directly, bypassing the mutation hooks
   // in `queries/` that normally invalidate. Doing it here rather than per tool
-  // keeps new tools covered automatically; read-only tools invalidate too, which
-  // only ever costs a refetch of the queries currently on screen.
-  onToolExecutionEnd: () => {
+  // keeps new tools covered automatically, while skipping the reads keeps a long
+  // agent run from refetching every mounted query on each step.
+  onToolExecutionEnd: ({ toolCall }) => {
+    if (readOnlyTools.has(toolCall.toolName)) return;
+
     void queryClient.invalidateQueries({ queryKey: ["cms"] });
   },
 });

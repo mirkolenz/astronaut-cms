@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { FileText, NotebookPen, BarChart3, Image, Bot } from "lucide-react";
+import { FileText, NotebookPen, BarChart3, GitCompareArrows, Image, Bot } from "lucide-react";
 import { useCollections } from "@client/queries/use-collections";
+import { useChanges } from "@client/queries/use-entries";
+import { Badge } from "@client/components/ui/badge";
 import { toLabel } from "@client/lib/to-label";
 import { aiEnabled } from "@client/lib/ai/config";
 // `?url` forces a URL string in both the standalone Vite lib build (where assets
@@ -15,6 +17,7 @@ const navLinkClasses =
 export function Sidebar() {
   const { t } = useTranslation();
   const { data: collections, isLoading } = useCollections();
+  const pending = useChanges().data?.length ?? 0;
 
   return (
     <aside className="w-56 shrink-0 border-r border-sidebar-border bg-sidebar">
@@ -62,6 +65,11 @@ export function Sidebar() {
         <Link to="/media" className={navLinkClasses}>
           <Image className="size-4 text-muted-foreground" />
           {t(($) => $.layout.media)}
+        </Link>
+        <Link to="/changes" className={navLinkClasses}>
+          <GitCompareArrows className="size-4 text-muted-foreground" />
+          {t(($) => $.changes.title)}
+          {pending > 0 && <Badge className="ml-auto">{pending}</Badge>}
         </Link>
         {aiEnabled && (
           <Link to="/assistant" className={navLinkClasses}>

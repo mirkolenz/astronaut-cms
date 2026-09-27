@@ -1,5 +1,4 @@
 import { Chat } from "@ai-sdk/react";
-import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 import type { CmsUIMessage } from "@client/lib/ai/agent";
 import { cmsTransport } from "@client/lib/ai/transport";
 
@@ -17,12 +16,7 @@ let instance: Chat<CmsUIMessage> | undefined;
 // navigation never reloads the document and this module-level instance is what
 // keeps the conversation alive while the assistant view is unmounted.
 export function getChat(): Chat<CmsUIMessage> {
-  instance ??= new Chat<CmsUIMessage>({
-    transport: cmsTransport,
-    // Once the user has approved or denied every pending tool call, resume the
-    // run automatically so the agent loop continues without a manual resend.
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
-  });
+  instance ??= new Chat<CmsUIMessage>({ transport: cmsTransport });
 
   return instance;
 }

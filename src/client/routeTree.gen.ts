@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AssistantRouteImport } from "./routes/assistant";
+import { Route as ChangesRouteImport } from "./routes/changes";
 import { Route as MediaRouteImport } from "./routes/media";
 import { Route as CollectionsCollectionRouteImport } from "./routes/collections.$collection";
 import { Route as CollectionsCollectionIndexRouteImport } from "./routes/collections.$collection.index";
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const AssistantRoute = AssistantRouteImport.update({
   id: "/assistant",
   path: "/assistant",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ChangesRoute = ChangesRouteImport.update({
+  id: "/changes",
+  path: "/changes",
   getParentRoute: () => rootRouteImport,
 } as any);
 const MediaRoute = MediaRouteImport.update({
@@ -52,6 +58,7 @@ const CollectionsCollectionEntryRoute =
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
+  "/changes": typeof ChangesRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
@@ -60,6 +67,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
+  "/changes": typeof ChangesRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
   "/collections/$collection": typeof CollectionsCollectionIndexRoute;
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
+  "/changes": typeof ChangesRoute;
   "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/assistant"
+    | "/changes"
     | "/media"
     | "/collections/$collection"
     | "/collections/$collection/$entry"
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/assistant"
+    | "/changes"
     | "/media"
     | "/collections/$collection/$entry"
     | "/collections/$collection";
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/assistant"
+    | "/changes"
     | "/media"
     | "/collections/$collection"
     | "/collections/$collection/$entry"
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AssistantRoute: typeof AssistantRoute;
+  ChangesRoute: typeof ChangesRoute;
   MediaRoute: typeof MediaRoute;
   CollectionsCollectionRoute: typeof CollectionsCollectionRouteWithChildren;
 }
@@ -120,6 +133,13 @@ declare module "@tanstack/react-router" {
       path: "/assistant";
       fullPath: "/assistant";
       preLoaderRoute: typeof AssistantRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/changes": {
+      id: "/changes";
+      path: "/changes";
+      fullPath: "/changes";
+      preLoaderRoute: typeof ChangesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/media": {
@@ -171,6 +191,7 @@ const CollectionsCollectionRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
+  ChangesRoute: ChangesRoute,
   MediaRoute: MediaRoute,
   CollectionsCollectionRoute: CollectionsCollectionRouteWithChildren,
 };

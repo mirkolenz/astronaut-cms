@@ -1,9 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readdir, readFile, writeFile, unlink, stat, mkdir, rename } from "node:fs/promises";
-import { join, dirname, resolve } from "pathe";
+import { join, dirname } from "pathe";
 import type { Plugin, ViteDevServer } from "vite";
 import {
   ALL_FORMATS,
+  collectionBase,
   type CollectionManifest,
   type EntryMeta,
   type EntryContent,
@@ -17,6 +18,8 @@ import {
   serializeMultiEntryFile,
   getFileExtension,
 } from "../shared/content-parser.ts";
+import { readChanges, discardChanges, managedPaths } from "./git-changes.ts";
+import { assertWithinBase, isWithin } from "./paths.ts";
 
 type NextFn = () => void;
 
@@ -35,18 +38,6 @@ export interface DevMiddlewareOptions {
   allowedMediaExtensions: string[];
   rootDir: string;
   collections?: CollectionManifest;
-}
-
-function isWithin(filePath: string, baseDir: string): boolean {
-  const resolved = resolve(filePath);
-  const resolvedBase = resolve(baseDir);
-  return resolved === resolvedBase || resolved.startsWith(resolvedBase + "/");
-}
-
-function assertWithinBase(filePath: string, baseDir: string): void {
-  if (!isWithin(filePath, baseDir)) {
-    throw new Error("Path escapes the allowed directory");
-  }
 }
 
 function sendJson(res: ServerResponse, data: unknown, status = 200) {
@@ -316,7 +307,6 @@ function createDevMiddleware(
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
   const {
     basePath,
-    contentDir,
     mediaDir,
     mediaPrefix,
     allowedMediaExtensions,
@@ -325,6 +315,9 @@ function createDevMiddleware(
   } = options;
 
   const apiPrefix = `${basePath}__cms`;
+  // Every git command the CMS runs is confined to these paths, so discarding
+  // pending changes can never reach the developer's own edits.
+  const managed = managedPaths({ rootDir, mediaDir, collections });
 
   function isFileCollection(collection: string): boolean {
     return collections?.[collection]?.loaderType === "file";
@@ -334,15 +327,13 @@ function createDevMiddleware(
     return collections?.[collection]?.loaderFileName ?? null;
   }
 
-  // Resolve a known glob collection to its loader's configured base directory,
-  // falling back to the conventional `src/content/<name>` only when no base was
-  // captured. Requiring the collection to be in the manifest rejects a crafted
-  // name before it can form a path; the assert bounds legitimate bases to the
-  // project root as defense in depth.
+  // Requiring the collection to be in the manifest rejects a crafted name before
+  // it can form a path; the assert bounds legitimate bases to the project root as
+  // defense in depth.
   function getGlobBaseDir(collection: string): string {
     const meta = collections?.[collection];
     if (!meta) throw new Error(`Unknown collection: ${collection}`);
-    const dir = meta.loaderBase ? join(rootDir, meta.loaderBase) : join(contentDir, collection);
+    const dir = join(rootDir, collectionBase(collection, meta));
     assertWithinBase(dir, rootDir);
     return dir;
   }
@@ -492,6 +483,20 @@ function createDevMiddleware(
       if (path.startsWith("/media/") && req.method === "DELETE") {
         const mediaPath = decodeURIComponent(path.slice("/media/".length));
         await deleteMedia(mediaDir, mediaPath);
+        sendJson(res, { ok: true });
+        return;
+      }
+
+      // Changeset endpoints. Local storage has no draft branch, so "everything
+      // pending" is what git reports for the managed paths, and discarding is
+      // restoring them.
+      if (path === "/changes" && req.method === "GET") {
+        sendJson(res, await readChanges(rootDir, managed));
+        return;
+      }
+
+      if (path === "/changes" && req.method === "DELETE") {
+        await discardChanges(rootDir, managed);
         sendJson(res, { ok: true });
         return;
       }
