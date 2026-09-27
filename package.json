@@ -1,6 +1,21 @@
 {
   "name": "astronaut-cms",
   "version": "0.0.0",
+  "description": "A Git-native headless CMS built as an Astro integration.",
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "cms",
+    "headless-cms",
+    "git",
+    "mdx",
+    "zod"
+  ],
+  "homepage": "https://mirkolenz.github.io/astronaut-cms/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mirkolenz/astronaut-cms.git"
+  },
   "workspaces": [
     "docs",
     "demo"
@@ -52,10 +67,15 @@
       "default": "./dist/astro/styles.css"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3",
