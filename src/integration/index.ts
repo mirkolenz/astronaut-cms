@@ -8,13 +8,18 @@ import type { CollectionManifest } from "../shared/types.ts";
 import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
-import { loadCollections } from "./load-collections.ts";
+import { loadCollections } from "./load-config.ts";
 import { resolveAiGateway, resolveAlwaysInclude, resolveClientConfig } from "./resolve-config.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export type { ContentI18n } from "../shared/i18n.ts";
-export { defineComponent, image, file } from "../config.ts";
-export type { ComponentDefinition, InferComponentProps, ChildrenConfig } from "../config.ts";
+export { defineComponent, file } from "../config.ts";
+export type {
+  ComponentDefinition,
+  InferComponentProps,
+  ChildrenConfig,
+  SchemaHelpers,
+} from "../config.ts";
 
 const CONFIG_EXTENSIONS = ["ts", "mts", "js", "mjs"];
 
@@ -125,6 +130,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 collections,
                 command,
                 rootDir,
+                logger,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
               }),
               // Dev-only filesystem API for the local storage backend, plus the

@@ -51,31 +51,38 @@ const blog = defineCollection({
 });
 ```
 
+Astro imports the file itself, so `entry.data.cover` is already `ImageMetadata` and goes straight
+to `astro:assets` `<Image>`. Nothing has to be resolved at render time.
+
 ### In CMS Component Props
 
-Use the `image()` and `file()` helpers from `astronaut-cms/config` to reference assets in component props:
+Write `props` as a function to receive the `image()` and `file()` helpers:
 
 ```ts title="src/cms.config.ts"
-import { defineComponent, image, file } from "astronaut-cms/config";
+import { defineComponent } from "astronaut-cms/config";
 import { z } from "zod";
 
 defineComponent({
-  props: z.object({
-    photo: image(),
-    attachment: file(),
-  }),
+  props: ({ image, file }) =>
+    z.object({
+      photo: image(),
+      attachment: file(),
+    }),
 });
 ```
 
-These props are stored as root-absolute path strings (e.g. `/src/assets/photo.png`) and resolved
-to optimized assets at render time. Render them with `astronaut-cms/Image.astro` or the
-`resolveImage()`/`resolveFile()` helpers from `astronaut-cms/assets` — see
+A component prop is the one asset reference Astro has no mechanism for, so the CMS resolves it.
+These props are stored as root-absolute path strings (e.g. `/src/assets/photo.png`) and turned into
+optimized assets at render time. Render them with `astronaut-cms/Image.astro` or the
+`resolveImage()`/`resolveFile()` helpers from `astronaut-cms/assets`, see
 [Asset Handling](/astronaut-cms/guides/asset-handling/).
 
 <Aside type="note">
-  The `image()` and `file()` helpers from `astronaut-cms/config` are different from the `image()`
-  provided by Astro's schema function. Use `astronaut-cms/config` helpers for CMS component props,
-  and use Astro's `image()` for content collection schemas.
+  Each schema function is handed the helpers that work where it is: astro's `image()` in a
+  collection schema, the CMS's `image()`/`file()` in a component's props. Nothing has to be
+  imported, so no helper can be used in the file where it would not resolve. The one exception is
+  `file()`, which *is* importable from `astronaut-cms/config` for a collection field, since astro's
+  schema has no counterpart for it.
 </Aside>
 
 ## Operations

@@ -104,35 +104,51 @@ In MDX content, this renders as:
 
 ## Asset Fields
 
-Use `image()` and `file()` from `astronaut-cms/config` to define props that reference media files.
-The admin panel renders these as asset pickers connected to the media library.
+A prop that names a media file is declared with the `image()` / `file()` helpers your props
+function is handed, the same way a collection schema is handed astro's `image()`. Write `props` as
+a function only when you need them; otherwise declare the object directly.
 
 ```ts title="src/cms.config.ts"
-import { defineComponent, image, file } from "astronaut-cms/config";
+import { defineComponent } from "astronaut-cms/config";
 import { z } from "zod";
 
 export const components = {
   Hero: defineComponent({
-    props: z.object({
-      cover: image(),
-      caption: z.string().optional(),
-    }),
+    props: ({ image }) =>
+      z.object({
+        cover: image(),
+        caption: z.string().optional(),
+      }),
     children: "markdown",
     label: "Hero",
   }),
   Download: defineComponent({
-    props: z.object({
-      document: file(),
-      label: z.string(),
-    }),
+    props: ({ file }) =>
+      z.object({
+        document: file(),
+        label: z.string(),
+      }),
     label: "Download",
+  }),
+  Quote: defineComponent({
+    // No asset props, so no helpers are needed.
+    props: z.object({ text: z.string(), author: z.string() }),
+    label: "Quote",
   }),
 };
 ```
 
-Asset props are stored as root-absolute path strings and resolved to optimized assets at render
-time. See [Asset Handling](/astronaut-cms/guides/asset-handling/) for how the matching component
-renders them with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
+The admin panel renders these as asset pickers connected to the media library. Asset props are
+stored as root-absolute path strings and resolved to optimized assets at render time. See
+[Asset Handling](/astronaut-cms/guides/asset-handling/) for how the matching component renders them
+with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
+
+<Aside type="note">
+  There is no importable `image()`. A collection field takes astro's `({ image })` and a component
+  prop takes the one its props function is handed, so no spelling can resolve in one place and
+  silently fail in the other. `file()` *is* importable, for the one case astro has no helper for: a
+  non-image asset in a collection field.
+</Aside>
 
 ## Matching Astro Components
 

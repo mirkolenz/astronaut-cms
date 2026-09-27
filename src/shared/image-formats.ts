@@ -1,25 +1,26 @@
 import type { ImageMetadata } from "astro";
 
 /**
- * astro:assets' input formats (mirrors astro's VALID_INPUT_FORMATS, which has no
- * public runtime export). The `satisfies` rejects any format astro does not accept;
- * the exhaustiveness assertion below rejects the inverse drift — astro gaining an
- * input format this mirror is missing — so the list cannot silently fall behind.
+ * astro:assets' input formats. The values have to be written out because astro
+ * publishes no runtime export of its `VALID_INPUT_FORMATS` (checked across
+ * `astro/assets`, `astro/assets/utils` and `astro/assets/runtime`), and a type
+ * cannot be enumerated at run time. What is derived from astro is the
+ * *obligation*: `satisfies Record<…, true>` demands a key for every format astro
+ * accepts and refuses any it does not, so the mirror cannot drift in either
+ * direction without failing the build.
  */
-export const ASTRO_IMAGE_FORMATS = [
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "avif",
-  "gif",
-  "svg",
-  "tiff",
-] as const satisfies readonly ImageMetadata["format"][];
+const FORMATS = {
+  png: true,
+  jpg: true,
+  jpeg: true,
+  webp: true,
+  avif: true,
+  gif: true,
+  svg: true,
+  tiff: true,
+} satisfies Record<ImageMetadata["format"], true>;
 
-export type AstroImageFormat = (typeof ASTRO_IMAGE_FORMATS)[number];
+export type AstroImageFormat = keyof typeof FORMATS;
 
-type AssertNever<_T extends never> = void;
-export type AstroFormatsAreExhaustive = AssertNever<
-  Exclude<ImageMetadata["format"], AstroImageFormat>
->;
+/** The same formats as a list, for the dev glob's `{png,jpg,…}` brace pattern. */
+export const ASTRO_IMAGE_FORMATS = Object.keys(FORMATS) as AstroImageFormat[];

@@ -1,6 +1,6 @@
 ---
 title: Config Helpers
-description: API reference for defineComponent, image, file, and InferComponentProps.
+description: API reference for defineComponent, the schema helpers, file, and InferComponentProps.
 ---
 
 These functions and types are exported from `astronaut-cms/config`.
@@ -29,55 +29,60 @@ const Alert = defineComponent({
 });
 ```
 
-## `image()`
+## Schema helpers (`image`, `file`)
 
-Creates a Zod string schema tagged with `x-cms-image` metadata.
-Use this in CMS component props to create image picker fields.
-The stored value is a root-absolute path string; resolve it at render time with
-`astronaut-cms/Image.astro` or `resolveImage()` (see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
+A component's `props` may be written as a function, which receives the asset helpers:
 
 ```ts
-function image(): z.ZodString;
+type SchemaHelpers = { image: () => z.ZodString; file: () => z.ZodString };
+
+props: T | ((helpers: SchemaHelpers) => T);
 ```
+
+`image()` and `file()` create Zod strings tagged with `x-cms-image` / `x-cms-file` metadata, which
+the admin renders as pickers connected to the media library. The stored value is a root-absolute
+path string; resolve it at render time with `astronaut-cms/Image.astro` or
+`resolveImage()`/`resolveFile()` (see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
 
 ### Usage
 
 ```ts
-import { defineComponent, image } from "astronaut-cms/config";
+import { defineComponent } from "astronaut-cms/config";
 import { z } from "zod";
 
 const Hero = defineComponent({
-  props: z.object({
-    cover: image(),
-  }),
+  props: ({ image }) => z.object({ cover: image() }),
   children: "markdown",
 });
+
+const Download = defineComponent({
+  props: ({ file }) => z.object({ document: file(), label: z.string() }),
+});
 ```
+
+`image` is deliberately not importable. A collection field takes astro's own `({ image })` and a
+component prop takes the one its props function is handed, so there is no spelling that resolves in
+one place and silently fails in the other.
 
 ## `file()`
 
-Creates a Zod string schema tagged with `x-cms-file` metadata.
-Use this in CMS component props to create file picker fields.
-The stored value is a root-absolute path string; resolve it at render time with `resolveFile()`
-(see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
+The one asset helper that *is* exported, because astro's collection schema has no counterpart for
+it. Use it for a non-image asset in a `content.config.ts` field:
 
-```ts
-function file(): z.ZodString;
-```
+```ts title="src/content.config.ts"
+import { file } from "astronaut-cms/config";
 
-### Usage
-
-```ts
-import { defineComponent, file } from "astronaut-cms/config";
-import { z } from "zod";
-
-const Download = defineComponent({
-  props: z.object({
-    document: file(),
-    label: z.string(),
-  }),
+const pages = defineCollection({
+  loader: glob({ pattern: "**/*.mdx", base: "src/content/pages" }),
+  schema: ({ image }) =>
+    z.object({
+      cover: image(), // astro's helper: resolved into entry.data
+      brief: file().optional(), // the CMS's: a path string, resolved with resolveFile()
+    }),
 });
 ```
+
+Inside a `cms.config.ts` props function, take `file` from the helpers instead of importing it.
 
 ## `InferComponentProps`
 
@@ -86,9 +91,14 @@ Use this to type-check Astro component props against the CMS schema.
 
 ```ts
 type InferComponentProps<Components extends Record<string, ComponentDefinition>> = {
-  [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
+  [Name in string & keyof Components]: Components[Name] extends ComponentDefinition<infer T>
+    ? z.infer<T>
+    : never;
 };
 ```
+
+The props schema is inferred the same way from either form, so a component that declares its props
+directly and one that takes the helpers are indistinguishable to consumers.
 
 ### Usage
 

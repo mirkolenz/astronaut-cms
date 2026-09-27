@@ -3,21 +3,22 @@ import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { collectReferencedAssets } from "@integration/collect-assets";
+import type { ComponentSchemaMap } from "@shared/field-schema";
 import type { CollectionManifest } from "@shared/types";
 
-// A production build bundles only the assets content can reach, so this pins
-// what "reachable" means: a schema field, a string inside an MDX component prop
-// or a Markdoc tag, and a relative path resolved against its entry — but never a
-// file the library merely happens to hold, and never a string that merely looks
-// path-shaped. Only a schema-declared field is held to existing, since nothing
-// declared a body string to be a path at all.
+// A production build bundles only the assets content can reach, and every one of
+// them is reached through a schema: a collection field or a declared MDX
+// component prop. This pins that rule, in both directions. A string is collected
+// because its schema says it is an asset, never because it looks like a path,
+// and a collection's `image()` is left out entirely, since astro imports those
+// into `entry.data` itself.
 
 const collections: CollectionManifest = {
   pages: {
     name: "pages",
     type: "content",
     loaderType: "glob",
-    loaderPattern: "**/*.{md,mdx,mdoc}",
+    loaderPattern: "**/*.{md,mdx}",
     loaderBase: "src/content/pages",
     loaderFileName: null,
     schema: {
@@ -31,39 +32,52 @@ const collections: CollectionManifest = {
   },
 };
 
+const components: ComponentSchemaMap = {
+  Gallery: {
+    props: {
+      type: "object",
+      shape: {
+        images: {
+          type: "array",
+          element: {
+            type: "object",
+            shape: { src: { type: "image" }, alt: { type: "string" } },
+          },
+        },
+      },
+    },
+  },
+  Download: {
+    props: { type: "object", shape: { file: { type: "file" }, label: { type: "string" } } },
+  },
+  // Nothing about `href` says "asset", so a path-shaped value is left alone.
+  Link: { props: { type: "object", shape: { href: { type: "string" } } } },
+};
+
 const files: Record<string, string> = {
-  "src/assets/hero.png": "hero",
-  "src/assets/gallery-1.png": "gallery",
-  "src/assets/tag-image.png": "markdoc tag",
-  "src/assets/relative-cover.png": "relative",
+  "src/assets/hero.png": "frontmatter image, astro's to import",
+  "src/assets/gallery-1.png": "an image prop",
+  "src/assets/relative-cover.png": "an image prop written relatively",
   "src/assets/orphan.png": "nobody references me",
-  "src/assets/brief.pdf": "attached",
+  "src/assets/brief.pdf": "a file() field",
+  "src/assets/manual.pdf": "a file prop",
   "src/content/pages/home.mdx": `---
 title: Home
 cover: /src/assets/hero.png
 attachment: /src/assets/brief.pdf
 ---
 
-<Gallery images={[{"src":"/src/assets/gallery-1.png","alt":"one"}]} />
+A file named "/src/assets/orphan.png" is prose, not a reference.
 
-<Link href="/blog/not-an-asset.png" label="./also-not-one.png" />
+<Gallery
+  images={[{"src":"/src/assets/gallery-1.png","alt":"one"},{"src":"../../assets/relative-cover.png","alt":"two"}]}
+/>
 
-<Link href="/src/assets/no-such-file.png" />
+<Download file="/src/assets/manual.pdf" label="Manual" />
+
+<Link href="/src/assets/orphan.png" />
 `,
-  "src/content/pages/tagged.mdoc": `---
-title: Tagged
----
-
-{% figure src="/src/assets/tag-image.png" /%}
-`,
-  "src/data/authors.json": `{ "ada": { "name": "Ada", "avatar": "/src/assets/hero.png" } }`,
-  "src/content/pages/relative.md": `---
-title: Relative
-cover: ../../assets/relative-cover.png
----
-
-Body text.
-`,
+  "src/data/authors.json": `{ "ada": { "name": "Ada", "portrait": "/src/assets/brief.pdf" } }`,
 };
 
 let rootDir: string;
@@ -73,6 +87,7 @@ function collect(overrides: Partial<Parameters<typeof collectReferencedAssets>[0
     rootDir,
     mediaDirectory: "src/assets",
     collections,
+    components,
     alwaysInclude: [],
     ...overrides,
   });
@@ -91,34 +106,40 @@ beforeAll(() => {
 afterAll(() => rmSync(rootDir, { recursive: true, force: true }));
 
 describe("collectReferencedAssets", () => {
-  it("collects frontmatter, nested MDX props and relative paths, and nothing else", () => {
+  // The frontmatter `cover` is deliberately absent: astro's own `image()` import
+  // covers it, so bundling it here would ship a second copy.
+  it("collects the image props of MDX components, relative paths included", () => {
     expect(collect().images).toEqual([
       "/src/assets/gallery-1.png",
-      "/src/assets/hero.png",
       "/src/assets/relative-cover.png",
-      "/src/assets/tag-image.png",
     ]);
   });
 
-  // An image() names something astro:assets replaces with transformed variants,
-  // so keeping a `?url` entry would ship the full-size original for nothing. A
-  // prop could still be a file(), since its schema is not readable at build time.
+  // An `image()` names something astro:assets replaces with transformed variants,
+  // so a `?url` entry for it would ship the full-size original for nothing. Only
+  // what a `file()` declares gets one.
   it("keeps a ?url entry only where resolveFile may be called", () => {
-    expect(collect().files).toEqual([
-      "/src/assets/brief.pdf",
-      "/src/assets/gallery-1.png",
-      "/src/assets/tag-image.png",
-    ]);
+    expect(collect().files).toEqual(["/src/assets/brief.pdf", "/src/assets/manual.pdf"]);
   });
 
   it.each([
-    ["a name no file answers to", "/src/assets/gone.png"],
-    ["a path outside the media directory", "/elsewhere/cover.png"],
-  ])("fails the build on %s, naming the entry", (_, cover) => {
-    const broken = join(rootDir, "src/content/pages/broken.md");
-    writeFileSync(broken, `---\ntitle: Broken\ncover: ${cover}\n---\n`);
+    [
+      "a frontmatter field",
+      "broken.md",
+      "---\ntitle: Broken\ncover: /src/assets/gone.png\n---\n",
+      /broken\.md \(frontmatter cover\)/,
+    ],
+    [
+      "a component prop",
+      "broken.mdx",
+      '---\ntitle: Broken\n---\n\n<Download file="/src/assets/gone.png" label="x" />\n',
+      /broken\.mdx \(<Download> prop "file"\)/,
+    ],
+  ])("fails the build on a declared asset that names nothing: %s", (_, name, raw, message) => {
+    const broken = join(rootDir, "src/content/pages", name);
+    writeFileSync(broken, raw);
 
-    expect(collect).toThrow(/src\/content\/pages\/broken\.md \(frontmatter cover\)/);
+    expect(collect).toThrow(message);
 
     rmSync(broken);
   });
@@ -136,12 +157,12 @@ describe("collectReferencedAssets", () => {
         loaderFileName: "src/data/authors.json",
         schema: {
           type: "object",
-          shape: { name: { type: "string" }, avatar: { type: "image" } },
+          shape: { name: { type: "string" }, portrait: { type: "file" } },
         },
       },
     };
 
-    expect(collect({ collections: authors }).images).toEqual(["/src/assets/hero.png"]);
+    expect(collect({ collections: authors }).files).toEqual(["/src/assets/brief.pdf"]);
   });
 
   it("bundles alwaysInclude patterns no content references", () => {

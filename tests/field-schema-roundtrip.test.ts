@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { zodToFieldSchema } from "@shared/zod-to-field";
 import { CMS_IMAGE, CMS_REFERENCE } from "@shared/field-schema";
-import { fieldSchemaToZod } from "@client/lib/schema";
+import { fieldSchemaToZod } from "@shared/field-to-zod";
 import type { FieldSchema } from "@shared/field-schema";
 
 // The browser reconstructs a live Zod validator from the serialized FieldSchema

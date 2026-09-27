@@ -1,5 +1,4 @@
-import { dirname, extname, join } from "pathe";
-import { ASTRO_IMAGE_FORMATS } from "./image-formats";
+import { dirname, join } from "pathe";
 
 /**
  * The single rule mapping a stored asset path to the key of the generated
@@ -20,15 +19,4 @@ export function assetKey(path: string, base: string | undefined): string {
   const baseDir = dirname(join("/", base));
 
   return join(baseDir, path);
-}
-
-const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(ASTRO_IMAGE_FORMATS);
-
-/**
- * Whether a key belongs in the `images` map, by the same extension list the dev
- * glob filters on. Everything reachable goes into `files`; only these also get an
- * `astro:assets` import that yields ImageMetadata.
- */
-export function isImageKey(key: string): boolean {
-  return IMAGE_EXTENSIONS.has(extname(key).slice(1).toLowerCase());
 }

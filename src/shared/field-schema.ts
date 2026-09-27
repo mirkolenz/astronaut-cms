@@ -59,6 +59,19 @@ export type FieldSchema = FieldMods &
     | { type: "unknown" }
   );
 
+/**
+ * The serializable half of a CMS component definition: its lowered prop schema
+ * and what may nest inside it. `cms.config`'s live definitions add the admin's
+ * React refs (`icon`, `editor`) on top of this, which is why the shared MDX walk
+ * and the build take this narrower shape and never the admin's.
+ */
+export interface ComponentSchema {
+  props: FieldSchema | null;
+  children?: "markdown" | Record<string, this>;
+}
+
+export type ComponentSchemaMap = Record<string, ComponentSchema>;
+
 /** Returns the field map of an object schema, or `undefined` for any other type. */
 export function objectShape(
   schema: FieldSchema | null | undefined,

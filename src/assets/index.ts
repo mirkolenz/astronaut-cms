@@ -7,8 +7,14 @@
  * uploaded file resolves without a restart. Paths are root-absolute (e.g.
  * "/src/assets/hero.png"); relative paths (e.g. "./hero.png") resolve against a
  * `base` argument (the referencing content file, such as `entry.filePath`).
- * Resolution happens at render time and never touches the markdown processor, so it
- * works under both `unified()` and the Rust `satteri()` pipeline.
+ *
+ * What needs resolving here is what astro cannot resolve for you: the `image()`
+ * and `file()` props of MDX components, and `file()` collection fields. A
+ * collection's `image()` fields are not among them. Astro imports those into
+ * `entry.data` itself, so `entry.data.cover` is already `ImageMetadata`.
+ *
+ * Resolution happens at render time and never touches the markdown processor, so
+ * it works under both the default `satteri()` pipeline and `unified()`.
  *
  * Use {@link resolveImage} in `.astro` files (or the ready-made
  * `astronaut-cms/Image.astro` wrapper), and pass the resolved value to
@@ -33,18 +39,25 @@ function resolve<T>(
   return loader();
 }
 
-// In a build the maps are narrowed to what content references and to how it
-// references it, so a file plainly sitting on disk can still be missing here.
-// Both narrowings are undone the same way, by naming the file in
+// In a build the maps are narrowed to what content references and to how its
+// schema declares it, so a file plainly sitting on disk can still be missing
+// here. Both narrowings are undone the same way, by naming the file in
 // `media.alwaysInclude`; the hint says which one was hit.
 function hint(kind: string, key: string): string {
   if (!referencedOnly) return "";
 
+  // A key in the other map is a mismatch between how content declares the asset
+  // and which resolver the site calls on it, which the generic hint would send
+  // the user to fix in the wrong place.
   if (kind === "file" && key in images) {
-    return ". Content only references it through an image() field, so it is bundled as optimized images and its original is not kept; add it to media.alwaysInclude to bundle the file itself.";
+    return ". Content only declares it with image(), so it is bundled as optimized images and its original is not kept; declare it with file() or add it to media.alwaysInclude to bundle the file itself.";
   }
 
-  return ". A build only bundles assets referenced by content; list it in media.alwaysInclude if this path comes from site code.";
+  if (kind === "image" && key in files) {
+    return ". Content only declares it with file(), so it is bundled as the original file; declare it with image() to get optimized images.";
+  }
+
+  return ". A build only bundles assets referenced by content; list it in media.alwaysInclude if this path comes from site code. A collection image() field is astro's to import, so read it straight off entry.data instead of resolving it here.";
 }
 
 /** Resolve an asset path to optimized image metadata. Absolute paths need no

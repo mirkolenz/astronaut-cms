@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { validateMdx } from "@client/lib/validation/mdx";
+import { validateMdx } from "@shared/mdx-validation";
+import { components } from "./fixtures/user-config";
 
 // Asset props on MDX components are plain strings in the schema, so a model can
 // satisfy the tool's JSON Schema while pointing at an image that does not exist.
@@ -9,6 +10,7 @@ describe("validateMdx", () => {
     const { diagnostics, leaves } = validateMdx(
       '<Figure src="/src/assets/hero.png" alt="Hero" />',
       "mdx",
+      components,
     );
 
     expect(diagnostics).toEqual([]);
@@ -18,7 +20,11 @@ describe("validateMdx", () => {
   });
 
   it("still reports schema violations in props", () => {
-    const { diagnostics } = validateMdx('<Figure src="/src/assets/hero.png" />', "mdx");
+    const { diagnostics } = validateMdx(
+      '<Figure src="/src/assets/hero.png" />',
+      "mdx",
+      components,
+    );
 
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].message).toContain('missing required prop "alt"');

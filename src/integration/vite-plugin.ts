@@ -7,6 +7,7 @@ import type { AiGateway, CmsClientConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
+import { loadComponents, type ConfigLogger } from "./load-config.ts";
 
 type AstroCommand = HookParameters<"astro:config:setup">["command"];
 
@@ -44,6 +45,7 @@ export interface CmsVitePluginOptions {
   collections: CollectionManifest;
   command: AstroCommand;
   rootDir: string;
+  logger: ConfigLogger;
   /** Media-directory-relative globs to bundle even when no content references them. */
   alwaysInclude: string[];
 }
@@ -97,11 +99,12 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
 //
 // A build emits one entry per asset content actually references (see
 // collect-assets.ts), because a glob is a static set of dynamic imports and so
-// makes Rollup emit the whole media directory. The two maps are collected
-// separately rather than sliced by extension: a `?url` entry keeps an image's
-// full-size original alive, which is pure waste for one only ever rendered.
-// Dev keeps the glob, so a file uploaded through the media library resolves
-// without restarting the server.
+// makes Rollup emit the whole media directory. Which map an asset lands in comes
+// from the schema that declared it, not from its extension: a `?url` entry keeps
+// an image's full-size original alive, which is pure waste for one only ever
+// rendered. Dev keeps the glob, so a file uploaded through the media library
+// resolves without restarting the server, and the extension list is all it has
+// to go on.
 function generateAssetsModule(options: CmsVitePluginOptions): string {
   // join normalizes any leading/trailing slashes into a single root-absolute base.
   const base = join("/", options.clientConfig.mediaDirectory);
@@ -118,10 +121,17 @@ export const images = import.meta.glob(${imagesGlob}, { import: "default" });
 export const files = import.meta.glob(${filesGlob}, { query: "?url", import: "default" });`;
   }
 
+  // The component prop schemas are read here rather than handed in, so the one
+  // place that decides a build needs them is the one place that asks for them.
+  const components = options.userConfigPath
+    ? loadComponents(options.userConfigPath, options.rootDir, options.logger)
+    : {};
+
   const { images, files } = collectReferencedAssets({
     rootDir: options.rootDir,
     mediaDirectory: options.clientConfig.mediaDirectory,
     collections: options.collections,
+    components,
     alwaysInclude: options.alwaysInclude,
   });
 

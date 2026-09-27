@@ -3,10 +3,11 @@ import { collectionDataSchema, normalizeDates } from "@client/lib/schema";
 import { validatePath } from "@shared/validation";
 import type { CollectionManifestEntry } from "@shared/types";
 import { dataLeaves, type ResolvableLeaf } from "@shared/resolvable-leaves";
-import { validateMdx } from "./mdx";
-import { diagnostic, ContentValidationError, type Diagnostic } from "./types";
+import { components } from "virtual:astronaut-cms/user-config";
+import { validateMdx } from "@shared/mdx-validation";
+import { diagnostic, ContentValidationError, type Diagnostic } from "@shared/diagnostics";
 
-export * from "./types";
+export * from "@shared/diagnostics";
 
 /**
  * What the checks need to look things up. The storage backend is passed in
@@ -202,7 +203,7 @@ async function validateEntryWrite(
   source: ContentSource,
   { col, id, data, body, format }: EntryWrite,
 ): Promise<Diagnostic[]> {
-  const mdx = validateMdx(body, format);
+  const mdx = validateMdx(body, format, components);
 
   return [
     ...validateEntryId(id),

@@ -13,7 +13,7 @@ import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { findComponent } from "@client/lib/component-lookup";
+import { findComponent } from "@shared/component-lookup";
 import { objectShape } from "@shared/field-schema";
 import { FieldRenderer, getDefaultValue } from "./field-renderer";
 import { EditorCard } from "./editor-card";
