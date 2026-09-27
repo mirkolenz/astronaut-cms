@@ -146,15 +146,6 @@ Content then stores library keys instead of project paths, and the site loads th
 ### What an object store needs
 
 <Steps>
-  <StepItem title="Install the AWS SDK">
-    It is an optional peer dependency, so only sites using an object store download it:
-
-    ```sh
-    npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
-    ```
-
-  </StepItem>
-
   <StepItem title="Set the credentials on the server">
     Not needed for a Workers binding:
 

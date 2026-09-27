@@ -75,10 +75,6 @@
     "./server-local": {
       "types": "./dist/server/storage/local.d.ts",
       "default": "./dist/server-local.js"
-    },
-    "./server-s3": {
-      "types": "./dist/media/s3-store.d.ts",
-      "default": "./dist/server-s3.js"
     }
   },
   "publishConfig": {
@@ -166,8 +162,6 @@
   "peerDependencies": {
     "@astrojs/mdx": "^7 || ^8",
     "@astrojs/react": "^6",
-    "@aws-sdk/client-s3": "^3",
-    "@aws-sdk/s3-request-presigner": "^3",
     "astro": "^7",
     "react": "^19",
     "react-dom": "^19",
@@ -176,12 +170,6 @@
   },
   "peerDependenciesMeta": {
     "@astrojs/mdx": {
-      "optional": true
-    },
-    "@aws-sdk/client-s3": {
-      "optional": true
-    },
-    "@aws-sdk/s3-request-presigner": {
       "optional": true
     }
   },

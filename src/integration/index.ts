@@ -1,6 +1,5 @@
 import type { AstroIntegration } from "astro";
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import type { CmsConfig } from "./types.ts";
@@ -71,21 +70,6 @@ function mediaRemotePattern(publicUrl: string) {
     hostname: url.hostname,
     ...(pathname && { pathname: `${pathname}/**` }),
   };
-}
-
-/** The SDK is an optional peer dependency, so name its absence here rather than as a failed import. */
-function assertS3SdkInstalled(rootDir: string): void {
-  const require = createRequire(join(rootDir, "package.json"));
-
-  for (const pkg of ["@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"]) {
-    try {
-      require.resolve(pkg);
-    } catch {
-      throw new Error(
-        `Media backend: "${pkg}" is not installed. Reaching an object store over the S3 API needs it: npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner`,
-      );
-    }
-  }
 }
 
 /**
@@ -243,9 +227,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // route that would hold its credential is never injected.
         const configuredMedia = resolveMediaServer(effectiveConfig);
         const mediaServer = localMedia ? null : configuredMedia;
-
-        // A Workers binding never loads the SDK, so only the S3 path demands it.
-        if (mediaServer?.access.type === "s3") assertS3SdkInstalled(rootDir);
 
         if (mediaServer && effectiveConfig.media?.alwaysInclude?.length) {
           logger.warn(

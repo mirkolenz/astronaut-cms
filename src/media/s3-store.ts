@@ -1,6 +1,7 @@
 /**
- * The only module that needs `@aws-sdk/client-s3`, an optional peer dependency,
- * which is why the route imports it lazily (see `handler.ts`).
+ * The only module that needs the AWS SDK, which the package bundles. The route
+ * imports it lazily (see `open-store.ts`), so a cold start that never touches
+ * media never loads it.
  */
 import {
   CopyObjectCommand,
