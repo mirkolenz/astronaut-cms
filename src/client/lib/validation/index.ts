@@ -2,8 +2,7 @@ import config from "virtual:astronaut-cms/config";
 import { collectionDataSchema, normalizeDates } from "@client/lib/schema";
 import { validatePath } from "@shared/validation";
 import type { CollectionManifestEntry } from "@shared/types";
-import type { FieldSchema } from "@shared/field-schema";
-import { collectResolvableLeaves, type ResolvableLeaf } from "./walk";
+import { dataLeaves, type ResolvableLeaf } from "@shared/resolvable-leaves";
 import { validateMdx } from "./mdx";
 import { diagnostic, ContentValidationError, type Diagnostic } from "./types";
 
@@ -92,11 +91,12 @@ async function checkReferences(
 
 /**
  * An `image`/`file` field must name a file in the media directory, and nothing
- * else. This is not a house rule: the site resolves these paths through a glob
+ * else. This is not a house rule: the site resolves these paths through a map
  * rooted at the media directory (see the generated `virtual:astronaut-cms/assets`
  * module), so a path outside it cannot resolve at render time no matter what the
  * file system holds, and a path inside it that does not exist fails the same way.
- * Both are therefore errors rather than warnings.
+ * A build takes it further and refuses to start, since the same walk decides
+ * which assets are bundled at all.
  */
 async function checkAssets(source: ContentSource, assets: ResolvableLeaf[]): Promise<Diagnostic[]> {
   if (assets.length === 0) return [];
@@ -170,14 +170,6 @@ async function checkResolvableLeaves(
   ]);
 
   return [...references, ...assets];
-}
-
-/** The assets and references an entry's data points at. */
-function dataLeaves(
-  schema: FieldSchema | null | undefined,
-  data: Record<string, unknown>,
-): ResolvableLeaf[] {
-  return schema?.type === "object" ? collectResolvableLeaves(schema, data) : [];
 }
 
 // --- Entry writes ----------------------------------------------------------

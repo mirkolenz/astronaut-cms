@@ -9,7 +9,7 @@ import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
-import { resolveAiGateway, resolveClientConfig } from "./resolve-config.ts";
+import { resolveAiGateway, resolveAlwaysInclude, resolveClientConfig } from "./resolve-config.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
 export type { ContentI18n } from "../shared/i18n.ts";
@@ -123,6 +123,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 aiGateway: resolveAiGateway(effectiveConfig),
                 userConfigPath,
                 collections,
+                command,
+                rootDir,
+                alwaysInclude: resolveAlwaysInclude(effectiveConfig),
               }),
               // Dev-only filesystem API for the local storage backend, plus the
               // reload suppression that keeps the admin's state across its own saves.

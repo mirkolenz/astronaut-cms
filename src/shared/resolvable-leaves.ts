@@ -1,4 +1,4 @@
-import type { FieldSchema } from "@shared/field-schema";
+import type { FieldSchema } from "./field-schema";
 
 // Walks a (FieldSchema, value) pair in tandem and collects every leaf that holds
 // a path to another resource: a cross-collection `reference` or an `image`/`file`
@@ -90,4 +90,16 @@ export function collectResolvableLeaves(
     default:
       return [];
   }
+}
+
+/**
+ * The assets and references an entry's data points at. A schema that is not an
+ * object holds no fields to walk, which is the only shape a collection's data
+ * can take.
+ */
+export function dataLeaves(
+  schema: FieldSchema | null | undefined,
+  data: Record<string, unknown>,
+): ResolvableLeaf[] {
+  return schema?.type === "object" ? collectResolvableLeaves(schema, data) : [];
 }

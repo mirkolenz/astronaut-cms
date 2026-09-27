@@ -131,6 +131,15 @@ export interface MediaConfig {
   directory?: string;
   allowedExtensions?: string[];
   maxFileSize?: number;
+  /**
+   * Glob patterns, relative to `directory`, for files to bundle even when no
+   * content references them (e.g. `["og/**", "brand/logo.svg"]`).
+   *
+   * A production build only emits the assets it can reach from content, so a
+   * path that appears solely in site code — `resolveImage("/src/assets/og.png")`
+   * in a layout, say — has to be listed here.
+   */
+  alwaysInclude?: string[];
 }
 
 export interface CmsClientConfig {

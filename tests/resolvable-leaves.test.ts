@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectResolvableLeaves } from "@client/lib/validation/walk";
+import { collectResolvableLeaves } from "@shared/resolvable-leaves";
 import type { FieldSchema } from "@shared/field-schema";
 
 // The reference/asset integrity check walks (schema, value) in tandem. These pin

@@ -9,8 +9,16 @@ import { components, type ClientComponentDef } from "virtual:astronaut-cms/user-
 import { findComponent } from "@client/lib/component-lookup";
 import { objectShape, type FieldSchema } from "@shared/field-schema";
 import { fieldSchemaToZod } from "@client/lib/schema";
-import { collectResolvableLeaves, type ResolvableLeaf } from "./walk";
+import { collectResolvableLeaves, type ResolvableLeaf } from "@shared/resolvable-leaves";
 import { diagnostic, type Diagnostic } from "./types";
+
+/** The parts of an mdast tree this walk reads: JSX element names, attributes, children. */
+interface MdxNode {
+  type: string;
+  name?: string | null;
+  attributes?: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>;
+  children?: MdxNode[];
+}
 
 // A statically-known attribute value, or `unknown` for a dynamic `{expr}` we can
 // not evaluate without running JS (left unchecked rather than guessed).
@@ -18,13 +26,6 @@ type AttrValue = { known: true; value: unknown } | { known: false };
 
 // The nearest CMS-component ancestor of a node, or null at the document root.
 type Parent = { name: string; def: ClientComponentDef } | null;
-
-interface MdxNode {
-  type: string;
-  name?: string | null;
-  attributes?: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>;
-  children?: MdxNode[];
-}
 
 const NO_CHILDREN: ReadonlySet<string> = new Set();
 const topLevelNames = new Set(Object.keys(components));

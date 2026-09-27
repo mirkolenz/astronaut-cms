@@ -102,6 +102,15 @@ export function resolveClientConfig(
 }
 
 /**
+ * Media-directory-relative globs the build bundles even when no content
+ * references them. Build-only, like {@link resolveAiGateway}, so it stays out of
+ * the client config the admin bundle carries.
+ */
+export function resolveAlwaysInclude(config: CmsConfig): string[] {
+  return config.media?.alwaysInclude ?? [];
+}
+
+/**
  * Server-only gateway config. It is imported solely by the relay route, so it is
  * bundled into the SSR output and never reaches the client.
  */

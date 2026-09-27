@@ -111,11 +111,29 @@ interface MediaConfig {
   directory?: string;
   allowedExtensions?: string[];
   maxFileSize?: number;
+  alwaysInclude?: string[];
 }
 ```
 
-| Property            | Type       | Default                     | Description                                      |
-| ------------------- | ---------- | --------------------------- | ------------------------------------------------ |
-| `directory`         | `string`   | `"src/assets"`              | Media storage directory relative to project root |
-| `allowedExtensions` | `string[]` | common image/document types | Allowed file extensions (with leading dot)       |
-| `maxFileSize`       | `number`   | unlimited                   | Maximum file size in bytes                       |
+| Property            | Type       | Default                     | Description                                          |
+| ------------------- | ---------- | --------------------------- | ---------------------------------------------------- |
+| `directory`         | `string`   | `"src/assets"`              | Media storage directory relative to project root     |
+| `allowedExtensions` | `string[]` | common image/document types | Allowed file extensions (with leading dot)           |
+| `maxFileSize`       | `number`   | unlimited                   | Maximum file size in bytes                           |
+| `alwaysInclude`     | `string[]` | `[]`                        | Globs, relative to `directory`, to bundle regardless |
+
+### `alwaysInclude`
+
+A production build bundles only the assets your content references, so a media library full of archive material costs nothing to keep.
+Anything referenced from site code rather than from an entry is invisible to that scan and has to be listed here.
+
+```ts title="astro.config.ts"
+cms({
+  media: {
+    alwaysInclude: ["og/**", "brand/logo.svg"],
+  },
+});
+```
+
+Patterns are relative to `directory`, so `"og/**"` means `src/assets/og/**` under the default.
+See [Asset Handling](../../guides/asset-handling/#what-a-build-bundles) for how the referenced set is worked out.

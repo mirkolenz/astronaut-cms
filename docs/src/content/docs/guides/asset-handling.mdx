@@ -6,9 +6,9 @@ description: How CMS-referenced images and files are bundled and optimized at re
 import { Aside } from "@astrojs/starlight/components";
 
 The CMS stores asset references as plain path strings and resolves them to optimized assets
-**at render time** through a Vite `import.meta.glob` map. Nothing is injected into your Markdown or
-MDX at build time, so this works identically under Astro's default `unified()` pipeline and the
-Rust `satteri()` processor.
+**at render time** through a generated map of the media directory. Nothing is injected into your
+Markdown or MDX at build time, so this works identically under Astro's default `unified()` pipeline
+and the Rust `satteri()` processor.
 
 There are three kinds of asset references, each handled differently:
 
@@ -68,7 +68,7 @@ const entry = Astro.props.entry;
 ```
 
 <Aside type="note">
-  A relative path must resolve into your `media.directory` (the glob only covers that folder). For
+  A relative path must resolve into your `media.directory` (the map only covers that folder). For
   deeply nested MDX component props, prefer absolute paths so no `base` needs to be threaded down.
 </Aside>
 
@@ -90,7 +90,7 @@ const images = await Promise.all(Astro.props.srcs.map((s) => resolveImage(s)));
 
 ## Assets live in the media directory
 
-`image()` and `file()` values are resolved through a glob rooted at your media directory, so a path
+`image()` and `file()` values are resolved through a map rooted at your media directory, so a path
 outside it can never resolve, however real the file is. The CMS enforces this when content is
 written, by hand or by the assistant: an `image()`/`file()` field must name an existing file in the
 media library, and any other path is rejected with the reason. This is what keeps a mistyped or
@@ -98,6 +98,78 @@ invented asset path out of your content, where it would otherwise surface as a b
 
 Plain markdown links and `public/` URLs are unaffected — they are ordinary strings, not asset
 fields.
+
+## What a build bundles
+
+A `dev` server resolves the whole media directory, so a file you have just uploaded works without a restart.
+A production build is narrower: it bundles only the assets your content actually references, and leaves the rest of the library out of `dist/` entirely.
+
+This matters because an unreferenced asset is not merely copied, it is copied _unoptimized_.
+Astro only discards an original once it has produced a transformed version, which never happens for an image nothing renders.
+A library that is mostly archive would otherwise ship at full size on every deploy.
+
+The referenced set is worked out before the build, by reading your collections off disk:
+
+- Every `image()` / `file()` value in frontmatter and in data collections, including inside arrays, records, tuples and discriminated unions.
+- Every quoted string in an MDX or Markdoc body, whether it is a plain attribute (`src="/src/assets/x.png"`), nested in JSON (`images={[{"src":"/src/assets/x.png"}]}`), a Markdoc tag argument, or a `src` in raw HTML.
+- Relative paths, normalized against the entry that holds them, exactly as `resolveImage(src, base)` would.
+
+A string counts as an asset when it names a file that is really in your media library, so an ordinary
+prop that happens to look like a path (`href="/blog/post"`) is left alone, and so is any quoted text in your prose.
+Markdown bodies are skipped entirely: their relative images are Astro's own to resolve, and bundling
+them here would ship a second, unoptimized copy.
+
+Content the CMS or the AI assistant writes is committed before a build runs, so it is read like any other entry.
+The same goes for a translation an i18n fallback renders in place of a missing one, since that is a real entry in another language directory.
+
+<Aside type="caution">
+  An `image()` or `file()` value the media directory does not hold fails the **build**, naming the
+  entry it came from, rather than turning into a broken image at render time. A body string is held
+  to no such rule, since nothing declared it to be a path in the first place.
+</Aside>
+
+### Images keep only their optimized forms
+
+Knowing *how* content reaches an asset is worth as much as knowing *that* it does.
+An `image()` value is going to `astro:assets`, which replaces the file with the transformed variants
+each `<Image>` asked for, so the untouched original is never served and is not bundled.
+
+A `file()` value is bundled as the file itself, since that is the whole point of `resolveFile()`.
+An asset reached through a body string is bundled both ways, because the prop's schema lives in
+`cms.config` and cannot be read while the build is being configured.
+
+If you want the original of an image the CMS only sees as an `image()` — a "download the full-size
+photo" link, say — add it to `media.alwaysInclude`.
+The build tells you so by name if you forget.
+
+## Bundling a file nothing references
+
+One kind of reference is invisible to the scan: a path written in your own code rather than in an entry.
+
+```astro
+---
+// Nothing in src/content mentions this file, so the build does not know to keep it.
+const og = await resolveImage("/src/assets/og-default.png");
+---
+```
+
+List those under `media.alwaysInclude`, as globs relative to your media directory:
+
+```ts title="astro.config.ts"
+cms({
+  media: {
+    alwaysInclude: ["og-default.png", "brand/**"],
+  },
+});
+```
+
+The same applies to a path a body only assembles at render time, such as a template literal or any
+other value the file does not spell out as a quoted string.
+
+Forgetting one is loud rather than silent: the build stops with `CMS image not found`, and the message points at `alwaysInclude`.
+
+The media library itself is unaffected.
+It lists files through the storage backend, not through the bundle, so every upload stays visible and pickable in the admin panel whether or not any entry references it yet.
 
 ## Downloadable files
 

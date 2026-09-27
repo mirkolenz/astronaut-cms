@@ -15,9 +15,11 @@ declare module "virtual:astronaut-cms/ai-server" {
 }
 
 declare module "virtual:astronaut-cms/assets" {
-  /** Lazy media-directory glob maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
+  /** Lazy asset loader maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
   export const images: Record<string, () => Promise<import("astro").ImageMetadata>>;
   export const files: Record<string, () => Promise<string>>;
+  /** Whether the maps hold only content-referenced assets (a build) or the whole media directory (dev). */
+  export const referencedOnly: boolean;
 }
 
 declare module "virtual:astronaut-cms/collections" {
