@@ -487,7 +487,7 @@ function ReferenceWarning({
 
   return (
     <>
-      {t(($) => $.media.usedBy, { count: references.length })} {consequence}
+      {t(($) => $.media.usedBy)} {consequence}
       <ul className="mt-2 max-h-40 list-disc overflow-auto pl-5 text-xs">
         {references.map((reference, i) => (
           <li key={i}>{describeReference(reference)}</li>

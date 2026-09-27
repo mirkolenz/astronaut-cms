@@ -298,6 +298,7 @@ export class GitHubStorage extends BranchedStorage {
         status: string;
         previous_filename?: string;
         patch?: string;
+        sha: string;
       }>;
     }>({ path: `${this.repo}/compare/${this.config.branch}...${branch}` });
   }
@@ -314,6 +315,7 @@ export class GitHubStorage extends BranchedStorage {
       kind: FILE_STATUS[file.status] ?? "modified",
       previousPath: file.previous_filename,
       patch: file.patch,
+      version: file.sha,
     }));
   }
 

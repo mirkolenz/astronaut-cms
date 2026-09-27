@@ -177,9 +177,10 @@ async function forward({ request, getEnv, ai, models, fail }: RelayRequest): Pro
 
   const model = body.model;
 
-  if (typeof model === "string" && !models.includes(model)) {
-    return fail(`Model not allowed: ${model}`, 400);
-  }
+  // Without an explicit model, the gateway would pick one outside the list.
+  if (typeof model !== "string") return fail("A model is required.", 400);
+
+  if (!models.includes(model)) return fail(`Model not allowed: ${model}`, 400);
 
   let gateway: Gateway;
   try {

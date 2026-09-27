@@ -20,6 +20,7 @@ import { getErrorCode, staleWrite, type Precondition } from "./types.ts";
 import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
 import { partialContent, type ByteRange } from "../../shared/http.ts";
+import { sha256 } from "../../shared/digest.ts";
 
 export interface LocalConfig {
   /** Absolute project root. Every managed path is resolved against it. */
@@ -135,7 +136,7 @@ export class LocalStorage extends StorageBase {
   protected override async fetchFileContent(path: string): Promise<VersionedContent> {
     const content = await readFile(await this.resolve(path), "utf-8");
 
-    return { content, version: await digest(content) };
+    return { content, version: await sha256(content) };
   }
 
   /**
@@ -164,7 +165,7 @@ export class LocalStorage extends StorageBase {
       throw error;
     }
 
-    return digest(content);
+    return sha256(content);
   }
 
   protected async removeFile(
@@ -274,10 +275,3 @@ async function canonical(path: string): Promise<string> {
  * the admin's cache needs to notice a replaced file.
  */
 const statVersion = ({ size, mtimeMs }: Stats): string => `${size}-${mtimeMs}`;
-
-/** A file's contents, named. Not a git hash: nothing here compares it to one. */
-async function digest(content: string): Promise<string> {
-  const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
-
-  return new Uint8Array(hashed).toHex();
-}

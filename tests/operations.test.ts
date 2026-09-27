@@ -5,6 +5,8 @@ import type { RequestContext } from "@/server/context";
 import { HttpError } from "@/server/errors";
 import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
 import { ContentValidationError } from "@/shared/diagnostics";
+import { changesetDigest } from "@/shared/digest";
+import type { FileChange } from "@/shared/types";
 
 // The operation registry is the security boundary: a compromised admin can call
 // anything here and nothing else. These pin the two properties that makes true —
@@ -106,5 +108,32 @@ describe("dispatch", () => {
         expect(forbidden.has(key), `${name} must not accept "${key}"`).toBe(false);
       }
     }
+  });
+});
+
+describe("publish", () => {
+  const changes: FileChange[] = [{ path: "posts/a.md", kind: "added", patch: "+a" }];
+
+  function publishing() {
+    const published: string[] = [];
+    const storage = {
+      getChanges: async () => changes,
+      publish: async () => void published.push("published"),
+    } as unknown as RequestContext["storage"];
+
+    return { ctx: context({ storage }), published };
+  }
+
+  // A write after the review changes the digest, so what nobody saw never ships.
+  it("publishes only the changeset that was reviewed", async () => {
+    const { ctx, published } = publishing();
+
+    await expect(dispatch(ctx, "publish", { digest: "stale" })).rejects.toMatchObject({
+      status: 412,
+    });
+    expect(published).toEqual([]);
+
+    await dispatch(ctx, "publish", { digest: await changesetDigest(changes) });
+    expect(published).toEqual(["published"]);
   });
 });

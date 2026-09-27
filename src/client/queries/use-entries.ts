@@ -121,7 +121,7 @@ export function useChanges() {
 }
 
 export function usePublish() {
-  return useMutation({ mutationFn: () => call("publish", {}) });
+  return useMutation({ mutationFn: (digest: string) => call("publish", { digest }) });
 }
 
 export function useUpdate() {

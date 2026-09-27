@@ -24,6 +24,7 @@ import { validateReorder } from "./validation.ts";
 import { RateLimiter, limited } from "../shared/rate-limit.ts";
 import type { RequestContext } from "./context.ts";
 import { HttpError } from "./errors.ts";
+import { changesetDigest } from "../shared/digest.ts";
 
 /**
  * One operation: a schema for what the caller may send and a handler that runs
@@ -233,7 +234,13 @@ export const operations = {
   getStatus: op(none, (ctx) => ctx.storage.getStatus()),
   getChanges: op(none, (ctx) => ctx.storage.getChanges()),
 
-  publish: op(none, async (ctx) => {
+  // The digest names the changeset the editor reviewed, so anything written
+  // after the review, by an agent or another tab, blocks the publish.
+  publish: op(z.object({ digest: z.string() }), async (ctx, input) => {
+    if (input.digest !== (await changesetDigest(await ctx.storage.getChanges()))) {
+      throw new HttpError("The changes were updated after your review. Review them again.", 412);
+    }
+
     await ctx.storage.publish();
 
     return ok;

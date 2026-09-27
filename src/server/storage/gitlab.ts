@@ -283,6 +283,7 @@ export class GitLabStorage extends BranchedStorage {
   private async compare(from: string, to: string) {
     return this.api.json<{
       commits?: unknown[];
+      commit?: { id: string } | null;
       diffs?: Array<{
         new_path: string;
         old_path: string;
@@ -308,6 +309,9 @@ export class GitLabStorage extends BranchedStorage {
             : "modified",
       previousPath: diff.renamed_file ? diff.old_path : undefined,
       patch: diff.diff || undefined,
+      // GitLab names no blob per file, so a file without a diff is pinned to the
+      // branch head instead and counts as changed by any later commit.
+      version: diff.diff ? undefined : cmp.commit?.id,
     }));
   }
 

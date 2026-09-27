@@ -34,7 +34,7 @@ const de: TranslationShape<typeof en> = {
     defineCollections: "Definieren Sie Sammlungen in Ihrer content.config.ts",
     contentCollection: "Inhaltssammlung",
     dataCollection: "Datensammlung",
-    fields: "{{count}} Felder",
+    fields: "Felder: {{count}}",
   },
   collection: {
     newEntry: "Neuer Eintrag",
@@ -43,7 +43,7 @@ const de: TranslationShape<typeof en> = {
     contentCollection: "Inhaltssammlung",
     dataCollection: "Datensammlung",
     fileCollection: "Dateisammlung",
-    entries: "{{count}} Einträge",
+    entries: "Einträge: {{count}}",
     failedLoad: "Einträge konnten nicht geladen werden: {{message}}",
     entryCreated: "Eintrag erstellt",
     entryDeleted: "Eintrag gelöscht",
@@ -92,13 +92,13 @@ const de: TranslationShape<typeof en> = {
     checkUsage: "Verwendung prüfen",
     unused: "Unbenutzt",
     alwaysIncluded: "Per Konfiguration behalten",
-    uses: "{{count}} Verwendungen",
-    unusedCount: "{{count}} von {{total}} unbenutzt",
-    staleTitle: "{{count}} Referenzen zeigen auf fehlende Dateien",
+    uses: "Verwendungen: {{count}}",
+    unusedCount: "Unbenutzt: {{count}} / {{total}}",
+    staleTitle: "Referenzen auf fehlende Dateien: {{count}}",
     allFiles: "Alle Dateien",
     scanningReferences: "Prüfe, worauf Inhalte verweisen...",
     noUnused: "Jede Datei wird von Inhalten referenziert.",
-    usedBy: "Verwendet von {{count}} Einträgen:",
+    usedBy: "Die folgenden Einträge verweisen darauf.",
     deleteReferenced: "Ein Löschen macht sie ungültig.",
     renameReferenced: "Ein Umbenennen macht sie ungültig, da Referenzen den alten Pfad behalten.",
     referencesUnavailable: "Referenzen konnten nicht geprüft werden: {{message}}",
@@ -125,12 +125,19 @@ const de: TranslationShape<typeof en> = {
     viewPullRequest: "Pull Request anzeigen",
     viewMergeRequest: "Merge Request anzeigen",
     discarding: "Verwerfen...",
+    review: "Änderungen prüfen",
+    confirmTitle: "Veröffentlichen und Verantwortung übernehmen",
+    confirmMessage:
+      "Sie veröffentlichen alle ausstehenden Änderungen, einschließlich aller Inhalte, die der KI-Assistent oder ein Browser-Agent geschrieben hat. Mit der Veröffentlichung bestätigen Sie, dass Sie sie geprüft und ihre Fakten kontrolliert haben, und übernehmen die volle redaktionelle Verantwortung dafür.",
+    confirm: "Ich übernehme die Verantwortung, veröffentlichen",
+    stale:
+      "Die Änderungen wurden nach Ihrer Prüfung aktualisiert. Prüfen Sie sie erneut, bevor Sie veröffentlichen.",
     mergeConflict:
       "Merge-Konflikt – Ihr Branch und der Standard-Branch sind auseinandergelaufen. Bitte wenden Sie sich an einen Administrator.",
   },
   changes: {
     title: "Änderungen",
-    pending: "{{count}} ausstehende Änderungen",
+    pending: "Ausstehende Änderungen: {{count}}",
     none: "Keine ausstehenden Änderungen",
     empty: "Seit der letzten Veröffentlichung hat sich nichts geändert.",
     added: "Neu",
@@ -138,10 +145,13 @@ const de: TranslationShape<typeof en> = {
     deleted: "Gelöscht",
     renamed: "Umbenannt",
     openEntry: "Öffnen",
-    noDiff: "Für diese Datei ist keine Vorschau verfügbar.",
+    noDiff: "Für diese Datei ist keine Vorschau verfügbar. Öffnen Sie den Eintrag oder die Datei selbst, um sie zu prüfen.",
+    reviewed: "Geprüft",
+    reviewProgress:
+      "Geprüft: {{reviewed}} / {{count}}. Öffnen Sie jede Änderung, bevor Sie veröffentlichen können.",
     discardAll: "Alle verwerfen",
     discardAllMessage:
-      "Alle {{count}} ausstehenden Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
+      "Alle ausstehenden Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
     discarded: "Ausstehende Änderungen verworfen",
   },
   i18n: {
@@ -189,11 +199,12 @@ const de: TranslationShape<typeof en> = {
     ref: "Ref: {{collection}}",
   },
   ai: {
-    title: "Assistent",
+    title: "KI-Assistent",
     emptyTitle: "Wie kann ich helfen?",
-    emptyDescription: "Bitte mich, Inhalte zu erstellen, zu bearbeiten oder zu ordnen.",
-    placeholder: "Bitte den Assistenten, deine Inhalte zu ändern...",
-    errorTitle: "Der Assistent konnte deine Anfrage nicht abschließen",
+    emptyDescription:
+      "Ich bin ein KI-System. Bitte mich, Inhalte zu erstellen, zu bearbeiten oder zu ordnen, und prüfe meine Änderungen, bevor du sie veröffentlichst.",
+    placeholder: "Bitte den KI-Assistenten, deine Inhalte zu ändern...",
+    errorTitle: "Der KI-Assistent konnte deine Anfrage nicht abschließen",
     retry: "Erneut versuchen",
     attach: "Dateien anhängen",
     newChat: "Neuer Chat",
@@ -213,7 +224,7 @@ const de: TranslationShape<typeof en> = {
     keyDescription:
       "Diese Installation fragt jede Person nach einem eigenen Schlüssel. Er geht direkt an das KI-Gateway, nie an diese Website, und wird beim Schließen des Tabs vergessen.",
     keyPlaceholder: "sk-...",
-    keySubmit: "Assistenten verwenden",
+    keySubmit: "KI-Assistenten verwenden",
     keyForget: "Schlüssel vergessen",
     tools: {
       wrote: "{{collection}} / {{id}} geschrieben",

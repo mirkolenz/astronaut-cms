@@ -70,6 +70,9 @@ It never reaches your server, and the relay route is not part of a `byok` build 
 
 **What you give up.** The deployment enforces nothing — not the model allowlist, not `limits`, not the per-editor rate — because none of it is protecting anything of yours any more. Each editor's key is spent against their own account, capped by their own provider, and theirs to rotate. Each editor also has to have one.
 
+The `models` list is still what the model picker offers, but the browser talks to the gateway directly, so an editor can reach any model their key allows.
+Under `byok`, choosing a model that meets your [transparency obligations](#ai-transparency) is the editor's responsibility, or that of whoever issues their keys, for example by restricting models in the gateway.
+
 `byok` needs a gateway the browser can address, so `cloudflare` or `custom`; the `netlify` and `vercel` gateways resolve their base URL from server-side environment variables, and the build fails with a message if you ask for `byok` with one of those. The gateway's origin is added to the admin's `connect-src`, and nothing else is.
 
 <Aside type="caution" title="Not the deployment's key">
@@ -84,7 +87,7 @@ It never reaches your server, and the relay route is not part of a `byok` build 
 
 Everything is declared statically in the integration config: the gateway, the model list, and (via your adapter) the host.
 There is nothing to set at deploy or run time.
-The first model is the default, and the relay rejects any model not in the list.
+The first model is the default, and the relay rejects any request that names no model or one not in the list.
 
 <Tabs>
   <TabItem label="Netlify">
@@ -204,6 +207,17 @@ Each write shows up in the conversation as a line saying what changed, with a li
 The **Changes** screen lists the full changeset: every file added, edited, renamed or deleted since the last publish, each with its diff.
 Publishing and discarding act on all of it at once, from that screen or from the bar at the bottom of the admin.
 
+Publishing is only possible after every change has been opened on the Changes screen.
+A change that is edited again after it was opened, by a human or an agent, has to be opened again.
+Publishing then asks for an explicit confirmation that the editor has reviewed the changes, checked their facts, and takes full editorial responsibility for them.
+The server refuses the publish if the changeset differs from the one the editor reviewed, for example because an agent wrote to it in the meantime.
+Review state lives in the browser tab, so a reload, a publish, or a discard starts the review over.
+Files without a diff, such as images, show no preview, so open them to review their content.
+On GitLab, such a file counts as unreviewed again after any later commit to the draft branch.
+
+The gate is a step in the editorial process, not a security control.
+An editor with write access can still merge the pull or merge request directly on GitHub or GitLab.
+
 This works the same way in local development, where there is no draft branch: the CMS reads the changeset from git and discards by restoring the files it manages.
 Only the collection directories, file-collection files and the media directory are ever touched, so discarding pending content changes never reverts your own source edits.
 
@@ -266,6 +280,28 @@ Concurrency is capped at four in flight per editor, each slot held until its str
   `models` list small and set a spending cap in your gateway dashboard, which is the only ceiling
   that counts across instances.
 </Aside>
+
+## AI transparency
+
+The EU AI Act (Article 50) sets transparency duties for AI generated content.
+The CMS supports them as follows, but whether a deployment complies depends on the models you choose and on how you publish, so review it for your own site.
+
+- **Interaction notice.**
+  The chat is labelled as an AI assistant and says it is an AI system before the first message, in both credential modes.
+- **Machine readable marking.**
+  The CMS does not mark or detect generated text itself, it relies on the model provider.
+  List only models in `models` whose provider marks generated text and offers a detector.
+  In relay mode, the relay enforces that list.
+  Under [bring your own key](#bring-your-own-key), it does not.
+- **Editorial review.**
+  Text published to inform the public on matters of public interest needs either a disclosure or human review under someone's editorial responsibility.
+  The [review gate](#reviewing-what-the-agent-did) implements the second route as a workflow: every change is shown to a human, who confirms responsibility before publishing.
+  It applies equally to changes from the assistant, from [browser agents](../browser-agents/), and from hand edits.
+  Name the person or organisation holding editorial responsibility on your site, for example in the imprint.
+  If you choose disclosure instead, add it in your site's templates.
+- **Local storage.**
+  There is no publish step, writes land in the working tree directly.
+  Review them in git before you commit.
 
 ## Local development
 

@@ -68,7 +68,7 @@ describe("batched calls", () => {
 
     const { call, isMergeConflict } = await import("@/client/lib/api");
     const [failed, succeeded] = await Promise.allSettled([
-      call("publish", {}),
+      call("publish", { digest: "" }),
       call("discard", {}),
     ]);
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import config from "@/client/lib/config";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -9,17 +10,22 @@ import {
   useUpdate,
   useDiscard,
 } from "@/client/queries/use-entries";
-import { isMergeConflict } from "@/client/lib/api";
+import { isMergeConflict, isStaleWrite } from "@/client/lib/api";
 import { buildPreviewUrl } from "@/client/lib/preview-url";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { Button } from "@/client/components/ui/button";
 import { toast } from "@/client/components/toast";
 import { errorMessage } from "@/shared/errors";
+import { changesetDigest } from "@/shared/digest";
+import { clearReviews, useReviewedCount } from "@/client/stores/review-store";
 
 /**
  * Publish, update and discard for the changeset as a whole. Nothing here acts on
  * a single change: the changeset is the unit the user decides about, which is
  * what lets the assistant write freely without asking permission per tool call.
+ *
+ * Publishing requires every change to have been opened on the Changes screen
+ * and an explicit acceptance of editorial responsibility.
  */
 export function ChangeActions() {
   const { t } = useTranslation();
@@ -28,10 +34,11 @@ export function ChangeActions() {
   const publish = usePublish();
   const update = useUpdate();
   const discard = useDiscard();
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [confirming, setConfirming] = useState<"publish" | "discard" | null>(null);
 
   const { publish: canPublish, update: canUpdate } = config.capabilities;
   const count = changes.data?.length ?? 0;
+  const reviewed = useReviewedCount(changes.data ?? []);
   const behind = status.data?.behind ?? 0;
   const branch = status.data?.branch;
   const previewUrl =
@@ -42,16 +49,40 @@ export function ChangeActions() {
     toast(
       isMergeConflict(err)
         ? t(($) => $.publish.mergeConflict)
-        : errorMessage(err),
+        : isStaleWrite(err)
+          ? t(($) => $.publish.stale)
+          : errorMessage(err),
       "error",
     );
   };
 
-  const run = (mutation: UseMutationResult<unknown, Error, void>, message: string): void => {
-    mutation.mutate(undefined, {
-      onSuccess: () => toast(message, "success"),
+  const run = <T,>(
+    mutation: UseMutationResult<unknown, Error, T>,
+    variables: T,
+    message: string,
+    onSuccess?: () => void,
+  ): void => {
+    mutation.mutate(variables, {
+      onSuccess: () => {
+        onSuccess?.();
+        toast(message, "success");
+      },
       onError: reportError,
     });
+  };
+
+  // Only what this tab has shown is published: the digest pins the changeset to
+  // the reviewed snapshot, and the server refuses it once the branch moved on.
+  const confirmPublish = async (): Promise<void> => {
+    setConfirming(null);
+
+    if (!changes.data || reviewed < count) {
+      toast(t(($) => $.publish.stale), "error");
+
+      return;
+    }
+
+    run(publish, await changesetDigest(changes.data), t(($) => $.publish.published), clearReviews);
   };
 
   return (
@@ -63,6 +94,7 @@ export function ChangeActions() {
           onClick={() =>
             run(
               update,
+              undefined,
               t(($) => $.publish.updated),
             )
           }
@@ -74,7 +106,7 @@ export function ChangeActions() {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setShowDiscardConfirm(true)}
+        onClick={() => setConfirming("discard")}
         disabled={busy || count === 0}
       >
         {discard.isPending ? t(($) => $.publish.discarding) : t(($) => $.changes.discardAll)}
@@ -86,35 +118,41 @@ export function ChangeActions() {
           </a>
         </Button>
       )}
-      {canPublish && (
-        <Button
-          size="sm"
-          onClick={() =>
-            run(
-              publish,
-              t(($) => $.publish.published),
-            )
-          }
-          disabled={busy || count === 0}
-        >
-          {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
-        </Button>
-      )}
+      {canPublish &&
+        (reviewed < count ? (
+          <Button size="sm" asChild>
+            <Link to="/changes">{t(($) => $.publish.review)}</Link>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={() => setConfirming("publish")}
+            disabled={busy || count === 0}
+          >
+            {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
+          </Button>
+        ))}
 
       <ConfirmDialog
-        open={showDiscardConfirm}
+        open={confirming === "publish"}
+        title={t(($) => $.publish.confirmTitle)}
+        message={t(($) => $.publish.confirmMessage)}
+        confirmLabel={t(($) => $.publish.confirm)}
+        onConfirm={() => void confirmPublish()}
+        onCancel={() => setConfirming(null)}
+      />
+
+      <ConfirmDialog
+        open={confirming === "discard"}
         title={t(($) => $.changes.discardAll)}
-        message={t(($) => $.changes.discardAllMessage, { count })}
+        message={t(($) => $.changes.discardAllMessage)}
         confirmLabel={t(($) => $.common.discard)}
         variant="danger"
         onConfirm={() => {
-          setShowDiscardConfirm(false);
-          run(
-            discard,
-            t(($) => $.changes.discarded),
-          );
+          setConfirming(null);
+          run(discard, undefined, t(($) => $.changes.discarded), clearReviews);
         }}
-        onCancel={() => setShowDiscardConfirm(false)}
+        onCancel={() => setConfirming(null)}
       />
     </div>
   );

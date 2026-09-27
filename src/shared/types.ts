@@ -187,6 +187,8 @@ export interface FileChange {
   previousPath?: string;
   /** Unified diff hunks, omitted for binary files and when no diff can be produced. */
   patch?: string;
+  /** Identifies the file's new state when there is no patch to tell versions apart. */
+  version?: string;
 }
 
 // Extracts allowed file extensions from loader metadata.
