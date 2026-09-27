@@ -24,6 +24,6 @@ dist-ssr
 *.sln
 *.sw?
 
-.direnv/
-/docs/src/assets/logo.af
-/docs/src/assets/logo-raw.png
+/.direnv/
+/assets/logo.af
+/assets/logo-raw.png
