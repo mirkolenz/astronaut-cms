@@ -2,8 +2,12 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import config from "virtual:astronaut-cms/config";
 import { useAuthStore } from "@client/stores/auth-store";
-import { initiateDeviceAuthorization } from "@client/lib/oauth/github";
-import { startGitLabLogin, handleGitLabCallback } from "@client/lib/oauth/gitlab";
+import { initiateDeviceAuthorization, verifyRepoWriteAccess } from "@client/lib/oauth/github";
+import {
+  startGitLabLogin,
+  handleGitLabCallback,
+  verifyProjectWriteAccess,
+} from "@client/lib/oauth/gitlab";
 import { Button } from "@client/components/ui/button";
 import { Alert, AlertDescription } from "@client/components/ui/alert";
 
@@ -14,17 +18,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthPending, setOauthPending] = useState(false);
 
-  // Handle GitLab OAuth callback params on the main page URL
   useEffect(() => {
     if (config.storageType !== "gitlab") return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const errorParam = params.get("error");
+    const cleanUrl = () =>
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
 
     if (errorParam) {
       setOauthError(params.get("error_description") ?? errorParam);
-      // Clean query params from URL
-      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      cleanUrl();
       return;
     }
 
@@ -36,10 +40,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       config.gitlab!.instanceUrl,
       new URL(window.location.href),
     )
-      .then((accessToken) => {
+      .then(async (accessToken) => {
+        await verifyProjectWriteAccess(
+          accessToken,
+          config.gitlab!.project,
+          config.gitlab!.instanceUrl,
+        );
         setToken(accessToken, "gitlab");
-        // Clean query params from URL
-        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+        cleanUrl();
       })
       .catch((err) => {
         setOauthError(err instanceof Error ? err.message : "Authentication failed");
@@ -64,7 +72,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (config.storageType === "github" && config.github) {
-    return <GitHubLogin clientId={config.github.clientId} />;
+    return <GitHubLogin clientId={config.github.clientId} repo={config.github.repo} />;
   }
 
   if (config.storageType === "gitlab" && config.gitlab) {
@@ -84,7 +92,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GitHubLogin({ clientId }: { clientId: string }) {
+function GitHubLogin({ clientId, repo }: { clientId: string; repo: string }) {
   const { t } = useTranslation();
   const setToken = useAuthStore((s) => s.setToken);
   const [userCode, setUserCode] = useState<string | null>(null);
@@ -110,13 +118,14 @@ function GitHubLogin({ clientId }: { clientId: string }) {
       setIsPolling(true);
 
       const token = await auth.poll(controller.signal);
+      await verifyRepoWriteAccess(token, repo);
       setToken(token, "github");
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Authentication failed");
       setIsPolling(false);
     }
-  }, [clientId, setToken]);
+  }, [clientId, repo, setToken]);
 
   return (
     <LoginShell title={t($ => $.auth.signInGitHub)} error={error}>

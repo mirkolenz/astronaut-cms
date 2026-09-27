@@ -1,4 +1,5 @@
 import * as client from "openid-client";
+import { Octokit } from "@octokit/rest";
 
 const serverMetadata: client.ServerMetadata = {
   issuer: "https://github.com",
@@ -11,6 +12,20 @@ export interface DeviceAuthorizationResult {
   userCode: string;
   verificationUri: string;
   poll: (signal?: AbortSignal) => Promise<string>;
+}
+
+export function parseRepo(repo: string): { owner: string; repo: string } {
+  const [owner, name] = repo.split("/");
+  if (!owner || !name) throw new Error(`Invalid GitHub repo: ${repo}`);
+  return { owner, repo: name };
+}
+
+export async function verifyRepoWriteAccess(token: string, repo: string): Promise<void> {
+  const octokit = new Octokit({ auth: token });
+  const { data } = await octokit.rest.repos.get(parseRepo(repo));
+  if (!data.permissions?.push) {
+    throw new Error(`You need write access to ${repo} to use this CMS.`);
+  }
 }
 
 export async function initiateDeviceAuthorization(

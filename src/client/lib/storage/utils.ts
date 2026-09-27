@@ -6,10 +6,6 @@ export function getToken(): string {
   return token;
 }
 
-export function getFormat(filename: string): string {
-  return filename.split(".").pop() ?? "";
-}
-
 export function stripExtension(filename: string): string {
   const dot = filename.lastIndexOf(".");
   return dot === -1 ? filename : filename.slice(0, dot);

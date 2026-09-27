@@ -44,7 +44,6 @@ function EntryEditor() {
     }
   }, [entry]);
 
-  // Block in-app navigation and browser close/refresh when dirty
   const blocker = useBlocker({
     shouldBlockFn: () => isDirty,
     enableBeforeUnload: () => isDirty,
@@ -64,7 +63,7 @@ function EntryEditor() {
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast(t($ => $.entry.changesStaged), "success");
+          toast(t($ => $.entry.changesSaved), "success");
         },
         onError: (err) => toast(err.message, "error"),
       },
@@ -86,7 +85,7 @@ function EntryEditor() {
   const handleDelete = () => {
     deleteMutation.mutate(entryId, {
       onSuccess: () => {
-        toast(t($ => $.collection.deleteStaged), "success");
+        toast(t($ => $.collection.entryDeleted), "success");
         void navigate({
           to: "/collections/$collection",
           params: { collection },
@@ -167,7 +166,6 @@ function EntryEditor() {
           </div>
         </div>
 
-        {/* onChangeCapture catches user interaction with any input/textarea/select */}
         <div
           onChangeCapture={() => setIsDirty(true)}
           className="min-h-0 flex-1 overflow-y-auto"

@@ -16,7 +16,6 @@ import {
   serializeMultiEntryFile,
   getFileExtension,
 } from "../shared/content-parser.ts";
-import { validateSegment, validatePath, validateFormat } from "../shared/validation.ts";
 
 type NextFn = () => void;
 
@@ -432,89 +431,6 @@ export function createDevMiddleware(
           sendJson(res, { ok: true });
           return;
         }
-      }
-
-      // Publish endpoint (batch write for deferred saves)
-      if (path === "/publish" && req.method === "POST") {
-        const body = await readJsonBody<{
-          changes: Array<{
-            collection: string;
-            entryId: string;
-            action: "create" | "update" | "delete";
-            content?: string;
-            format: string;
-          }>;
-        }>(req);
-
-        // Temporarily stop watching content dir so writes don't trigger
-        // Astro's content layer watcher and cause a full page reload
-        server.watcher.unwatch(contentDir);
-
-        try {
-          // Group file collection changes by collection to batch writes
-          const fileCollectionChanges: Record<
-            string,
-            Array<(typeof body.changes)[number]>
-          > = {};
-
-          for (const change of body.changes) {
-            validateSegment(change.collection, "collection");
-            validatePath(change.entryId, "entryId");
-            validateFormat(change.format);
-
-            const loaderFileName = getLoaderFileName(change.collection);
-
-            if (isFileCollection(change.collection) && loaderFileName) {
-              if (!fileCollectionChanges[change.collection]) {
-                fileCollectionChanges[change.collection] = [];
-              }
-              fileCollectionChanges[change.collection].push(change);
-            } else {
-              // Glob collection: per-file writes
-              if (change.action === "delete") {
-                await deleteGlobEntry(contentDir, change.collection, change.entryId);
-              } else {
-                const filePath = join(
-                  contentDir,
-                  change.collection,
-                  `${change.entryId}.${change.format}`,
-                );
-                assertWithinBase(filePath, contentDir);
-                await mkdir(join(contentDir, change.collection), {
-                  recursive: true,
-                });
-                await writeFile(filePath, change.content ?? "", "utf-8");
-              }
-            }
-          }
-
-          // Apply batched file collection changes
-          for (const [collection, changes] of Object.entries(fileCollectionChanges)) {
-            const loaderFileName = getLoaderFileName(collection)!;
-            const filePath = resolveFilePath(rootDir, loaderFileName);
-            const format = getFileFormat(loaderFileName);
-            const { entries, layout } = await readFileCollection(filePath, format);
-
-            for (const change of changes) {
-              if (change.action === "delete") {
-                delete entries[change.entryId];
-              } else if (change.content) {
-                const { data } = parseContent(change.content, change.format);
-                entries[change.entryId] = data;
-              }
-            }
-
-            const content = serializeMultiEntryFile(entries, format, layout);
-            await mkdir(dirname(filePath), { recursive: true });
-            await writeFile(filePath, content, "utf-8");
-          }
-        } finally {
-          // Resume watching after writes have settled
-          setTimeout(() => server.watcher.add(contentDir), 500);
-        }
-
-        sendJson(res, { ok: true });
-        return;
       }
 
       // Media endpoints

@@ -61,7 +61,7 @@ function GlobCollectionPage({
       {
         onSuccess: () => {
           setShowNewDialog(false);
-          toast(t($ => $.collection.createStaged), "success");
+          toast(t($ => $.collection.entryCreated), "success");
           void navigate({
             to: "/collections/$collection/$entry",
             params: { collection, entry: id },

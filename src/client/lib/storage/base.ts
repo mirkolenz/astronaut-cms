@@ -1,4 +1,6 @@
-import type { StorageBackend } from "./types";
+import type { BranchStatus, ChangeRequestSummary, PublishMode, StorageBackend } from "./types";
+import { mapMergeError } from "./types";
+import { getToken } from "./utils";
 import type {
   CollectionInfo,
   EntryMeta,
@@ -9,16 +11,17 @@ import type {
   CONTENT_FORMATS,
   DATA_FORMATS,
 } from "@shared/types";
+import { ALL_FORMATS } from "@shared/types";
 import {
   parseContent,
-  serializeContent,
   parseMultiEntryFile,
   serializeMultiEntryFile,
   getFileExtension,
 } from "@shared/content-parser";
 import { validateSegment, validatePath, validateFormat } from "@shared/validation";
-import type { PendingChange } from "@client/stores/changes-store";
-import { useChangesStore } from "@client/stores/changes-store";
+import { stripExtension } from "./utils";
+
+const BRANCH_PREFIX = "cms/";
 
 export abstract class StorageBase implements StorageBackend {
   protected schemas: Record<string, CollectionInfo>;
@@ -35,13 +38,19 @@ export abstract class StorageBase implements StorageBackend {
   abstract replaceMedia(path: string, file: File): Promise<MediaFile>;
   abstract renameMedia(oldPath: string, newPath: string): Promise<MediaFile>;
   abstract deleteMedia(path: string): Promise<void>;
+  abstract saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
+  abstract deleteEntry(collection: string, id: string): Promise<void>;
+  abstract reorderEntries(collection: string, ids: string[]): Promise<void>;
+
+  abstract publish(): Promise<void>;
+  abstract update(): Promise<void>;
+  abstract discard(): Promise<void>;
+  abstract getStatus(): Promise<BranchStatus>;
 
   async getEntry(collection: string, id: string): Promise<EntryContent> {
     const col = this.schemas[collection];
     if (!col) throw new Error(`Unknown collection: ${collection}`);
 
-    // For file collections, fetch the whole file and extract the entry directly.
-    // This avoids a JSON.stringify→parseContent round-trip through fetchRawEntry.
     if (col.loaderType === "file" && col.loaderFileName) {
       const format = getFileExtension(col.loaderFileName) || "json";
       const raw = await this.fetchFileContent(col.loaderFileName);
@@ -81,72 +90,6 @@ export abstract class StorageBase implements StorageBackend {
     throw new Error("Not implemented");
   }
 
-  async saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void> {
-    const content = serializeContent(data.data, data.body, data.format);
-    const existing = useChangesStore
-      .getState()
-      .changes.find((c) => c.collection === collection && c.entryId === id);
-    const action = existing?.action === "create" ? "create" : "update";
-    useChangesStore.getState().addChange({
-      collection,
-      entryId: id,
-      action,
-      content,
-      format: data.format,
-      message: `${action === "create" ? "Create" : "Update"} ${collection}/${id}`,
-    });
-  }
-
-  async deleteEntry(collection: string, id: string): Promise<void> {
-    let format = "";
-    // For file collections, format is known from the loader file name
-    const loaderFileName = this.getFileLoaderPath(collection);
-    if (loaderFileName) {
-      format = getFileExtension(loaderFileName) || "json";
-    } else {
-      try {
-        const entry = await this.getEntry(collection, id);
-        format = entry.format;
-      } catch {
-        const pending = useChangesStore
-          .getState()
-          .changes.find((c) => c.collection === collection && c.entryId === id);
-        if (pending) {
-          format = pending.format;
-        }
-      }
-    }
-
-    useChangesStore.getState().addChange({
-      collection,
-      entryId: id,
-      action: "delete",
-      format,
-      message: `Delete ${collection}/${id}`,
-    });
-  }
-
-  async publish(): Promise<void> {
-    const store = useChangesStore.getState();
-    const { changes } = store;
-    if (changes.length === 0) return;
-
-    store.setPublishing(true);
-    store.setPublishError(null);
-
-    try {
-      await this.doPublish(changes);
-      store.clearChanges();
-    } catch (err) {
-      store.setPublishError(err instanceof Error ? err.message : "Publish failed");
-      throw err;
-    } finally {
-      store.setPublishing(false);
-    }
-  }
-
-  protected abstract doPublish(changes: PendingChange[]): Promise<void>;
-
   // --- File collection helpers ---
 
   protected isFileCollection(collection: string): boolean {
@@ -157,10 +100,6 @@ export abstract class StorageBase implements StorageBackend {
     return this.schemas[collection]?.loaderFileName ?? null;
   }
 
-  /**
-   * Lists entries for a file() collection by fetching and parsing the single file.
-   * Subclasses should call this from their listEntries() for file collections.
-   */
   protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
     const loaderFileName = this.getFileLoaderPath(collection);
     if (!loaderFileName) return [];
@@ -174,77 +113,217 @@ export abstract class StorageBase implements StorageBackend {
     }
   }
 
-  /**
-   * Separates pending changes into glob changes and grouped file-collection changes.
-   */
-  protected groupChangesForPublish(changes: PendingChange[]): {
-    globChanges: PendingChange[];
-    fileCollections: Record<string, PendingChange[]>;
-  } {
-    const globChanges: PendingChange[] = [];
-    const fileCollections: Record<string, PendingChange[]> = {};
-
-    for (const change of changes) {
-      if (!this.schemas[change.collection]) continue;
-      if (this.isFileCollection(change.collection)) {
-        (fileCollections[change.collection] ??= []).push(change);
-      } else {
-        globChanges.push(change);
-      }
-    }
-
-    return { globChanges, fileCollections };
-  }
-
-  /**
-   * Fetches a file-collection file, applies a batch of changes, and returns
-   * the serialized result. Subclasses use this in doPublish().
-   */
-  protected async mergeFileCollectionChanges(
+  protected async upsertFileCollectionEntry(
     collection: string,
-    changes: PendingChange[],
-  ): Promise<{ path: string; content: string; fileExists: boolean; messages: string[] }> {
+    id: string,
+    data: Record<string, unknown>,
+  ): Promise<{ path: string; content: string }> {
     const loaderFileName = this.getFileLoaderPath(collection)!;
     const format = getFileExtension(loaderFileName) || "json";
 
     let entries: Record<string, Record<string, unknown>> = {};
     let layout: FileEntryLayout = "object";
-    let fileExists = true;
     try {
       const raw = await this.fetchFileContent(loaderFileName);
       const parsed = parseMultiEntryFile(raw, format);
       entries = parsed.entries;
       layout = parsed.layout;
     } catch {
-      fileExists = false;
+      // File doesn't exist yet — start with an empty map.
     }
 
-    const messages: string[] = [];
-    for (const change of changes) {
-      if (change.action === "delete") {
-        delete entries[change.entryId];
-      } else if (change.content) {
-        const { data } = parseContent(change.content, change.format);
-        entries[change.entryId] = data;
-      }
-      messages.push(change.message);
-    }
-
+    entries[id] = data;
     const content = serializeMultiEntryFile(entries, format, layout);
-    return { path: loaderFileName, content, fileExists, messages };
+    return { path: loaderFileName, content };
+  }
+
+  protected async removeFileCollectionEntry(
+    collection: string,
+    id: string,
+  ): Promise<{ path: string; content: string }> {
+    const loaderFileName = this.getFileLoaderPath(collection)!;
+    const format = getFileExtension(loaderFileName) || "json";
+    const raw = await this.fetchFileContent(loaderFileName);
+    const { entries, layout } = parseMultiEntryFile(raw, format);
+    delete entries[id];
+    const content = serializeMultiEntryFile(entries, format, layout);
+    return { path: loaderFileName, content };
+  }
+
+  protected async buildReorderedFileCollection(
+    collection: string,
+    ids: string[],
+  ): Promise<{ path: string; content: string }> {
+    const loaderFileName = this.getFileLoaderPath(collection)!;
+    const format = getFileExtension(loaderFileName) || "json";
+    const raw = await this.fetchFileContent(loaderFileName);
+    const { entries, layout } = parseMultiEntryFile(raw, format);
+    const reordered: Record<string, Record<string, unknown>> = {};
+    for (const id of ids) {
+      if (id in entries) reordered[id] = entries[id];
+    }
+    for (const id of Object.keys(entries)) {
+      if (!(id in reordered)) reordered[id] = entries[id];
+    }
+    const content = serializeMultiEntryFile(reordered, format, layout);
+    return { path: loaderFileName, content };
   }
 
   // --- Glob collection helpers ---
+
+  protected getCollectionPath(collection: string): string {
+    return `src/content/${collection}`;
+  }
 
   protected getEntryPath(collection: string, entryId: string, format: string): string {
     validateSegment(collection, "collection");
     validatePath(entryId, "entryId");
     validateFormat(format);
-    return `src/content/${collection}/${entryId}.${format}`;
+    return `${this.getCollectionPath(collection)}/${entryId}.${format}`;
   }
 
-  protected buildCommitMessage(messages: string[]): string {
-    if (messages.length === 1) return messages[0];
-    return `Update ${messages.length} entries\n\n${messages.join("\n")}`;
+  /**
+   * Filters and maps repository tree paths into entry metadata. Subclasses
+   * fetch the recursive tree from their SDK and pass the paths through.
+   */
+  protected entriesFromTreePaths(collection: string, paths: Iterable<string>): EntryMeta[] {
+    const prefix = `${this.getCollectionPath(collection)}/`;
+    const result: EntryMeta[] = [];
+    for (const path of paths) {
+      if (!path.startsWith(prefix)) continue;
+      const ext = getFileExtension(path);
+      if (!(ALL_FORMATS as readonly string[]).includes(ext)) continue;
+      result.push({
+        id: stripExtension(path.slice(prefix.length)),
+        collection,
+        format: ext,
+      });
+    }
+    return result;
+  }
+}
+
+/**
+ * Shared lifecycle for backends that commit to a per-user branch (cms/<username>)
+ * and integrate it into a default branch via a pull/merge request. Caches the
+ * resolved branch name and its existence; both are invalidated on token change
+ * and explicit branch creation/deletion via markBranchExists.
+ */
+export abstract class BranchedStorage extends StorageBase {
+  private userBranch: string | null = null;
+  private cacheToken: string | null = null;
+  private branchExistsCache: boolean | null = null;
+
+  protected publishMode: PublishMode;
+
+  constructor(
+    schemas: Record<string, CollectionInfo>,
+    mediaDirectory: string,
+    publishMode: PublishMode,
+  ) {
+    super(schemas, mediaDirectory);
+    this.publishMode = publishMode;
+  }
+
+  protected abstract get defaultBranch(): string;
+  protected abstract fetchUsername(): Promise<string>;
+  protected abstract checkBranchExists(branch: string): Promise<boolean>;
+  protected abstract findOpenChangeRequest(branch: string): Promise<ChangeRequestSummary | null>;
+  protected abstract createChangeRequest(branch: string): Promise<ChangeRequestSummary>;
+  protected abstract closeChangeRequest(id: number): Promise<void>;
+  protected abstract acceptChangeRequest(request: ChangeRequestSummary): Promise<void>;
+  protected abstract deleteUserBranch(branch: string): Promise<void>;
+  protected abstract doUpdate(branch: string): Promise<void>;
+  protected abstract computeAheadBehind(branch: string): Promise<{ ahead: number; behind: number }>;
+
+  protected changeRequestTitle(branch: string): string {
+    return `CMS draft (${branch})`;
+  }
+
+  protected changeRequestBody(branch: string): string {
+    return `Opened automatically by Astronaut CMS. Delete the \`${branch}\` branch to discard all pending changes.`;
+  }
+
+  protected markBranchExists(exists: boolean): void {
+    this.branchExistsCache = exists;
+  }
+
+  protected async getUserBranch(): Promise<string> {
+    const currentToken = getToken();
+    if (currentToken !== this.cacheToken) {
+      this.userBranch = null;
+      this.branchExistsCache = null;
+      this.cacheToken = currentToken;
+    }
+    if (this.userBranch) return this.userBranch;
+    this.userBranch = `${BRANCH_PREFIX}${await this.fetchUsername()}`;
+    return this.userBranch;
+  }
+
+  protected async branchExists(branch: string): Promise<boolean> {
+    if (this.branchExistsCache !== null) return this.branchExistsCache;
+    this.branchExistsCache = await this.checkBranchExists(branch);
+    return this.branchExistsCache;
+  }
+
+  protected async readRef(): Promise<string> {
+    const branch = await this.getUserBranch();
+    return (await this.branchExists(branch)) ? branch : this.defaultBranch;
+  }
+
+  protected async ensureChangeRequestOpen(branch: string): Promise<ChangeRequestSummary> {
+    return (await this.findOpenChangeRequest(branch)) ?? (await this.createChangeRequest(branch));
+  }
+
+  async publish(): Promise<void> {
+    const branch = await this.getUserBranch();
+    if (!(await this.branchExists(branch))) return;
+    const cr = await this.ensureChangeRequestOpen(branch);
+    if (this.publishMode === "pull-request") return;
+    try {
+      await this.acceptChangeRequest(cr);
+    } catch (err) {
+      throw mapMergeError(err);
+    }
+    this.markBranchExists(false);
+  }
+
+  async update(): Promise<void> {
+    const branch = await this.getUserBranch();
+    if (!(await this.branchExists(branch))) return;
+    await this.doUpdate(branch);
+  }
+
+  async discard(): Promise<void> {
+    const branch = await this.getUserBranch();
+    if (!(await this.branchExists(branch))) return;
+    const cr = await this.findOpenChangeRequest(branch);
+    if (cr) {
+      try {
+        await this.closeChangeRequest(cr.id);
+      } catch {
+        // Already closed.
+      }
+    }
+    try {
+      await this.deleteUserBranch(branch);
+    } catch {
+      // Already gone (e.g. PR merged with auto-delete).
+    }
+    this.markBranchExists(false);
+  }
+
+  async getStatus(): Promise<BranchStatus> {
+    const branch = await this.getUserBranch();
+    if (!(await this.branchExists(branch))) {
+      return { hasBranch: false, branch, ahead: 0, behind: 0 };
+    }
+    const counts = await this.computeAheadBehind(branch);
+    const status: BranchStatus = { hasBranch: true, branch, ...counts };
+    if (this.publishMode === "pull-request") {
+      const cr = await this.findOpenChangeRequest(branch);
+      if (cr) status.changeRequestUrl = cr.url;
+    }
+    return status;
   }
 }

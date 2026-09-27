@@ -146,8 +146,21 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         contentDir = join(rootDir, "src/content");
         mediaDir = join(rootDir, config.media?.directory ?? "src/assets");
 
-        // Validate storage config
-        const storage = config.storage;
+        const overrideToLocal =
+          command === "dev"
+          && (config.localStorageInDev ?? true)
+          && (config.storage?.type ?? "local") !== "local";
+        const effectiveConfig: CmsConfig = overrideToLocal
+          ? { ...config, storage: { type: "local" } }
+          : config;
+        if (overrideToLocal) {
+          logger.info(
+            `Using local storage for "astro dev" (configured "${config.storage?.type}" backend will be used in build)`,
+          );
+        }
+
+        // Validate the effective storage so the dev override skips OAuth-credential checks.
+        const storage = effectiveConfig.storage;
         if (storage) {
           if (storage.type === "github") {
             if (!storage.repo)
@@ -212,13 +225,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           vite: {
             plugins: [
               tailwindcss(),
-              cmsVitePlugin(config, userConfigPath, contentConfigPath),
+              cmsVitePlugin(effectiveConfig, userConfigPath, contentConfigPath),
             ],
           },
         });
 
-        const storageType = config.storage?.type ?? "local";
-        if (command === "dev" || storageType !== "local") {
+        if (command === "dev" || effectiveConfig.storage?.type !== "local") {
           injectRoute({
             pattern: mountPoint,
             entrypoint: "astronaut-cms/admin.astro",

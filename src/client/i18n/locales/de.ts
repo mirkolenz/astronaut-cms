@@ -52,8 +52,8 @@ const de: TranslationShape<typeof en> = {
     fileCollection: "Dateisammlung",
     entries: "{{count}} Einträge",
     failedLoad: "Einträge konnten nicht geladen werden: {{message}}",
-    createStaged: "Erstellung vorgemerkt",
-    deleteStaged: "Löschung vorgemerkt",
+    entryCreated: "Eintrag erstellt",
+    entryDeleted: "Eintrag gelöscht",
   },
   entry: {
     form: "Formular",
@@ -67,7 +67,7 @@ const de: TranslationShape<typeof en> = {
     deleteEntry: "Eintrag löschen",
     deleteEntryMessage:
       'Sind Sie sicher, dass Sie "{{id}}" löschen möchten? Dies kann nicht rückgängig gemacht werden.',
-    changesStaged: "Änderungen vorgemerkt",
+    changesSaved: "Änderungen gespeichert",
     entryAdded: "Eintrag hinzugefügt",
     invalidJson: "Ungültiges JSON im Roh-Editor",
     noSchema:
@@ -94,13 +94,24 @@ const de: TranslationShape<typeof en> = {
     failedLoad: "Medien konnten nicht geladen werden: {{message}}",
   },
   publish: {
-    pendingChanges_one: "{{count}} ausstehende Änderung",
-    pendingChanges_other: "{{count}} ausstehende Änderungen",
+    upToDate: "Ihr Branch ist auf dem neuesten Stand",
+    aheadBehind: "{{ahead}} unveröffentlicht, {{behind}} hinterher",
     publish: "Veröffentlichen",
     publishing: "Veröffentlichen...",
-    discardChanges: "Änderungen verwerfen",
+    published: "Branch wurde in den Standard-Branch übernommen",
+    preview: "Vorschau",
+    update: "Aktualisieren",
+    updating: "Aktualisieren...",
+    updated: "Neueste Änderungen in Ihren Branch übernommen",
+    viewPullRequest: "Pull Request anzeigen",
+    viewMergeRequest: "Merge Request anzeigen",
+    discardChanges: "Branch verwerfen",
     discardChangesMessage:
-      "Sind Sie sicher, dass Sie {{count}} ausstehende Änderung(en) verwerfen möchten? Dies kann nicht rückgängig gemacht werden.",
+      "Sind Sie sicher, dass Sie Ihren Branch löschen und {{ahead}} unveröffentlichte(n) Commit(s) verwerfen möchten? Dies kann nicht rückgängig gemacht werden.",
+    discarding: "Verwerfen...",
+    discarded: "Branch verworfen",
+    mergeConflict:
+      "Merge-Konflikt – Ihr Branch und der Standard-Branch sind auseinandergelaufen. Bitte wenden Sie sich an einen Administrator.",
   },
   newEntryDialog: {
     title: "Neuer Eintrag in {{collection}}",

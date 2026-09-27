@@ -48,8 +48,8 @@ const en = {
     fileCollection: "File collection",
     entries: "{{count}} entries",
     failedLoad: "Failed to load entries: {{message}}",
-    createStaged: "Create staged",
-    deleteStaged: "Delete staged",
+    entryCreated: "Entry created",
+    entryDeleted: "Entry deleted",
   },
   entry: {
     form: "Form",
@@ -63,7 +63,7 @@ const en = {
     deleteEntry: "Delete entry",
     deleteEntryMessage:
       'Are you sure you want to delete "{{id}}"? This cannot be undone.',
-    changesStaged: "Changes staged",
+    changesSaved: "Changes saved",
     entryAdded: "Entry added",
     invalidJson: "Invalid JSON in raw editor",
     noSchema: "No schema available. Use Raw mode to edit.",
@@ -89,13 +89,24 @@ const en = {
     failedLoad: "Failed to load media: {{message}}",
   },
   publish: {
-    pendingChanges_one: "{{count}} pending change",
-    pendingChanges_other: "{{count}} pending changes",
+    upToDate: "Your branch is up to date",
+    aheadBehind: "{{ahead}} unpublished, {{behind}} behind",
     publish: "Publish",
     publishing: "Publishing...",
-    discardChanges: "Discard changes",
+    published: "Branch merged into the default branch",
+    preview: "Preview",
+    update: "Update",
+    updating: "Updating...",
+    updated: "Latest changes merged into your branch",
+    viewPullRequest: "View pull request",
+    viewMergeRequest: "View merge request",
+    discardChanges: "Discard branch",
     discardChangesMessage:
-      "Are you sure you want to discard {{count}} pending change(s)? This cannot be undone.",
+      "Are you sure you want to delete your branch and abandon {{ahead}} unpublished commit(s)? This cannot be undone.",
+    discarding: "Discarding...",
+    discarded: "Branch discarded",
+    mergeConflict:
+      "Merge conflict — your branch and the default branch have diverged. Please contact an admin to resolve.",
   },
   newEntryDialog: {
     title: "New Entry in {{collection}}",

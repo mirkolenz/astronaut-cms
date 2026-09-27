@@ -4,6 +4,7 @@ import type { CollectionInfo } from "@shared/types";
 import { LocalStorage } from "./local";
 import { GitHubStorage } from "./github";
 import { GitLabStorage } from "./gitlab";
+import { parseRepo } from "@client/lib/oauth/github";
 
 let instance: StorageBackend | null = null;
 
@@ -15,9 +16,14 @@ export function initializeStorage(schemas: Record<string, CollectionInfo>): Stor
   switch (config.storageType) {
     case "github": {
       if (!config.github) throw new Error("GitHub config missing");
-      const [owner, repo] = config.github.repo.split("/");
+      const { owner, repo } = parseRepo(config.github.repo);
       instance = new GitHubStorage(
-        { owner, repo, branch: config.github.branch ?? "main" },
+        {
+          owner,
+          repo,
+          branch: config.github.branch ?? "main",
+          publishMode: config.github.publishMode,
+        },
         schemas,
         mediaDirectory,
       );
@@ -30,6 +36,7 @@ export function initializeStorage(schemas: Record<string, CollectionInfo>): Stor
           project: config.gitlab.project,
           branch: config.gitlab.branch ?? "main",
           instanceUrl: config.gitlab.instanceUrl ?? "https://gitlab.com",
+          publishMode: config.gitlab.publishMode,
         },
         schemas,
         mediaDirectory,

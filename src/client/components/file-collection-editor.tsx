@@ -67,7 +67,7 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget, {
       onSuccess: () => {
-        toast(t($ => $.collection.deleteStaged), "success");
+        toast(t($ => $.collection.entryDeleted), "success");
         setDeleteTarget(null);
       },
       onError: (err) => toast(err.message, "error"),
@@ -207,7 +207,7 @@ function FileEntryCard({
       {
         onSuccess: () => {
           setIsDirty(false);
-          toast(t($ => $.entry.changesStaged), "success");
+          toast(t($ => $.entry.changesSaved), "success");
         },
         onError: (err) => toast(err.message, "error"),
       },

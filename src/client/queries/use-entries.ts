@@ -1,43 +1,25 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { getStorage } from "@client/lib/storage";
+import type { BranchStatus } from "@client/lib/storage/types";
 import { fetchJson } from "@client/lib/api";
-import { parseContent, serializeContent } from "@shared/content-parser";
-import { useChangesStore } from "@client/stores/changes-store";
 import type { SaveEntryRequest } from "@shared/types";
+
+function invalidateEntries(qc: QueryClient, collection: string) {
+  void qc.invalidateQueries({ queryKey: ["cms", "entries", collection] });
+}
+
+function invalidateEntry(qc: QueryClient, collection: string, id: string) {
+  void qc.invalidateQueries({ queryKey: ["cms", "entry", collection, id] });
+}
+
+function invalidateBranchStatus(qc: QueryClient) {
+  void qc.invalidateQueries({ queryKey: ["cms", "branch-status"] });
+}
 
 export function useEntries(collection: string) {
   return useQuery({
     queryKey: ["cms", "entries", collection],
-    queryFn: async () => {
-      const entries = await getStorage().listEntries(collection);
-      const changes = useChangesStore.getState().changes;
-
-      // Filter out pending deletes
-      const filtered = entries.filter(
-        (e) =>
-          !changes.some(
-            (c) => c.collection === collection && c.entryId === e.id && c.action === "delete",
-          ),
-      );
-
-      // Add pending creates not already in the list
-      for (const c of changes) {
-        if (
-          c.collection === collection &&
-          c.action === "create" &&
-          !entries.some((e) => e.id === c.entryId)
-        ) {
-          filtered.push({
-            id: c.entryId,
-            collection,
-            slug: c.entryId,
-            format: c.format,
-          });
-        }
-      }
-
-      return filtered;
-    },
+    queryFn: () => getStorage().listEntries(collection),
     enabled: !!collection,
   });
 }
@@ -45,49 +27,43 @@ export function useEntries(collection: string) {
 export function useEntry(collection: string, id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["cms", "entry", collection, id],
-    queryFn: async () => {
-      // Check for pending changes first
-      const changes = useChangesStore.getState().changes;
-      const pending = changes.find(
-        (c) => c.collection === collection && c.entryId === id && c.action !== "delete",
-      );
-
-      if (pending?.content) {
-        const { data, body } = parseContent(pending.content, pending.format);
-        return { id, data, body, format: pending.format };
-      }
-
-      return getStorage().getEntry(collection, id);
-    },
+    queryFn: () => getStorage().getEntry(collection, id),
     enabled: (options?.enabled ?? true) && !!collection && !!id,
   });
 }
 
 export function useSaveEntry(collection: string, id: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: SaveEntryRequest) => getStorage().saveEntry(collection, id, data),
+    onSuccess: () => {
+      invalidateEntry(queryClient, collection, id);
+      invalidateBranchStatus(queryClient);
+    },
   });
 }
 
 export function useCreateEntry(collection: string) {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, format }: { id: string; format: string }) => {
-      const content = serializeContent({}, "", format);
-      useChangesStore.getState().addChange({
-        collection,
-        entryId: id,
-        action: "create",
-        content,
-        format,
-        message: `Create ${collection}/${id}`,
-      });
+    mutationFn: ({ id, format }: { id: string; format: string }) =>
+      getStorage().saveEntry(collection, id, { data: {}, body: "", format }),
+    onSuccess: () => {
+      invalidateEntries(queryClient, collection);
+      invalidateBranchStatus(queryClient);
     },
   });
 }
 
 export function useDeleteEntry(collection: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => getStorage().deleteEntry(collection, id),
+    onSuccess: (_, id) => {
+      invalidateEntries(queryClient, collection);
+      invalidateEntry(queryClient, collection, id);
+      invalidateBranchStatus(queryClient);
+    },
   });
 }
 
@@ -112,16 +88,19 @@ export function useFileLayout(collection: string) {
 export function useReorderFileEntries(collection: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (ids: string[]) => {
-      await fetchJson(`/entries/${collection}/_reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-    },
+    mutationFn: (ids: string[]) => getStorage().reorderEntries(collection, ids),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["cms", "entries", collection] });
+      invalidateEntries(queryClient, collection);
+      invalidateBranchStatus(queryClient);
     },
+  });
+}
+
+export function useBranchStatus() {
+  return useQuery<BranchStatus>({
+    queryKey: ["cms", "branch-status"],
+    queryFn: () => getStorage().getStatus(),
+    staleTime: 5_000,
   });
 }
 
@@ -129,6 +108,28 @@ export function usePublish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => getStorage().publish(),
+    onSuccess: () => {
+      invalidateBranchStatus(queryClient);
+    },
+  });
+}
+
+export function useUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => getStorage().update(),
+    // Default branch may bring in new content — invalidate everything CMS-related.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["cms"] });
+    },
+  });
+}
+
+export function useDiscard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => getStorage().discard(),
+    // Discarding wipes the user's branch — any cached entries on it are stale.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["cms"] });
     },

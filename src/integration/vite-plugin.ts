@@ -45,11 +45,13 @@ export function cmsVitePlugin(
     storageType: storage.type,
     mediaDirectory: config.media?.directory ?? "src/assets",
     locale: config.locale ?? "en",
+    previewUrl: config.previewUrl,
     ...(storage.type === "github" && {
       github: {
         repo: storage.repo,
         branch: storage.branch ?? "main",
         clientId: storage.clientId,
+        publishMode: storage.publishMode ?? "direct",
       },
     }),
     ...(storage.type === "gitlab" && {
@@ -58,6 +60,7 @@ export function cmsVitePlugin(
         branch: storage.branch ?? "main",
         clientId: storage.clientId,
         instanceUrl: storage.instanceUrl ?? "https://gitlab.com",
+        publishMode: storage.publishMode ?? "direct",
       },
     }),
   };
