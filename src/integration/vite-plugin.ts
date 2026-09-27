@@ -5,7 +5,7 @@ import type { CmsClientConfig, CmsRuntime, CmsServerConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
-import { loadComponents, type ConfigLogger } from "./load-config.ts";
+import type { ContentEntry } from "./content-files.ts";
 import { SOURCE_EXPORTS } from "./self-resolve.ts";
 
 type AstroCommand = HookParameters<"astro:config:setup">["command"];
@@ -16,9 +16,10 @@ export interface CmsVitePluginOptions {
   serverConfig: CmsServerConfig;
   userConfigPath: string | null;
   collections: CollectionManifest;
+  /** The entries on disk, read once by the integration for every build-time pass. */
+  entries: ContentEntry[];
   command: AstroCommand;
   rootDir: string;
-  logger: ConfigLogger;
   /** Media-directory-relative globs to bundle even when no content references them. */
   alwaysInclude: string[];
   /** The host site's Astro `base`, which the admin needs to address the API. */
@@ -137,17 +138,10 @@ export const images = import.meta.glob(${imagesGlob}, { import: "default" });
 export const files = import.meta.glob(${filesGlob}, { query: "?url&no-inline", import: "default" });`;
   }
 
-  // The component prop schemas are read here rather than handed in, so the one
-  // place that decides a build needs them is the one place that asks for them.
-  const components = options.userConfigPath
-    ? loadComponents(options.userConfigPath, options.rootDir, options.logger)
-    : {};
-
   const { images, files } = collectReferencedAssets({
     rootDir: options.rootDir,
     mediaDirectory: options.clientConfig.mediaDirectory,
-    collections: options.collections,
-    components,
+    entries: options.entries,
     alwaysInclude: options.alwaysInclude,
   });
 

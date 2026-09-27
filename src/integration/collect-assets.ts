@@ -1,16 +1,8 @@
-import { globSync, readFileSync } from "node:fs";
 import { join, relative } from "pathe";
 import { assetKey } from "../shared/asset-path.ts";
 import { isAstroImage } from "../shared/image-formats.ts";
-import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/content-parser.ts";
-import type { ComponentSchemaMap } from "../shared/field-schema.ts";
-import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
-import {
-  collectionBase,
-  type CollectionManifest,
-  type CollectionManifestEntry,
-} from "../shared/types.ts";
+import { globFiles, type ContentEntry } from "./content-files.ts";
 
 /**
  * Build-time collection of every media path the site can actually reach, so a
@@ -42,9 +34,8 @@ export interface CollectAssetsOptions {
   rootDir: string;
   /** Project-relative media directory, e.g. "src/assets". */
   mediaDirectory: string;
-  collections: CollectionManifest;
-  /** The `cms.config` components, for the prop schemas of MDX bodies. */
-  components: ComponentSchemaMap;
+  /** The entries on disk, their bodies walked against the `cms.config` components. */
+  entries: ContentEntry[];
   /** Extra glob patterns, relative to the media directory, to bundle unconditionally. */
   alwaysInclude: string[];
 }
@@ -52,8 +43,7 @@ export interface CollectAssetsOptions {
 export function collectReferencedAssets({
   rootDir,
   mediaDirectory,
-  collections,
-  components,
+  entries,
   alwaysInclude,
 }: CollectAssetsOptions): CollectedAssets {
   const mediaDir = join(rootDir, mediaDirectory);
@@ -66,23 +56,20 @@ export function collectReferencedAssets({
   const images = new Set<string>();
   const files = new Set<string>();
 
-  for (const collection of Object.values(collections)) {
-    for (const file of entryFiles(rootDir, collection)) {
-      const raw = readFileSync(join(rootDir, file), "utf-8");
-      const format = getFileExtension(file);
+  for (const entry of entries) {
+    const { file } = entry;
 
-      for (const { value, where, map } of entryAssets(collection, components, raw, format)) {
-        const key = assetKey(value, file);
+    for (const { value, where, map } of entryAssets(entry)) {
+      const key = assetKey(value, file);
 
-        if (!mediaFiles.has(key)) {
-          throw new Error(
-            `astronaut-cms: ${file} (${where}) references "${value}", which is not a file in the media directory ("${mediaDirectory}").`,
-          );
-        }
-
-        if (map === "images") images.add(key);
-        if (map === "files") files.add(key);
+      if (!mediaFiles.has(key)) {
+        throw new Error(
+          `astronaut-cms: ${file} (${where}) references "${value}", which is not a file in the media directory ("${mediaDirectory}").`,
+        );
       }
+
+      if (map === "images") images.add(key);
+      if (map === "files") files.add(key);
     }
   }
 
@@ -96,30 +83,6 @@ export function collectReferencedAssets({
   return { images: [...images].sort(), files: [...files].sort() };
 }
 
-/** Absolute paths of the files matching `patterns`, directories excluded. */
-function globFiles(cwd: string, patterns: string | string[]): string[] {
-  if (patterns.length === 0) return [];
-
-  // withFileTypes answers "is this a directory" from the walk itself, so no match
-  // costs an extra stat. A cwd that does not exist globs to nothing.
-  return globSync(patterns, { cwd, withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => join(entry.parentPath, entry.name));
-}
-
-/** Project-relative paths of the files a collection loads its entries from. */
-function entryFiles(rootDir: string, collection: CollectionManifestEntry): string[] {
-  // A file collection names one literal path, which is a glob pattern matching
-  // itself, or nothing when the file is absent.
-  const isFile = collection.loaderType === "file";
-  const cwd = isFile ? rootDir : join(rootDir, collectionBase(collection.name, collection));
-  const patterns = isFile
-    ? (collection.loaderFileName ?? [])
-    : (collection.loaderPattern ?? "**/*");
-
-  return globFiles(cwd, patterns).map((path) => relative(rootDir, path));
-}
-
 /** One asset an entry names, and which generated map has to resolve it. */
 interface AssetCandidate {
   value: string;
@@ -130,30 +93,13 @@ interface AssetCandidate {
 }
 
 /** Every asset an entry names: its schema-declared fields, then its MDX components. */
-function* entryAssets(
-  collection: CollectionManifestEntry,
-  components: ComponentSchemaMap,
-  raw: string,
-  format: string,
-): Generator<AssetCandidate> {
-  // A file collection holds many entries in one file and has no body, so each is
-  // walked against the schema separately and named by its id in any error.
-  if (collection.loaderType === "file") {
-    for (const [id, data] of Object.entries(parseMultiEntryFile(raw, format).entries)) {
-      yield* candidates(dataLeaves(collection.schema, data), `entry "${id}"`, null);
-    }
-
-    return;
-  }
-
-  const { data, body } = parseContent(raw, format);
-
-  yield* candidates(dataLeaves(collection.schema, data), "frontmatter", null);
+function* entryAssets({ collection, scope, data, body }: ContentEntry): Generator<AssetCandidate> {
+  yield* candidates(dataLeaves(collection.schema, data), scope, null);
 
   // A component prop is the one image reference astro has no mechanism for, so
-  // unlike a collection field it does have to be bundled here. `validateBody`
-  // yields nothing for a format whose bodies carry no components.
-  yield* candidates(validateBody(body, format, components).leaves, null, "images");
+  // unlike a collection field it does have to be bundled here. Only an MDX body
+  // carries components, so any other body walks to no leaves.
+  if (body) yield* candidates(body.leaves, null, "images");
 }
 
 /**

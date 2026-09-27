@@ -132,7 +132,7 @@ export function loadComponents(
     return degrade(
       logger,
       userConfigPath,
-      "assets referenced from MDX component props will not be bundled (list them in media.alwaysInclude)",
+      "MDX bodies are checked without component schemas, and assets referenced from their props will not be bundled (list them in media.alwaysInclude)",
       error,
       {},
     );

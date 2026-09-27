@@ -10,10 +10,12 @@ export interface Diagnostic {
 
 export const diagnostic = (message: string, path?: string): Diagnostic => ({ message, path });
 
-const line = (d: Diagnostic): string => (d.path ? `${d.path}: ${d.message}` : d.message);
+/** A diagnostic as one line, led by the path to the offending value. */
+export const formatDiagnostic = (d: Diagnostic): string =>
+  d.path ? `${d.path}: ${d.message}` : d.message;
 
 function report(diagnostics: Diagnostic[]): string {
-  return `Validation failed:\n${diagnostics.map((d) => `- ${line(d)}`).join("\n")}`;
+  return `Validation failed:\n${diagnostics.map((d) => `- ${formatDiagnostic(d)}`).join("\n")}`;
 }
 
 /**

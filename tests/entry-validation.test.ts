@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { assertEntryWritable, validateAgainstSchema } from "@/server/validation";
+import { assertEntryWritable } from "@/server/validation";
+import { validateAgainstSchema } from "@/shared/collection-schema";
 import { ContentValidationError } from "@/shared/diagnostics";
 import type { CollectionManifestEntry } from "@/shared/types";
 

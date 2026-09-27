@@ -1,5 +1,5 @@
 import config from "virtual:astronaut-cms/config";
-import { collectionDataSchema, normalizeDates } from "@/shared/collection-schema";
+import { validateAgainstSchema } from "@/shared/collection-schema";
 import { validatePath } from "@/shared/validation";
 import { describeMediaRef, mediaPath } from "@/shared/media";
 import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
@@ -134,29 +134,6 @@ async function checkAssets(
 
     return [];
   });
-}
-
-/**
- * The data must satisfy the collection's own schema. Writing an entry that does
- * not is the one CMS mistake the site cannot survive: Astro's content sync
- * throws on it, and the full sync it runs at startup is uncaught, so the dev
- * server exits and will not come back until the file is fixed by hand.
- *
- * The reconstructed schema is never stricter than the original (see
- * `fieldSchemaToZod`), so this catches every structural violation while never
- * blocking a write the real schema would have accepted.
- */
-export function validateAgainstSchema(
-  col: CollectionManifestEntry,
-  data: Record<string, unknown>,
-): Diagnostic[] {
-  const result = collectionDataSchema(col).safeParse(normalizeDates(data));
-
-  if (result.success) return [];
-
-  return result.error.issues.map((issue) =>
-    diagnostic(issue.message, issue.path.join(".") || undefined),
-  );
 }
 
 /**

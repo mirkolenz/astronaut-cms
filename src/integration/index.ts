@@ -11,7 +11,9 @@ import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
-import { loadCollections } from "./load-config.ts";
+import { loadCollections, loadComponents } from "./load-config.ts";
+import { checkContent } from "./check-content.ts";
+import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
 import {
   isByok,
@@ -256,6 +258,26 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
+        // Read once for every pass over content: the check below and, in a build,
+        // the assets it bundles.
+        const components = userConfigPath ? loadComponents(userConfigPath, rootDir, logger) : {};
+        const entries =
+          command === "build" || command === "dev"
+            ? contentEntries(rootDir, collections, components)
+            : [];
+
+        // Content the admin would refuse to save fails a build, where whoever
+        // committed it sees it, rather than surfacing later at an editor's save.
+        const problems = checkContent(entries);
+
+        if (problems.length > 0) {
+          const report = `Content the CMS cannot save:\n${problems.map((p) => `- ${p}`).join("\n")}`;
+
+          if (command === "build") throw new Error(`astronaut-cms: ${report}`);
+
+          logger.warn(report);
+        }
+
         // Only worth saying where something would read it. The tools a
         // collection gets are named after it, and both an AI gateway and
         // `registerTool` refuse a name outside their alphabet — a gateway by
@@ -308,9 +330,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 serverConfig,
                 userConfigPath,
                 collections,
+                entries,
                 command,
                 rootDir,
-                logger,
                 alwaysInclude: resolveAlwaysInclude(effectiveConfig),
                 base: astroConfig.base,
                 runtime,

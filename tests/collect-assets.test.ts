@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "pathe";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { collectReferencedAssets } from "@/integration/collect-assets";
+import { contentEntries } from "@/integration/content-files";
 import type { ComponentSchemaMap } from "@/shared/field-schema";
 import type { CollectionManifest } from "@/shared/types";
 
@@ -82,14 +83,12 @@ A file named "/src/assets/orphan.png" is prose, not a reference.
 
 let rootDir: string;
 
-function collect(overrides: Partial<Parameters<typeof collectReferencedAssets>[0]> = {}) {
+function collect({ manifest = collections, alwaysInclude = [] as string[] } = {}) {
   return collectReferencedAssets({
     rootDir,
     mediaDirectory: "src/assets",
-    collections,
-    components,
-    alwaysInclude: [],
-    ...overrides,
+    entries: contentEntries(rootDir, manifest, components),
+    alwaysInclude,
   });
 }
 
@@ -139,7 +138,7 @@ describe("collectReferencedAssets", () => {
     const broken = join(rootDir, "src/content/pages", name);
     writeFileSync(broken, raw);
 
-    expect(collect).toThrow(message);
+    expect(() => collect()).toThrow(message);
 
     rmSync(broken);
   });
@@ -162,7 +161,7 @@ describe("collectReferencedAssets", () => {
       },
     };
 
-    expect(collect({ collections: authors }).files).toEqual(["/src/assets/brief.pdf"]);
+    expect(collect({ manifest: authors }).files).toEqual(["/src/assets/brief.pdf"]);
   });
 
   it("bundles alwaysInclude patterns no content references", () => {

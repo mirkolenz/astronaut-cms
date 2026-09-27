@@ -17,7 +17,7 @@ function moduleFor(runtime: CmsRuntime): string {
     collections: {},
     command: "build",
     rootDir: process.cwd(),
-    logger: { warn: () => {} },
+    entries: [],
     alwaysInclude: [],
     base: "/",
     runtime,

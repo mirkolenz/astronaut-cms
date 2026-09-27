@@ -160,6 +160,7 @@ Entries are held to a small subset of their format, so neither an editor nor the
 - **URLs in fields** may only be stored in a [`link()`](/astronaut-cms/reference/config-helpers/#schema-helpers-image-file-link) or `z.url()` field, with the same schemes. Any other string field, in frontmatter, data or component props, refuses a value that would act as a link.
 
 Anything beyond that belongs in a registered component.
+`astro build` fails on committed content outside the subset or its collection schema, and `astro dev` warns about it, so editors never open an entry they cannot save.
 
 ## Matching Astro Components
 

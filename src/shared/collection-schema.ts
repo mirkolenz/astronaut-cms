@@ -10,6 +10,7 @@ import {
 } from "@/shared/types";
 import type { FieldSchema } from "@/shared/field-schema";
 import { fieldSchemaToZod } from "@/shared/field-to-zod";
+import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
 
 /**
  * Collection-shaped Zod schemas, built on the shared {@link fieldSchemaToZod}
@@ -131,4 +132,28 @@ export function collectionFormatEnum(col: CollectionManifestEntry): z.ZodType<En
       : CONTENT_FORMATS;
 
   return z.enum(resolved as [EntryFormat, ...EntryFormat[]]);
+}
+
+/**
+ * The data must satisfy the collection's own schema. Writing an entry that does
+ * not is the one CMS mistake the site cannot survive: Astro's content sync
+ * throws on it, and the full sync it runs at startup is uncaught, so the dev
+ * server exits and will not come back until the file is fixed by hand.
+ *
+ * The reconstructed schema is never stricter than the original (see
+ * `fieldSchemaToZod`) except for the link policy of `links.ts`, so this catches
+ * every structural violation while blocking nothing else the real schema would
+ * have accepted.
+ */
+export function validateAgainstSchema(
+  col: CollectionManifestEntry,
+  data: Record<string, unknown>,
+): Diagnostic[] {
+  const result = collectionDataSchema(col).safeParse(normalizeDates(data));
+
+  if (result.success) return [];
+
+  return result.error.issues.map((issue) =>
+    diagnostic(issue.message, issue.path.join(".") || undefined),
+  );
 }
