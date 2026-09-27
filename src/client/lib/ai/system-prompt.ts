@@ -1,16 +1,17 @@
 import collections from "virtual:astronaut-cms/collections";
+import { extractFormatsFromLoader } from "@shared/types";
 
-// Compact, serializable view of the content model so the agent knows which
-// collections exist, their kind, and their field shape before calling tools.
+// Compact view of the content model: which collections exist, their kind, and the
+// file formats they accept. Each collection's field schema is not repeated here,
+// because its dedicated `saveEntry_<collection>` tool already exposes it as JSON
+// Schema.
 const collectionsOverview = JSON.stringify(
   Object.fromEntries(
     Object.entries(collections).map(([name, col]) => [
       name,
       {
         type: col.type,
-        loaderType: col.loaderType,
-        fileName: col.loaderFileName,
-        schema: col.schema,
+        formats: extractFormatsFromLoader(col.loaderPattern, col.loaderFileName),
       },
     ]),
   ),
@@ -25,8 +26,10 @@ export const SYSTEM_PROMPT = [
   "You manage the user's content by calling the provided tools. Never invent file paths or ids; discover them with listEntries/getEntry first.",
   "",
   "Guidelines:",
-  "- Content collections store a markdown `body` plus frontmatter `data`; data collections store only `data` (use an empty body).",
-  "- Match an entry's existing `format` (file extension) when editing; pick a sensible one (md/mdx for content, json/yaml for data) when creating.",
+  "- Read with listEntries/getEntry. To create an entry or fully replace one, use `writeEntry_<collection>`, whose parameter schema defines that collection's fields. To change part of an existing entry, use `editEntry_<collection>`: it updates only the `data` fields you provide (set a field to null to remove one) and edits the `body` by line range or text replacement.",
+  "- Prefer editEntry for small changes to existing entries; reach for writeEntry when creating an entry or rewriting it wholesale.",
+  "- Content collections store a markdown `body` plus frontmatter `data`; data collections store only `data`.",
+  "- Match an entry's existing `format` (file extension) when editing; when creating, pick one of the collection's listed `formats`.",
   "- Make the smallest change that satisfies the request and confirm what you changed.",
   "- Every change is written to the user's draft branch and surfaces as a pull/merge request, so it is reviewable. Only publish or discard when explicitly asked.",
   "- Destructive actions (delete, publish, discard) require the user to confirm in a dialog; if a tool reports `cancelled`, stop and tell the user.",

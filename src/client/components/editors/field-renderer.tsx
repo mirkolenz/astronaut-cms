@@ -155,6 +155,11 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
       );
 
     case "union":
+      // Only discriminated unions get the variant selector; a plain union has no
+      // selector key, so it degrades to the raw editor.
+      if (schema.discriminator === undefined) {
+        return <FallbackField name={name} value={resolved} onChange={onChange} />;
+      }
       return (
         <UnionField
           variants={schema.variants}
@@ -924,6 +929,8 @@ export function getDefaultValue(schema?: FieldSchema): unknown {
       return schema.value;
     case "array":
       return [];
+    case "tuple":
+      return schema.items.map((item) => getDefaultValue(item));
     case "record":
       return {};
     case "object": {

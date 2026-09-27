@@ -10,7 +10,8 @@ import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { JsxEditorProps } from "@mdxeditor/editor";
 import type { ComponentDefinition } from "../config.ts";
-import { zodToFieldSchema, type FieldSchema } from "../shared/field-schema.ts";
+import type { FieldSchema } from "../shared/field-schema.ts";
+import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 
 export interface ClientComponentDef {
   props: FieldSchema | null;

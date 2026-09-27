@@ -1,0 +1,171 @@
+/**
+ * Lowers a live Zod v4 schema into a serializable {@link FieldSchema}. Runs in
+ * Node (content collections) and in the browser (CMS component props); the
+ * resulting plain object is what crosses the boundary, so no Zod instance ever
+ * does.
+ *
+ * Introspection goes entirely through Zod's public surface: `instanceof` against
+ * the exported schema classes, their public accessors (`.unwrap()`, `.options`,
+ * `.element`, `.shape`, `.valueType`, `.meta()`), and the public, typed `.def`.
+ */
+import { z } from "zod";
+import {
+  CMS_IMAGE,
+  CMS_FILE,
+  CMS_REFERENCE,
+  type FieldMods,
+  type FieldSchema,
+} from "./field-schema.ts";
+
+// Bounds recursion through `z.lazy` and pathologically deep schemas: a
+// self-referential schema would otherwise expand forever. Past this depth the
+// field degrades to "unknown" (raw editor) rather than blowing the stack.
+const MAX_DEPTH = 10;
+
+/** Lowers a (live) Zod v4 schema into a serializable {@link FieldSchema}. */
+export function zodToFieldSchema(schema: unknown): FieldSchema {
+  return lower(schema, 0);
+}
+
+function lower(input: unknown, depth: number): FieldSchema {
+  if (depth > MAX_DEPTH) return { type: "unknown" };
+
+  const mods: FieldMods = {};
+  let schema: unknown = input;
+
+  // Peel transparent wrappers via their public accessors, accumulating modifier
+  // flags. `catch`, `readonly` and `nonoptional` carry no flag; we see through
+  // them. `pipe` keeps its output side (the validated shape).
+  while (schema instanceof z.ZodType) {
+    if (schema instanceof z.ZodOptional) {
+      mods.optional = true;
+      schema = schema.unwrap();
+    } else if (schema instanceof z.ZodNullable) {
+      mods.nullable = true;
+      schema = schema.unwrap();
+    } else if (schema instanceof z.ZodDefault || schema instanceof z.ZodPrefault) {
+      if (!("default" in mods)) mods.default = schema.def.defaultValue;
+      schema = schema.unwrap();
+    } else if (schema instanceof z.ZodPipe) {
+      schema = schema.out;
+    } else if (
+      schema instanceof z.ZodCatch ||
+      schema instanceof z.ZodReadonly ||
+      schema instanceof z.ZodNonOptional
+    ) {
+      schema = schema.unwrap();
+    } else {
+      break;
+    }
+  }
+
+  const base = convertBase(schema, depth);
+  if (mods.optional) base.optional = true;
+  if (mods.nullable) base.nullable = true;
+  if ("default" in mods) base.default = mods.default;
+
+  return base;
+}
+
+// Coerces a Zod literal value into the JSON-safe subset `FieldSchema` allows.
+function literalValue(value: unknown): string | number | boolean {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+    ? value
+    : String(value);
+}
+
+function convertBase(schema: unknown, depth: number): FieldSchema {
+  if (!(schema instanceof z.ZodType)) return { type: "unknown" };
+
+  const meta = schema.meta();
+  if (meta?.[CMS_IMAGE]) return { type: "image" };
+  if (meta?.[CMS_FILE]) return { type: "file" };
+
+  const ref = meta?.[CMS_REFERENCE];
+  if (typeof ref === "string") return { type: "reference", collection: ref };
+
+  const next = depth + 1;
+
+  // `z.email()` / `z.url()` are dedicated `ZodStringFormat` classes; plain
+  // strings are `ZodString`. Both carry `.maxLength`.
+  if (schema instanceof z.ZodString || schema instanceof z.ZodStringFormat) {
+    const field: FieldSchema = { type: "string" };
+    if (schema instanceof z.ZodStringFormat) {
+      if (schema.def.format === "url") field.format = "url";
+      else if (schema.def.format === "email") field.format = "email";
+    }
+    if (typeof schema.maxLength === "number") field.maxLength = schema.maxLength;
+    return field;
+  }
+
+  // Integer variants (z.int / int32 / int64 / safeint) are a dedicated
+  // `ZodNumberFormat`; its format names the variant. The classic `.def` widens
+  // to the base number def, so read the precise format off Zod's typed `_zod.def`.
+  if (schema instanceof z.ZodNumberFormat) {
+    return schema._zod.def.format.includes("int")
+      ? { type: "number", integer: true }
+      : { type: "number" };
+  }
+
+  if (schema instanceof z.ZodNumber) return { type: "number" };
+
+  if (schema instanceof z.ZodBoolean) return { type: "boolean" };
+
+  if (schema instanceof z.ZodDate) return { type: "date" };
+
+  if (schema instanceof z.ZodEnum) return { type: "enum", options: schema.options.map(String) };
+
+  if (schema instanceof z.ZodLiteral) {
+    // A multi-value literal is just a union of single literals; lower it that
+    // way for a uniform shape.
+    const values = schema.def.values;
+    if (values.length > 1) {
+      return {
+        type: "union",
+        variants: values.map((value) => ({ type: "literal", value: literalValue(value) })),
+      };
+    }
+    return { type: "literal", value: literalValue(values[0]) };
+  }
+
+  if (schema instanceof z.ZodArray) return { type: "array", element: lower(schema.element, next) };
+
+  if (schema instanceof z.ZodTuple) {
+    return { type: "tuple", items: schema.def.items.map((item) => lower(item, next)) };
+  }
+
+  if (schema instanceof z.ZodObject) {
+    const shape: Record<string, FieldSchema> = {};
+    for (const [key, value] of Object.entries(schema.shape)) shape[key] = lower(value, next);
+    return { type: "object", shape };
+  }
+
+  if (schema instanceof z.ZodRecord) return { type: "record", value: lower(schema.valueType, next) };
+
+  if (schema instanceof z.ZodUnion) {
+    // `ZodDiscriminatedUnion` extends `ZodUnion`; its discriminator drives the
+    // dedicated variant editor. A plain union has none.
+    const variants = schema.options.map((option) => lower(option, next));
+    const discriminator =
+      schema instanceof z.ZodDiscriminatedUnion ? schema.def.discriminator : undefined;
+    return typeof discriminator === "string"
+      ? { type: "union", discriminator, variants }
+      : { type: "union", variants };
+  }
+
+  if (schema instanceof z.ZodIntersection) {
+    // Flatten an intersection of two object schemas into one merged object so
+    // both the form and the agent see a single field map. Non-object operands
+    // have no faithful flat shape, so they degrade to "unknown".
+    const left = lower(schema.def.left, next);
+    const right = lower(schema.def.right, next);
+    if (left.type === "object" && right.type === "object") {
+      return { type: "object", shape: { ...left.shape, ...right.shape } };
+    }
+    return { type: "unknown" };
+  }
+
+  if (schema instanceof z.ZodLazy) return lower(schema.unwrap(), next);
+
+  return { type: "unknown" };
+}

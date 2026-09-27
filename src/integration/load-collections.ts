@@ -1,5 +1,5 @@
 import { createJiti } from "jiti";
-import { zodToFieldSchema } from "../shared/field-schema.ts";
+import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { imageMarker, fileMarker, referenceMarker } from "../shared/cms-markers.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { CollectionManifest, CollectionManifestEntry } from "../shared/types.ts";
