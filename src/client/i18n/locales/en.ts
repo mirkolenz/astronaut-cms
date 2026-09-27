@@ -118,7 +118,7 @@ const en = {
     title: "New Entry in {{collection}}",
     entryId: "Entry ID",
     placeholder: "my-entry",
-    validationHint: "Letters, numbers, hyphens, and underscores only",
+    validationHint: "Letters, numbers, hyphens, underscores, and / for nested folders",
     format: "Format",
   },
   errors: {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries, useCreateEntry } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
@@ -8,6 +8,7 @@ import { NewEntryDialog } from "@client/components/new-entry-dialog";
 import { ErrorBanner } from "@client/components/error-banner";
 import { toast } from "@client/components/toast";
 import { toLabel } from "@client/lib/to-label";
+import { baseName, listDirectory } from "@client/lib/entry-tree";
 import { extractFormatsFromLoader } from "@shared/types";
 import { FileCollectionEditor } from "@client/components/file-collection-editor";
 import { Button } from "@client/components/ui/button";
@@ -15,6 +16,10 @@ import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({
   component: CollectionPage,
+  validateSearch: (search: Record<string, unknown>): { dir?: string } => {
+    const dir = typeof search.dir === "string" ? search.dir : "";
+    return dir ? { dir } : {};
+  },
 });
 
 function CollectionPage() {
@@ -39,6 +44,7 @@ function GlobCollectionPage({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { dir = "" } = Route.useSearch();
   const { data: entries, isLoading, error } = useEntries(collection);
   const createMutation = useCreateEntry(collection);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -54,6 +60,11 @@ function GlobCollectionPage({
     if (!entries || !allowedFormats) return entries;
     return entries.filter((e) => allowedFormats.includes(e.format));
   }, [entries, allowedFormats]);
+  const { folders, files } = useMemo(
+    () => listDirectory(filteredEntries ?? [], dir),
+    [filteredEntries, dir],
+  );
+  const isEmpty = folders.length === 0 && files.length === 0;
 
   const handleCreate = (id: string, format: string) => {
     createMutation.mutate(
@@ -108,15 +119,28 @@ function GlobCollectionPage({
         </Button>
       </div>
 
-      {(!filteredEntries || filteredEntries.length === 0) && (
+      {isEmpty ? (
         <div className="text-center text-muted-foreground">
           <p>{t($ => $.collection.noEntries)}</p>
         </div>
-      )}
-
-      {filteredEntries && filteredEntries.length > 0 && (
+      ) : (
         <div className="divide-y divide-border rounded-lg border border-border">
-          {filteredEntries.map((entry) => (
+          {folders.map((folder) => (
+            <Link
+              key={folder.path}
+              to="/collections/$collection"
+              params={{ collection }}
+              search={{ dir: folder.path }}
+              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
+            >
+              <div className="flex items-center gap-2">
+                <Folder className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">{folder.name}</span>
+              </div>
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Link>
+          ))}
+          {files.map((entry) => (
             <Link
               key={entry.id}
               to="/collections/$collection/$entry"
@@ -125,7 +149,7 @@ function GlobCollectionPage({
             >
               <div>
                 <span className="text-sm font-medium text-foreground">
-                  {entry.id}
+                  {baseName(entry.id)}
                 </span>
                 <span className="ml-2 text-xs text-muted-foreground">.{entry.format}</span>
               </div>
@@ -139,6 +163,8 @@ function GlobCollectionPage({
         open={showNewDialog}
         collection={collection}
         collectionType={collectionInfo?.type ?? "content"}
+        basePath={dir}
+        nested
         allowedFormats={allowedFormats}
         onSubmit={handleCreate}
         onCancel={() => setShowNewDialog(false)}

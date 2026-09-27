@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { validateSegment } from "@shared/validation";
+import { validatePath, validateSegment } from "@shared/validation";
 import { CONTENT_FORMATS, DATA_FORMATS } from "@shared/types";
 import {
   Dialog,
@@ -24,6 +24,10 @@ interface NewEntryDialogProps {
   open: boolean;
   collection: string;
   collectionType: "content" | "data";
+  /** Folder the entry is created in; the typed id is appended to it. */
+  basePath?: string;
+  /** Allow slash-separated ids that create nested folders (glob collections). */
+  nested?: boolean;
   allowedFormats?: string[] | null;
   onSubmit: (id: string, format: string) => void;
   onCancel: () => void;
@@ -36,6 +40,8 @@ export function NewEntryDialog({
   open,
   collection,
   collectionType,
+  basePath,
+  nested,
   allowedFormats,
   onSubmit,
   onCancel,
@@ -63,12 +69,14 @@ export function NewEntryDialog({
     e.preventDefault();
     const trimmed = id.trim();
     if (!trimmed) return;
+    const fullId = basePath ? `${basePath}/${trimmed}` : trimmed;
     try {
-      validateSegment(trimmed, "entry ID");
+      if (nested) validatePath(fullId, "entry ID");
+      else validateSegment(fullId, "entry ID");
     } catch {
       return;
     }
-    onSubmit(trimmed, format);
+    onSubmit(fullId, format);
   };
 
   return (
@@ -81,16 +89,21 @@ export function NewEntryDialog({
           <div className="mt-3 space-y-3">
             <div>
               <Label>{t($ => $.newEntryDialog.entryId)}</Label>
-              <Input
-                ref={inputRef}
-                type="text"
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                placeholder={t($ => $.newEntryDialog.placeholder)}
-                pattern="[a-zA-Z0-9_-]+"
-                title={t($ => $.newEntryDialog.validationHint)}
-                required
-              />
+              <div className="flex items-center gap-1">
+                {basePath && (
+                  <span className="shrink-0 text-sm text-muted-foreground">{basePath}/</span>
+                )}
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  value={id}
+                  onChange={(e) => setId(e.target.value)}
+                  placeholder={t($ => $.newEntryDialog.placeholder)}
+                  pattern={nested ? "[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*" : "[a-zA-Z0-9_-]+"}
+                  title={t($ => $.newEntryDialog.validationHint)}
+                  required
+                />
+              </div>
             </div>
             {formats.length > 1 && (
               <div>

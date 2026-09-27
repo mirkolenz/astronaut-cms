@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { validateSegment } from "@shared/validation";
+import { validatePath } from "@shared/validation";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,8 @@ interface EntryIdDialogProps {
 }
 
 // Prompts for a new entry id, reused by rename and duplicate. Enforces the same
-// segment rules as new-entry creation and rejects ids already taken in the
-// collection, surfacing the reason inline.
+// path rules as new-entry creation (slashes allowed for nested folders) and
+// rejects ids already taken in the collection, surfacing the reason inline.
 export function EntryIdDialog({
   open,
   title,
@@ -50,7 +50,7 @@ export function EntryIdDialog({
     if (!trimmed) return null;
 
     try {
-      validateSegment(trimmed, "entry ID");
+      validatePath(trimmed, "entry ID");
     } catch (e) {
       return (e as Error).message;
     }

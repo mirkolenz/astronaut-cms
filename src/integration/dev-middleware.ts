@@ -137,7 +137,7 @@ async function saveGlobEntry(
   const filePath = join(contentDir, collection, `${id}.${request.format}`);
   assertWithinBase(filePath, contentDir);
   const content = serializeContent(request.data, request.body, request.format);
-  await mkdir(join(contentDir, collection), { recursive: true });
+  await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf-8");
 }
 
@@ -358,8 +358,10 @@ function createDevMiddleware(
       if (path.startsWith("/entries/")) {
         const rest = path.slice("/entries/".length);
         const slashIndex = rest.indexOf("/");
-        const collection = slashIndex === -1 ? rest : rest.slice(0, slashIndex);
-        const entryId = slashIndex === -1 ? "" : rest.slice(slashIndex + 1);
+        // The client percent-encodes the entry id (slashes become %2F), so nested
+        // ids arrive as a single segment that must be decoded back into a path.
+        const collection = decodeURIComponent(slashIndex === -1 ? rest : rest.slice(0, slashIndex));
+        const entryId = slashIndex === -1 ? "" : decodeURIComponent(rest.slice(slashIndex + 1));
 
         const isFile = isFileCollection(collection);
         const loaderFileName = getLoaderFileName(collection);

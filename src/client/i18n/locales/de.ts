@@ -124,7 +124,7 @@ const de: TranslationShape<typeof en> = {
     entryId: "Eintrags-ID",
     placeholder: "mein-eintrag",
     validationHint:
-      "Nur Buchstaben, Zahlen, Bindestriche und Unterstriche",
+      "Buchstaben, Zahlen, Bindestriche, Unterstriche und / für verschachtelte Ordner",
     format: "Format",
   },
   errors: {

@@ -20,6 +20,7 @@ import { ErrorBanner } from "@client/components/error-banner";
 import { DATA_FORMATS } from "@shared/types";
 import { EntryContextProvider } from "@client/lib/entry-context";
 import { getContentFilePath } from "@client/lib/asset-utils";
+import { baseName } from "@client/lib/entry-tree";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import collectionMeta from "virtual:astronaut-cms/collections";
@@ -175,7 +176,7 @@ function EntryEditor() {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h1 className="text-xl font-semibold">
-            {entryId}
+            {baseName(entryId)}
             <span className="ml-2 text-sm font-normal text-muted-foreground">.{entry.format}</span>
           </h1>
           <div className="flex items-center gap-2">
