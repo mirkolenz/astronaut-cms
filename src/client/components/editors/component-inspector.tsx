@@ -26,7 +26,7 @@ import {
   updateAt,
   withProp,
 } from "@/client/lib/component-tree";
-import { blockActions, releaseEditors, updateBlock, useBlockElement } from "@/client/lib/block-editing";
+import { updateBlock, useBlockActions, useBlockElement } from "@/client/lib/block-editing";
 import type { ValuePath } from "@/client/lib/field-values";
 import { useMediaQuery } from "@/client/lib/use-media-query";
 import {
@@ -39,7 +39,7 @@ import {
 } from "@/client/stores/inspector-store";
 import { FieldList, FieldNavContext } from "@/client/components/editors/field-renderer";
 import { FieldInspector, FormInspector } from "@/client/components/editors/field-inspector";
-import { BlockList, BlockMenu, ChildListControls, DOCKED, InspectorView } from "@/client/components/editors/block-controls";
+import { BlockList, ChildListControls, DOCKED, InspectorView } from "@/client/components/editors/block-controls";
 import { BlockOutline } from "@/client/components/editors/block-outline";
 
 export function InspectorPanel() {
@@ -47,20 +47,18 @@ export function InspectorPanel() {
   const field = useSelectedField();
   const bodyEditor = useBodyRealm()?.getValue(rootEditor$);
   const docked = useMediaQuery(DOCKED);
-  const block = selection && isBlockSelection(selection) ? selection : null;
   const content = !selection ? null : isBlockSelection(selection) ? (
     <ComponentInspector key={`${selection.nodeKey}/${selection.path.join("/")}`} selection={selection} field={field} />
   ) : (
     <FormInspector key={selection.form} form={selection.form} field={field} />
   );
-  const release = () => block && releaseEditors(block);
 
   if (docked) {
     const shown = content || (bodyEditor && <BlockOutline editor={bodyEditor} />);
 
     return (
       shown && (
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border pl-6" onFocusCapture={release}>
+        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border pl-6">
           {shown}
         </aside>
       )
@@ -71,7 +69,6 @@ export function InspectorPanel() {
     content && (
       <div
         className="fixed inset-x-0 bottom-0 z-40 max-h-[55dvh] overflow-y-auto border-t border-border bg-background p-4 shadow-lg"
-        onFocusCapture={release}
       >
         {content}
       </div>
@@ -83,6 +80,7 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
   const { t } = useTranslation();
   const root = useBlockElement(selection);
   const element = root && findAt(root, selection.path);
+  const actions = useBlockActions(selection);
 
   // The block was deleted, or its editor has gone.
   useEffect(() => {
@@ -132,7 +130,7 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
           icon={def?.icon}
           title={label}
           description={def?.description}
-          menu={<BlockMenu actions={blockActions(selection)} />}
+          actions={actions}
         >
           {Object.keys(shape).length > 0 ? (
             <FieldList shape={shape} values={values} onChange={setProp} />
@@ -169,7 +167,7 @@ function ChildList({
       onMove={(from, to) => {
         const child = children[from];
 
-        if (child) updateBlock(selection, (root) => moveChild(root, path, childKey(child), to - from));
+        if (child) updateBlock(selection, (root) => moveChild(root, path, childKey(child), to));
       }}
       row={(child) => {
         const def = child.name ? childDefs[child.name] : undefined;

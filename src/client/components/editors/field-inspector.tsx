@@ -9,8 +9,8 @@ import { useTranslation } from "react-i18next";
 import i18n, { type TFunction } from "i18next";
 import type { FieldSchema } from "@/shared/field-schema";
 import { fieldSchemaToZod } from "@/shared/field-to-zod";
-import { arrayMove, movedIndex } from "@/client/lib/arrays";
-import { clipboardActions, type BlockActions } from "@/client/lib/block-editing";
+import { arrayMove } from "@/client/lib/arrays";
+import { clipboardActions, movesWithin, type BlockActions } from "@/client/lib/block-editing";
 import { readClipboard } from "@/client/lib/editor-content";
 import {
   asRecord,
@@ -40,7 +40,6 @@ import { FieldList, FieldNavContext, FieldRenderer, NewKeyInput } from "@/client
 import {
   AddMenu,
   BlockList,
-  BlockMenu,
   InspectorView,
   ListControls,
   type AddOption,
@@ -169,12 +168,10 @@ function itemActions(
 
   return clipboardActions(
     {
-      move: (offset) => {
-        const to = movedIndex(items.length, index, offset);
-
+      move: movesWithin(items.length, index, (to) => {
         set(arrayMove(items, index, to));
         open([...listPath, isList ? to : step.key]);
-      },
+      }),
       duplicate: () => {
         const key = isList ? index + 1 : freeKey(items, String(step.key));
 
@@ -226,14 +223,13 @@ export function FieldInspector({
     ),
   ];
   const actions = itemActions(step, steps.at(-2)?.value, path, setAtPath, open);
-  const menu = actions && <BlockMenu actions={actions} />;
   const collection = collectionOf(step.field);
   // Fields keeping state of their own start over with another value.
   const key = path.join("/");
 
   if (!collection) {
     return (
-      <InspectorView key={key} crumbs={back} title={stepLabel(step, t)} menu={menu}>
+      <InspectorView key={key} crumbs={back} title={stepLabel(step, t)} actions={actions}>
         <FieldRenderer schema={step.field} value={step.value} onChange={(value) => setAtPath(path, value)} path={path} />
       </InspectorView>
     );
@@ -264,7 +260,7 @@ export function FieldInspector({
       crumbs={back}
       title={stepLabel(step, t)}
       description={collection.description}
-      menu={menu}
+      actions={actions}
     >
       <BlockList
         items={items}

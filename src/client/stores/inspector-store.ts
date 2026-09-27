@@ -1,5 +1,14 @@
 import { create } from "zustand";
-import type { LexicalEditor } from "lexical";
+import {
+  $createNodeSelection,
+  $getSelection,
+  $isNodeSelection,
+  $setSelection,
+  HISTORIC_TAG,
+  SKIP_DOM_SELECTION_TAG,
+  type EditorState,
+  type LexicalEditor,
+} from "lexical";
 import type { Realm } from "@mdxeditor/editor";
 import type { ChildPath } from "@/client/lib/component-tree";
 import type { ValuePath } from "@/client/lib/field-values";
@@ -27,7 +36,7 @@ export interface BlockSelection extends BlockRef {
 }
 
 /** The fields of an entry, one form each. */
-export interface FormSelection {
+interface FormSelection {
   form: string;
 }
 
@@ -63,16 +72,67 @@ export function useBodyRealm(): Realm | null {
   return useInspectorStore((state) => state.realm);
 }
 
+/** Whether a node is selected as a whole, as a selected block is. */
+export function $isNodeSelected(nodeKey: string): boolean {
+  const selection = $getSelection();
+
+  return $isNodeSelection(selection) && selection.has(nodeKey);
+}
+
+export const isNodeSelected = (state: EditorState, nodeKey: string): boolean =>
+  state.read(() => $isNodeSelected(nodeKey));
+
+// Selects a node as a whole, or nothing, without moving the focus. A change of
+// the selection alone is no step of the history.
+function selectNode(editor: LexicalEditor, nodeKey: string | null): void {
+  editor.update(
+    () => {
+      if (nodeKey === null) {
+        $setSelection(null);
+        return;
+      }
+
+      const selection = $createNodeSelection();
+
+      selection.add(nodeKey);
+      $setSelection(selection);
+    },
+    { discrete: true, tag: [SKIP_DOM_SELECTION_TAG, HISTORIC_TAG] },
+  );
+}
+
 /**
  * Selects a block or a form, or nothing, with the `field` it has opened. With
  * `reveal`, the body scrolls to the block, for a selection made outside the
- * body, such as in the inspector.
+ * body, such as in the inspector. A block is selected as a node of its editor
+ * as well, so the keys act on it there, and the editors around it let go of
+ * their selection, which would take the focus back on their next update.
  */
 export function select(
   selection: Selection | null,
   { field = NO_FIELD, reveal = false }: { field?: ValuePath; reveal?: boolean } = {},
 ): void {
+  const previous = getSelectedBlock();
+  const next = selection && isBlockSelection(selection) ? selection : null;
+
   useInspectorStore.setState({ selection, field, reveal });
+
+  // Within one editor, selecting the next node replaces the previous one.
+  if (
+    previous &&
+    previous.editor !== next?.editor &&
+    isNodeSelected(previous.editor.getEditorState(), previous.nodeKey)
+  ) {
+    selectNode(previous.editor, null);
+  }
+
+  if (!next) return;
+
+  if (!isNodeSelected(next.editor.getEditorState(), next.nodeKey)) selectNode(next.editor, next.nodeKey);
+
+  for (const { selection: crumb } of next.trail) {
+    if (crumb.editor.getEditorState().read($getSelection) !== null) selectNode(crumb.editor, null);
+  }
 }
 
 export const getSelection = (): Selection | null => useInspectorStore.getState().selection;
@@ -98,10 +158,13 @@ export function useFormField(form: string): ValuePath {
   );
 }
 
-export function sameBlock(a: BlockRef, b: BlockRef): boolean {
+export function sameNode(a: BlockNode, b: BlockNode): boolean {
+  return a.editor === b.editor && a.nodeKey === b.nodeKey;
+}
+
+function sameBlock(a: BlockRef, b: BlockRef): boolean {
   return (
-    a.editor === b.editor &&
-    a.nodeKey === b.nodeKey &&
+    sameNode(a, b) &&
     a.path.length === b.path.length &&
     a.path.every((key, index) => key === b.path[index])
   );

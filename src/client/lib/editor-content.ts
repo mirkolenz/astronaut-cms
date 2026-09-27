@@ -8,18 +8,12 @@ import type { Root, RootContent } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { toMarkdown } from "mdast-util-to-markdown";
 import {
-  $createParagraphNode,
-  $getNodeByKey,
-  $getRoot,
-  $getSelection,
   $insertNodes,
   $isDecoratorNode,
   $isElementNode,
-  $isRangeSelection,
   type DecoratorNode,
   type LexicalEditor,
   type LexicalNode,
-  type NodeKey,
 } from "lexical";
 import {
   Cell,
@@ -43,7 +37,8 @@ import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
 import { findComponent } from "@/shared/component-lookup";
 import { asBlockContent, isJsxElement, misplacedComponents, type JsxChild } from "@/client/lib/component-tree";
-import { $caretBlock, $isEmptyLine } from "@/client/lib/empty-lines";
+import { $moveToEmptyLine, $selectInsertPoint } from "@/client/lib/empty-lines";
+import { claimHistory } from "@/client/lib/page-history";
 import { toast } from "@/client/components/toast";
 
 // MDXEditor exports the extensions it reads and writes markdown with, but its
@@ -68,48 +63,14 @@ export function toMdx(realm: Realm, nodes: RootContent[]): string {
   ).trim();
 }
 
-/** Where content goes: next to a top-level block of an editor, or where its caret is. */
-export interface InsertTarget {
-  editor: LexicalEditor;
-  at?: { nodeKey: NodeKey; position: "before" | "after" };
-}
-
-/** Whether the editor with this root element holds a line of text, which takes no blocks. */
-export function isInlineRoot(root: Element): boolean {
-  return root.closest(".cms-inline-slot, td, th") !== null;
-}
-
-/** Whether content goes into a line of text, which takes neither blocks nor block components. */
-export function isInlineTarget({ editor, at }: InsertTarget): boolean {
-  const root = editor.getRootElement();
-
-  return !at && root !== null && isInlineRoot(root);
+/** Whether an editor holds a line of text, which takes neither blocks nor block components. */
+export function isInlineEditor(editor: LexicalEditor): boolean {
+  return editor.getRootElement()?.closest(".cms-inline-slot, td, th") != null;
 }
 
 export const inlineComponents = Object.fromEntries(
   Object.entries(components).filter(([, def]) => def.kind === "text"),
 );
-
-// A block goes onto an empty line of its own, next to the target block or the
-// caret's, so it never splits the text around it.
-function $moveToEmptyLine(at: InsertTarget["at"]): void {
-  if (!at && !$isRangeSelection($getSelection())) $getRoot().selectEnd();
-
-  const node = at ? $getNodeByKey(at.nodeKey) : $caretBlock();
-  const position = at?.position ?? "after";
-
-  if (!node || (!at && $isEmptyLine(node))) return;
-
-  const neighbor = position === "before" ? node.getPreviousSibling() : node.getNextSibling();
-  const line = $isEmptyLine(neighbor) ? neighbor : $createParagraphNode();
-
-  if (line !== neighbor) {
-    if (position === "before") node.insertBefore(line);
-    else node.insertAfter(line);
-  }
-
-  line.select();
-}
 
 // MDXEditor focuses a component, code block or table through the editor it renders.
 function isSelectable(node: DecoratorNode<unknown>): node is DecoratorNode<unknown> & { select: () => void } {
@@ -127,21 +88,23 @@ function $lastDecorator(nodes: LexicalNode[]): DecoratorNode<unknown> | undefine
 }
 
 /**
- * Inserts content at a target and moves the focus into it. With `atCaret`,
- * it goes right where the caret is, as a paste does, and on a line of its own
- * otherwise.
+ * Inserts content at the caret of an editor and moves the focus into it. With
+ * `atCaret`, it goes right where the caret is, as a paste does, and on a line
+ * of its own otherwise.
  */
 export function insertContent(
   realm: Realm,
-  { editor, at }: InsertTarget,
+  editor: LexicalEditor,
   nodes: RootContent[],
   { atCaret = false } = {},
 ): void {
   let focus: DecoratorNode<unknown> | undefined;
 
+  claimHistory(editor);
   editor.update(
     () => {
-      if (at || !atCaret) $moveToEmptyLine(at);
+      if (atCaret) $selectInsertPoint();
+      else $moveToEmptyLine();
 
       const inserted: LexicalNode[] = [];
       const point: ImportPoint = { append: (node) => inserted.push(node), getType: () => "root" };
@@ -174,9 +137,10 @@ export function insertContent(
   }
 }
 
-/** Opens MDXEditor's image dialog, which inserts the image on an empty line at the target. */
-export function insertImage(realm: Realm, { editor, at }: InsertTarget): void {
-  editor.update(() => $moveToEmptyLine(at), { discrete: true });
+/** Opens MDXEditor's image dialog, which inserts the image on an empty line at the caret. */
+export function insertImage(realm: Realm, editor: LexicalEditor): void {
+  claimHistory(editor);
+  editor.update($moveToEmptyLine, { discrete: true });
   realm.pub(activeEditor$, editor);
   realm.pub(openNewImageDialog$);
 }
@@ -232,15 +196,15 @@ function inlined(node: RootContent): RootContent {
 }
 
 /** Pastes MDX into text, where only a line of text goes into an inline editor. */
-export function pasteText(realm: Realm, target: InsertTarget, text: string): void {
-  const inline = isInlineTarget(target);
+export function pasteText(realm: Realm, editor: LexicalEditor, text: string): void {
+  const inline = isInlineEditor(editor);
   const nodes = pastedContent(realm, text, inline ? inlineComponents : components, (parsed) => {
     const content = parsed.map(inlined);
 
     return !inline || (content.length === 1 && content[0]?.type === "paragraph") ? content : undefined;
   });
 
-  if (nodes && nodes.length > 0) insertContent(realm, target, nodes, { atCaret: true });
+  if (nodes && nodes.length > 0) insertContent(realm, editor, nodes, { atCaret: true });
 }
 
 /** Pasted MDX as structured children, which must all be components the parent takes. */

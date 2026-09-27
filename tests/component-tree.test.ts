@@ -55,7 +55,7 @@ describe("structured children", () => {
   it("keeps a child's key through clones and moves", () => {
     const root = grid("A", "B", "C");
     const [a, , c] = jsxChildren(root).map(childKey);
-    const moved = moveChild(structuredClone(root), [], c!, -2);
+    const moved = moveChild(structuredClone(root), [], c!, 0);
 
     expect(titles(moved)).toEqual(["C", "A", "B"]);
     expect(findAt(moved, [a!]) && readProps(findAt(moved, [a!])!).title).toBe("A");

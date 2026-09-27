@@ -4,10 +4,10 @@
  * inspector once it is selected. Structured children are blocks of their own
  * inside it, and markdown children stay editable in place.
  */
-import { createContext, useContext, useEffect, useMemo, useRef, type SyntheticEvent } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useMemo, useRef, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { CLICK_COMMAND, COMMAND_PRIORITY_LOW, mergeRegister } from "lexical";
 import { NestedEditorsContext } from "@mdxeditor/editor";
-import { cn } from "cn";
 import { NestedLexicalEditor, type JsxEditorProps, type MdxJsxElement } from "@/client/editor";
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
@@ -24,10 +24,17 @@ import {
   updateAt,
   type ChildPath,
 } from "@/client/lib/component-tree";
-import { blockActions } from "@/client/lib/block-editing";
-import { select, useIsSelected, type BlockNode, type Crumb } from "@/client/stores/inspector-store";
+import {
+  getSelectedBlock,
+  isNodeSelected,
+  sameNode,
+  select,
+  useIsSelected,
+  type BlockNode,
+  type Crumb,
+} from "@/client/stores/inspector-store";
 import { useAssetUrl } from "@/client/queries/use-media";
-import { BlockMenu, ChildListControls, MissingProps } from "@/client/components/editors/block-controls";
+import { ChildListControls, MissingProps } from "@/client/components/editors/block-controls";
 
 /** The components enclosing a nested editor, for the breadcrumbs of those written in it. */
 const TrailContext = createContext<readonly Crumb[]>([]);
@@ -53,13 +60,43 @@ export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
   const node = useMemo<BlockNode>(() => ({ editor: parentEditor, nodeKey }), [parentEditor, nodeKey]);
   const def = mdastNode.name ? findComponent(mdastNode.name, components) : undefined;
   const hasSlot = def?.children === "markdown";
+  const selectSelf = useEffectEvent(() => select({ ...node, path: [], trail }));
 
   // MDXEditor focuses a component it has just inserted through the emitter,
   // which a nested editor claims for itself. Without one, the component is
   // selected instead, so its props can be filled in right away.
   useEffect(() => {
-    if (!hasSlot) focusEmitter.subscribe(() => select({ ...node, path: [], trail }));
-  }, [focusEmitter, hasSlot, node, trail]);
+    if (!hasSlot) focusEmitter.subscribe(() => selectSelf());
+  }, [focusEmitter, hasSlot]);
+
+  // Its node selected in the editor, such as with the arrow keys, the component
+  // is selected, and it is no longer once the editor's selection moves on. A
+  // click on it keeps the selection it makes, which the editor clears otherwise.
+  useEffect(
+    () =>
+      mergeRegister(
+        parentEditor.registerUpdateListener(({ editorState, prevEditorState }) => {
+          const selected = isNodeSelected(editorState, nodeKey);
+
+          if (selected === isNodeSelected(prevEditorState, nodeKey)) return;
+
+          const current = getSelectedBlock();
+          const here = current !== null && sameNode(current, node);
+
+          if (selected && !here) selectSelf();
+          else if (!selected && here) select(null);
+        }),
+        parentEditor.registerCommand(
+          CLICK_COMMAND,
+          (event, origin) =>
+            origin === parentEditor &&
+            event.target instanceof Node &&
+            parentEditor.getElementByKey(nodeKey)?.contains(event.target) === true,
+          COMMAND_PRIORITY_LOW,
+        ),
+      ),
+    [parentEditor, nodeKey, node],
+  );
 
   if (mdastNode.type === "mdxJsxTextElement") {
     return <InlineBlock node={node} element={mdastNode} def={def} trail={trail} />;
@@ -105,14 +142,10 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
     <div
       ref={ref}
       data-cms-block
-      // Focused, the body editor gives it the clipboard and delete keys.
-      tabIndex={-1}
+      data-cms-selected={selected || undefined}
       onClickCapture={claim}
       onFocusCapture={claim}
-      className={cn(
-        "rounded-md border bg-card outline-none transition-[border-color,box-shadow]",
-        selected ? "border-ring ring-3 ring-ring/30" : "border-border hover:border-ring/60",
-      )}
+      className="rounded-md border border-border bg-card transition-[border-color,box-shadow] hover:border-ring/60"
     >
       <div className="not-prose flex min-h-9 cursor-default items-center gap-2 px-2 py-1">
         {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
@@ -120,7 +153,6 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{summary}</span>
         {image && <img src={image} alt="" className="size-7 shrink-0 rounded object-cover" />}
         <MissingProps labels={missingProps(def, element)} />
-        <BlockMenu actions={blockActions(block)} />
       </div>
       {def?.children === "markdown" && (
         <div className="border-t border-border px-3 py-2">
@@ -219,13 +251,10 @@ function InlineBlock({
   return (
     <span
       data-cms-block
-      tabIndex={-1}
+      data-cms-selected={selected || undefined}
       onClickCapture={claim}
       onFocusCapture={claim}
-      className={cn(
-        "not-prose inline-flex max-w-full items-baseline gap-1 rounded border bg-card px-1.5 align-baseline outline-none",
-        selected ? "border-ring ring-2 ring-ring/30" : "border-border",
-      )}
+      className="not-prose inline-flex max-w-full items-baseline gap-1 rounded border border-border bg-card px-1.5 align-baseline"
     >
       {Icon && <Icon className="size-3 shrink-0 self-center text-muted-foreground" />}
       <span className="text-xs font-medium">{label}</span>

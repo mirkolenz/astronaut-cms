@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type { ComponentIcon } from "@/config";
 import type { ClientComponentDef } from "@/internal/user-config";
-import { insertChild, pasteChildren, type BlockActions } from "@/client/lib/block-editing";
+import { insertChild, pasteChildren, type BlockActions, type Moves } from "@/client/lib/block-editing";
 import { useMediaQuery } from "@/client/lib/use-media-query";
 import { select, type BlockSelection } from "@/client/stores/inspector-store";
 import { SortableList } from "@/client/components/sortable-list";
@@ -48,21 +48,22 @@ export interface InspectorCrumb {
 
 /**
  * The frame of what the inspector shows, a component or a value of a form: the
- * breadcrumbs leading back out, and a header with its actions.
+ * breadcrumbs leading back out, and a header with its actions, the one place
+ * they are offered in.
  */
 export function InspectorView({
   crumbs,
   icon: Icon,
   title,
   description,
-  menu,
+  actions,
   children,
 }: {
   crumbs: readonly InspectorCrumb[];
   icon?: ComponentIcon | null;
   title: string;
   description?: string | null;
-  menu?: ReactNode;
+  actions?: BlockActions;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -99,7 +100,7 @@ export function InspectorView({
           <h2 className="text-sm font-semibold">{title}</h2>
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
-        {menu}
+        {actions && <BlockActionBar actions={actions} />}
         {!docked && (
           <Button
             type="button"
@@ -118,46 +119,62 @@ export function InspectorView({
   );
 }
 
-/** What can be done to a block, or an item of a list, behind one button. */
-export function BlockMenu({ actions }: { actions: BlockActions }) {
+/** Buttons moving something one place up and down, each greyed out where it cannot go. */
+export function MoveButtons({ moves }: { moves: Moves }) {
+  const { t } = useTranslation();
+
+  return ([-1, 1] as const).map((offset) => (
+    <Button
+      key={offset}
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      aria-label={offset < 0 ? t(($) => $.editors.moveUp) : t(($) => $.editors.moveDown)}
+      disabled={!moves[offset]}
+      onClick={moves[offset]}
+    >
+      {offset < 0 ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+    </Button>
+  ));
+}
+
+/**
+ * What can be done to a block, or an item of a list: moving it, the frequent
+ * action, with a button each way, and the others behind one more.
+ */
+function BlockActionBar({ actions }: { actions: BlockActions }) {
   const { t } = useTranslation();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-xs" aria-label={t(($) => $.editors.actions)}>
-          <Ellipsis className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => actions.move(-1)}>
-          <ArrowUp />
-          {t(($) => $.editors.moveUp)}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => actions.move(1)}>
-          <ArrowDown />
-          {t(($) => $.editors.moveDown)}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={actions.duplicate}>
-          <CopyPlus />
-          {t(($) => $.entry.duplicate)}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={actions.copy}>
-          <Copy />
-          {t(($) => $.editors.copy)}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={actions.cut}>
-          <Scissors />
-          {t(($) => $.editors.cut)}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={actions.remove}>
-          <Trash2 />
-          {t(($) => $.common.delete)}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <MoveButtons moves={actions.move} />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="icon-xs" aria-label={t(($) => $.editors.actions)}>
+            <Ellipsis className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={actions.duplicate}>
+            <CopyPlus />
+            {t(($) => $.entry.duplicate)}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={actions.copy}>
+            <Copy />
+            {t(($) => $.editors.copy)}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={actions.cut}>
+            <Scissors />
+            {t(($) => $.editors.cut)}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={actions.remove}>
+            <Trash2 />
+            {t(($) => $.common.delete)}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 

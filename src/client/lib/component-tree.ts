@@ -11,7 +11,7 @@ import type { MdxJsxAttribute, MdxJsxElement, MdxJsxExpressionAttribute } from "
 import { childComponents } from "@/shared/component-lookup";
 import { objectShape } from "@/shared/field-schema";
 import { attributeValue, valueToAttribute } from "@/shared/mdx-attributes";
-import { arrayMove, movedIndex } from "@/client/lib/arrays";
+import { arrayMove } from "@/client/lib/arrays";
 import { getDefaultValue, missingFields, textSummary } from "@/client/lib/field-values";
 
 declare module "mdast" {
@@ -225,17 +225,12 @@ export function removeChild(root: MdxJsxElement, parentPath: ChildPath, key: str
   return editChildren(root, parentPath, (children) => children.filter((c) => childKey(c) !== key));
 }
 
-/** Moves a child by `offset` places among its siblings, stopping at either end. */
-export function moveChild(
-  root: MdxJsxElement,
-  parentPath: ChildPath,
-  key: string,
-  offset: number,
-): MdxJsxElement {
+/** Moves a child to the place `to` among its siblings. */
+export function moveChild(root: MdxJsxElement, parentPath: ChildPath, key: string, to: number): MdxJsxElement {
   return editChildren(root, parentPath, (children) => {
     const from = children.findIndex((c) => childKey(c) === key);
 
-    return from < 0 ? children : arrayMove(children, from, movedIndex(children.length, from, offset));
+    return from < 0 ? children : arrayMove(children, from, to);
   });
 }
 

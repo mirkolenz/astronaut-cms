@@ -8,6 +8,8 @@
  */
 import {
   $addUpdateTag,
+  $getSelection,
+  $isNodeSelection,
   COMMAND_PRIORITY_CRITICAL,
   HISTORY_MERGE_TAG,
   HISTORY_PUSH_TAG,
@@ -42,19 +44,34 @@ export function clearPageHistory(): void {
   lastEdit = undefined;
 }
 
-// A restored state without a selection leaves the focus where it is.
-const unfocused = (entry: HistoryStateEntry): HistoryStateEntry => ({
-  ...entry,
-  editorState: entry.editorState.clone(null),
-});
+// A restored state without a caret leaves the focus where it is. A block
+// selected as a whole stays so, as it takes no focus.
+function unfocused(entry: HistoryStateEntry): HistoryStateEntry {
+  const selection = entry.editorState.read($getSelection);
 
-// Makes the editor's present state the one the next step restores, as focusing
-// it would, and tells whether another editor had that place.
-function claim(editor: LexicalEditor): boolean {
+  return { ...entry, editorState: entry.editorState.clone($isNodeSelection(selection) ? selection.clone() : null) };
+}
+
+/**
+ * Records where an editor stands before a change made to it from outside, as
+ * focusing it would, unless it has that place already. Tells whether another
+ * editor had it.
+ */
+export function claimHistory(editor: LexicalEditor): boolean {
   const { current } = pageHistory;
-  const switched = current !== null && current.editor !== editor;
 
-  if (switched) pageHistory.undoStack.push(unfocused(current));
+  if (current?.editor === editor) return false;
+
+  if (current) pageHistory.undoStack.push(unfocused(current));
+
+  pageHistory.current = { editor, editorState: editor.getEditorState() };
+
+  return current !== null;
+}
+
+// Undone, a change made from outside the text leaves the focus where it is.
+function claim(editor: LexicalEditor): boolean {
+  const switched = claimHistory(editor);
 
   pageHistory.current = unfocused({ editor, editorState: editor.getEditorState() });
 

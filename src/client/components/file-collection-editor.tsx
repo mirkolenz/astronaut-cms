@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, ChevronUp, FileText, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Trash2 } from "lucide-react";
 import { Card } from "@/client/components/ui/card";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
 import {
@@ -14,6 +14,7 @@ import {
 import { useWriteError } from "@/client/lib/write-error";
 import { EntryFields } from "@/client/components/editors/field-inspector";
 import { InspectorPanel } from "@/client/components/editors/component-inspector";
+import { MoveButtons } from "@/client/components/editors/block-controls";
 import { HistoryControls } from "@/client/components/editors/history-controls";
 import {
   closeForm,
@@ -340,28 +341,7 @@ function FileEntryCard({
           {isDirty && <Badge variant="outline">{t(($) => $.entry.modified)}</Badge>}
         </Button>
         <div className="flex items-center border-l border-border">
-          {orderable && (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={onMoveDown}
-                disabled={!onMoveDown}
-              >
-                <ChevronDown className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={onMoveUp}
-                disabled={!onMoveUp}
-              >
-                <ChevronUp className="size-4" />
-              </Button>
-            </>
-          )}
+          {orderable && <MoveButtons moves={{ [-1]: onMoveUp, [1]: onMoveDown }} />}
           <Button
             type="button"
             variant="ghost"

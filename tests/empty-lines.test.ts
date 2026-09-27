@@ -1,17 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { $createParagraphNode, $createTextNode, $getRoot, createEditor, type LexicalEditor } from "lexical";
-import { pruneEmptyLines } from "@/client/lib/empty-lines";
+import { $createNodeSelection, $createParagraphNode, $createTextNode, $getRoot, $setSelection, type LexicalEditor } from "lexical";
+import { $moveToEmptyLine, pruneEmptyLines } from "@/client/lib/empty-lines";
+import { newEditor } from "./fixtures/editor";
 
 const lines = (editor: LexicalEditor) =>
   editor.read(() => $getRoot().getChildren().map((node) => node.getTextContent()));
 
-describe("pruneEmptyLines", () => {
+describe("empty lines", () => {
   it("removes the empty lines the caret has left", () => {
-    const editor = createEditor({
-      onError: (error) => {
-        throw error;
-      },
-    });
+    const editor = newEditor();
 
     editor.update(
       () => {
@@ -33,5 +30,24 @@ describe("pruneEmptyLines", () => {
 
     pruneEmptyLines(editor, { keepCaret: false });
     expect(lines(editor)).toEqual(["a", "b"]);
+  });
+
+  it("gives a block selected as a whole a line right after it", () => {
+    const editor = newEditor();
+
+    editor.update(
+      () => {
+        const block = $createParagraphNode().append($createTextNode("a"));
+        const selection = $createNodeSelection();
+
+        $getRoot().append(block, $createParagraphNode().append($createTextNode("b")));
+        selection.add(block.getKey());
+        $setSelection(selection);
+        $moveToEmptyLine();
+      },
+      { discrete: true },
+    );
+
+    expect(lines(editor)).toEqual(["a", "", "b"]);
   });
 });

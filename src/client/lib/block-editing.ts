@@ -4,14 +4,7 @@
  * to that node and passed on to the editors enclosing it.
  */
 import { useCallback, useSyncExternalStore } from "react";
-import {
-  $copyNode,
-  $getNodeByKey,
-  $setSelection,
-  SKIP_DOM_SELECTION_TAG,
-  type LexicalEditor,
-  type LexicalNode,
-} from "lexical";
+import { $copyNode, $getNodeByKey, type LexicalEditor, type LexicalNode } from "lexical";
 import { NESTED_EDITOR_UPDATED_COMMAND } from "@mdxeditor/editor";
 import type { MdxJsxElement } from "@/shared/jsx-editor";
 import type { ClientComponentDef } from "@/internal/user-config";
@@ -28,6 +21,7 @@ import {
   childKey,
   duplicateChild,
   findAt,
+  jsxChildren,
   moveChild,
   newComponent,
   removeChild,
@@ -72,26 +66,20 @@ export function updateBlock(
   editNode(block, (node) => node.setMdastNode(update(node.getMdastNode())), mergeKey);
 }
 
-/**
- * Clears the text selection of the editors holding a block as the inspector
- * takes focus. Lexical puts a selection back into the page on each update,
- * which would pull focus out of the inspector.
- */
-export function releaseEditors({ editor, trail }: BlockSelection): void {
-  for (const holder of new Set([editor, ...trail.map((crumb) => crumb.selection.editor)])) {
-    holder.update(() => $setSelection(null), { tag: SKIP_DOM_SELECTION_TAG });
-  }
-}
-
-/** The current element of the component a block is written as, or `undefined` once it or its editor is gone. */
-function readElement({ editor, nodeKey }: BlockNode): JsxChild | undefined {
+// Reads from a block's node, or nothing once it or its editor is gone.
+function readNode<T>({ editor, nodeKey }: BlockNode, read: (node: LexicalNode) => T): T | undefined {
   return editor.getRootElement() === null
     ? undefined
     : editor.getEditorState().read(() => {
         const node = $getNodeByKey(nodeKey);
 
-        return isJsxNode(node) ? node.getMdastNode() : undefined;
+        return node ? read(node) : undefined;
       });
+}
+
+/** The current element of the component a block is written as, or `undefined` once it or its editor is gone. */
+function readElement(block: BlockNode): JsxChild | undefined {
+  return readNode(block, (node) => (isJsxNode(node) ? node.getMdastNode() : undefined));
 }
 
 /** A value read from an editor, and read again after each of its updates. */
@@ -106,7 +94,7 @@ export function useBlockElement(block: BlockNode): MdxJsxElement | undefined {
 }
 
 /** A block's MDX, as copying puts it on the clipboard. */
-export function blockMdx(block: BlockRef): string | undefined {
+function blockMdx(block: BlockRef): string | undefined {
   const root = readElement(block);
   const element = root && findAt(root, block.path);
   const realm = getBodyRealm();
@@ -114,8 +102,20 @@ export function blockMdx(block: BlockRef): string | undefined {
   return element && realm ? toMdx(realm, [asBlockContent(element)]) : undefined;
 }
 
+/** Moving something one place up, or down, where there is something to move past. */
+export type Moves = Partial<Record<-1 | 1, () => void>>;
+
+const OFFSETS = [-1, 1] as const;
+
+/** The moves of the item at `index` among `length` items, each passing its new place to `move`. */
+export function movesWithin(length: number, index: number, move: (to: number) => void): Moves {
+  const fits = (offset: number) => index >= 0 && index + offset >= 0 && index + offset < length;
+
+  return Object.fromEntries(OFFSETS.filter(fits).map((offset) => [offset, () => move(index + offset)]));
+}
+
 export interface BlockActions {
-  move: (offset: -1 | 1) => void;
+  move: Moves;
   duplicate: () => void;
   copy: () => void;
   cut: () => void;
@@ -131,6 +131,10 @@ function $sibling(node: LexicalNode, offset: -1 | 1): LexicalNode | null {
   return sibling;
 }
 
+// The ways a block in the text can move, past the blocks around it.
+const nodeMoves = (block: BlockNode): (-1 | 1)[] =>
+  readNode(block, (node) => OFFSETS.filter((offset) => $sibling(node, offset) !== null)) ?? [];
+
 /**
  * How a block moves and goes. A component in the text moves among the nodes of
  * its editor, a structured child among its siblings.
@@ -139,14 +143,16 @@ function structureActions(block: BlockRef): Omit<BlockActions, "copy" | "cut"> {
   const key = block.path.at(-1);
 
   if (key === undefined) {
-    return {
-      move: (offset) =>
-        editNode(block, (node) => {
-          const sibling = $sibling(node, offset);
+    const move = (offset: -1 | 1) =>
+      editNode(block, (node) => {
+        const sibling = $sibling(node, offset);
 
-          if (offset < 0) sibling?.insertBefore(node);
-          else sibling?.insertAfter(node);
-        }),
+        if (offset < 0) sibling?.insertBefore(node);
+        else sibling?.insertAfter(node);
+      });
+
+    return {
+      move: Object.fromEntries(nodeMoves(block).map((offset) => [offset, () => move(offset)])),
       duplicate: () => editNode(block, (node) => node.insertAfter($copyNode(node))),
       remove: () =>
         editNode(block, (node) => {
@@ -157,9 +163,15 @@ function structureActions(block: BlockRef): Omit<BlockActions, "copy" | "cut"> {
   }
 
   const parent = block.path.slice(0, -1);
+  const root = readElement(block);
+  const parentElement = root && findAt(root, parent);
+  const siblings = parentElement ? jsxChildren(parentElement) : [];
+  const index = siblings.findIndex((child) => childKey(child) === key);
 
   return {
-    move: (offset) => updateBlock(block, (root) => moveChild(root, parent, key, offset)),
+    move: movesWithin(siblings.length, index, (to) =>
+      updateBlock(block, (current) => moveChild(current, parent, key, to)),
+    ),
     duplicate: () => updateBlock(block, (root) => duplicateChild(root, parent, key)),
     remove: () => updateBlock(block, (root) => removeChild(root, parent, key)),
   };
@@ -186,6 +198,16 @@ export function clipboardActions(
 /** What can be done to a block as a whole. */
 export function blockActions(block: BlockRef): BlockActions {
   return clipboardActions(structureActions(block), () => blockMdx(block));
+}
+
+/**
+ * What can be done to a block, rendered anew as the ways it can move change,
+ * which for a block in the text happens with no change of its own.
+ */
+export function useBlockActions(block: BlockRef): BlockActions {
+  useEditorValue(block.editor, () => (block.path.length === 0 ? nodeMoves(block).join() : ""));
+
+  return blockActions(block);
 }
 
 // The added children are selected, so their props can be filled in.

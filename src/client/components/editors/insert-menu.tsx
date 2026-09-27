@@ -1,12 +1,13 @@
 /**
  * The one menu that inserts anything into the body: text blocks, components and
- * the clipboard's content. It opens from the buttons between blocks, from
- * typing `/` on an empty line, and from the toolbar.
+ * the clipboard's content. It opens from typing `/` on an empty line or between
+ * blocks, and from the toolbar.
  */
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Paragraph, RootContent } from "mdast";
 import { ClipboardPaste, Plus } from "lucide-react";
+import type { LexicalEditor } from "lexical";
 import {
   Cell,
   activeEditor$,
@@ -23,10 +24,9 @@ import {
   inlineComponents,
   insertContent,
   insertImage,
-  isInlineTarget,
+  isInlineEditor,
   pasteText,
   readClipboard,
-  type InsertTarget,
 } from "@/client/lib/editor-content";
 import { getBodyRealm } from "@/client/stores/inspector-store";
 import { Button } from "@/client/components/ui/button";
@@ -41,15 +41,15 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/client/components/ui/dialog";
 import { BLOCK_ICONS, HEADING_ICONS } from "@/client/components/editors/block-icons";
 
-/** Where the open insert menu inserts, or `null` while it is closed. */
-export const insertTarget$ = Cell<InsertTarget | null>(null);
+/** The editor the open insert menu inserts into at its caret, or `null` while it is closed. */
+export const insertEditor$ = Cell<LexicalEditor | null>(null);
 
 interface InsertItem {
   key: string;
   label: string;
   description?: string | null;
   icon: ComponentIcon | null;
-  run: (realm: Realm, target: InsertTarget) => void;
+  run: (realm: Realm, editor: LexicalEditor) => void;
 }
 
 const line = (): Paragraph => ({ type: "paragraph", children: [] });
@@ -57,8 +57,8 @@ const line = (): Paragraph => ({ type: "paragraph", children: [] });
 // A block on a line of its own.
 const block =
   (...nodes: RootContent[]) =>
-  (realm: Realm, target: InsertTarget) =>
-    insertContent(realm, target, nodes);
+  (realm: Realm, editor: LexicalEditor) =>
+    insertContent(realm, editor, nodes);
 
 const list = (ordered: boolean): RootContent => ({
   type: "list",
@@ -77,13 +77,13 @@ const table = (): RootContent => ({
 
 export function InsertButton() {
   const { t } = useTranslation();
-  const open = usePublisher(insertTarget$);
+  const open = usePublisher(insertEditor$);
   const activeEditor = useCellValue(activeEditor$);
   const rootEditor = useCellValue(rootEditor$);
   const editor = activeEditor ?? rootEditor;
 
   return (
-    <Button type="button" variant="ghost" size="xs" onClick={() => editor && open({ editor })}>
+    <Button type="button" variant="ghost" size="xs" onClick={() => editor && open(editor)}>
       <Plus />
       {t(($) => $.editors.insert)}
     </Button>
@@ -92,12 +92,12 @@ export function InsertButton() {
 
 export function InsertMenu() {
   const { t } = useTranslation();
-  const target = useCellValue(insertTarget$);
-  const setTarget = usePublisher(insertTarget$);
+  const target = useCellValue(insertEditor$);
+  const setTarget = usePublisher(insertEditor$);
   const hasComponents = useCellValue(jsxComponentDescriptors$).length > 0;
   // What was chosen runs once the menu has closed, which would take the focus back otherwise.
   const chosen = useRef<(() => void) | null>(null);
-  const inline = target !== null && isInlineTarget(target);
+  const inline = target !== null && isInlineEditor(target);
 
   const textBlock = (key: keyof typeof BLOCK_ICONS, run: InsertItem["run"]): InsertItem => ({
     key,
@@ -129,11 +129,11 @@ export function InsertMenu() {
       label: def.label,
       description: def.description,
       icon: def.icon,
-      run: (realm, target) => {
+      run: (realm, editor) => {
         const element = newComponent(name, def);
 
         // An inline component goes where the caret is, within its text.
-        insertContent(realm, target, [asBlockContent(element)], { atCaret: element.type === "mdxJsxTextElement" });
+        insertContent(realm, editor, [asBlockContent(element)], { atCaret: element.type === "mdxJsxTextElement" });
       },
     }),
   );
@@ -142,8 +142,8 @@ export function InsertMenu() {
     key: "paste",
     label: t(($) => $.editors.paste),
     icon: ClipboardPaste,
-    run: (realm, target) =>
-      void readClipboard().then((text) => text !== undefined && pasteText(realm, target, text)),
+    run: (realm, editor) =>
+      void readClipboard().then((text) => text !== undefined && pasteText(realm, editor, text)),
   };
 
   const groups = [

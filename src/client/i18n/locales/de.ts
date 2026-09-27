@@ -206,8 +206,6 @@ const de: TranslationShape<typeof en> = {
     outlineEmpty: "Hier werden die Blöcke des Inhalts zum Umsortieren aufgelistet.",
     emptyLine: "Schreiben oder / zum Einfügen drücken",
     insert: "Einfügen",
-    insertAbove: "Darüber einfügen",
-    insertBelow: "Darunter einfügen",
     searchInsert: "Blöcke und Komponenten suchen...",
     nothingFound: "Nichts gefunden.",
     text: "Text",

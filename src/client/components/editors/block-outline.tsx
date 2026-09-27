@@ -6,21 +6,14 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ListChecks, Puzzle, Square } from "lucide-react";
-import {
-  $getNodeByKey,
-  $getRoot,
-  $isElementNode,
-  HISTORY_PUSH_TAG,
-  SKIP_DOM_SELECTION_TAG,
-  type LexicalEditor,
-  type LexicalNode,
-} from "lexical";
+import { $getNodeByKey, $getRoot, $isElementNode, type LexicalEditor, type LexicalNode } from "lexical";
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ComponentIcon } from "@/config";
 import { findComponent } from "@/shared/component-lookup";
 import { labelOf, summaryOf } from "@/client/lib/component-tree";
 import { isJsxNode, useEditorValue } from "@/client/lib/block-editing";
 import { $isEmptyLine } from "@/client/lib/empty-lines";
+import { historicUpdate } from "@/client/lib/page-history";
 import { select } from "@/client/stores/inspector-store";
 import { BlockList } from "@/client/components/editors/block-controls";
 import { BLOCK_ICONS, HEADING_ICONS } from "@/client/components/editors/block-icons";
@@ -86,18 +79,15 @@ function $describe(node: LexicalNode, t: TFunction): OutlineItem {
 }
 
 function moveBlock(editor: LexicalEditor, key: string, target: string, after: boolean): void {
-  editor.update(
-    () => {
-      const node = $getNodeByKey(key);
-      const anchor = $getNodeByKey(target);
+  historicUpdate(editor, () => {
+    const node = $getNodeByKey(key);
+    const anchor = $getNodeByKey(target);
 
-      if (!node || !anchor) return;
+    if (!node || !anchor) return;
 
-      if (after) anchor.insertAfter(node);
-      else anchor.insertBefore(node);
-    },
-    { tag: [HISTORY_PUSH_TAG, SKIP_DOM_SELECTION_TAG] },
-  );
+    if (after) anchor.insertAfter(node);
+    else anchor.insertBefore(node);
+  });
 }
 
 export function BlockOutline({ editor }: { editor: LexicalEditor }) {

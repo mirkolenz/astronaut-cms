@@ -198,8 +198,6 @@ const en = {
     outlineEmpty: "The blocks of the body are listed here, to reorder them.",
     emptyLine: "Type, or press / to insert",
     insert: "Insert",
-    insertAbove: "Insert above",
-    insertBelow: "Insert below",
     searchInsert: "Search blocks and components...",
     nothingFound: "Nothing found.",
     text: "Text",
