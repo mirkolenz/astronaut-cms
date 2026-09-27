@@ -53,7 +53,8 @@
   },
   "scripts": {
     "build": "vite build",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2",
@@ -109,7 +110,8 @@
     "typescript": "^6",
     "unplugin-dts": "^1",
     "vite": "^7",
-    "vite-plugin-externalize-deps": "^0.10"
+    "vite-plugin-externalize-deps": "^0.10",
+    "vitest": "^4"
   },
   "peerDependencies": {
     "@astrojs/react": "^5",
