@@ -9,6 +9,7 @@
  * path into {@link dispatch}, so the reachable surface is the operation registry
  * rather than one route per thing the CMS happens to do.
  */
+import { z } from "zod";
 import { client as clientConfig, server as serverConfig } from "virtual:astronaut-cms/server";
 import {
   API_BASE,
@@ -59,9 +60,12 @@ import {
   cmsCookie,
   isSameOrigin,
   issue,
+  loginSchema,
   needsRefresh,
   readCookie,
+  sessionSchema,
   verify,
+  type Login,
   type Session,
 } from "./session.ts";
 
@@ -105,13 +109,6 @@ const signInTotal = new RateLimiter({ requests: 120, windowMs: 60_000, concurren
 const rpc = new RateLimiter({ requests: 300, windowMs: 60_000, concurrency: 12 });
 
 const tooMany = (message: string) => () => new HttpError(message, 429);
-
-/**
- * What the sign-in cookie carries. The verifier alone: the challenge derived
- * from it is what the provider echoes back as `state`, so there is no second
- * secret to mint, to carry, or to keep in step with it.
- */
-type Login = { verifier: string };
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -272,7 +269,7 @@ async function authenticate(
     return { kind: "misconfigured", error: describeFailure(err) };
   }
 
-  const stored = await verify<Session>("session", raw, secret);
+  const stored = await verify("session", raw, secret, sessionSchema);
 
   if (!stored || stored.provider !== provider.provider) return { kind: "anonymous" };
 
@@ -468,18 +465,18 @@ async function route(
   if (path === "/rpc" && request.method === "POST") {
     const body = await readBody(request, MAX_RPC_BYTES);
 
-    let calls: unknown;
+    let parsed: unknown;
     try {
-      calls = JSON.parse(body);
+      parsed = JSON.parse(body);
     } catch {
       // A body this server could not parse is a malformed request, not a failure
       // of its own, and saying so keeps the parser's message out of the answer.
       return fail("Malformed request body.", 400);
     }
 
-    if (!Array.isArray(calls) || calls.length === 0) {
-      return fail("A batch of operations is required.", 400);
-    }
+    const { data: calls } = batchSchema.safeParse(parsed);
+
+    if (!calls) return fail("A batch of operations is required.", 400);
 
     if (calls.length > MAX_BATCH_OPS) {
       return fail(`A batch may carry at most ${MAX_BATCH_OPS} operations.`, 400);
@@ -489,7 +486,7 @@ async function route(
       rpc,
       session.login,
       tooMany("Too many requests. Wait a moment and try again."),
-      () => runBatch(ctx, calls as BatchCall[]),
+      () => runBatch(ctx, calls),
       calls.length,
     );
 
@@ -682,7 +679,7 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
 
   const secret = sessionSecret(provider, getEnv);
   const cookie = readCookie(request, LOGIN_COOKIE);
-  const login = cookie ? await verify<Login>("oauth-login", cookie, secret) : null;
+  const login = cookie ? await verify("oauth-login", cookie, secret, loginSchema) : null;
   const code = url.searchParams.get("code");
 
   // The callback has to belong to the sign-in this browser started, and the
@@ -704,11 +701,10 @@ async function completeLogin(request: Request, url: URL, getEnv: EnvReader): Pro
   return redirect(admin, sessionCookie(url, await issueSession(session, secret)));
 }
 
-/** One operation of a batch, before anything has been checked about it. */
-interface BatchCall {
-  op?: unknown;
-  input?: unknown;
-}
+/** Operations of a batch, before anything has been checked about each one. */
+const batchSchema = z.array(z.object({ op: z.unknown(), input: z.unknown() })).min(1);
+
+type BatchCall = z.infer<typeof batchSchema>[number];
 
 /**
  * Every operation of a batch, against the one context the request built — which

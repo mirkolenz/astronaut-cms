@@ -24,13 +24,13 @@ import type { StorageBackend } from "./storage/types.ts";
 /** How many entry reads may be in flight at once. */
 const CONCURRENCY = 10;
 
-/** A worker pool: a fixed number of readers sharing one cursor, with no barriers. */
+/** A worker pool: a fixed number of readers sharing one iterator, with no barriers. */
 async function inParallel<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void> {
-  let next = 0;
+  const cursor = items.values();
 
   await Promise.all(
     Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
-      while (next < items.length) await fn(items[next++]);
+      for (const item of cursor) await fn(item);
     }),
   );
 }

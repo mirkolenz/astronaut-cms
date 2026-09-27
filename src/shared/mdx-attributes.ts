@@ -67,7 +67,7 @@ function evaluate(node: Expression): StaticValue {
 
     case "TemplateLiteral":
       return node.expressions.length === 0
-        ? { known: true, value: node.quasis[0].value.cooked }
+        ? { known: true, value: node.quasis[0]?.value.cooked }
         : UNKNOWN;
 
     case "ArrayExpression": {

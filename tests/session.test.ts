@@ -7,6 +7,8 @@ import {
   readCookie,
   issue,
   verify,
+  loginSchema,
+  sessionSchema,
   type Session,
 } from "@/server/session";
 
@@ -29,7 +31,7 @@ describe("sealed session", () => {
     const token = await issue("session", session, SECRET, HOUR);
 
     expect(token).not.toContain("ghu_secret");
-    await expect(verify<Session>("session", token, SECRET)).resolves.toMatchObject(session);
+    await expect(verify("session", token, SECRET, sessionSchema)).resolves.toMatchObject(session);
   });
 
   // Tampered, truncated, and issued-under-a-rotated-secret all have to read the
@@ -37,9 +39,9 @@ describe("sealed session", () => {
   it("refuses a token it did not issue", async () => {
     const token = await issue("session", session, "first-secret", HOUR);
 
-    await expect(verify("session", token, "second-secret")).resolves.toBeNull();
-    await expect(verify("session", `${token}x`, "first-secret")).resolves.toBeNull();
-    await expect(verify("session", "not-a-cookie", "first-secret")).resolves.toBeNull();
+    await expect(verify("session", token, "second-secret", sessionSchema)).resolves.toBeNull();
+    await expect(verify("session", `${token}x`, "first-secret", sessionSchema)).resolves.toBeNull();
+    await expect(verify("session", "not-a-cookie", "first-secret", sessionSchema)).resolves.toBeNull();
   });
 
   // Every kind of token the CMS issues shares one key, so without the audience a
@@ -48,8 +50,10 @@ describe("sealed session", () => {
   it("refuses a token issued for another purpose", async () => {
     const login = await issue("oauth-login", { verifier: "abc" }, SECRET, HOUR);
 
-    await expect(verify("session", login, SECRET)).resolves.toBeNull();
-    await expect(verify("oauth-login", login, SECRET)).resolves.toMatchObject({ verifier: "abc" });
+    await expect(verify("session", login, SECRET, loginSchema)).resolves.toBeNull();
+    await expect(verify("oauth-login", login, SECRET, loginSchema)).resolves.toEqual({
+      verifier: "abc",
+    });
   });
 
   // The cookie's Max-Age is the browser's to honour; this is the server's own
@@ -57,7 +61,7 @@ describe("sealed session", () => {
   it("refuses a token past its expiry", async () => {
     const expired = await issue("session", session, SECRET, -1);
 
-    await expect(verify("session", expired, SECRET)).resolves.toBeNull();
+    await expect(verify("session", expired, SECRET, sessionSchema)).resolves.toBeNull();
   });
 
   // The key is derived from the secret and nothing else, so every instance of a
@@ -70,7 +74,7 @@ describe("sealed session", () => {
     await issue("session", session, "some-other-secret", HOUR);
 
     await expect(
-      verify<Session>("session", token, "shared-deployment-secret"),
+      verify("session", token, "shared-deployment-secret", sessionSchema),
     ).resolves.toMatchObject(session);
   });
 

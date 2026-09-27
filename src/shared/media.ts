@@ -150,7 +150,9 @@ function publicKey(url: string, publicUrl: string): string | null {
   if (!url.startsWith(prefix)) return null;
 
   try {
-    return decodeURIComponent(url.slice(prefix.length).split(/[?#]/)[0]);
+    const [path = ""] = url.slice(prefix.length).split(/[?#]/);
+
+    return decodeURIComponent(path);
   } catch {
     return null;
   }

@@ -18,6 +18,7 @@ import {
 } from "./types.ts";
 import type {
   CollectionManifest,
+  CollectionManifestEntry,
   EntryMeta,
   EntryContent,
   EntryFormat,
@@ -195,9 +196,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     id: string,
     data: SaveEntryRequest,
   ): Promise<string | undefined> {
-    const col = this.schemas[collection];
-
-    if (!col) throw new Error(`Unknown collection: ${collection}`);
+    const col = this.schema(collection);
 
     await assertEntryWritable(this.contentSource, { col, id, ...data });
 
@@ -274,9 +273,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   async getEntry(collection: string, id: string, format?: string): Promise<EntryContent> {
-    const col = this.schemas[collection];
-
-    if (!col) throw new Error(`Unknown collection: ${collection}`);
+    const col = this.schema(collection);
 
     if (this.isFileCollection(collection)) {
       const { format, entries, version } = await this.readFileCollection(collection);
@@ -352,7 +349,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     const { data, format } = await this.getEntry(collection, oldId);
 
     await assertEntryWritable(this.contentSource, {
-      col: this.schemas[collection],
+      col: this.schema(collection),
       id: newId,
       data,
       body: "",
@@ -502,6 +499,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     }
 
     return result;
+  }
+
+  private schema(collection: string): CollectionManifestEntry {
+    const col = this.schemas[collection];
+
+    if (!col) throw new Error(`Unknown collection: ${collection}`);
+
+    return col;
   }
 
   // --- File collection helpers ---

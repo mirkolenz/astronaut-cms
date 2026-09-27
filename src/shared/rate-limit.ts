@@ -141,9 +141,9 @@ export async function limited<T>(
  */
 export function callerAddress(request: Request): string {
   for (const header of ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]) {
-    const value = request.headers.get(header);
+    const address = request.headers.get(header)?.split(",")[0]?.trim();
 
-    if (value) return value.split(",")[0].trim();
+    if (address) return address;
   }
 
   return "anonymous";

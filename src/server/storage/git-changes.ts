@@ -78,18 +78,17 @@ interface StatusEntry {
  * Paths are made project-relative by stripping the repository prefix.
  */
 function parseStatus(stdout: string, prefix: string): StatusEntry[] {
-  const records = stdout.split("\0").filter(Boolean);
+  const records = stdout.split("\0").filter(Boolean).values();
   const entries: StatusEntry[] = [];
   const strip = (path: string) => (path.startsWith(prefix) ? path.slice(prefix.length) : path);
 
-  for (let i = 0; i < records.length; i++) {
-    const record = records[i];
+  for (const record of records) {
     const status = record.slice(0, 2);
-    const renamed = status.includes("R");
+    const previousPath = status.includes("R") ? records.next().value : undefined;
 
     entries.push({
       path: strip(record.slice(3)),
-      previousPath: renamed ? strip(records[++i]) : undefined,
+      previousPath: previousPath && strip(previousPath),
       kind: toKind(status),
       untracked: status === "??",
     });

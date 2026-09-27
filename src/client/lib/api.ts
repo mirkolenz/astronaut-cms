@@ -23,7 +23,7 @@ import { API_LOGOUT, API_RPC, MAX_BATCH_OPS } from "@/shared/auth";
 import { ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 import { WRITE_HEADER } from "@/shared/http";
 import { isWriteOperation } from "@/shared/operations";
-import { invalidate, keysFor } from "@/client/lib/query-keys";
+import { invalidate, keysFor, type QueryKey } from "@/client/lib/query-keys";
 import { apiFetch, apiUrl } from "@/client/lib/routes";
 
 /** A refusal from the CMS server, keeping the status the UI reacts to. */
@@ -107,6 +107,8 @@ export async function unwrap<T>(response: Response): Promise<T> {
 interface Queued {
   op: OperationName;
   input: unknown;
+  /** What the operation ages once it succeeded. */
+  keys: QueryKey[];
   resolve: (data: unknown) => void;
   reject: (error: unknown) => void;
 }
@@ -168,7 +170,7 @@ async function send(batch: Queued[]): Promise<void> {
         call.reject(new CmsError("The server answered with fewer results than operations.", 500));
       } else if (result.ok) {
         call.resolve(result.data);
-        aged.push(...keysFor(call.op, call.input));
+        aged.push(...call.keys);
       } else {
         call.reject(toError(result.error.status, result.error.message, result.error.validation));
       }
@@ -186,7 +188,13 @@ export async function call<K extends OperationName>(
   input: OperationInput<K>,
 ): Promise<OperationOutput<K>> {
   return new Promise<OperationOutput<K>>((resolve, reject) => {
-    queue.push({ op, input, resolve: resolve as (data: unknown) => void, reject });
+    queue.push({
+      op,
+      input,
+      keys: keysFor(op, input),
+      resolve: resolve as (data: unknown) => void,
+      reject,
+    });
 
     schedule();
   });

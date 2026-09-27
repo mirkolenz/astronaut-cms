@@ -19,7 +19,7 @@ describe("processUserConfig", () => {
       }),
     });
 
-    expect(manifest.Figure.props).toEqual({
+    expect(manifest.Figure?.props).toEqual({
       type: "object",
       shape: {
         src: { type: "image" },
@@ -28,7 +28,7 @@ describe("processUserConfig", () => {
       },
     });
 
-    expect(manifest.Quote.props).toEqual({
+    expect(manifest.Quote?.props).toEqual({
       type: "object",
       shape: { text: { type: "string" } },
     });
@@ -44,9 +44,9 @@ describe("processUserConfig", () => {
       }),
     });
 
-    const children = manifest.Grid.children;
+    const children = manifest.Grid?.children;
 
-    expect(typeof children === "object" && children.Cell.props).toEqual({
+    expect(typeof children === "object" && children.Cell?.props).toEqual({
       type: "object",
       shape: { src: { type: "image" } },
     });

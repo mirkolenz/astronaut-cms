@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { BranchedStorage, fromBase64, toBase64, type StorageOptions } from "./base.ts";
 import type {
@@ -34,6 +35,9 @@ interface TreeFile {
   /** The blob hash, which names the contents and so can address them. */
   version?: string;
 }
+
+/** A page of the repository tree API. */
+const treeSchema = z.array(z.object({ type: z.string(), path: z.string(), id: z.string() }));
 
 /** One action of a commit, in the shape GitLab's commits API takes. */
 interface CommitAction {
@@ -126,11 +130,7 @@ export class GitLabStorage extends BranchedStorage {
         path: `${this.project}/repository/tree`,
         query: { path, ref, recursive: true, per_page: 100, page },
       });
-      const items = (await response.json()) as Array<{
-        type: string;
-        path: string;
-        id: string;
-      }>;
+      const items = treeSchema.parse(await response.json());
 
       found.push(
         ...items
@@ -155,7 +155,7 @@ export class GitLabStorage extends BranchedStorage {
     );
   }
 
-  protected async fetchRawEntry(
+  protected override async fetchRawEntry(
     collection: string,
     id: string,
     ext: string,
@@ -172,7 +172,7 @@ export class GitLabStorage extends BranchedStorage {
    * The JSON form rather than `/raw`: it carries `last_commit_id` beside the
    * bytes, so a read costs one request and still knows what state it saw.
    */
-  protected async fetchFileContent(path: string): Promise<VersionedContent> {
+  protected override async fetchFileContent(path: string): Promise<VersionedContent> {
     const file = await this.api.json<{ content: string; last_commit_id: string }>({
       path: this.filePath(path),
       query: { ref: await this.readRef() },

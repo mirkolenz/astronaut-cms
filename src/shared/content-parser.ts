@@ -32,8 +32,9 @@ export function parseContent(
     case "mdoc": {
       const match = FRONTMATTER_RE.exec(rawContent);
       if (!match) return { data: {}, body: rawContent };
-      const data = (parseYaml(match[1]) as Record<string, unknown>) ?? {};
-      return { data, body: match[2] };
+      const [, frontmatter = "", body = ""] = match;
+      const data = (parseYaml(frontmatter) as Record<string, unknown>) ?? {};
+      return { data, body };
     }
     case "json": {
       const data = JSON.parse(rawContent) as Record<string, unknown>;

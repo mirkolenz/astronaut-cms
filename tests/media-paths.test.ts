@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   isActiveContentType,
   isLibraryFile,
@@ -231,6 +231,7 @@ describe("the trash", () => {
     expect(objects.has("lib/photos/hero.png")).toBe(false);
 
     const [trashed] = await library.listTrash();
+    assert(trashed);
     expect(trashed.path).toBe("photos/hero.png");
 
     await library.restoreMedia(trashed.id);
@@ -253,6 +254,7 @@ describe("the trash", () => {
 
     await library.deleteMedia("photos/hero.png");
     const [trashed] = await library.listTrash();
+    assert(trashed);
 
     objects.set("lib/photos/hero.png", 99);
 

@@ -9,6 +9,7 @@
  * Errors carry the HTTP status, which is the only thing any caller reads off
  * them (see `getErrorStatus`).
  */
+import { z } from "zod";
 import { ApiError } from "../errors.ts";
 
 export interface ApiRequest {
@@ -84,12 +85,11 @@ export class ApiClient {
   }
 }
 
+const failureSchema = z.object({ message: z.string().optional(), error: z.string().optional() });
+
 /** Both providers answer a failure with `{ message }`; the status is the fallback. */
 async function describe(response: Response): Promise<string> {
-  const body = (await response.json().catch(() => null)) as {
-    message?: string;
-    error?: string;
-  } | null;
+  const body = failureSchema.safeParse(await response.json().catch(() => null)).data;
 
   return body?.message ?? body?.error ?? `${response.status} ${response.statusText}`;
 }

@@ -95,7 +95,7 @@ describe("validateBody", () => {
     const { diagnostics } = validateBody('<Figure src="/src/assets/hero.png" />', "mdx", components);
 
     expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0].message).toContain('missing required prop "alt"');
+    expect(diagnostics[0]?.message).toContain('missing required prop "alt"');
   });
 });
 

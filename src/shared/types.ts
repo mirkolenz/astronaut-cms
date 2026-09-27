@@ -197,8 +197,8 @@ export function extractFormatsFromLoader(
   fileName: string | null,
 ): string[] | null {
   if (fileName != null) {
-    const ext = fileName.match(/\.([a-zA-Z0-9]+)$/);
-    return ext ? [ext[1]] : null;
+    const ext = fileName.match(/\.([a-zA-Z0-9]+)$/)?.[1];
+    return ext ? [ext] : null;
   }
 
   if (pattern == null) return null;
@@ -208,16 +208,16 @@ export function extractFormatsFromLoader(
 
   for (const p of patterns) {
     // Match *.{ext1,ext2,...} or *.ext
-    const braceMatch = p.match(/\.\{([^}]+)\}\s*$/);
+    const braceMatch = p.match(/\.\{([^}]+)\}\s*$/)?.[1];
     if (braceMatch) {
-      for (const ext of braceMatch[1].split(",")) {
+      for (const ext of braceMatch.split(",")) {
         formats.add(ext.trim());
       }
       continue;
     }
-    const singleMatch = p.match(/\.([a-zA-Z0-9]+)\s*$/);
+    const singleMatch = p.match(/\.([a-zA-Z0-9]+)\s*$/)?.[1];
     if (singleMatch) {
-      formats.add(singleMatch[1]);
+      formats.add(singleMatch);
     }
   }
 

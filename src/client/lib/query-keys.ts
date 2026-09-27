@@ -13,7 +13,7 @@ import config from "@/client/lib/config";
 import { queryClient } from "@/client/lib/query-client";
 import { isTransactionalMedia } from "@/shared/media";
 
-type QueryKey = readonly unknown[];
+export type QueryKey = readonly unknown[];
 
 const root = ["cms"] as const;
 
@@ -96,11 +96,8 @@ export const INVALIDATIONS: { [K in OperationName]?: (input: OperationInput<K>) 
 };
 
 /** What a completed operation aged. A read ages nothing. */
-export function keysFor(op: OperationName, input: unknown): QueryKey[] {
-  // The registry keys each entry to its own operation, so reading it at a union
-  // of names gives a signature taking the intersection of their inputs; the
-  // value passed is the one that operation was called with.
-  return INVALIDATIONS[op]?.(input as never) ?? [];
+export function keysFor<K extends OperationName>(op: K, input: OperationInput<K>): QueryKey[] {
+  return INVALIDATIONS[op]?.(input) ?? [];
 }
 
 /**

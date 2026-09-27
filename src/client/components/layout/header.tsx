@@ -17,7 +17,7 @@ interface BreadcrumbSegment {
 export function Header() {
   const { t } = useTranslation();
   const params = useParams({ strict: false });
-  const search = useSearch({ strict: false }) as { dir?: string };
+  const search = useSearch({ strict: false });
   const collection = params?.collection;
   const i18n = useCollectionI18n(useEntries(collection ?? "").data);
 
@@ -28,7 +28,7 @@ export function Header() {
     // segment is the language, which the collection page shows as tabs rather
     // than a folder — so it is dropped here but kept in every link, otherwise
     // going up would silently land in the default language.
-    const dir = params.entry ? parentDir(params.entry) : (search?.dir ?? "");
+    const dir = params.entry ? parentDir(params.entry) : (search.dir ?? "");
     const { locale, slug } = splitLocale(dir, i18n?.locales ?? []);
     const dirLink = (path: string) => ({
       to: "/collections/$collection",

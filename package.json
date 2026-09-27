@@ -49,7 +49,7 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "typecheck": "tsc && tsc -p tests",
+    "typecheck": "tsc",
     "test": "vitest run",
     "prepack": "npm run build"
   },

@@ -19,6 +19,7 @@
  * mean something.
  */
 import { encode as base64url } from "jose/base64url";
+import { z } from "zod";
 import { GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import type { Provider } from "../shared/auth.ts";
 import { parseRepo } from "../shared/repo.ts";
@@ -133,13 +134,21 @@ export function authorizationUrl(
   return url.href;
 }
 
-interface TokenResponse {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  error?: string;
-  error_description?: string;
-}
+// GitHub answers a failed exchange with HTTP 200 and an `error` member, so the
+// body decides rather than the status.
+const tokenSchema = z.object({
+  access_token: z.string().min(1),
+  refresh_token: z.string().optional(),
+  expires_in: z.number().optional(),
+  error: z.never().optional(),
+});
+
+const tokenErrorSchema = z.object({
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+type TokenResponse = z.infer<typeof tokenSchema>;
 
 async function postToken(
   config: ProviderConfig,
@@ -156,21 +165,20 @@ async function postToken(
     }),
   });
 
-  // GitHub answers a failed exchange with HTTP 200 and an `error` member, so the
-  // body decides rather than the status.
-  const body = (await response.json().catch(() => ({}))) as TokenResponse;
+  const body: unknown = await response.json().catch(() => ({}));
+  const token = tokenSchema.safeParse(body);
 
-  if (body.error || !body.access_token) {
-    throw new OAuthError(body.error_description ?? body.error ?? "Sign-in failed.");
-  }
+  if (token.success) return token.data;
 
-  return body;
+  const { error, error_description } = tokenErrorSchema.safeParse(body).data ?? {};
+
+  throw new OAuthError(error_description ?? error ?? "Sign-in failed.");
 }
 
 function toSession(provider: OAuthProvider, token: TokenResponse, login: string): Session {
   return {
     provider,
-    token: token.access_token!,
+    token: token.access_token,
     ...(token.refresh_token && { refreshToken: token.refresh_token }),
     ...(token.expires_in != null && { expiresAt: Date.now() + token.expires_in * 1000 }),
     login,
@@ -192,7 +200,7 @@ export async function exchangeCode(
     code_verifier: verifier,
   });
 
-  return toSession(config.provider, token, await verifyAccess(config, token.access_token!));
+  return toSession(config.provider, token, await verifyAccess(config, token.access_token));
 }
 
 /**

@@ -67,9 +67,11 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
   const handleMove = (index: number, direction: -1 | 1) => {
     if (!sortedEntries) return;
     const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= sortedEntries.length) return;
     const ids = sortedEntries.map((e) => e.id);
-    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    const current = ids[index];
+    const target = ids[targetIndex];
+    if (current === undefined || target === undefined) return;
+    [ids[index], ids[targetIndex]] = [target, current];
     reorderMutation.mutate(
       { ids, expectedVersion: file?.version },
       { onError: (err) => toast(writeError(err), "error") },

@@ -38,9 +38,6 @@ interface NewEntryDialogProps {
   onCancel: () => void;
 }
 
-const CONTENT_FORMAT_OPTIONS = CONTENT_FORMATS.map((f) => ({ value: f, label: `.${f}` }));
-const DATA_FORMAT_OPTIONS = DATA_FORMATS.map((f) => ({ value: f, label: `.${f}` }));
-
 export function NewEntryDialog({
   open,
   collection,
@@ -58,22 +55,22 @@ export function NewEntryDialog({
   const [id, setId] = useState("");
   const initialLocale = locale ?? "";
   const [entryLocale, setEntryLocale] = useState(initialLocale);
-  const allFormats = collectionType === "content" ? CONTENT_FORMAT_OPTIONS : DATA_FORMAT_OPTIONS;
-  const formats = useMemo(
-    () =>
-      allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f.value)) : allFormats,
+  const allFormats = collectionType === "content" ? CONTENT_FORMATS : DATA_FORMATS;
+  const formats: readonly EntryFormat[] = useMemo(
+    () => (allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f)) : allFormats),
     [allFormats, allowedFormats],
   );
-  const [format, setFormat] = useState<EntryFormat>(formats[0]?.value ?? allFormats[0].value);
+  const defaultFormat = formats[0] ?? allFormats[0];
+  const [format, setFormat] = useState<EntryFormat>(defaultFormat);
 
   useEffect(() => {
     if (open) {
       setId("");
-      setFormat(formats[0].value);
+      setFormat(defaultFormat);
       setEntryLocale(initialLocale);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open, formats, initialLocale]);
+  }, [open, defaultFormat, initialLocale]);
 
   // The stored id is `<locale>/<folder>/<name>`, so picking a language here is
   // what puts the file in the right content directory.
@@ -150,8 +147,8 @@ export function NewEntryDialog({
                   </SelectTrigger>
                   <SelectContent>
                     {formats.map((f) => (
-                      <SelectItem key={f.value} value={f.value}>
-                        {f.label}
+                      <SelectItem key={f} value={f}>
+                        .{f}
                       </SelectItem>
                     ))}
                   </SelectContent>

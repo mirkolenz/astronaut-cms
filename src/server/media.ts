@@ -64,8 +64,8 @@ function parseTrashId(id: string): { path: string; deletedAt: number } | null {
 
   if (!match) return null;
 
-  const deletedAt = Number(match[1]);
-  const path = match[2];
+  const [, stamp = "", path = ""] = match;
+  const deletedAt = Number(stamp);
   const issued =
     mediaPathError(path) === null && isLibraryFile(path, null) && trashId(path, deletedAt) === id;
 

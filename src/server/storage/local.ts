@@ -136,13 +136,13 @@ export class LocalStorage extends StorageBase {
     );
   }
 
-  protected async fetchFileContent(path: string): Promise<VersionedContent> {
+  protected override async fetchFileContent(path: string): Promise<VersionedContent> {
     const content = await readFile(await this.resolve(path), "utf-8");
 
     return { content, version: await digest(content) };
   }
 
-  protected async fetchRawEntry(
+  protected override async fetchRawEntry(
     collection: string,
     id: string,
     ext: string,

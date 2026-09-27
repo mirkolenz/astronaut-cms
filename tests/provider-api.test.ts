@@ -30,7 +30,7 @@ function stubFetch(
       status = 200,
       body = {},
       headers = {},
-    } = responses[Math.min(next++, responses.length - 1)];
+    } = responses[Math.min(next++, responses.length - 1)] ?? {};
 
     calls.push({
       url: String(input),
@@ -71,15 +71,15 @@ describe("ApiClient", () => {
 
     await api.json({ path: "/things", query: { page: 2, skip: undefined, flag: true } });
 
-    expect(calls[0].url).toBe("https://api.example.com/v4/things?page=2&flag=true");
-    expect(calls[0].headers.authorization).toBe("Bearer t");
-    expect(calls[0].headers["content-type"]).toBeUndefined();
+    expect(calls[0]?.url).toBe("https://api.example.com/v4/things?page=2&flag=true");
+    expect(calls[0]?.headers.authorization).toBe("Bearer t");
+    expect(calls[0]?.headers["content-type"]).toBeUndefined();
 
     await api.run({ path: "things", method: "POST", body: { a: 1 } });
 
-    expect(calls[1].method).toBe("POST");
-    expect(calls[1].headers["content-type"]).toBe("application/json");
-    expect(calls[1].body).toBe('{"a":1}');
+    expect(calls[1]?.method).toBe("POST");
+    expect(calls[1]?.headers["content-type"]).toBe("application/json");
+    expect(calls[1]?.body).toBe('{"a":1}');
   });
 
   // Every caller that branches on a provider failure reads the status off the
@@ -110,10 +110,10 @@ describe("GitHub requests", () => {
 
     await storage().listEntries("posts");
 
-    expect(calls[0].url).toBe("https://api.github.com/repos/acme/site/git/ref/heads/cms/alice");
+    expect(calls[0]?.url).toBe("https://api.github.com/repos/acme/site/git/ref/heads/cms/alice");
     // The draft branch is absent, so the listing falls back to the default branch.
-    expect(calls[1].url).toBe("https://api.github.com/repos/acme/site/git/trees/main?recursive=1");
-    expect(calls[1].headers["x-github-api-version"]).toBe("2022-11-28");
+    expect(calls[1]?.url).toBe("https://api.github.com/repos/acme/site/git/trees/main?recursive=1");
+    expect(calls[1]?.headers["x-github-api-version"]).toBe("2022-11-28");
   });
 
   // A media file's name routinely holds a space or a `#`, either of which would
@@ -126,10 +126,10 @@ describe("GitHub requests", () => {
 
     await storage().readMedia("photos/a b#1.png");
 
-    expect(calls[1].url).toBe(
+    expect(calls[1]?.url).toBe(
       "https://api.github.com/repos/acme/site/contents/src/assets/photos/a%20b%231.png?ref=main",
     );
-    expect(calls[1].headers.accept).toBe("application/vnd.github.object+json");
+    expect(calls[1]?.headers.accept).toBe("application/vnd.github.object+json");
   });
 
   it("reads large file contents from the blob API", async () => {
@@ -148,7 +148,7 @@ describe("GitHub requests", () => {
 
     expect(entry.data).toEqual({ title: "Large" });
     expect(entry.body).toBe("\nBody\n");
-    expect(calls[2].url).toBe("https://api.github.com/repos/acme/site/git/blobs/large");
+    expect(calls[2]?.url).toBe("https://api.github.com/repos/acme/site/git/blobs/large");
   });
 
   it("does not turn a failed repository listing into an empty repository", async () => {
@@ -173,8 +173,8 @@ describe("GitHub requests", () => {
     await expect(storage().renameMedia("source.png", "target.png")).rejects.toBeInstanceOf(
       StaleWriteError,
     );
-    expect(calls[3].url).toContain("contents/src/assets/source.png?ref=parent");
-    expect(calls[4].url).toContain("contents/src/assets/target.png?ref=parent");
+    expect(calls[3]?.url).toContain("contents/src/assets/source.png?ref=parent");
+    expect(calls[4]?.url).toContain("contents/src/assets/target.png?ref=parent");
     expect(calls).not.toContainEqual(
       expect.objectContaining({ method: "POST", url: expect.stringContaining("/git/trees") }),
     );
@@ -199,7 +199,7 @@ describe("GitLab requests", () => {
 
     await storage().listEntries("posts");
 
-    expect(calls[0].url).toBe(
+    expect(calls[0]?.url).toBe(
       "https://gitlab.com/api/v4/projects/group%2Fsite/repository/branches/cms%2Falice",
     );
   });
@@ -209,14 +209,14 @@ describe("GitLab requests", () => {
   it("follows the tree listing across pages", async () => {
     stubFetch([
       { status: 404, body: {} },
-      { body: [{ type: "blob", path: "src/content/blog/a.md" }], headers: { "x-next-page": "2" } },
-      { body: [{ type: "blob", path: "src/content/blog/b.md" }] },
+      { body: [{ type: "blob", path: "src/content/blog/a.md", id: "a" }], headers: { "x-next-page": "2" } },
+      { body: [{ type: "blob", path: "src/content/blog/b.md", id: "b" }] },
     ]);
 
     const entries = await storage().listEntries("posts");
 
-    expect(calls[1].url).toContain("page=1");
-    expect(calls[2].url).toContain("page=2");
+    expect(calls[1]?.url).toContain("page=1");
+    expect(calls[2]?.url).toContain("page=2");
     expect(entries.map((entry) => entry.id)).toEqual(["a", "b"]);
   });
 
@@ -238,7 +238,7 @@ describe("GitLab requests", () => {
 
     const content = await storage().readMedia("films/teaser.mp4", { start: 0, end: 1 });
 
-    expect(calls[1].headers.range).toBe("bytes=0-1");
+    expect(calls[1]?.headers.range).toBe("bytes=0-1");
     expect(content).toMatchObject({ partial: { status: 206, contentRange: "bytes 0-1/10" } });
   });
 });

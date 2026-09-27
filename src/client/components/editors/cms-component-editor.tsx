@@ -72,10 +72,11 @@ function AddChildButton({
   onAdd: (name: string) => void;
 }) {
   const entries = Object.entries(childDefs);
-  if (entries.length === 0) return null;
+  const [first] = entries;
+  if (!first) return null;
 
   if (entries.length === 1) {
-    const [name, def] = entries[0];
+    const [name, def] = first;
     const Icon = def.icon;
     return (
       <Button variant="outline" size="xs" onClick={() => onAdd(name)}>

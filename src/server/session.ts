@@ -21,7 +21,8 @@
  */
 import { EncryptJWT } from "jose/jwt/encrypt";
 import { jwtDecrypt } from "jose/jwt/decrypt";
-import type { Provider } from "../shared/auth.ts";
+import { z } from "zod";
+import { PROVIDERS } from "../shared/auth.ts";
 
 export const SESSION_COOKIE = "astronaut_cms_session";
 
@@ -43,20 +44,16 @@ const ISSUER = "astronaut-cms";
  */
 export type TokenAudience = "session" | "oauth-login";
 
-/**
- * Declared as a type alias rather than an interface so it carries the implicit
- * index signature a JWT payload needs.
- */
-export type Session = {
-  provider: Provider;
+export const sessionSchema = z.object({
+  provider: z.enum(PROVIDERS),
   /** The provider API credential. The only thing here worth protecting. */
-  token: string;
+  token: z.string(),
   /** Present when the provider issues expiring tokens (a GitHub App always does). */
-  refreshToken?: string;
+  refreshToken: z.string().optional(),
   /** Epoch milliseconds, absent when the token does not expire. */
-  expiresAt?: number;
+  expiresAt: z.number().optional(),
   /** Provider username. Cached here so the draft branch costs no round trip. */
-  login: string;
+  login: z.string(),
   /**
    * When the editor's repository access was last confirmed, in epoch
    * milliseconds. Carried in the cookie rather than in instance memory so the
@@ -65,8 +62,19 @@ export type Session = {
    * cold, and the check is an outbound round trip on the critical path of every
    * one of them. See `revoked` in `handler.ts`.
    */
-  checkedAt?: number;
-};
+  checkedAt: z.number().optional(),
+});
+
+export type Session = z.infer<typeof sessionSchema>;
+
+/**
+ * What the sign-in cookie carries. The verifier alone: the challenge derived
+ * from it is what the provider echoes back as `state`, so there is no second
+ * secret to mint, to carry, or to keep in step with it.
+ */
+export const loginSchema = z.object({ verifier: z.string() });
+
+export type Login = z.infer<typeof loginSchema>;
 
 /**
  * Separates this key from whatever else the same secret is used for. The secret
@@ -121,13 +129,14 @@ export async function issue(
 /**
  * What a token carries, or null when it carries nothing this deployment issued
  * for this purpose. Every failure reads the same way — tampered, expired, sealed
- * with a rotated secret, or issued for another audience are all "nothing there",
- * because telling them apart is a way to probe the key.
+ * with a rotated secret, issued for another audience, or not matching the schema
+ * are all "nothing there", because telling them apart is a way to probe the key.
  */
 export async function verify<T>(
   audience: TokenAudience,
   token: string,
   secret: string,
+  schema: z.ZodType<T>,
 ): Promise<T | null> {
   try {
     const { payload } = await jwtDecrypt(token, await sealingKey(secret), {
@@ -135,7 +144,7 @@ export async function verify<T>(
       audience,
     });
 
-    return payload as T;
+    return schema.parse(payload);
   } catch {
     return null;
   }

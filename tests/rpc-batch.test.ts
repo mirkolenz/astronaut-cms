@@ -47,7 +47,7 @@ describe("batched calls", () => {
     ]);
 
     expect(requests).toHaveLength(1);
-    expect(requests[0].body).toEqual([
+    expect(requests[0]?.body).toEqual([
       { op: "getStatus", input: {} },
       { op: "getChanges", input: {} },
       { op: "listMedia", input: {} },
@@ -55,7 +55,7 @@ describe("batched calls", () => {
     expect(answers).toEqual([0, 1, 2]);
     // Nothing in this batch changes anything, so the dev server is not told to
     // treat it as a write.
-    expect(requests[0].headers.has("x-astronaut-cms-write")).toBe(false);
+    expect(requests[0]?.headers.has("x-astronaut-cms-write")).toBe(false);
   });
 
   it("fails only the operation that failed, and marks a batch carrying a write", async () => {
@@ -75,7 +75,7 @@ describe("batched calls", () => {
     expect(failed.status).toBe("rejected");
     expect(isMergeConflict((failed as PromiseRejectedResult).reason)).toBe(true);
     expect(succeeded.status).toBe("fulfilled");
-    expect(requests[0].headers.get("x-astronaut-cms-write")).toBe("1");
+    expect(requests[0]?.headers.get("x-astronaut-cms-write")).toBe("1");
   });
 });
 

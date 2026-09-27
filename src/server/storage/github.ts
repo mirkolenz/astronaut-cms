@@ -151,7 +151,7 @@ export class GitHubStorage extends BranchedStorage {
     );
   }
 
-  protected async fetchRawEntry(
+  protected override async fetchRawEntry(
     collection: string,
     id: string,
     ext: string,
@@ -176,7 +176,7 @@ export class GitHubStorage extends BranchedStorage {
     return file;
   }
 
-  protected async fetchFileContent(path: string): Promise<VersionedContent> {
+  protected override async fetchFileContent(path: string): Promise<VersionedContent> {
     const file = await this.getRepoFile(path);
 
     if (file.encoding === "base64") {

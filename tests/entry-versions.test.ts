@@ -28,17 +28,17 @@ class MemoryStorage extends StubStorage {
     return version;
   }
 
-  protected fetchFileContent(path: string): Promise<VersionedContent> {
+  protected override fetchFileContent(path: string): Promise<VersionedContent> {
     const file = this.files.get(path);
 
     return file ? Promise.resolve(file) : Promise.reject(new Error(`No such file: ${path}`));
   }
 
-  protected fetchRawEntry(collection: string, id: string, ext: string): Promise<VersionedContent> {
+  protected override fetchRawEntry(collection: string, id: string, ext: string): Promise<VersionedContent> {
     return this.fetchFileContent(this.getEntryPath(collection, id, ext));
   }
 
-  protected commitFile(
+  protected override commitFile(
     path: string,
     content: string,
     _message: string,
@@ -51,7 +51,7 @@ class MemoryStorage extends StubStorage {
     return Promise.resolve(this.seed(path, content));
   }
 
-  protected removeFile(path: string, _message: string, expectedVersion?: string): Promise<void> {
+  protected override removeFile(path: string, _message: string, expectedVersion?: string): Promise<void> {
     if (expectedVersion !== undefined && this.files.get(path)?.version !== expectedVersion) {
       return Promise.reject(staleWrite(path));
     }
