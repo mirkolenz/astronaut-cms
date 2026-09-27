@@ -22,6 +22,8 @@ import {
 } from "@/client/components/ui/breadcrumb";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { PathDialog, refusal } from "@/client/components/path-dialog";
+import { toast } from "@/client/components/toast";
+import { errorMessage } from "@/shared/errors";
 
 /**
  * The pieces the media library view and the media picker share: walking the
@@ -165,9 +167,18 @@ export function useMediaUpload(
 
     setOptimizing(true);
 
-    const file = await optimizeImage(raw, mediaLibrary(config.media, library).imageOptimization).finally(
-      () => setOptimizing(false),
-    );
+    let file: File;
+
+    try {
+      file = await optimizeImage(raw, mediaLibrary(config.media, library).imageOptimization);
+    } catch (error) {
+      toast(errorMessage(error), "error");
+
+      return;
+    } finally {
+      setOptimizing(false);
+    }
+
     const path = join(dir, file.name);
 
     if (files?.some((f) => f.path === path)) {

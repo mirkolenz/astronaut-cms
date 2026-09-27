@@ -14,7 +14,7 @@ import type { MediaBackend, MediaContent, UploadTicket } from "./storage/types.t
 import type { MediaFile, TrashedFile } from "../shared/types.ts";
 import type { MediaServerConfig } from "../integration/types.ts";
 import { HttpError, checked } from "./errors.ts";
-import { mediaPathError, validateMediaPath } from "../shared/validation.ts";
+import { mediaPathError } from "../shared/validation.ts";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
@@ -24,6 +24,7 @@ import {
   type ClientLibrary,
 } from "../shared/media.ts";
 import type { MediaStore, UploadTerms } from "../media/s3-store.ts";
+import { assertLibraryPath } from "@/server/library-path";
 
 /**
  * Where a deletion goes instead of being dropped, and what `listTrash` reads
@@ -86,11 +87,7 @@ export class ObjectStoreLibrary implements MediaBackend {
 
   /** A library path, checked and lowered to the store key it addresses. */
   private toKey(path: string): string {
-    checked(400, () => validateMediaPath(path));
-
-    if (!isLibraryFile(path, this.library.extensions)) {
-      throw new HttpError(`"${path}" is hidden or not of an allowed media type.`, 400);
-    }
+    assertLibraryPath(path, this.library.extensions);
 
     return `${this.config.prefix}${path}`;
   }

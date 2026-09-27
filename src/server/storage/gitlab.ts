@@ -275,10 +275,20 @@ export class GitLabStorage extends BranchedStorage {
     );
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
-    // An upload replaces whatever is at the path, which GitLab's commit API
-    // spells as two different actions; `commitUpsert` is what knows which.
-    await this.commitUpsert(repoPath, bytes.toBase64(), `Upload ${repoPath}`, "base64");
+  protected async writeMedia(
+    repoPath: string,
+    bytes: Uint8Array<ArrayBuffer>,
+    overwrite: boolean,
+  ): Promise<void> {
+    // GitLab spells create and replace as different actions. An upload that
+    // did not request replacement must use create even if the listing was stale.
+    await this.commitUpsert(
+      repoPath,
+      bytes.toBase64(),
+      `Upload ${repoPath}`,
+      "base64",
+      overwrite ? undefined : { absent: true },
+    );
   }
 
   /**

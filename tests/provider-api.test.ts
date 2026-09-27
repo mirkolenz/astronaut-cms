@@ -153,6 +153,26 @@ describe("GitHub requests", () => {
     await expect(storage().listEntries("posts")).rejects.toMatchObject({ status: 503 });
   });
 
+  it("refuses a truncated repository tree instead of hiding its remaining files", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { body: { tree: [{ type: "blob", path: "src/content/blog/a.md", sha: "a" }], truncated: true } },
+    ]);
+
+    await expect(storage().listEntries("posts")).rejects.toThrow(/incomplete repository tree/);
+  });
+
+  it("does not report a discarded branch when the provider failed to delete it", async () => {
+    stubFetch([
+      { body: {} },
+      { body: [] },
+      { status: 503, body: { message: "Unavailable" } },
+      { body: {} },
+    ]);
+
+    await expect(storage().discard()).rejects.toMatchObject({ status: 503 });
+  });
+
   it("checks the source and destination against the same parent before moving media", async () => {
     stubFetch([
       { body: {} },
@@ -252,7 +272,7 @@ describe("GitLab requests", () => {
       { status: 206, headers: { "content-range": "bytes 0-1/10" } },
     ]);
 
-    const content = await storage().readMedia("films/teaser.mp4", { start: 0, end: 1 });
+    const content = await storage().readMedia("films/teaser.png", { start: 0, end: 1 });
 
     expect(calls[1]?.headers.range).toBe("bytes=0-1");
     expect(content).toMatchObject({ partial: { status: 206, contentRange: "bytes 0-1/10" } });

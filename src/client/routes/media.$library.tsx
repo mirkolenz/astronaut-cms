@@ -94,6 +94,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
   const writeError = upload.mutation.error ?? deleteMutation.error ?? renameMutation.error;
 
   const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
+  const scanReady = !scanPending && !scanError && !!index;
   const referencesOf = (path: string | null): AssetReference[] =>
     path && index ? referencesFor(index, { library, path }) : [];
 
@@ -105,12 +106,14 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
   };
 
   // Library-wide, so it survives folder navigation and filter toggles.
-  const { used, stale } = useMemo(() => {
+  const { used, stale, unusedCount } = useMemo(() => {
     const paths = files?.map((file) => file.path) ?? [];
+    const used = index && referencedPaths(index, library);
 
     return {
-      used: index && referencedPaths(index, library),
+      used,
       stale: index ? staleReferences(index, library, paths) : [],
+      unusedCount: used ? paths.filter((path) => !used.has(path)).length : 0,
     };
   }, [library, files, index]);
 
@@ -133,21 +136,24 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
   };
 
   const handleDelete = () => {
-    if (!deleteTarget) return;
-    deleteMutation.mutate({ library, path: deleteTarget, force: true });
+    if (!deleteTarget || !scanReady) return;
+
+    deleteMutation.mutate({
+      library,
+      path: deleteTarget,
+      acknowledgedReferences: referencesOf(deleteTarget),
+    });
     setDeleteTarget(null);
   };
 
   const handleRename = (name: string) => {
-    if (!renameTarget) return;
+    if (!renameTarget || !scanReady) return;
 
     renameMutation.mutate({
       library,
       from: renameTarget,
       to: join(dirname(renameTarget), name),
-      // The dialog above has just shown the editor what references this file,
-      // which is exactly the acknowledgement the server asks for.
-      force: true,
+      acknowledgedReferences: referencesOf(renameTarget),
     });
     setRenameTarget(null);
   };
@@ -186,11 +192,11 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {used && files ? (
+          {used && files && !scanning && !scanError ? (
             <>
               <span className="text-xs text-muted-foreground">
                 {t(($) => $.media.unusedCount, {
-                  count: files.filter((file) => !used.has(file.path)).length,
+                  count: unusedCount,
                   total: files.length,
                 })}
               </span>
@@ -354,6 +360,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
         }
         confirmLabel={t(($) => $.common.delete)}
         variant="danger"
+        disabled={!scanReady}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -367,6 +374,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
           confirmLabel={t(($) => $.common.rename)}
           pendingLabel={t(($) => $.media.renaming)}
           isPending={renameMutation.isPending}
+          disabled={!scanReady}
           requireChange
           validate={mediaPathRefusal}
           onSubmit={handleRename}

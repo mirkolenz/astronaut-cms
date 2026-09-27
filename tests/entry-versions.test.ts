@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/server/errors";
+import { ContentValidationError } from "@/shared/diagnostics";
 import {
   StaleWriteError,
   satisfies,
@@ -31,7 +32,9 @@ class MemoryStorage extends StubStorage {
   protected override fetchFileContent(path: string): Promise<VersionedContent> {
     const file = this.files.get(path);
 
-    return file ? Promise.resolve(file) : Promise.reject(new Error(`No such file: ${path}`));
+    return file
+      ? Promise.resolve(file)
+      : Promise.reject(Object.assign(new Error(`No such file: ${path}`), { code: "ENOENT" }));
   }
 
   protected override fetchRawEntry(collection: string, id: string, ext: string): Promise<VersionedContent> {
@@ -63,6 +66,10 @@ class MemoryStorage extends StubStorage {
 
   has(path: string): boolean {
     return this.files.has(path);
+  }
+
+  content(path: string): string | undefined {
+    return this.files.get(path)?.content;
   }
 
   override listEntries() {
@@ -177,6 +184,59 @@ const fileCollections: CollectionManifest = {
   },
 };
 
+const tomlCollections: CollectionManifest = {
+  events: {
+    name: "events",
+    type: "data",
+    loaderType: "glob",
+    loaderPattern: "**/*.toml",
+    loaderBase: "src/data/events",
+    loaderFileName: null,
+    sort: "id",
+    schema: { type: "object", shape: { published: { type: "date" } } },
+  },
+};
+
+const untypedTomlCollections: CollectionManifest = {
+  events: { ...tomlCollections.events!, schema: null },
+};
+
+const unionTomlCollections: CollectionManifest = {
+  events: {
+    ...tomlCollections.events!,
+    schema: {
+      type: "object",
+      shape: {
+        event: {
+          type: "union",
+          discriminator: "kind",
+          variants: [
+            {
+              type: "object",
+              shape: { kind: { type: "literal", value: "scheduled" }, at: { type: "date" } },
+            },
+            {
+              type: "object",
+              shape: { kind: { type: "literal", value: "draft" }, note: { type: "string" } },
+            },
+          ],
+        },
+      },
+    },
+  },
+};
+
+const tomlFileCollections: CollectionManifest = {
+  events: {
+    ...tomlCollections.events!,
+    loaderType: "file",
+    loaderPattern: null,
+    loaderBase: null,
+    loaderFileName: "src/data/events.toml",
+    schema: null,
+  },
+};
+
 const PATH = "src/content/blog/hello.md";
 
 function storage() {
@@ -283,6 +343,96 @@ describe("entry format fallback", () => {
     });
     expect(store.calls).toBe(2);
   });
+});
+
+it("keeps a TOML date after it crosses the JSON API and is saved", async () => {
+  const store = new MemoryStorage(storageOptions(tomlCollections));
+  const path = "src/data/events/launch.toml";
+
+  store.seed(path, "published = 2026-01-01\n");
+
+  const read = await store.getEntry("events", "launch", "toml");
+  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
+
+  await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
+
+  expect(store.content(path)).toContain("published = 2026-01-01\n");
+});
+
+it("restores a new date declared by the collection schema", async () => {
+  const store = new MemoryStorage(storageOptions(tomlCollections));
+  const path = "src/data/events/launch.toml";
+
+  await store.saveEntry("events", "launch", {
+    data: { published: "2026-02-03" },
+    body: "",
+    format: "toml",
+    createOnly: true,
+  });
+
+  expect(store.content(path)).toContain("published = 2026-02-03\n");
+
+  await expect(
+    store.saveEntry("events", "launch", {
+      data: { published: "not-a-date" },
+      body: "",
+      format: "toml",
+    }),
+  ).rejects.toBeInstanceOf(ContentValidationError);
+});
+
+it("restores a new date inside a discriminated union", async () => {
+  const store = new MemoryStorage(storageOptions(unionTomlCollections));
+  const path = "src/data/events/launch.toml";
+
+  await store.saveEntry("events", "launch", {
+    data: { event: { kind: "scheduled", at: "2026-02-03" } },
+    body: "",
+    format: "toml",
+    createOnly: true,
+  });
+
+  expect(store.content(path)).toContain("at = 2026-02-03\n");
+});
+
+it("keeps untyped TOML dates and quoted date-looking text distinct", async () => {
+  const store = new MemoryStorage(storageOptions(untypedTomlCollections));
+  const path = "src/data/events/launch.toml";
+
+  store.seed(
+    path,
+    'published = 2026-01-01\nupdated = 2026-01-01T10:00:00+02:00\nnote = "2026-01-01"\n',
+  );
+
+  const read = await store.getEntry("events", "launch", "toml");
+  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
+
+  await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
+
+  expect(store.content(path)).toContain("published = 2026-01-01\n");
+  expect(store.content(path)).toContain("updated = 2026-01-01T10:00:00.000+02:00\n");
+  expect(store.content(path)).toContain('note = "2026-01-01"\n');
+
+  await store.saveEntry("events", "launch", {
+    data: { ...data, published: "not-a-date" },
+    body: "",
+    format: "toml",
+  });
+
+  expect(store.content(path)).toContain('published = "not-a-date"\n');
+});
+
+it("restores dates in an untyped TOML file collection", async () => {
+  const store = new ContainerStorage(storageOptions(tomlFileCollections));
+
+  store.file = { content: "[launch]\npublished = 2026-01-01\n", version: "v1" };
+
+  const read = await store.getEntry("events", "launch");
+  const data = JSON.parse(JSON.stringify(read.data)) as Record<string, unknown>;
+
+  await store.saveEntry("events", "launch", { data, body: "", format: "toml" });
+
+  expect(store.file.content).toContain("published = 2026-01-01\n");
 });
 
 describe("file collections", () => {

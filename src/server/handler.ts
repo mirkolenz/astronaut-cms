@@ -492,7 +492,14 @@ async function route(path: string, request: Request, url: URL): Promise<Response
 
     if (!libraryId) return fail("Unknown media library.", 404);
 
-    const filePath = decodeURIComponent(segments.join("/"));
+    let filePath: string;
+
+    try {
+      filePath = decodeURIComponent(segments.join("/"));
+    } catch {
+      return fail("Invalid media path.", 400);
+    }
+
     const library = ctx.media(libraryId);
     // A range is what lets a browser play and seek a video or audio file, and
     // Safari will not play one at all without it.

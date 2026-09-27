@@ -25,6 +25,7 @@ interface PathDialogProps {
   confirmLabel: string;
   pendingLabel?: string;
   isPending?: boolean;
+  disabled?: boolean;
   /** Whether the initial value itself may be submitted, which a rename may not. */
   requireChange?: boolean;
   /** Why a value is refused, or null when it is accepted. */
@@ -48,6 +49,7 @@ export function PathDialog({
   confirmLabel,
   pendingLabel,
   isPending = false,
+  disabled = false,
   requireChange = false,
   validate,
   onSubmit,
@@ -58,7 +60,7 @@ export function PathDialog({
   const [value, setValue] = useState(initial);
   const trimmed = value.trim();
   const error = trimmed ? validate(trimmed) : null;
-  const canSubmit = !!trimmed && !error && !isPending && !(requireChange && trimmed === initial);
+  const canSubmit = !!trimmed && !error && !isPending && !disabled && !(requireChange && trimmed === initial);
 
   return (
     <Dialog

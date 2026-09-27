@@ -18,7 +18,12 @@ import { client } from "virtual:astronaut-cms/server";
 import { collectionEnum } from "../shared/collection-schema.ts";
 import { ALL_FORMATS } from "../shared/types.ts";
 import { ContentValidationError, diagnostic, type Diagnostic } from "../shared/diagnostics.ts";
-import { describeReference, referencesFor, type ReferenceIndex } from "../shared/references.ts";
+import {
+  describeReference,
+  referencesFor,
+  type AssetReference,
+  type ReferenceIndex,
+} from "../shared/references.ts";
 import { buildReferenceIndex } from "./references.ts";
 import { validateReorder } from "./validation.ts";
 import { RateLimiter, limited } from "../shared/rate-limit.ts";
@@ -105,9 +110,9 @@ const mediaFile = z.object({ library, path: mediaPathSchema });
  * general request budget is far too loose to bound it, so it gets its own —
  * serialized, and rare enough that a person never notices.
  *
- * The admin caches its index for five minutes and passes `force` once it has
- * shown the editor what a file references, so in practice only the assistant
- * reaches this repeatedly.
+ * The admin caches its index for display, but a mutation scans again so its
+ * acknowledgement is checked against current references. In practice only the
+ * assistant reaches this repeatedly.
  */
 const scans = new RateLimiter({ requests: 10, windowMs: 60_000, concurrency: 1 });
 
@@ -120,16 +125,17 @@ function scan(ctx: RequestContext): Promise<ReferenceIndex> {
   );
 }
 
-/**
- * Whether the caller may act on a file something still points at.
- *
- * The reference scan reads every entry, so it is not something to run on every
- * click. The admin already holds an index (it shows the editor what references
- * the file before asking), which is what lets a human say yes; nothing that has
- * not seen those references can, which is the case that matters — an assistant
- * talked into a deletion by text it read never sets this.
- */
-const acknowledged = z.boolean().default(false);
+/** The references a human saw before accepting a destructive media action. */
+const acknowledgedReferences = z
+  .array(
+    z.object({
+      collection: z.string(),
+      entryId: z.string(),
+      where: z.string(),
+      declared: z.boolean(),
+    }),
+  )
+  .optional();
 
 function assertValid(diagnostics: Diagnostic[]): void {
   if (diagnostics.length > 0) throw new ContentValidationError(diagnostics);
@@ -153,15 +159,28 @@ async function assertInLibrary(ctx: RequestContext, { library, path }: MediaLoca
   refuse(`"${path}" is not in the ${library} media library. Use a path listMedia reports.`);
 }
 
-async function assertUnreferenced(
+async function assertReferencesAcknowledged(
   ctx: RequestContext,
   location: MediaLocation,
-  force: boolean,
+  acknowledged: AssetReference[] | undefined,
 ): Promise<void> {
-  if (force) return;
-
   const index = await scan(ctx);
   const references = referencesFor(index, location);
+
+  if (acknowledged !== undefined) {
+    const keys = (items: AssetReference[]) =>
+      items
+        .map(({ collection, entryId, where, declared }) =>
+          JSON.stringify([collection, entryId, where, declared]),
+        )
+        .sort();
+
+    if (JSON.stringify(keys(references)) !== JSON.stringify(keys(acknowledged))) {
+      throw new HttpError("References to this file changed. Review them again.", 412);
+    }
+
+    return;
+  }
 
   if (references.length === 0) return;
 
@@ -279,23 +298,28 @@ export const operations = {
 
   /** Within one library: a file never moves to the other, whose references are spelled differently. */
   renameMedia: op(
-    z.object({ library, from: mediaPathSchema, to: mediaPathSchema, force: acknowledged }),
-    async (ctx, { library, from, to, force }) => {
+    z.object({ library, from: mediaPathSchema, to: mediaPathSchema, acknowledgedReferences }),
+    async (ctx, { library, from, to, acknowledgedReferences }) => {
       const file = { library, path: from };
 
-      await Promise.all([assertInLibrary(ctx, file), assertUnreferenced(ctx, file, force)]);
+      await assertInLibrary(ctx, file);
+      await assertReferencesAcknowledged(ctx, file, acknowledgedReferences);
       await ctx.media(library).renameMedia(from, to);
 
       return ok;
     },
   ),
 
-  deleteMedia: op(mediaFile.extend({ force: acknowledged }), async (ctx, { force, ...file }) => {
-    await Promise.all([assertInLibrary(ctx, file), assertUnreferenced(ctx, file, force)]);
-    await ctx.media(file.library).deleteMedia(file.path);
+  deleteMedia: op(
+    mediaFile.extend({ acknowledgedReferences }),
+    async (ctx, { acknowledgedReferences, ...file }) => {
+      await assertInLibrary(ctx, file);
+      await assertReferencesAcknowledged(ctx, file, acknowledgedReferences);
+      await ctx.media(file.library).deleteMedia(file.path);
 
-    return ok;
-  }),
+      return ok;
+    },
+  ),
 
   /**
    * The deletions still undoable. A repository library answers with none, so the

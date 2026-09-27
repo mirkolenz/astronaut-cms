@@ -6,6 +6,7 @@ import { HttpError } from "@/server/errors";
 import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
 import { ContentValidationError } from "@/shared/diagnostics";
 import { changesetDigest } from "@/shared/digest";
+import { referencesFor } from "@/shared/references";
 import type { FileChange } from "@/shared/types";
 
 // The operation registry is the security boundary: a compromised admin can call
@@ -136,4 +137,51 @@ describe("publish", () => {
     await dispatch(ctx, "publish", { digest: await changesetDigest(changes) });
     expect(published).toEqual(["published"]);
   });
+});
+
+describe("media reference acknowledgements", () => {
+  for (const name of ["deleteMedia", "renameMedia"] as const) {
+    it(`${name} refuses newly added references after a review`, async () => {
+      let ids = ["first"];
+      const actions: string[] = [];
+      const storage = {
+        listEntries: async (collection: string) =>
+          ids.map((id) => ({ collection, id, format: "md" as const })),
+        getEntry: async (_collection: string, id: string) => ({
+          id,
+          format: "md" as const,
+          data: {},
+          body: "![cover](../../assets/cover.png)",
+        }),
+      } as unknown as RequestContext["storage"];
+      const media = {
+        listPaths: async () => [{ path: "cover.png" }],
+        deleteMedia: async () => void actions.push("delete"),
+        renameMedia: async () => void actions.push("rename"),
+      } as unknown as ReturnType<RequestContext["media"]>;
+      const ctx = context({
+        session: { provider: "local", token: "", login: `${name}-ack-test` },
+        storage,
+        media: () => media,
+      });
+      const file = { library: "repo" as const, path: "cover.png" };
+      const input = name === "deleteMedia" ? file : { library: "repo", from: file.path, to: "moved.png" };
+
+      await expect(dispatch(ctx, name, input)).rejects.toBeInstanceOf(ContentValidationError);
+
+      const reviewed = referencesFor(await operations.getReferences.run(ctx, {}), file);
+
+      ids = ["first", "second"];
+
+      await expect(
+        dispatch(ctx, name, { ...input, acknowledgedReferences: reviewed }),
+      ).rejects.toMatchObject({ status: 412 });
+      expect(actions).toEqual([]);
+
+      const current = referencesFor(await operations.getReferences.run(ctx, {}), file);
+
+      await dispatch(ctx, name, { ...input, acknowledgedReferences: current.toReversed() });
+      expect(actions).toHaveLength(1);
+    });
+  }
 });

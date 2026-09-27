@@ -117,15 +117,20 @@ export class GitHubStorage extends BranchedStorage {
     const cache = {
       ref,
       entries: this.api
-        .json<{ tree: Array<{ type: string; path: string; size?: number; sha: string }> }>({
+        .json<{
+          tree: Array<{ type: string; path: string; size?: number; sha: string }>;
+          truncated?: boolean;
+        }>({
           path: `${this.repo}/git/trees/${ref}`,
           query: { recursive: "1" },
         })
-        .then(({ tree }) =>
-          tree
+        .then(({ tree, truncated }) => {
+          if (truncated) throw new Error("GitHub returned an incomplete repository tree.");
+
+          return tree
             .filter((item) => item.type === "blob")
-            .map((item) => ({ path: item.path, size: item.size ?? 0, version: item.sha })),
-        )
+            .map((item) => ({ path: item.path, size: item.size ?? 0, version: item.sha }));
+        })
         .catch((error: unknown): never => {
           // A failed listing must not become what every later call reads: the
           // cache is dropped so the next caller retries instead of seeing an
@@ -226,8 +231,18 @@ export class GitHubStorage extends BranchedStorage {
     );
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
-    await this.commitBlob(repoPath, bytes.toBase64(), "base64", `Upload ${repoPath}`);
+  protected async writeMedia(
+    repoPath: string,
+    bytes: Uint8Array<ArrayBuffer>,
+    overwrite: boolean,
+  ): Promise<void> {
+    await this.commitBlob(
+      repoPath,
+      bytes.toBase64(),
+      "base64",
+      `Upload ${repoPath}`,
+      overwrite ? undefined : { absent: true },
+    );
   }
 
   /**

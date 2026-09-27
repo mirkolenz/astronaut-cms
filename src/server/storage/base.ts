@@ -1,4 +1,5 @@
 import { join } from "pathe";
+import { TomlDate } from "smol-toml";
 import type {
   BranchStatus,
   ChangeRequestSummary,
@@ -47,7 +48,6 @@ import {
   validateSegment,
   validatePath,
   validateFormat,
-  validateMediaPath,
 } from "../../shared/validation.ts";
 import { assertEntryWritable, type ContentSource, type MediaSource } from "../validation.ts";
 import {
@@ -58,14 +58,105 @@ import {
   type MediaLibraryId,
   type WorkingTreeLibrary,
 } from "../../shared/media.ts";
-import type { ComponentSchemaMap } from "../../shared/field-schema.ts";
+import type { ComponentSchemaMap, FieldSchema } from "../../shared/field-schema.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
-import { HttpError } from "../errors.ts";
+import { HttpError, checked } from "../errors.ts";
+import { ContentValidationError, diagnostic } from "../../shared/diagnostics.ts";
+import { assertLibraryPath } from "@/server/library-path";
 
 const untrashable =
   "This library keeps its deletions in the changeset rather than a trash. Discard the pending changes to bring a deleted file back.";
 
 const BRANCH_PREFIX = "cms/";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
+
+function activeField(schema: FieldSchema | null | undefined, value: unknown): FieldSchema | undefined {
+  if (!schema) return undefined;
+  if (schema.type !== "union") return schema;
+
+  const { discriminator } = schema;
+
+  if (!discriminator || !isRecord(value)) return undefined;
+
+  return schema.variants.find((variant) => {
+    const tag = variant.type === "object" ? variant.shape[discriminator] : undefined;
+
+    return tag?.type === "literal" && Object.is(tag.value, value[discriminator]);
+  });
+}
+
+/** Restore TOML date types lost when entry data passed through the JSON API. */
+function restoreTomlDates(
+  value: unknown,
+  previous: unknown,
+  schema: FieldSchema | null | undefined,
+  path = "",
+): unknown {
+  const field = activeField(schema, value);
+
+  if (typeof value === "string" && (previous instanceof Date || field?.type === "date")) {
+    const date = new TomlDate(value);
+
+    if (date.isValid()) return date;
+
+    const parsed = new Date(value);
+
+    if (!Number.isNaN(parsed.getTime())) return new TomlDate(parsed.toISOString());
+
+    if (field?.type !== "date") return value;
+
+    throw new ContentValidationError([diagnostic("Expected a TOML date.", path)]);
+  }
+
+  if (Array.isArray(value)) {
+    const old = Array.isArray(previous) ? previous : [];
+
+    return value.map((item, index) =>
+      restoreTomlDates(
+        item,
+        old[index],
+        field?.type === "array"
+          ? field.element
+          : field?.type === "tuple"
+            ? field.items[index]
+            : undefined,
+        `${path}.${index}`,
+      ),
+    );
+  }
+
+  if (isRecord(value)) return restoreTomlRecord(value, previous, field, path);
+
+  return value;
+}
+
+function restoreTomlRecord(
+  value: Record<string, unknown>,
+  previous: unknown,
+  schema: FieldSchema | null | undefined,
+  path = "",
+): Record<string, unknown> {
+  const old = isRecord(previous) ? previous : {};
+  const field = activeField(schema, value);
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      restoreTomlDates(
+        item,
+        old[key],
+        field?.type === "object"
+          ? field.shape[key]
+          : field?.type === "record"
+            ? field.value
+            : undefined,
+        path ? `${path}.${key}` : key,
+      ),
+    ]),
+  );
+}
 
 /** Both providers hand file contents back this way, whitespace and all. */
 export const fromBase64 = (content: string): string => new TextDecoder().decode(Uint8Array.fromBase64(content));
@@ -133,7 +224,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * All three take repository paths, lowered by the funnels below, and persist a
    * write the library's limits have already been checked against.
    */
-  protected abstract writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
+  protected abstract writeMedia(
+    repoPath: string,
+    bytes: Uint8Array<ArrayBuffer>,
+    overwrite: boolean,
+  ): Promise<void>;
   protected abstract moveMedia(from: string, to: string): Promise<void>;
   protected abstract removeMedia(repoPath: string): Promise<void>;
   /** A content write, after which the container this request read is stale. */
@@ -148,6 +243,28 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     this.containers.clear();
 
     return version;
+  }
+
+  private async tomlEntryData(
+    collection: string,
+    id: string,
+    data: Record<string, unknown>,
+    schema: FieldSchema | null,
+    createOnly: boolean,
+  ): Promise<Record<string, unknown>> {
+    if (createOnly) return restoreTomlRecord(data, undefined, schema);
+
+    let previous: Record<string, unknown> | undefined;
+
+    try {
+      const { content } = await this.fetchRawEntry(collection, id, "toml");
+
+      previous = parseContent(content, "toml").data;
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
+
+    return restoreTomlRecord(data, previous, schema);
   }
 
   /**
@@ -193,14 +310,25 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     await assertEntryWritable(this.contentSource, { col, id, ...data });
 
     const edited = this.isFileCollection(collection)
-      ? await this.editFileCollection(collection, (entries) => {
+      ? await this.editFileCollection(collection, (entries, format) => {
           if (data.createOnly && entries.has(id)) throw staleWrite(`${collection}/${id}`);
 
-          entries.set(id, data.data);
+          entries.set(
+            id,
+            format === "toml"
+              ? restoreTomlRecord(data.data, entries.get(id), col.schema)
+              : data.data,
+          );
         })
       : {
           path: this.getEntryPath(collection, id, data.format),
-          content: serializeContent(data.data, data.body, data.format),
+          content: serializeContent(
+            data.format === "toml"
+              ? await this.tomlEntryData(collection, id, data.data, col.schema, data.createOnly ?? false)
+              : data.data,
+            data.body,
+            data.format,
+          ),
           version: undefined,
         };
 
@@ -398,7 +526,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
   /** The repository path of a library file. */
   protected mediaRepoPath(path: string): string {
-    validateMediaPath(path);
+    assertLibraryPath(path, this.options.library.extensions);
 
     return join(this.mediaDirectory, path);
   }
@@ -414,25 +542,25 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     return { direct: false };
   }
 
-  private async assertUploadable(path: string, size: number, overwrite: boolean): Promise<void> {
-    assertWithinSizeLimit(size, this.options.library);
+  private async assertUploadable(path: string, size: number, overwrite: boolean): Promise<string> {
+    const repoPath = this.mediaRepoPath(path);
 
-    if (!isLibraryFile(path, this.options.library.extensions)) {
-      throw new Error(`"${path}" is hidden or not of an allowed media type.`);
-    }
+    checked(413, () => assertWithinSizeLimit(size, this.options.library));
 
     // Replacing a file is a different act from adding one: an upload that did
     // not ask to replace does not get to.
     if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path)) {
-      throw new Error(`A file already exists at "${path}".`);
+      throw new HttpError(`A file already exists at "${path}".`, 409);
     }
+
+    return repoPath;
   }
 
-  /** Where a repository library's own writes are checked, before any path is built. */
+  /** Where a repository library's own writes are checked before bytes reach a backend. */
   async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
-    await this.assertUploadable(path, bytes.byteLength, overwrite);
+    const repoPath = await this.assertUploadable(path, bytes.byteLength, overwrite);
 
-    return this.writeMedia(this.mediaRepoPath(path), bytes);
+    return this.writeMedia(repoPath, bytes, overwrite);
   }
 
   async renameMedia(oldPath: string, newPath: string): Promise<void> {
@@ -582,14 +710,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    */
   protected async editFileCollection(
     collection: string,
-    mutate: (entries: FileEntries) => FileEntries | void,
+    mutate: (entries: FileEntries, format: EntryFormat) => FileEntries | void,
   ): Promise<{ path: string; content: string; version?: string }> {
     const { path, format, version, ...file } = await this.readFileCollection(collection);
     const edited = new Map(file.entries);
 
     return {
       path,
-      content: serializeMultiEntryFile({ ...file, entries: mutate(edited) ?? edited }, format),
+      content: serializeMultiEntryFile({ ...file, entries: mutate(edited, format) ?? edited }, format),
       version,
     };
   }
@@ -727,15 +855,15 @@ export abstract class BranchedStorage extends StorageBase {
     if (cr) {
       try {
         await this.closeChangeRequest(cr.id);
-      } catch {
-        // Already closed.
+      } catch (err) {
+        if (await this.findOpenChangeRequest(this.branch)) throw err;
       }
     }
 
     try {
       await this.deleteUserBranch(this.branch);
-    } catch {
-      // Already gone (e.g. removed along with the merge).
+    } catch (err) {
+      if (await this.checkBranchExists(this.branch)) throw err;
     }
 
     this.markBranchExists(false);

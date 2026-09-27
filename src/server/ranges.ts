@@ -29,6 +29,12 @@ export async function fetchRange(
     throw new HttpError(`Could not read the media file (${response.status}).`, 502);
   }
 
+  if (response.status === 206 && !response.headers.has("content-range")) {
+    await response.body?.cancel();
+
+    throw new HttpError("The media source returned partial bytes without a content range.", 502);
+  }
+
   return { ...relayRange(response, range ?? null), headers: response.headers };
 }
 

@@ -61,6 +61,12 @@ describe("media caching", () => {
 
 // A media element asks for ranges, and Safari plays nothing that refuses them.
 describe("media ranges", () => {
+  it("rejects a malformed encoded path as a client error", async () => {
+    const response = await handle(new Request(`https://cms.test${API_MEDIA}/repo/%`));
+
+    expect(response.status).toBe(400);
+  });
+
   it("answers one range with its bytes and where they sit", async () => {
     const response = await get("", { range: "bytes=1-4" });
 

@@ -98,8 +98,10 @@ export class LocalStorage extends StorageBase {
 
     try {
       entries = await readdir(await this.resolve(dir), { withFileTypes: true, recursive: true });
-    } catch {
-      return [];
+    } catch (error) {
+      if (getErrorCode(error) === "ENOENT") return [];
+
+      throw error;
     }
 
     return Promise.all(
@@ -122,7 +124,14 @@ export class LocalStorage extends StorageBase {
     const fullPath = await this.resolve(path);
 
     await mkdir(dirname(fullPath), { recursive: true });
-    await writeFile(fullPath, content, createOnly ? { flag: "wx" } : undefined);
+
+    try {
+      await writeFile(fullPath, content, createOnly ? { flag: "wx" } : undefined);
+    } catch (error) {
+      if (createOnly && getErrorCode(error) === "EEXIST") throw staleWrite(path);
+
+      throw error;
+    }
   }
 
   async listEntries(collection: string): Promise<EntryMeta[]> {
@@ -158,15 +167,9 @@ export class LocalStorage extends StorageBase {
 
     if (precondition !== undefined && !absent) await this.assertVersion(path, precondition.version);
 
-    try {
-      // `wx` is the claim itself: the check and the write are the same syscall,
-      // so nothing can take the path in between.
-      await this.writeFileAt(path, content, absent);
-    } catch (error) {
-      if (absent && getErrorCode(error) === "EEXIST") throw staleWrite(path);
-
-      throw error;
-    }
+    // `wx` is the claim itself: the check and the write are the same syscall,
+    // so nothing can take the path in between.
+    await this.writeFileAt(path, content, absent);
 
     return sha256(content);
   }
@@ -192,8 +195,12 @@ export class LocalStorage extends StorageBase {
     return this.mediaFiles(await this.listDirectory(this.mediaDirectory));
   }
 
-  protected async writeMedia(repoPath: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
-    await this.writeFileAt(repoPath, bytes);
+  protected async writeMedia(
+    repoPath: string,
+    bytes: Uint8Array<ArrayBuffer>,
+    overwrite: boolean,
+  ): Promise<void> {
+    await this.writeFileAt(repoPath, bytes, !overwrite);
   }
 
   protected async moveMedia(from: string, to: string): Promise<void> {

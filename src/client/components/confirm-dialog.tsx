@@ -17,6 +17,7 @@ interface ConfirmDialogProps {
   message: ReactNode;
   confirmLabel?: string;
   variant?: "danger" | "default";
+  disabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   message,
   confirmLabel,
   variant = "default",
+  disabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -43,12 +45,15 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{message}</AlertDialogDescription>
+          <AlertDialogDescription asChild>
+            <div>{message}</div>
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t(($) => $.common.cancel)}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
+            disabled={disabled}
             variant={variant === "danger" ? "destructive" : "default"}
           >
             {resolvedConfirmLabel}

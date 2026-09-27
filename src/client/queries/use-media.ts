@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import config from "@/client/lib/config";
 import { mediaPath, type MediaLibraryId, type MediaLocation } from "@/shared/media";
-import type { ReferenceIndex } from "@/shared/references";
+import type { AssetReference, ReferenceIndex } from "@/shared/references";
 import { call } from "@/client/lib/api";
 import { cmsKeys } from "@/client/lib/query-keys";
 import { mediaUrl, uploadMedia } from "@/client/lib/media";
@@ -28,19 +28,24 @@ export function useMedia(library: MediaLibraryId) {
 // an operation, so `uploadMedia` invalidates for itself.
 
 /**
- * `force` is how a human says they have seen what references the file. The
- * server refuses a referenced path without it, which is what stops anything that
- * has *not* seen them — the assistant above all — from deleting one.
+ * A media removal or move carries the references the editor reviewed. The
+ * server checks that those references are still current before writing.
  */
 export function useDeleteMedia() {
   return useMutation({
-    mutationFn: (input: MediaLocation & { force?: boolean }) => call("deleteMedia", input),
+    mutationFn: (input: MediaLocation & { acknowledgedReferences: AssetReference[] }) =>
+      call("deleteMedia", input),
   });
 }
 
 export function useRenameMedia() {
   return useMutation({
-    mutationFn: (input: { library: MediaLibraryId; from: string; to: string; force?: boolean }) =>
+    mutationFn: (input: {
+      library: MediaLibraryId;
+      from: string;
+      to: string;
+      acknowledgedReferences: AssetReference[];
+    }) =>
       call("renameMedia", input),
   });
 }
@@ -112,16 +117,25 @@ export function useAssetUrl(ref: string | undefined): string | undefined {
  * "not scanned" and "scanning" are told apart here rather than at each use.
  */
 export function useReferenceIndex() {
+  const queryClient = useQueryClient();
   const [requested, setRequested] = useState(false);
-  const { data, isFetching, error } = useQuery({ ...REFERENCES_QUERY, enabled: requested });
+  const [scanPending, setScanPending] = useState(false);
+  const { data, isFetching, error, refetch } = useQuery({ ...REFERENCES_QUERY, enabled: requested });
+  const index = queryClient.getQueryData<ReferenceIndex>(cmsKeys.references) ?? data;
 
   return {
-    index: data as ReferenceIndex | undefined,
+    index,
     /** A scan is in flight, which is what the trigger and the empty state react to. */
-    scanning: isFetching,
+    scanning: scanPending || isFetching,
     /** Nothing can be said about references yet, whether or not a scan is running. */
-    pending: isFetching || data == null,
+    pending: scanPending || isFetching || index == null,
     error,
-    scan: () => setRequested(true),
+    scan: () => {
+      if (scanPending || isFetching) return;
+
+      setScanPending(true);
+      void refetch().finally(() => setScanPending(false));
+      setRequested(true);
+    },
   };
 }
