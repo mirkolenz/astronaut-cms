@@ -12,6 +12,8 @@ import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import {
   assertWithinSizeLimit,
   hasAllowedExtension,
+  isActiveContentType,
+  mediaContentType,
   S3_ACCESS_KEY_ID_ENV,
   S3_SECRET_ACCESS_KEY_ENV,
   S3_SESSION_TOKEN_ENV,
@@ -19,7 +21,24 @@ import {
 } from "../shared/media.ts";
 import type { MediaFile } from "../shared/types.ts";
 import type { MediaServerConfig } from "../integration/types.ts";
-import { BindingStore, type MediaStore, type R2Binding } from "./store.ts";
+import { BindingStore, type MediaStore, type R2Binding, type UploadTerms } from "./store.ts";
+
+/**
+ * Where a deleted object is kept instead of being dropped.
+ *
+ * What may safely be deleted depends on what content references it, and only
+ * the admin can answer that — it is the side that can read the repository. A
+ * precondition the store cannot check is no precondition at all, so the store
+ * makes the operation recoverable instead: a client bug, a stale reference scan
+ * or a compromised admin then costs a restore rather than the file.
+ *
+ * It lives inside the library prefix so one bucket policy covers both, under a
+ * segment `toKey` refuses, so nothing reachable through this route can address
+ * it. Give the prefix a lifecycle rule to decide how long a deletion stays
+ * undoable — and note that a public bucket serves these keys too, so a deleted
+ * file stays readable to anyone who can guess one until that rule expires it.
+ */
+const TRASH_SEGMENT = ".trash";
 
 export interface MediaRelayConfig extends AccessConfig {
   /** Null when the library lives in the repository, where this route has no role. */
@@ -32,7 +51,7 @@ export interface MediaRelayConfig extends AccessConfig {
 
 type MediaAction =
   | { action: "list" }
-  | { action: "upload"; path: string; size?: number }
+  | { action: "upload"; path: string; size: number; overwrite?: boolean }
   | { action: "rename"; from: string; to: string }
   | { action: "delete"; path: string };
 
@@ -111,6 +130,10 @@ function toKey(path: unknown, media: MediaServerConfig, extensions: string[]): s
 
   checked(400, () => validateMediaPath(path));
 
+  if (path.split("/")[0] === TRASH_SEGMENT) {
+    throw new RequestError(`"${TRASH_SEGMENT}" is reserved.`, 400);
+  }
+
   if (!hasAllowedExtension(path, extensions)) {
     throw new RequestError(
       `"${path}" does not have an allowed media extension (${extensions.join(", ")}).`,
@@ -133,11 +156,70 @@ function checked<T>(status: number, run: () => T): T {
 /** A relay whose backend is configured, which is all `run` is ever handed. */
 type ResolvedConfig = MediaRelayConfig & { media: MediaServerConfig };
 
-async function run(
-  body: MediaAction,
+/**
+ * What an upload is allowed to be. Settled here rather than taken from the
+ * request: the caller names a path and a size, and everything that decides how
+ * the bytes are stored and served back follows from the path alone.
+ */
+function uploadTerms(path: string, size: number, maxFileSize: number | null): UploadTerms {
+  checked(413, () => assertWithinSizeLimit(size, maxFileSize));
+
+  const contentType = mediaContentType(path);
+
+  return { length: size, contentType, attachment: isActiveContentType(contentType) };
+}
+
+/**
+ * A destination the caller is entitled to write. A presigned PUT replaces
+ * whatever is at its key, so a write that did not say it meant to replace must
+ * never be handed one that can. This is the only place that decides it: the
+ * admin's own check is a courtesy, and the assistant's unique naming is one
+ * caller's discipline rather than a rule of the library.
+ */
+async function assertWritable(
+  store: MediaStore,
+  key: string,
+  path: string,
+  overwrite: boolean,
+): Promise<void> {
+  if (overwrite || !(await store.head(key))) return;
+
+  throw new RequestError(
+    `A file already exists at "${path}". Use a different name, or replace it deliberately.`,
+    409,
+  );
+}
+
+async function upload(
+  body: Extract<MediaAction, { action: "upload" }>,
   { media, extensions, maxFileSize }: ResolvedConfig,
   store: MediaStore,
+): Promise<UploadTarget> {
+  const { size } = body;
+
+  if (!Number.isFinite(size) || size < 0) {
+    throw new RequestError("An upload size is required.", 400);
+  }
+
+  const key = toKey(body.path, media, extensions);
+  const url = await store.presignUpload(key, uploadTerms(body.path, size, maxFileSize));
+
+  // The client is told which it is, so it never sends the Git token to a store.
+  // A proxied upload is checked when its bytes arrive; only a presigned URL is
+  // handed out now and spent later, so its destination has to be settled here.
+  if (!url) return { proxy: true };
+
+  await assertWritable(store, key, body.path, body.overwrite === true);
+
+  return { proxy: false, url, contentType: mediaContentType(body.path) };
+}
+
+async function run(
+  body: MediaAction,
+  config: ResolvedConfig,
+  store: MediaStore,
 ): Promise<Response> {
+  const { media, extensions } = config;
   const key = (path: unknown) => toKey(path, media, extensions);
 
   switch (body.action) {
@@ -145,40 +227,36 @@ async function run(
       const objects = await store.list(media.prefix);
       const files: MediaFile[] = objects
         .map(({ key: objectKey, size }) => ({ path: objectKey.slice(media.prefix.length), size }))
-        .filter((file) => hasAllowedExtension(file.path, extensions));
+        .filter(
+          (file) =>
+            !file.path.startsWith(`${TRASH_SEGMENT}/`) &&
+            hasAllowedExtension(file.path, extensions),
+        );
 
       return json({ files });
     }
 
-    case "upload": {
-      // A presigned URL enforces nothing, so the size the client declares is all
-      // there is to go on until the bytes arrive somewhere this route can see.
-      if (body.size != null) checked(413, () => assertWithinSizeLimit(body.size!, maxFileSize));
-
-      const url = await store.presignUpload(key(body.path));
-
-      // The client is told which it is, so it never sends the Git token to a store.
-      const target: UploadTarget = url ? { proxy: false, url } : { proxy: true };
-
-      return json(target);
-    }
+    case "upload":
+      return json(await upload(body, config, store));
 
     case "rename": {
       const from = key(body.from);
       const to = key(body.to);
 
-      if (await store.head(to)) {
-        throw new RequestError(`A file already exists at "${body.to}".`, 409);
-      }
-
-      await store.copy(from, to);
+      // The check reports the conflict; `ifAbsent` is what makes it true, since
+      // a destination can appear between the two calls.
+      await assertWritable(store, to, body.to, false);
+      await store.copy(from, to, true);
       await store.remove(from);
 
       return json({ ok: true });
     }
 
     case "delete": {
-      await store.remove(key(body.path));
+      const from = key(body.path);
+
+      await store.copy(from, `${media.prefix}${TRASH_SEGMENT}/${Date.now()}-${body.path}`);
+      await store.remove(from);
 
       return json({ ok: true });
     }
@@ -207,23 +285,25 @@ export async function handle(
 
     // A proxied upload carries a body, so it names its target in the query string.
     if (request.method === "PUT") {
+      const params = new URL(request.url).searchParams;
+      const path = params.get("path") ?? "";
       const length = Number(request.headers.get("content-length"));
 
       // The store needs the length to accept a stream, so an upload that does not
-      // declare one cannot be forwarded at all.
+      // declare one cannot be forwarded at all. Here it is the measured length of
+      // the body this route is holding, not a number the caller asserted.
       if (!request.body || !Number.isFinite(length) || length <= 0) {
         throw new RequestError("Upload requires a content-length.", 411);
       }
 
-      checked(413, () => assertWithinSizeLimit(length, config.maxFileSize));
+      const key = toKey(path, media, config.extensions);
+
+      await assertWritable(store, key, path, params.get("overwrite") === "true");
 
       // Streamed rather than buffered: an isolate has far less memory than the
-      // platform allows a request body to be (128 MB against 100-500 MB).
-      await store.put(
-        toKey(new URL(request.url).searchParams.get("path"), media, config.extensions),
-        { stream: request.body, length },
-        request.headers.get("content-type"),
-      );
+      // platform allows a request body to be (128 MB against 100-500 MB). The
+      // caller's own content-type is discarded: `uploadTerms` derives it.
+      await store.put(key, request.body, uploadTerms(path, length, config.maxFileSize));
 
       return json({ ok: true });
     }

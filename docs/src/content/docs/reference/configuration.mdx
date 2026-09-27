@@ -80,7 +80,7 @@ Only available during development.
 | `repo`        | `string`                      | required      | Repository in `owner/repo` format                                                |
 | `branch`      | `string`                      | `"main"`      | Target branch                                                                    |
 | `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                                         |
-| `authMode`    | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy; `github-app` allows single-repo, least-privilege tokens |
+| `authMode`    | `"oauth-app" \| "github-app"` | `"github-app"` | Authentication strategy. `github-app` issues repository-limited, expiring tokens; `oauth-app` issues a coarse, non-expiring `repo` token. See [Security Model](/astronaut-cms/guides/security/#the-browser-token) |
 | `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow; `redirect` needs a client secret and an SSR adapter                |
 | `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app`                      |
 | `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | Commit strategy                                                                  |
@@ -126,7 +126,7 @@ interface MediaConfig {
 | ------------------- | -------------------- | ------------------ | ---------------------------------------------------- |
 | `directory`         | `string`             | `"src/assets"`     | Media directory relative to project root (`repo` backend) |
 | `allowedExtensions` | `string[]`           | common types       | Allowed file extensions (with leading dot)           |
-| `maxFileSize`       | `number`             | unlimited          | Maximum upload size in bytes, enforced in the admin and in the media route |
+| `maxFileSize`       | `number`             | unlimited          | Maximum upload size in bytes. Checked in the admin, and signed into the presigned upload so the store enforces it too |
 | `alwaysInclude`     | `string[]`           | `[]`               | Globs, relative to `directory`, to bundle regardless (`repo` backend) |
 | `backend`           | `MediaBackendConfig` | `{ type: "repo" }` | Where the library's files live                       |
 

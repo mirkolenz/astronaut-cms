@@ -11,7 +11,7 @@ import {
 } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
-import { objectShape, type FieldSchema } from "@shared/field-schema";
+import { isRequired, objectShape, type FieldSchema } from "@shared/field-schema";
 import { schemaDefaults } from "@client/lib/schema";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
 import { NewEntryDialog } from "@client/components/new-entry-dialog";
@@ -313,7 +313,7 @@ function FileEntryCard({
                   value={formData[key]}
                   onChange={(v) => handleFieldChange(key, v)}
                   name={key}
-                  required={!fieldSchema.optional}
+                  required={isRequired(fieldSchema)}
                 />
               ))}
               {Object.keys(shape).length === 0 && (

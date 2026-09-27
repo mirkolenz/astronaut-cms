@@ -7,9 +7,11 @@
  */
 import type { AstroConfig } from "astro";
 import type {
-  AiGateway,
+  AiLimits,
+  AiServerConfig,
   CmsClientConfig,
   CmsConfig,
+  GitHubAuthMode,
   MediaBackendConfig,
   MediaServerConfig,
 } from "./types.ts";
@@ -17,6 +19,7 @@ import type { ClientMediaBackend } from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
 import { DEFAULT_AI_MAX_STEPS } from "../shared/ai.ts";
+import { presignedUploadOrigin } from "../media/store.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
 export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
@@ -48,15 +51,36 @@ const DEFAULT_MEDIA_EXTENSIONS = [
  */
 type AstroI18n = Pick<NonNullable<AstroConfig["i18n"]>, "locales" | "defaultLocale">;
 
+type AstroLocale = AstroI18n["locales"][number];
+
+/** The URL (and therefore content directory) segment of an astro locale entry. */
+function localeSegment(locale: AstroLocale): string {
+  return typeof locale === "string" ? locale : locale.path;
+}
+
+/**
+ * Astro's `defaultLocale` names a *code*, while `locales` are addressed by their
+ * `path` — for `{ path: "english", codes: ["en"] }` the two differ. Entry ids are
+ * built from paths, so the default is mapped into the same namespace before it
+ * is used as one.
+ */
+function localePath(code: string, astroI18n: AstroI18n | undefined): string {
+  for (const locale of astroI18n?.locales ?? []) {
+    if (typeof locale !== "string" && locale.codes.includes(code)) return locale.path;
+  }
+
+  return code;
+}
+
 export function resolveContentI18n(
   config: CmsConfig,
   astroI18n: AstroI18n | undefined,
 ): ContentI18n | null {
   if (config.i18n === false) return null;
 
-  const locales =
-    config.i18n?.locales ?? astroI18n?.locales.map((l) => (typeof l === "string" ? l : l.path));
-  const defaultLocale = config.i18n?.defaultLocale ?? astroI18n?.defaultLocale ?? locales?.[0];
+  const locales = config.i18n?.locales ?? astroI18n?.locales.map(localeSegment);
+  const code = config.i18n?.defaultLocale ?? astroI18n?.defaultLocale;
+  const defaultLocale = code ? localePath(code, astroI18n) : locales?.[0];
 
   if (!locales?.length || !defaultLocale) return null;
 
@@ -102,7 +126,7 @@ export function resolveClientConfig(
         // A GitHub App derives its permissions from the installation and ignores
         // the scope parameter, so it resolves to none rather than to a default
         // the client would then have to know to drop.
-        scopes: storage.authMode === "github-app" ? [] : (storage.scopes ?? ["repo"]),
+        scopes: githubAuthMode(storage) === "github-app" ? [] : (storage.scopes ?? ["repo"]),
         publishMode: storage.publishMode ?? "direct",
       },
     }),
@@ -117,6 +141,18 @@ export function resolveClientConfig(
       },
     }),
   };
+}
+
+/**
+ * How the editor's GitHub token is issued. A GitHub App is the default because
+ * the token it hands the browser is the least dangerous one to hold: limited to
+ * the repositories the app is installed on, to the permissions it declares, and
+ * — when the app is configured that way — expiring. A classic OAuth App can only
+ * issue a coarse, non-expiring `repo` token covering everything the editor can
+ * reach, which is a poor thing to keep in a tab.
+ */
+export function githubAuthMode(storage: { authMode?: GitHubAuthMode }): GitHubAuthMode {
+  return storage.authMode ?? "github-app";
 }
 
 const DEFAULT_MEDIA_BACKEND: MediaBackendConfig = { type: "repo" };
@@ -134,13 +170,27 @@ function mediaBackend(config: CmsConfig): MediaBackendConfig {
 function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): ClientMediaBackend {
   const backend = mediaBackend(config);
 
-  return backend.type === "repo"
-    ? { type: "repo" }
-    : {
-        type: "remote",
-        publicUrl: trimSlashes(backend.publicUrl),
-        ...(localMedia && { local: true }),
-      };
+  if (backend.type === "repo") return { type: "repo" };
+
+  const uploadOrigin = presignOrigin(resolveMediaServer(config));
+
+  return {
+    type: "remote",
+    publicUrl: trimSlashes(backend.publicUrl),
+    ...(uploadOrigin && { uploadOrigin }),
+    ...(localMedia && { local: true }),
+  };
+}
+
+/**
+ * Origin of the presigned URL the browser uploads to, which the admin's CSP has
+ * to allow. A store reached solely through a Workers binding presigns nothing
+ * and proxies instead, so it has none.
+ */
+function presignOrigin(media: MediaServerConfig | null): string | undefined {
+  if (!media?.s3) return undefined;
+
+  return presignedUploadOrigin({ ...media.s3, bucket: media.bucket });
 }
 
 /**
@@ -186,10 +236,23 @@ export function resolveAlwaysInclude(config: CmsConfig): string[] {
   return config.media?.alwaysInclude ?? [];
 }
 
+/** Defaults for {@link AiLimits}: generous for an editor, bounded for a bill. */
+const DEFAULT_AI_LIMITS: Required<AiLimits> = {
+  maxRequestBytes: 1024 * 1024,
+  maxOutputTokens: 8192,
+  requestsPerMinute: 60,
+  concurrency: 4,
+};
+
 /**
  * Server-only gateway config. It is imported solely by the relay route, so it is
  * bundled into the SSR output and never reaches the client.
  */
-export function resolveAiGateway(config: CmsConfig): AiGateway | null {
-  return config.ai?.enabled ? (config.ai.gateway ?? null) : null;
+export function resolveAiServer(config: CmsConfig): AiServerConfig | null {
+  if (!config.ai?.enabled || !config.ai.gateway) return null;
+
+  return {
+    gateway: config.ai.gateway,
+    limits: { ...DEFAULT_AI_LIMITS, ...config.ai.limits },
+  };
 }

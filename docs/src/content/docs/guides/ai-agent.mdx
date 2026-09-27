@@ -155,10 +155,48 @@ A blocked write returns the reason to the agent, which corrects it and retries.
 This matters most in development: Astro refuses to start when a content file does not match its schema, so an unchecked write could otherwise leave your dev server unable to boot.
 For the same reason a new entry is held in the editor until you first save it — it appears in its collection once it is valid, not before.
 
+### What the agent may reach
+
+The agent reads content: entry bodies, media listings, documents you attach.
+Any of that can try to instruct the model, so what matters is not whether a model can be fooled but what a fooled model could do.
+
+Because every tool writes into the changeset, the answer is "nothing a discard would not undo" — with one exception, which is why it is not offered:
+
+<Aside type="caution" title="Media tools and object stores">
+  `renameMedia` and `deleteMedia` are in the agent's tool set **only when the media library is part
+  of the changeset** — a repository library, or the working-tree library `astro dev` uses. With an
+  object-store backend an object write takes effect immediately, for every visitor, and no
+  changeset holds it, so those tools are absent entirely and the library is managed by hand in the
+  media view.
+</Aside>
+
+### Cost controls
+
+The relay holds your gateway credential, so an editor's token is otherwise a licence to bill your account without bound.
+`ai.limits` caps what one editor can spend:
+
+```ts title="astro.config.ts"
+cms({
+  ai: {
+    enabled: true,
+    gateway: { type: "netlify" },
+    models: ["anthropic/claude-opus-4.7"],
+    limits: {
+      maxRequestBytes: 1024 * 1024, // request body cap (default: 1 MiB)
+      maxOutputTokens: 8192, // clamped onto max_tokens, set whether asked for or not
+      requestsPerMinute: 60, // per editor
+      concurrency: 4, // per editor, held until the stream ends
+    },
+  },
+});
+```
+
 <Aside type="caution">
   Any user with write access to the repository can use the assistant, and its usage counts against
-  your unified bill. Keep the `models` list small and set per-user rate or credit limits in your
-  gateway dashboard.
+  your unified bill. The limits above bind one warm instance rather than the whole deployment, since
+  an injected route holds no shared state — they stop a runaway loop, not a determined one. Keep the
+  `models` list small and set a spending cap in your gateway dashboard, which is the only ceiling
+  that counts across instances.
 </Aside>
 
 ## Local development

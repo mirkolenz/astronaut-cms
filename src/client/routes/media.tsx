@@ -24,7 +24,7 @@ import { isImagePath, getFileName } from "@client/lib/asset-utils";
 import { MediaImage } from "@client/components/media-image";
 import { dirSegments, listDirectory } from "@client/lib/entry-tree";
 import { optimizeImage } from "@client/lib/image-utils";
-import { getMedia } from "@client/lib/media";
+import { mediaIsTransactional } from "@client/lib/media";
 import {
   Dialog,
   DialogContent,
@@ -134,7 +134,7 @@ function MediaLibrary() {
 
   const handleOverwrite = () => {
     if (!duplicateFile) return;
-    uploadMutation.mutate(duplicateFile);
+    uploadMutation.mutate({ ...duplicateFile, overwrite: true });
     setDuplicateFile(null);
   };
 
@@ -157,7 +157,7 @@ function MediaLibrary() {
   const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !replaceTarget) return;
-    uploadMutation.mutate({ path: replaceTarget, file });
+    uploadMutation.mutate({ path: replaceTarget, file, overwrite: true });
     setReplaceTarget(null);
     e.target.value = "";
   };
@@ -183,7 +183,7 @@ function MediaLibrary() {
           <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
           {/* An object store has no draft branch: what is uploaded or deleted here
               is live at once, unlike a library in the repository. */}
-          {!getMedia().transactional && (
+          {!mediaIsTransactional && (
             <p className="text-xs text-muted-foreground">{t(($) => $.media.immediate)}</p>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mediaPath, mediaRef, remoteMediaUrl } from "@shared/media";
+import { mediaPath, mediaRef, remoteMediaUrl, uniqueMediaPath } from "@shared/media";
 
 // One rule maps a library path to the string content stores, and back. The two
 // backends spell it differently — a project path for a library in the
@@ -46,5 +46,15 @@ describe("media paths", () => {
     expect(remoteMediaUrl("photos/hero.png", "https://cdn.example.com/")).toBe(
       "https://cdn.example.com/photos/hero.png",
     );
+  });
+
+  // An upload nobody can be asked about must land beside an existing file rather
+  // than replace it.
+  it("numbers a taken name until it is free", () => {
+    const taken = new Set(["logo.png", "logo-2.png", "photos/hero.png"]);
+
+    expect(uniqueMediaPath("logo.png", taken)).toBe("logo-3.png");
+    expect(uniqueMediaPath("photos/hero.png", taken)).toBe("photos/hero-2.png");
+    expect(uniqueMediaPath("notes", taken)).toBe("notes");
   });
 });

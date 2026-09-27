@@ -78,7 +78,13 @@ export function accessConfig(config: AccessConfig): AccessConfig {
   return { storageType: config.storageType, github: config.github, gitlab: config.gitlab };
 }
 
-const ACCESS_CACHE_TTL = 5 * 60 * 1000;
+/**
+ * How long a verified token is taken at its word. It is the window in which a
+ * revoked collaborator can still spend the server-side capabilities this gate
+ * guards — the AI gateway credential and the object store — so it is kept to
+ * roughly one editing action rather than one editing session.
+ */
+const ACCESS_CACHE_TTL = 60 * 1000;
 
 // Per-token results, so a streaming turn or a burst of media calls does not
 // re-hit the Git API on every call. Bounded by token count and a short TTL.
@@ -88,6 +94,11 @@ const accessCache = new Map<string, number>();
  * Throws unless the caller may write to the configured repository. This is the
  * only authorization an injected route has: it holds no session of its own, so
  * the editor's Git token is both the identity and the permission.
+ *
+ * Note what that conflates: write access to the repository also entitles the
+ * caller to the shared AI gateway credential and to administering the object
+ * store, neither of which the Git provider knows about. Anyone trusted to push
+ * is trusted with both.
  */
 export async function verifyWriteAccess(
   token: string | undefined,
@@ -131,8 +142,11 @@ export async function verifyWriteAccess(
   accessCache.set(token, now + ACCESS_CACHE_TTL);
 }
 
-/** The bearer token of a request, if it carries one. */
-function bearerToken(request: Request): string | undefined {
+/**
+ * The bearer token of a request, if it carries one. It is also the only caller
+ * identity an injected route has, so a per-editor limit is keyed by it.
+ */
+export function bearerToken(request: Request): string | undefined {
   return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
 }
 

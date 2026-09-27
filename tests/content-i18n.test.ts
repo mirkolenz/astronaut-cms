@@ -44,6 +44,15 @@ describe("resolveContentI18n", () => {
     ).toEqual({ locales: ["en", "pt"], defaultLocale: "en" });
   });
 
+  // Astro names the default by *code* while addressing locales by *path*, and
+  // entry ids are built from paths, so the CMS would otherwise browse and create
+  // entries under a directory the site has no content in.
+  it("maps a default locale code onto the path its entries live under", () => {
+    expect(
+      resolveContentI18n({}, { defaultLocale: "en", locales: [{ path: "english", codes: ["en"] }] }),
+    ).toEqual({ locales: ["english"], defaultLocale: "english" });
+  });
+
   it("stays off without an i18n config, and when explicitly disabled", () => {
     expect(resolveContentI18n({}, undefined)).toBeNull();
     expect(

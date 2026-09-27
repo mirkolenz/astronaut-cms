@@ -17,7 +17,7 @@ import {
   MAX_KEYS,
   UPLOAD_EXPIRY_SECONDS,
   type MediaStore,
-  type UploadBody,
+  type UploadTerms,
   type S3Credentials,
   type S3Target,
   type StoredObject,
@@ -84,34 +84,58 @@ export class S3Store implements MediaStore {
 
   /**
    * Bytes go browser-to-store, so an upload is not bounded by the platform's
-   * request-body limit (4.5 MB on Vercel, 6 MB on Netlify). The content type is
-   * left unsigned: signing it would only turn a mismatched guess into a failure.
+   * request-body limit (4.5 MB on Vercel, 6 MB on Netlify). Length and content
+   * type are both signed, which is what makes the route's decisions bind the
+   * upload the browser actually makes: the URL is usable for that byte count and
+   * that type and no other, so a caller can neither understate a file's size to
+   * get an unrestricted PUT nor choose how the store will serve it back.
+   *
+   * A type a browser would run as a document needs a `Content-Disposition` the
+   * store will keep, and a signed request header is the wrong way to carry one
+   * (it would make every deployment widen its bucket CORS policy). Those uploads
+   * are proxied instead, where the route sets it directly.
    */
-  presignUpload(key: string): Promise<string> {
-    return getSignedUrl(this.client, new PutObjectCommand({ Bucket: this.bucket, Key: key }), {
-      expiresIn: UPLOAD_EXPIRY_SECONDS,
-    });
+  presignUpload(key: string, terms: UploadTerms): Promise<string | null> {
+    if (terms.attachment) return Promise.resolve(null);
+
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentLength: terms.length,
+        ContentType: terms.contentType,
+      }),
+      {
+        expiresIn: UPLOAD_EXPIRY_SECONDS,
+        signableHeaders: new Set(["content-length", "content-type"]),
+      },
+    );
   }
 
-  async put(key: string, body: UploadBody, contentType: string | null): Promise<void> {
+  async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
-        Body: body.stream,
-        ContentType: contentType ?? undefined,
-        ContentLength: body.length,
+        Body: stream,
+        ContentType: terms.contentType,
+        ContentLength: terms.length,
+        ...(terms.attachment && { ContentDisposition: "attachment" }),
       }),
     );
   }
 
-  async copy(from: string, to: string): Promise<void> {
+  async copy(from: string, to: string, ifAbsent = false): Promise<void> {
     await this.client.send(
       new CopyObjectCommand({
         Bucket: this.bucket,
         Key: to,
         // `CopySource` is parsed, not decoded, so the key arrives encoded; the SDK does not do it.
         CopySource: `${this.bucket}/${encodeKeyPath(from)}`,
+        // Conditional in the store, so two renames onto one destination cannot
+        // both pass a prior existence check and the second silently win.
+        ...(ifAbsent && { IfNoneMatch: "*" }),
       }),
     );
   }

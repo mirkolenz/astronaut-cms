@@ -28,10 +28,11 @@ export function useDeleteMedia() {
   return useMediaMutation((path: string) => getMedia().deleteMedia(path));
 }
 
-/** Uploads a file, replacing whatever is at `path`. */
+/** Uploads a file. `overwrite` is what allows it to replace one already at `path`. */
 export function useUploadMedia() {
-  return useMediaMutation(({ path, file }: { path: string; file: File }) =>
-    getMedia().uploadMedia(path, file),
+  return useMediaMutation(
+    ({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
+      getMedia().uploadMedia(path, file, overwrite),
   );
 }
 

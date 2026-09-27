@@ -131,9 +131,14 @@ Content then stores library keys instead of project paths, and the site loads th
     `@astrojs/vercel` or `@astrojs/cloudflare`.
   </StepItem>
 
-  <StepItem title="Make the bucket publicly readable under publicUrl">
+  <StepItem title="Make the bucket publicly readable under publicUrl, on its own origin">
     Content stores plain keys, so a signed, expiring URL can never be written into an entry. On R2
     that means a custom domain: the `*.r2.dev` hostname is rate-limited and not meant for production.
+
+    `publicUrl` must **not** share an origin with the site itself — uploaded files would then be
+    same-origin content in the admin. The integration refuses the configuration when your
+    `astro.config` declares a `site` it can check against. See
+    [Security Model](/astronaut-cms/guides/security/#serve-the-library-from-its-own-origin).
   </StepItem>
 
   <StepItem title="Allow browser uploads in the bucket's CORS policy">
@@ -144,7 +149,9 @@ Content then stores library keys instead of project paths, and the site loads th
 
 ### How it differs from a repository library
 
-- **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted object is gone for every visitor at once, even if the entry referencing it is still a draft.
+- **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted file stops being served to every visitor at once, even if the entry referencing it is still a draft — which is also why the AI assistant is given no media rename or delete tools for this backend (see [AI Assistant](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach)).
+- **Deletion is recoverable.** The media route moves the object to a `.trash/` prefix inside the library rather than dropping it, so a mistake costs a restore. Give that prefix a lifecycle rule to decide how long a deletion stays undoable.
+- **An upload cannot silently replace a file.** The route refuses a destination that is already occupied; replacing is the admin's explicit "Replace"/"Overwrite" action. It also decides the stored content type from the file extension rather than trusting the uploader, and stores active types (SVG) with `Content-Disposition: attachment`.
 - **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
 - **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `image()`/`file()` markers for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
 - **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.

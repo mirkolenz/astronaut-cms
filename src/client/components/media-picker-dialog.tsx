@@ -55,7 +55,11 @@ export function MediaPickerDialog({ open, onSelect, onCancel }: MediaPickerDialo
 
     if (!existing) return;
 
-    await uploadMutation.mutateAsync({ path: existing.path, file: duplicateFile.file });
+    await uploadMutation.mutateAsync({
+      path: existing.path,
+      file: duplicateFile.file,
+      overwrite: true,
+    });
     onSelect(existing.path);
   };
 

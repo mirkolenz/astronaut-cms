@@ -10,7 +10,7 @@ import type {
 import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
 import type { ChangeRequestSummary, PublishMode } from "./types";
-import { MergeConflictError, getErrorStatus } from "./types";
+import { MergeConflictError, exists, getErrorStatus } from "./types";
 import { getToken, fileToBase64 } from "./utils";
 
 interface GitHubConfig {
@@ -75,16 +75,13 @@ export class GitHubStorage extends BranchedStorage {
   }
 
   protected async checkBranchExists(branch: string): Promise<boolean> {
-    try {
-      await this.octokit.rest.git.getRef({
+    return exists(
+      this.octokit.rest.git.getRef({
         owner: this.config.owner,
         repo: this.config.repo,
         ref: `heads/${branch}`,
-      });
-      return true;
-    } catch {
-      return false;
-    }
+      }),
+    );
   }
 
   /**

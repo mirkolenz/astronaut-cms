@@ -13,7 +13,8 @@ import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-config.ts";
 import {
-  resolveAiGateway,
+  githubAuthMode,
+  resolveAiServer,
   resolveAlwaysInclude,
   resolveClientConfig,
   resolveMediaServer,
@@ -78,8 +79,27 @@ function assertS3SdkInstalled(rootDir: string): void {
   }
 }
 
+/**
+ * Uploaded files are attacker-influenced bytes the site serves back, and some of
+ * the library's default types (SVG) are documents a browser will run. Serving
+ * them from the admin's own origin would make every upload a candidate for
+ * same-origin script in the CMS, so the two origins have to differ.
+ *
+ * Only checkable when the site declares its own URL; `site` is optional in Astro,
+ * so this is enforced where it is knowable and documented where it is not.
+ */
+function validateMediaOrigin(publicUrl: string, site: string | undefined): void {
+  const siteOrigin = site && new URL(site).origin;
+
+  if (!siteOrigin || new URL(publicUrl).origin !== siteOrigin) return;
+
+  throw new Error(
+    `media: 'publicUrl' (${publicUrl}) must not share an origin with the site itself (${siteOrigin}). Uploaded files would be same-origin content in the admin; serve the library from its own host, e.g. a separate CDN subdomain.`,
+  );
+}
+
 /** Everything an object-store media backend has to declare before it can be reached. */
-function validateMediaBackend(config: CmsConfig): void {
+function validateMediaBackend(config: CmsConfig, site: string | undefined): void {
   const backend = config.media?.backend;
 
   if (!backend || backend.type === "repo") return;
@@ -91,6 +111,8 @@ function validateMediaBackend(config: CmsConfig): void {
       `${backend.type} media: 'publicUrl' is required — it is the base the library is publicly served under, and what content references resolve against.`,
     );
   }
+
+  validateMediaOrigin(backend.publicUrl, site);
 
   if (backend.type === "s3" && !backend.endpoint) {
     throw new Error(
@@ -152,7 +174,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // Before anything reads the backend: resolving it assumes a complete one,
         // and a `publicUrl` that is missing rather than wrong would otherwise
         // surface as a TypeError from deep inside the resolver.
-        validateMediaBackend(effectiveConfig);
+        validateMediaBackend(effectiveConfig, astroConfig.site);
 
         // Every default is applied once, here; `clientConfig` is what the admin
         // bundle and the rest of this hook both read.
@@ -180,6 +202,13 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
               throw new Error("GitHub storage: 'repo' is required (e.g., 'owner/repo').");
             if (!storage.clientId)
               throw new Error("GitHub storage: 'clientId' is required for OAuth.");
+
+            // Which kind of app issued the browser's token decides what it is
+            // worth, and the default changed to the narrower one, so it is
+            // stated rather than left to be discovered at the sign-in prompt.
+            logger.info(
+              `GitHub sign-in uses authMode "${githubAuthMode(storage)}" (a GitHub App issues repository-limited, expiring tokens; set authMode: "oauth-app" if you registered a classic OAuth App)`,
+            );
           } else if (storage.type === "gitlab") {
             if (!storage.project)
               throw new Error("GitLab storage: 'project' is required (e.g., 'group/project').");
@@ -239,7 +268,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
               tailwindcss(),
               cmsVitePlugin({
                 clientConfig,
-                aiGateway: resolveAiGateway(effectiveConfig),
+                aiServer: resolveAiServer(effectiveConfig),
                 mediaServer,
                 userConfigPath,
                 collections,
@@ -260,12 +289,30 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // production build too.
         const adminAvailable = command === "dev" || effectiveConfig.storage?.type !== "local";
 
+        // Whether this deployment can render on demand. The admin's security
+        // headers — `frame-ancestors` above all, which a meta policy cannot carry
+        // — only exist on a rendered response, so the page is served that way
+        // wherever it is possible at no cost. An adapter settles it; the feature
+        // list covers the case where one is registered by a later integration and
+        // is therefore not yet visible here, but already implies an adapter
+        // because each of these injects an on-demand route of its own.
+        const serverRendered =
+          Boolean(astroConfig.adapter) ||
+          Boolean(mediaServer) ||
+          Boolean(effectiveConfig.ai?.enabled) ||
+          clientConfig.github?.flow === "redirect";
+
         if (adminAvailable) {
           injectRoute({
             pattern: mountPoint,
             entrypoint: "astronaut-cms/admin.astro",
+            ...(serverRendered && { prerender: false }),
           });
-          logger.info(`Admin panel will be available at ${mountPoint}`);
+          logger.info(
+            serverRendered
+              ? `Admin panel will be available at ${mountPoint} (rendered on demand, with security headers)`
+              : `Admin panel will be available at ${mountPoint} (prerendered: set Content-Security-Policy, X-Frame-Options, Referrer-Policy and X-Content-Type-Options for it at your host)`,
+          );
         } else {
           logger.info(
             `Admin panel disabled for "${command}" with local storage (only available via "astro dev")`,

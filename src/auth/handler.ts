@@ -13,11 +13,20 @@
  * AI relay in `../ai/handler.ts` so a true edge runtime can reuse it unchanged.
  */
 import { GITHUB_CLIENT_SECRET_ENV, GITHUB_TOKEN_ENDPOINT } from "../shared/auth.ts";
+import { BodyTooLargeError, readBody } from "../shared/http.ts";
 import { json } from "../shared/response.ts";
 import type { EnvReader } from "../shared/runtime-env.ts";
 
 /** A token response is never cacheable, whether it carries a token or an error. */
 const NO_STORE = { "cache-control": "no-store" };
+
+/**
+ * A code exchange is a handful of short form fields. This route is the one the
+ * CMS leaves unauthenticated, so it reads no more than the flow can legitimately
+ * send — rate limiting the rest belongs at the deployment, which is the only
+ * place that sees every instance.
+ */
+const MAX_BODY_BYTES = 4096;
 
 /** An OAuth 2.0 error response, the shape the browser's OAuth client parses. */
 function oauthError(error: string, description: string, status: number): Response {
@@ -46,7 +55,16 @@ export async function handle(
     );
   }
 
-  const params = new URLSearchParams(await request.text());
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(await readBody(request, MAX_BODY_BYTES));
+  } catch (err) {
+    return oauthError(
+      "invalid_request",
+      err instanceof BodyTooLargeError ? err.message : "Malformed request body.",
+      err instanceof BodyTooLargeError ? 413 : 400,
+    );
+  }
 
   // Only the code exchange is relayed. Every other grant would spend the secret
   // on a request this flow never makes, so it is refused rather than forwarded.

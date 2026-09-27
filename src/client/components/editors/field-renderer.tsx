@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import type { FieldSchema } from "@shared/field-schema";
+import { isRequired, type FieldSchema } from "@shared/field-schema";
 import { mediaRef } from "@shared/media";
 import config from "virtual:astronaut-cms/config";
 import { MediaPickerDialog } from "@client/components/media-picker-dialog";
@@ -730,7 +730,7 @@ function ObjectField({
             value={value[key]}
             onChange={(v) => updateField(key, v)}
             name={key}
-            required={!fieldSchema.optional}
+            required={isRequired(fieldSchema)}
           />
         ))}
       </div>

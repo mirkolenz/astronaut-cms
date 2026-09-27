@@ -10,8 +10,8 @@ declare module "virtual:astronaut-cms/config" {
 }
 
 declare module "virtual:astronaut-cms/ai-server" {
-  const gateway: import("./integration/types").AiGateway | null;
-  export default gateway;
+  const ai: import("./integration/types").AiServerConfig | null;
+  export default ai;
 }
 
 declare module "virtual:astronaut-cms/media-server" {

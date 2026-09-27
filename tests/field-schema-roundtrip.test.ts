@@ -40,6 +40,17 @@ describe("zodToFieldSchema lowering", () => {
     });
   });
 
+  // A wrapper that changes what the schema accepts is not transparent: seeing
+  // through it makes the browser validator disagree with the real Astro schema,
+  // in whichever direction the wrapper leans.
+  it("keeps nonoptional required and represents a catch fallback", () => {
+    expect(zodToFieldSchema(z.string().optional().nonoptional())).toEqual({ type: "string" });
+    expect(zodToFieldSchema(z.string().catch("fallback"))).toEqual({
+      type: "string",
+      catch: true,
+    });
+  });
+
   it("reads CMS asset / reference markers from meta", () => {
     expect(zodToFieldSchema(z.string().meta({ [CMS_IMAGE]: true }))).toEqual({ type: "image" });
     expect(zodToFieldSchema(z.string().meta({ [CMS_REFERENCE]: "posts" }))).toEqual({
@@ -132,6 +143,17 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
     expect(rebuilt.parse({ kind: "count", value: 3 })).toEqual({ kind: "count", value: 3 });
     // The wrong variant's value type must be rejected by the matched branch.
     expect(rebuilt.safeParse({ kind: "count", value: "nope" }).success).toBe(false);
+  });
+
+  // Astro repairs a caught field rather than rejecting it, so a CMS that rebuilt
+  // it as a required string would refuse content the site accepts.
+  it("rebuilds a caught field as one that cannot fail", () => {
+    const rebuilt = fieldSchemaToZod(zodToFieldSchema(z.object({ a: z.string().catch("x") })));
+
+    // The fallback itself is not reconstructed — only the fact that nothing here
+    // can fail, which is all any caller reads.
+    expect(rebuilt.safeParse({}).success).toBe(true);
+    expect(rebuilt.safeParse({ a: 1 }).success).toBe(true);
   });
 
   it("keeps a plain union plain", () => {

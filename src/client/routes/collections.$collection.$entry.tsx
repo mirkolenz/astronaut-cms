@@ -10,7 +10,7 @@ import {
   useDuplicateEntry,
 } from "@client/queries/use-entries";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
-import { objectShape } from "@shared/field-schema";
+import { isRequired, objectShape } from "@shared/field-schema";
 import { schemaDefaults } from "@client/lib/schema";
 import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
@@ -283,7 +283,7 @@ function EntryEditor() {
                       value={formData[key]}
                       onChange={(v) => handleFieldChange(key, v)}
                       name={key}
-                      required={!fieldSchema.optional}
+                      required={isRequired(fieldSchema)}
                     />
                   ))}
                 </div>

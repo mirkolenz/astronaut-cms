@@ -34,12 +34,17 @@ function lower(input: unknown, depth: number): FieldSchema {
   const mods: FieldMods = {};
   let schema: unknown = input;
 
-  // Peel transparent wrappers via their public accessors, accumulating modifier
-  // flags. `catch`, `readonly` and `nonoptional` carry no flag; we see through
-  // them. `pipe` keeps its output side (the validated shape).
+  // Peel wrappers via their public accessors, outermost first: every modifier
+  // records itself only if it is not already set, so the outermost occurrence of
+  // each is the one that wins. `.nonoptional()` is how a schema takes back an
+  // `.optional()` further in, which is why it writes the same flag. Only
+  // `readonly` is fully transparent; `pipe` keeps its output side.
   while (schema instanceof z.ZodType) {
     if (schema instanceof z.ZodOptional) {
-      mods.optional = true;
+      if (!("optional" in mods)) mods.optional = true;
+      schema = schema.unwrap();
+    } else if (schema instanceof z.ZodNonOptional) {
+      if (!("optional" in mods)) mods.optional = false;
       schema = schema.unwrap();
     } else if (schema instanceof z.ZodNullable) {
       mods.nullable = true;
@@ -47,13 +52,12 @@ function lower(input: unknown, depth: number): FieldSchema {
     } else if (schema instanceof z.ZodDefault || schema instanceof z.ZodPrefault) {
       if (!("default" in mods)) mods.default = schema.def.defaultValue;
       schema = schema.unwrap();
+    } else if (schema instanceof z.ZodCatch) {
+      mods.catch = true;
+      schema = schema.unwrap();
     } else if (schema instanceof z.ZodPipe) {
       schema = schema.out;
-    } else if (
-      schema instanceof z.ZodCatch ||
-      schema instanceof z.ZodReadonly ||
-      schema instanceof z.ZodNonOptional
-    ) {
+    } else if (schema instanceof z.ZodReadonly) {
       schema = schema.unwrap();
     } else {
       break;
@@ -64,6 +68,7 @@ function lower(input: unknown, depth: number): FieldSchema {
   if (mods.optional) base.optional = true;
   if (mods.nullable) base.nullable = true;
   if ("default" in mods) base.default = mods.default;
+  if (mods.catch) base.catch = true;
 
   return base;
 }

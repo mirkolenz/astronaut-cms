@@ -5,11 +5,13 @@ import type { MediaFile } from "@shared/types";
  * relative to the library root; `mediaRef` turns one into what content stores.
  */
 export interface MediaBackend {
-  /** Whether a change joins the pending changeset. False for an object store, which writes at once. */
-  readonly transactional: boolean;
   listMedia(): Promise<MediaFile[]>;
-  /** Writes `file` to `path`, replacing whatever was there. */
-  uploadMedia(path: string, file: File): Promise<void>;
+  /**
+   * Writes `file` to `path`. Replacing an existing file is a separate decision
+   * from writing a new one, so it has to be asked for: without `overwrite` an
+   * occupied path is refused rather than quietly replaced.
+   */
+  uploadMedia(path: string, file: File, overwrite?: boolean): Promise<void>;
   renameMedia(from: string, to: string): Promise<void>;
   deleteMedia(path: string): Promise<void>;
   /**

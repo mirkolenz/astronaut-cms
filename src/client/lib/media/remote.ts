@@ -27,9 +27,6 @@ async function unwrap<T>(response: Response): Promise<T> {
  * route where to put the bytes, then sends them straight to the store.
  */
 export class RemoteMedia implements MediaBackend {
-  // An object is written the moment it is uploaded, and no draft branch holds it.
-  readonly transactional = false;
-
   // Resolved at construction, not import: `siteUrl` needs a browser, and this
   // module is loaded wherever the storage backends are.
   private readonly endpoint = siteUrl(MEDIA_API_BASE);
@@ -62,7 +59,7 @@ export class RemoteMedia implements MediaBackend {
     return remoteMediaUrl(path, this.publicUrl);
   }
 
-  async uploadMedia(path: string, file: File): Promise<void> {
+  async uploadMedia(path: string, file: File, overwrite = false): Promise<void> {
     validateMediaPath(path);
     assertWithinSizeLimit(file.size, config.maxFileSize);
 
@@ -70,20 +67,33 @@ export class RemoteMedia implements MediaBackend {
       action: "upload",
       path,
       size: file.size,
+      overwrite,
     });
 
-    // The Git token rides along only on the proxied form, never on the store's own URL.
-    const response = target.proxy
-      ? await authedSiteFetch(`${this.endpoint}?path=${encodeURIComponent(path)}`, {
+    // The Git token rides along only on the proxied form, never on the store's
+    // own URL. The content type is the route's, not the file's: a presigned URL
+    // is signed for it, and the store is told to serve exactly that back.
+    if (target.proxy) {
+      const query = `?path=${encodeURIComponent(path)}${overwrite ? "&overwrite=true" : ""}`;
+
+      // A proxied upload answers in the route's own shape, so its refusal — a
+      // size limit, an occupied destination — is read like every other one.
+      await unwrap(
+        await authedSiteFetch(`${this.endpoint}${query}`, {
           method: "PUT",
           headers: { "content-type": file.type || "application/octet-stream" },
           body: file,
-        })
-      : await fetch(target.url, {
-          method: "PUT",
-          headers: { "content-type": file.type || "application/octet-stream" },
-          body: file,
-        });
+        }),
+      );
+
+      return;
+    }
+
+    const response = await fetch(target.url, {
+      method: "PUT",
+      headers: { "content-type": target.contentType },
+      body: file,
+    });
 
     if (!response.ok) throw new Error(`Upload failed (${response.status})`);
   }

@@ -122,7 +122,10 @@ export function serializeMultiEntryFile(
   layout: FileEntryLayout,
 ): string {
   if (layout === "array") {
-    const arr = Object.entries(entries).map(([id, data]) => ({ id, ...data }));
+    // The map key is the entry id, so it overrides any `id` still embedded in the
+    // data: a duplicated entry carries the source's, which would otherwise be
+    // written back and collapse the two entries into one on the next read.
+    const arr = Object.entries(entries).map(([id, data]) => ({ ...data, id }));
     switch (format) {
       case "json":
         return JSON.stringify(arr, null, 2) + "\n";

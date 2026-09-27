@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "pathe";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import type { HookParameters } from "astro";
-import type { AiGateway, CmsClientConfig, MediaServerConfig } from "./types.ts";
+import type { AiServerConfig, CmsClientConfig, MediaServerConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
@@ -40,7 +40,7 @@ function buildSourceExports(root: string, pkgPath: string): Record<string, strin
 
 export interface CmsVitePluginOptions {
   clientConfig: CmsClientConfig;
-  aiGateway: AiGateway | null;
+  aiServer: AiServerConfig | null;
   /** Object-store media config for the injected route, null for a repository library. */
   mediaServer: MediaServerConfig | null;
   userConfigPath: string | null;
@@ -53,11 +53,11 @@ export interface CmsVitePluginOptions {
 }
 
 export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
-  const { clientConfig, aiGateway, userConfigPath, collections } = options;
+  const { clientConfig, aiServer, userConfigPath, collections } = options;
 
   const virtualModules: Record<string, string> = {
     "virtual:astronaut-cms/config": `export default ${JSON.stringify(clientConfig)};`,
-    "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiGateway)};`,
+    "virtual:astronaut-cms/ai-server": `export default ${JSON.stringify(aiServer)};`,
     "virtual:astronaut-cms/media-server": `export default ${JSON.stringify(options.mediaServer)};`,
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),

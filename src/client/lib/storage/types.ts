@@ -45,6 +45,24 @@ export function getErrorStatus(err: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * Whether a lookup found its target. Only a provider 404 counts as absent:
+ * reading an auth failure, a rate limit or an outage that way would report a
+ * draft branch as missing, silently hiding its changes behind the default branch
+ * and letting a later write try to recreate a branch that already exists.
+ */
+export async function exists(lookup: Promise<unknown>): Promise<boolean> {
+  try {
+    await lookup;
+
+    return true;
+  } catch (err) {
+    if (getErrorStatus(err) === 404) return false;
+
+    throw err;
+  }
+}
+
 export function mapMergeError(err: unknown): Error {
   const status = getErrorStatus(err);
   if (status === 405 || status === 406 || status === 409) return new MergeConflictError();

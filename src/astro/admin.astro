@@ -1,12 +1,14 @@
 ---
 import "astronaut-cms/styles.css";
 import config from "virtual:astronaut-cms/config";
+import { HARDENING_HEADERS } from "astronaut-cms/internal";
 
 // Restrict where the admin (which holds a Git provider token in the browser) may
 // load code from and connect to. `script-src 'self'` with no inline scripts is
 // the part that carries real weight: it keeps injected markup from becoming
 // script in the first place. `connect-src` is limited to the configured
-// provider's API origins.
+// provider's API origins and, when the media library is an object store the
+// browser uploads to directly, that store's origin.
 //
 // This narrows the blast radius, it does not seal it: `img-src https:` (needed
 // for remote images in previews) and `style-src 'unsafe-inline'` both remain
@@ -16,10 +18,19 @@ import config from "virtual:astronaut-cms/config";
 //
 // Emitted only in production builds — the dev server is local-storage only and
 // needs looser connections for HMR.
-function providerConnectSrc(): string {
-  if (config.storageType === "github") return "https://github.com https://api.github.com";
-  if (config.storageType === "gitlab") return new URL(config.gitlab!.instanceUrl).origin;
-  return "";
+function providerConnectSrc(): string[] {
+  if (config.storageType === "github") return ["https://github.com", "https://api.github.com"];
+  if (config.storageType === "gitlab") return [new URL(config.gitlab!.instanceUrl).origin];
+  return [];
+}
+
+// A presigned upload goes browser-to-store, so the store's origin has to be
+// reachable or the browser refuses the request before it is sent. A proxied
+// upload needs nothing here: it goes to `self`.
+const connectSrc = ["'self'", ...providerConnectSrc()];
+
+if (config.mediaBackend.type === "remote" && config.mediaBackend.uploadOrigin) {
+  connectSrc.push(config.mediaBackend.uploadOrigin);
 }
 
 const csp = [
@@ -28,12 +39,32 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${providerConnectSrc()}`,
+  `connect-src ${connectSrc.join(" ")}`,
   "worker-src 'self' blob:",
   "frame-src 'none'",
+  // Only ever honoured from the header below: a browser ignores `frame-ancestors`
+  // in a meta policy, which is precisely why the header form matters here.
+  "frame-ancestors 'none'",
   "base-uri 'none'",
   "form-action 'self'",
 ].join("; ");
+
+// The header is the real policy: it carries `frame-ancestors`, which a meta tag
+// cannot, and it applies before the document parses rather than from the meta
+// tag onwards. It reaches the browser whenever this page is rendered on demand,
+// which the integration arranges wherever the deployment already runs a server
+// (see `injectRoute` in `integration/index.ts`). A fully static admin keeps only
+// the meta policy below, so set these at the host — they are the same values.
+if (import.meta.env.PROD) {
+  for (const [name, value] of Object.entries({
+    ...HARDENING_HEADERS,
+    "content-security-policy": csp,
+    // For the handful of agents that still read only this one.
+    "x-frame-options": "DENY",
+  })) {
+    Astro.response.headers.set(name, value);
+  }
+}
 
 // The admin mounts React from an external module script (see body) rather than an
 // Astro island, so the page ships no inline scripts and runs under the strict

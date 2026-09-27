@@ -3,7 +3,7 @@ import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
 import { mediaRef } from "@shared/media";
-import { getStorage } from "@client/lib/storage";
+import { getStorage, mediaIsTransactional } from "@client/lib/storage";
 import { getMedia } from "@client/lib/media";
 import { validateNoReferences } from "@client/lib/media/references";
 import type { CollectionManifestEntry, SaveEntryRequest } from "@shared/types";
@@ -186,6 +186,59 @@ export const readOnlyTools: ReadonlySet<string> = new Set([
   "getChanges",
 ]);
 
+/**
+ * Renaming and deleting a library file, offered only where the library is part
+ * of the pending changeset.
+ *
+ * That is what makes it safe for the agent to run them unattended: every other
+ * tool lands in a changeset the user reviews and can discard whole, so a model
+ * talked into a destructive call by text it read — an entry's body, an attached
+ * document — costs a discard. An object store has no changeset: the object is
+ * gone the moment the tool returns, for every visitor at once. Those libraries
+ * are managed by hand in the media view, where a human sees what references the
+ * file before agreeing to it.
+ */
+const mediaWriteTools: Record<string, Tool> = mediaIsTransactional
+  ? {
+      renameMedia: tool({
+        description:
+          "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path. Refused while content still references the file, since references keep the old path.",
+        inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
+        execute: async ({ oldPath, newPath }) => {
+          const invalid = toErrorResult(await validateMediaExists(getMedia(), oldPath));
+
+          if (invalid) return invalid;
+
+          const referenced = toErrorResult(await validateNoReferences(oldPath));
+
+          if (referenced) return referenced;
+
+          await getMedia().renameMedia(oldPath, newPath);
+
+          return { ok: true };
+        },
+      }),
+
+      deleteMedia: tool({
+        description: "Delete a media file. Refused while content still references it.",
+        inputSchema: z.object({ path: z.string() }),
+        execute: async ({ path }) => {
+          const invalid = toErrorResult(await validateMediaExists(getMedia(), path));
+
+          if (invalid) return invalid;
+
+          const referenced = toErrorResult(await validateNoReferences(path));
+
+          if (referenced) return referenced;
+
+          await getMedia().deleteMedia(path);
+
+          return { ok: true };
+        },
+      }),
+    }
+  : {};
+
 // Tools execute in the browser against the same storage backend the UI uses, so
 // the agent inherits exactly the user's permissions and the draft-branch + PR
 // review flow. Writes go through the per-collection `writeEntry_<collection>` /
@@ -194,7 +247,8 @@ export const readOnlyTools: ReadonlySet<string> = new Set([
 // No tool runs behind an approval prompt, and none of them publishes: every
 // change lands in the pending changeset, which the user reviews and then
 // publishes or discards as a whole. Deleting is as reversible as any other
-// change there, so it needs no separate gate.
+// change there, so it needs no separate gate — which is exactly why a tool that
+// would write outside the changeset is not offered at all (see mediaWriteTools).
 export const cmsTools = {
   listEntries: tool({
     description: "List the ids of all entries in a collection.",
@@ -256,25 +310,6 @@ export const cmsTools = {
       (await getMedia().listMedia()).map((file) => ({ ...file, ref: mediaRef(file.path, config) })),
   }),
 
-  renameMedia: tool({
-    description:
-      "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path. Refused while content still references the file, since references keep the old path.",
-    inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
-    execute: async ({ oldPath, newPath }) => {
-      const invalid = toErrorResult(await validateMediaExists(getMedia(), oldPath));
-
-      if (invalid) return invalid;
-
-      const referenced = toErrorResult(await validateNoReferences(oldPath));
-
-      if (referenced) return referenced;
-
-      await getMedia().renameMedia(oldPath, newPath);
-
-      return { ok: true };
-    },
-  }),
-
   getChanges: tool({
     description:
       "List the changes pending in the current changeset: every file changed since the last publish, with how it changed.",
@@ -300,23 +335,6 @@ export const cmsTools = {
     },
   }),
 
-  deleteMedia: tool({
-    description: "Delete a media file. Refused while content still references it.",
-    inputSchema: z.object({ path: z.string() }),
-    execute: async ({ path }) => {
-      const invalid = toErrorResult(await validateMediaExists(getMedia(), path));
-
-      if (invalid) return invalid;
-
-      const referenced = toErrorResult(await validateNoReferences(path));
-
-      if (referenced) return referenced;
-
-      await getMedia().deleteMedia(path);
-
-      return { ok: true };
-    },
-  }),
-
+  ...mediaWriteTools,
   ...entryTools,
 };

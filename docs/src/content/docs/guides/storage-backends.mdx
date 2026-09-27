@@ -48,7 +48,7 @@ cms({
 | `repo`        | `string`                      | required      | GitHub repository in `owner/repo` format                    |
 | `branch`      | `string`                      | `"main"`      | Target branch for reading and writing                       |
 | `clientId`    | `string`                      | required      | GitHub OAuth App or GitHub App client ID                    |
-| `authMode`    | `"oauth-app" \| "github-app"` | `"oauth-app"` | Authentication strategy (see below)                         |
+| `authMode`    | `"oauth-app" \| "github-app"` | `"github-app"` | Authentication strategy (see below)                         |
 | `flow`        | `"device" \| "redirect"`      | `"device"`    | Sign-in flow (see below)                                    |
 | `scopes`      | `string[]`                    | `["repo"]`    | OAuth scopes for `oauth-app` mode; ignored for `github-app` |
 | `publishMode` | `"direct" \| "pull-request"`  | `"direct"`    | How changes are published                                   |
@@ -58,12 +58,14 @@ cms({
 The signed-in editor's token lives in the browser, so it should grant as little
 as possible. There are two strategies:
 
-- **`oauth-app`** (default) — a classic OAuth App. Its tokens cannot be limited
-  to a single repository. Use `scopes: ["public_repo"]` for public-only
-  repositories; private repositories require the broad `["repo"]` scope.
-- **`github-app`** (recommended) — a GitHub App. Its tokens are limited to the
+- **`github-app`** (default) — a GitHub App. Its tokens are limited to the
   repositories the app is installed on and the permissions it declares, and can
-  be set to expire. This is the tightest option and is strongly preferred.
+  be set to expire. The token lives in the editor's browser, so this is the one
+  worth issuing: see [Security Model](/astronaut-cms/guides/security/#the-browser-token).
+- **`oauth-app`** — a classic OAuth App. Its tokens cannot be limited to a single
+  repository and do not expire, so a stolen one reaches everything the editor
+  can. Use `scopes: ["public_repo"]` for public-only repositories; private
+  repositories require the broad `["repo"]` scope.
 
 ```ts title="astro.config.ts"
 cms({
@@ -71,7 +73,7 @@ cms({
     type: "github",
     repo: "owner/repo",
     clientId: "your-github-app-client-id",
-    authMode: "github-app",
+    // authMode: "oauth-app", // only if you registered a classic OAuth App
   },
 });
 ```
@@ -85,7 +87,7 @@ cms({
    the token is already limited to a single repository — or enable expiry and
    accept that editors re-authenticate when a token lapses.
 4. Install the app on the content repository.
-5. Copy the **Client ID** and pass it to `clientId` with `authMode: "github-app"`.
+5. Copy the **Client ID** and pass it to `clientId`. This is the default `authMode`, so nothing else is needed.
 
 ### Setting up an OAuth App
 

@@ -1,3 +1,4 @@
+import { extname } from "pathe";
 import { assetKey } from "./asset-path.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
 
@@ -24,6 +25,13 @@ export type ClientMediaBackend =
       /** The base the library's keys are publicly served under. */
       publicUrl: string;
       /**
+       * Origin the browser PUTs a presigned upload to, absent when the store
+       * cannot presign and every upload is proxied through the site. It says
+       * only where the store lives — the same thing a presigned URL reveals —
+       * and exists so the admin's CSP can allow the connection it has to make.
+       */
+      uploadOrigin?: string;
+      /**
        * `astro dev` only: the bytes live in the working tree under the media
        * directory rather than in the store, while references keep the store's
        * key format. That split is the point — dev touches no bucket, and an
@@ -36,6 +44,19 @@ interface MediaRefConfig {
   mediaBackend: ClientMediaBackend;
   /** Project-relative media directory. Only meaningful for the `repo` backend. */
   mediaDirectory: string;
+}
+
+/**
+ * Whether a media write joins the pending changeset, and is therefore as
+ * reviewable and as discardable as any other change.
+ *
+ * A repository library *is* the storage backend, and so is the working tree a
+ * dev run puts in front of an object store; only a live store writes outside the
+ * changeset. Decided from the config rather than from a constructed backend, so
+ * a module can gate on it at load time.
+ */
+export function isTransactionalMedia(backend: ClientMediaBackend): boolean {
+  return backend.type === "repo" || backend.local === true;
 }
 
 /** Enforced in the admin before sending, and again in the route: a presigned URL enforces nothing. */
@@ -102,10 +123,84 @@ export function mediaPath(ref: string, config: MediaRefConfig, base?: string): s
   return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : null;
 }
 
+/**
+ * A library path nothing occupies yet, numbering the name until it is free. An
+ * upload that cannot ask a human what to do — an AI attachment called
+ * `logo.png`, say — lands beside the existing file rather than replacing it.
+ */
+export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): string {
+  const ext = extname(path);
+  const stem = path.slice(0, path.length - ext.length);
+
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? path : `${stem}-${n}${ext}`;
+
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
 /** The public URL a library path is served under by a remote backend. */
 export function remoteMediaUrl(path: string, publicUrl: string): string {
   return joinUrl(publicUrl, encodeKeyPath(path));
 }
 
-/** Where an upload's bytes go. The Git token must never be attached to a store's own URL. */
-export type UploadTarget = { proxy: false; url: string } | { proxy: true };
+/**
+ * Where an upload's bytes go, and on what terms. The Git token must never be
+ * attached to a store's own URL, and `contentType` is the type the presigned URL
+ * was signed for — the browser sends it verbatim rather than its own guess.
+ */
+export type UploadTarget = { proxy: false; url: string; contentType: string } | { proxy: true };
+
+// Types the library's default extensions map to. Anything unlisted is stored as
+// a generic download, which is the safe reading of a file the CMS cannot name.
+const CONTENT_TYPES: Record<string, string> = {
+  ".avif": "image/avif",
+  ".csv": "text/csv",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".gif": "image/gif",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".json": "application/json",
+  ".md": "text/markdown",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain",
+  ".webm": "video/webm",
+  ".webp": "image/webp",
+  ".woff2": "font/woff2",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".zip": "application/zip",
+};
+
+// Types a browser executes when it navigates to them. SVG is the one the library
+// accepts by default: harmless in an `<img>`, which ignores the disposition, and
+// a scriptable document when it is a page of its own.
+const ACTIVE_CONTENT_TYPES = new Set([
+  "image/svg+xml",
+  "text/html",
+  "application/xhtml+xml",
+  "application/xml",
+  "text/xml",
+]);
+
+/**
+ * The content type a file is stored with, decided from its extension rather than
+ * from what the uploader declares. A store serves back whatever type it was
+ * given, so letting the caller choose it is letting the caller choose how the
+ * bytes are interpreted.
+ */
+export function mediaContentType(path: string): string {
+  return CONTENT_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream";
+}
+
+/** Whether a browser would run this type as a document, given the chance. */
+export function isActiveContentType(type: string): boolean {
+  return ACTIVE_CONTENT_TYPES.has(type);
+}

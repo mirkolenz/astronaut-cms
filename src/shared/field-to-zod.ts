@@ -145,6 +145,10 @@ export function fieldSchemaToZod(field: FieldSchema): z.ZodType {
   if (field.nullable) schema = schema.nullable();
   if (field.optional) schema = schema.optional();
   if (field.default !== undefined) schema = schema.default(field.default);
+  // Outermost, so it covers every other modifier: a caught field never fails,
+  // which is the whole point of representing `.catch()` rather than peeling it.
+  // The fallback is immaterial — every caller reads the issues, not the output.
+  if (field.catch) schema = schema.catch(undefined as never);
 
   cache.set(field, schema);
 

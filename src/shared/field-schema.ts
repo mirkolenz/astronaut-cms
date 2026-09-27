@@ -17,6 +17,13 @@ export interface FieldMods {
   nullable?: boolean;
   /** Default value from Zod `.default()`, used when the value is missing. */
   default?: unknown;
+  /**
+   * Set by Zod `.catch()`: the field accepts anything, because the real schema
+   * repairs what it cannot parse rather than rejecting it. Only that fact is
+   * recorded — the CMS never reads the fallback value, and reading it would mean
+   * running the author's catch handler against a fabricated parse failure.
+   */
+  catch?: true;
 }
 
 // Declarative Zod checks that lower losslessly (a serializable number / string /
@@ -71,6 +78,16 @@ export interface ComponentSchema {
 }
 
 export type ComponentSchemaMap = Record<string, ComponentSchema>;
+
+/**
+ * Whether a value has to be written for this field. Every modifier that supplies
+ * one of its own answers no: an absent optional, an explicit null, a `.default()`
+ * and a `.catch()` fallback all satisfy the real schema, so demanding a value
+ * would refuse content the site itself accepts.
+ */
+export function isRequired(field: FieldSchema): boolean {
+  return !field.optional && !field.nullable && field.default === undefined && !field.catch;
+}
 
 /** Returns the field map of an object schema, or `undefined` for any other type. */
 export function objectShape(

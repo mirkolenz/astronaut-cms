@@ -5,12 +5,19 @@
  */
 
 /**
- * Bytes on their way into the store. The length travels with them because a
- * stream has none of its own and the S3 API refuses one without it.
+ * What an upload is allowed to be, decided by the route and never by its caller.
+ * All three are enforced by the store itself: the length because a presigned URL
+ * is signed for it, the type because the store serves back what it was given,
+ * and the disposition because it is what stops an uploaded SVG from becoming a
+ * page of its own.
  */
-export interface UploadBody {
-  stream: ReadableStream<Uint8Array>;
+export interface UploadTerms {
+  /** Exact byte count. A stream carries none of its own, and S3 refuses one without it. */
   length: number;
+  /** Derived from the file's extension by `mediaContentType`. */
+  contentType: string;
+  /** Set for a type a browser would otherwise run as a document. */
+  attachment: boolean;
 }
 
 /** One object in the library, keyed absolutely (prefix included). */
@@ -22,10 +29,16 @@ export interface StoredObject {
 export interface MediaStore {
   list(prefix: string): Promise<StoredObject[]>;
   head(key: string): Promise<StoredObject | null>;
-  /** A URL the browser may PUT the bytes to, or null when they must be proxied. */
-  presignUpload(key: string): Promise<string | null>;
-  put(key: string, body: UploadBody, contentType: string | null): Promise<void>;
-  copy(from: string, to: string): Promise<void>;
+  /**
+   * A URL the browser may PUT these exact terms to, or null when the bytes have
+   * to come through the route instead. Length and type are signed into it, so a
+   * declared size is a promise the caller has to keep rather than a number to be
+   * trusted, and an upload cannot choose how the store will serve it back.
+   */
+  presignUpload(key: string, terms: UploadTerms): Promise<string | null>;
+  put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void>;
+  /** `ifAbsent` refuses a destination that already exists, in the store rather than in a prior check. */
+  copy(from: string, to: string, ifAbsent?: boolean): Promise<void>;
   remove(key: string): Promise<void>;
 }
 
@@ -34,6 +47,23 @@ export interface S3Target {
   region: string;
   pathStyle: boolean;
   bucket: string;
+}
+
+/**
+ * Origin a presigned PUT against this target points at. Virtual-host addressing
+ * puts the bucket in the hostname, so it is the endpoint's origin only when
+ * path-style is forced.
+ *
+ * It lives here, beside the target the SDK is configured from, because the only
+ * other place that needs it is the admin's CSP — and a `connect-src` that
+ * disagrees with the SDK blocks every upload with no error an operator can read.
+ */
+export function presignedUploadOrigin(target: S3Target): string {
+  const url = new URL(target.endpoint);
+
+  if (!target.pathStyle) url.hostname = `${target.bucket}.${url.hostname}`;
+
+  return url.origin;
 }
 
 export interface S3Credentials {
@@ -64,13 +94,24 @@ export interface R2Binding {
   head(key: string): Promise<{ key: string; size: number } | null>;
   get(
     key: string,
-  ): Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>;
+  ): Promise<{
+    body: ReadableStream;
+    httpMetadata?: { contentType?: string; contentDisposition?: string };
+  } | null>;
   put(
     key: string,
     value: ReadableStream | ArrayBuffer | ArrayBufferView | string,
-    options?: { httpMetadata?: { contentType?: string } },
+    options?: {
+      httpMetadata?: { contentType?: string; contentDisposition?: string };
+      onlyIf?: { etagDoesNotMatch?: string };
+    },
   ): Promise<unknown>;
   delete(key: string): Promise<void>;
+}
+
+/** How an object is served back, from the terms the route settled on. */
+function httpMetadata({ contentType, attachment }: UploadTerms) {
+  return { contentType, ...(attachment && { contentDisposition: "attachment" }) };
 }
 
 export class BindingStore implements MediaStore {
@@ -103,20 +144,26 @@ export class BindingStore implements MediaStore {
     return null;
   }
 
-  async put(key: string, body: UploadBody, contentType: string | null): Promise<void> {
-    await this.bucket.put(key, body.stream, {
-      httpMetadata: contentType ? { contentType } : undefined,
-    });
+  async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
+    await this.bucket.put(key, stream, { httpMetadata: httpMetadata(terms) });
   }
 
-  async copy(from: string, to: string): Promise<void> {
+  /**
+   * A binding has no server-side copy, so the bytes travel through the isolate —
+   * which bounds a rename, and the move to `.trash/` that a deletion is, by the
+   * Worker's memory rather than by the store's. The S3 path pays neither.
+   */
+  async copy(from: string, to: string, ifAbsent = false): Promise<void> {
     const source = await this.bucket.get(from);
 
     if (!source) throw new Error(`Object not found: ${from}`);
 
     // A rewrite, unlike an S3 copy, keeps nothing on its own: without this the
     // renamed object loses its content type and the CDN serves it as a download.
-    await this.bucket.put(to, source.body, { httpMetadata: source.httpMetadata });
+    await this.bucket.put(to, source.body, {
+      httpMetadata: source.httpMetadata,
+      ...(ifAbsent && { onlyIf: { etagDoesNotMatch: "*" } }),
+    });
   }
 
   async remove(key: string): Promise<void> {

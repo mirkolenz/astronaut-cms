@@ -6,7 +6,7 @@
  */
 import type { APIRoute } from "astro";
 import config from "virtual:astronaut-cms/config";
-import gatewayConfig from "virtual:astronaut-cms/ai-server";
+import aiServer from "virtual:astronaut-cms/ai-server";
 import { accessConfig } from "../shared/access.ts";
 import { envReader } from "../shared/runtime-env.ts";
 import { handle } from "./handler.ts";
@@ -16,6 +16,6 @@ export const prerender = false;
 export const POST: APIRoute = (context) =>
   handle(context.request, envReader(context), {
     ...accessConfig(config),
-    gateway: gatewayConfig,
+    ai: aiServer,
     models: config.ai?.models,
   });

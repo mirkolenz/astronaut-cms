@@ -1,6 +1,6 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
-import type { FieldSchema } from "@shared/field-schema";
+import { isRequired, type FieldSchema } from "@shared/field-schema";
 import { CmsComponentEditor } from "@client/components/editors/cms-component-editor";
 
 /**
@@ -30,7 +30,7 @@ function schemaToJsxProps(schema: FieldSchema | null): JsxPropertyDescriptor[] {
   return Object.entries(schema.shape).map(([name, field]) => ({
     name,
     type: fieldToJsxType(field.type),
-    required: !field.optional && !field.nullable && field.default === undefined,
+    required: isRequired(field),
   }));
 }
 

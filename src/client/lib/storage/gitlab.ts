@@ -9,7 +9,7 @@ import type {
 import { serializeContent } from "@shared/content-parser";
 import { BranchedStorage } from "./base";
 import type { ChangeRequestSummary, PublishMode } from "./types";
-import { MergeConflictError, getErrorStatus } from "./types";
+import { MergeConflictError, exists, getErrorStatus } from "./types";
 import { getToken, fileToBase64 } from "./utils";
 
 interface GitLabConfig {
@@ -60,12 +60,7 @@ export class GitLabStorage extends BranchedStorage {
   }
 
   protected async checkBranchExists(branch: string): Promise<boolean> {
-    try {
-      await this.api.Branches.show(this.config.project, branch);
-      return true;
-    } catch {
-      return false;
-    }
+    return exists(this.api.Branches.show(this.config.project, branch));
   }
 
   async listEntries(collection: string): Promise<EntryMeta[]> {

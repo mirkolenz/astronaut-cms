@@ -1,0 +1,149 @@
+---
+title: Security Model
+description: What the CMS trusts, what it enforces, and what your deployment has to do.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Steps from "@/components/Steps.astro";
+import StepItem from "@/components/StepItem.astro";
+
+Astronaut CMS has no backend of its own.
+The admin runs in the browser with the editor's own Git provider token, and the handful of injected routes exist only to hold secrets a browser may not: the OAuth client secret, the object-store credential, the AI gateway key.
+Everything below follows from that.
+
+## What one trust decision buys
+
+There is exactly one authorization check, in every injected route: **the caller holds a token with write access to the configured repository**.
+The Git provider knows nothing about your bucket or your AI gateway, so write access is also what entitles a caller to:
+
+- administer the media object store (upload, rename, delete),
+- spend the shared AI gateway credential,
+- publish, by merging the draft branch.
+
+Anyone you trust to push to the repository is trusted with all of it.
+If those need to be separate grants, the repository is the wrong place to express that, and a backend with its own sessions and roles is warranted.
+
+A verified token is cached for **60 seconds**, so a revoked collaborator can still reach the server-side capabilities above for up to a minute.
+
+## The browser token
+
+The provider token lives in `sessionStorage` and is readable by any script running on the admin origin.
+That is inherent to a CMS with no server session: the token *is* the session.
+Successful script injection in the admin therefore acquires every permission the token carries, which makes the kind of token you issue the most important single setting.
+
+<Aside type="caution" title="Use a GitHub App">
+  `authMode` defaults to `github-app`, and should stay there. A GitHub App issues tokens limited to
+  the repositories the app is installed on and to the permissions it declares, and can be configured
+  to expire. A classic OAuth App (`authMode: "oauth-app"`) can only issue a coarse, non-expiring
+  `repo` token that reaches *every* repository the editor can — a poor thing to leave in a tab.
+</Aside>
+
+If your threat model includes malicious collaborators or high-value organization tokens, this architecture is not the right one: put a backend-for-frontend between the admin and the provider, keep the session in an `HttpOnly` cookie, and expose only the operations that backend is willing to perform.
+
+## Content Security Policy and response headers
+
+The admin ships a strict policy: `default-src 'none'`, `script-src 'self'` with no inline scripts, `frame-ancestors 'none'`, and a `connect-src` naming only your Git provider's API and — for an object-store library — the origin uploads are presigned to.
+
+It is delivered as an HTTP header wherever the admin is rendered on demand, which the integration arranges automatically whenever your deployment already runs a server (an object-store library, the AI assistant, or the GitHub redirect flow).
+A `<meta>` policy is always emitted as well, but a browser ignores `frame-ancestors` there.
+
+<Aside type="caution" title="Static admin deployments">
+  When none of those features is enabled the admin is prerendered, and Astro cannot set headers on a
+  static file. The build log says so. Configure these at your host for the admin path:
+
+  ```
+  Content-Security-Policy: <the policy in the page's meta tag>
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  ```
+</Aside>
+
+Every injected route carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on its own responses.
+
+## Media
+
+### Uploads
+
+An upload is never shaped by its caller alone.
+The media route decides the destination, the size and the type, and signs them into the presigned URL so the store itself enforces them:
+
+- **Size** is checked against `media.maxFileSize` and signed as `Content-Length`, so understating it yields a URL the store refuses rather than an unrestricted `PUT`.
+- **Content type** is derived from the file extension, never taken from the uploader, and signed too — the store serves back what it was given, so choosing the type is choosing how the bytes are interpreted.
+- **Destination** is refused if something is already there. Replacing a file is a separate, explicit act (the admin's "Replace" and "Overwrite" actions), not a side effect of uploading under the same name.
+- **Active types** (SVG and friends) are never presigned. They are proxied through the route, which stores them with `Content-Disposition: attachment` so navigating to one downloads it instead of running it.
+
+### Deletion is recoverable
+
+Only the admin can know what content references a file — it is the side that can read the repository — so that check cannot be a precondition the store enforces.
+Instead the store makes deletion undoable: the object is moved to a `.trash/` prefix inside the library rather than dropped.
+A client bug, a stale reference scan or a compromised admin then costs a restore rather than the file.
+
+<Aside type="note">
+  Give the `.trash/` prefix a lifecycle rule to decide how long a deletion stays undoable. The prefix
+  is not reachable through the media route, but a public bucket still serves those keys, so a deleted
+  file remains readable to anyone who can guess one until the rule expires it.
+</Aside>
+
+### Serve the library from its own origin
+
+Uploaded files are attacker-influenced bytes your site serves back, and some allowed types are documents a browser will run.
+`media.publicUrl` must therefore not share an origin with the site itself; the integration refuses the configuration when your `astro.config` declares a `site` it can check against.
+
+Serve the bucket from a dedicated host (a CDN subdomain), without cookies, and with `X-Content-Type-Options: nosniff` on its responses.
+
+## The AI assistant
+
+### Indirect prompt injection
+
+The agent reads content: entry bodies, attached documents, media listings.
+Any of it can try to instruct the model, so the boundary is not "will the model be fooled" but "what is the worst a fooled model can do".
+
+Every tool the agent can call writes into the **pending changeset** — the draft branch the user reviews and then publishes or discards as a whole — so a destructive call talked out of a model costs a discard.
+The one operation that could not be discarded is not offered at all: see [what the agent may reach](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach).
+
+### Cost
+
+The relay holds the gateway credential, so an editor's token is otherwise a licence to bill your account without bound.
+Request size, output tokens, request rate and concurrency are all capped per editor — see [`ai.limits`](/astronaut-cms/guides/ai-agent/#cost-controls) for the knobs and their defaults.
+
+<Aside type="caution">
+  Those limits bind one warm instance, not the deployment: an injected route holds no shared state.
+  They stop a runaway agent loop or a single stolen token from draining a budget unattended. Set a
+  spending cap at the gateway as well — that is the only ceiling that counts across instances.
+</Aside>
+
+## The OAuth token exchange
+
+The GitHub redirect flow's token route is deliberately unauthenticated: a request is worth nothing without a live authorization code, which GitHub hands only to the app's registered callback URL and which PKCE binds to the browser that started the flow.
+It relays only `authorization_code` grants, only for the configured `client_id`, and reads at most 4 KB of request body.
+Add rate limiting at your host, which is the only place that sees every instance.
+
+## Checklist
+
+<Steps>
+  <StepItem title="Register a GitHub App, not an OAuth App">
+    Install it only on the repository the CMS edits, grant Contents + Pull requests, and enable
+    expiring user tokens.
+  </StepItem>
+
+  <StepItem title="Serve media from a separate origin">
+    A CDN subdomain, cookieless, with `nosniff`.
+  </StepItem>
+
+  <StepItem title="Set the security headers">
+    Automatic when the admin renders on demand; configure them at your host otherwise.
+  </StepItem>
+
+  <StepItem title="Cap AI spend at the gateway">
+    `ai.limits` is the brake; the gateway budget is the ceiling.
+  </StepItem>
+
+  <StepItem title="Set a lifecycle rule on the media .trash/ prefix">
+    Long enough to undo a mistake, short enough not to keep deleted files forever.
+  </StepItem>
+
+  <StepItem title="Enable bucket versioning">
+    Recoverable deletion is in the route; versioning is what survives a credential compromise.
+  </StepItem>
+</Steps>

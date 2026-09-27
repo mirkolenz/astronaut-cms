@@ -89,6 +89,38 @@ export interface AiConfig {
   models: string[];
   /** Maximum model/tool round-trips per turn (default: 24). */
   maxSteps?: number;
+  /** Abuse controls applied by the relay. See {@link AiLimits}. */
+  limits?: AiLimits;
+}
+
+/**
+ * What one editor may spend through the relay. The relay holds the gateway
+ * credential, so without these an editor's Git token is a licence to bill the
+ * site's account without bound: through one enormous request, one unbounded
+ * completion, or a loop of ordinary ones.
+ *
+ * They bind one warm instance rather than the deployment (see `RateLimiter`),
+ * so treat them as a brake rather than a budget and set a spending cap at the
+ * gateway as well.
+ */
+export interface AiLimits {
+  /** Largest request body the relay forwards, in bytes (default: 1 MiB). */
+  maxRequestBytes?: number;
+  /** Ceiling clamped onto the request's `max_tokens` (default: 8192). */
+  maxOutputTokens?: number;
+  /** Requests one editor may start per minute (default: 60). */
+  requestsPerMinute?: number;
+  /** Requests one editor may have in flight at once (default: 4). */
+  concurrency?: number;
+}
+
+/**
+ * Server-only AI config: which gateway to reach and what to allow through it.
+ * Imported by the relay route alone, like {@link MediaServerConfig}.
+ */
+export interface AiServerConfig {
+  gateway: AiGateway;
+  limits: Required<AiLimits>;
 }
 
 export type SupportedLocale = "en" | "de";
@@ -96,13 +128,19 @@ export type SupportedLocale = "en" | "de";
 export type PublishMode = "direct" | "pull-request";
 
 /**
- * GitHub authentication strategy.
+ * GitHub authentication strategy (default: `github-app`).
  *
- * - `oauth-app`: classic OAuth App. Tokens carry coarse scopes (see `scopes`)
- *   and cannot be limited to a single repository.
+ * The token this issues lives in the browser, where it is both the editor's
+ * identity and every permission the CMS has, so which kind of app issued it
+ * decides what a successful script injection in the admin would be worth.
+ *
  * - `github-app`: GitHub App. Tokens are limited to the repositories the app is
  *   installed on and the permissions it declares (use Contents + Pull requests),
- *   and can be configured to expire. Strongly recommended for least privilege.
+ *   and can be configured to expire. The default, and what a deployment holding
+ *   anything of value should use.
+ * - `oauth-app`: classic OAuth App. Tokens carry coarse scopes (see `scopes`),
+ *   cannot be limited to a single repository, and do not expire — a stolen one
+ *   reaches every repository the editor can.
  */
 export type GitHubAuthMode = "oauth-app" | "github-app";
 

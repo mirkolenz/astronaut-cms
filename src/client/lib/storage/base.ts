@@ -41,9 +41,6 @@ const BRANCH_PREFIX = "cms/";
 export abstract class StorageBase implements StorageBackend {
   abstract readonly capabilities: StorageCapabilities;
 
-  /** Media in the repository is committed to the draft branch, like every other change. */
-  readonly transactional = true;
-
   protected schemas: CollectionManifest;
   protected mediaDirectory: string;
   private mediaSource: MediaSource = this;
@@ -198,8 +195,16 @@ export abstract class StorageBase implements StorageBackend {
   }
 
   /** Where a repository library's own writes are checked, before any path is built. */
-  async uploadMedia(path: string, file: File): Promise<void> {
+  async uploadMedia(path: string, file: File, overwrite = false): Promise<void> {
     assertWithinSizeLimit(file.size, config.maxFileSize);
+
+    // Replacing a file is a different act from adding one, and the same rule the
+    // media route enforces for an object store holds here: an upload that did not
+    // ask to replace does not get to. A commit is reviewable where an object
+    // write is not, which changes the stakes, not the rule.
+    if (!overwrite && (await this.listMedia()).some((entry) => entry.path === path)) {
+      throw new Error(`A file already exists at "${path}".`);
+    }
 
     return this.writeMedia(this.mediaRepoPath(path), file);
   }
@@ -370,17 +375,26 @@ export abstract class StorageBase implements StorageBackend {
 }
 
 /**
+ * How long a branch lookup is trusted before it is made again. The branch can be
+ * retired without this session doing anything — a reviewer merging the pull
+ * request and deleting the source branch — and the admin stays open far longer
+ * than that, so the cache expires rather than living until the next reload.
+ */
+const BRANCH_TTL = 60_000;
+
+/**
  * Shared lifecycle for backends that commit to a per-user branch (cms/<username>)
  * and integrate it into a default branch via a pull/merge request. Caches the
- * resolved branch name and its existence; both are invalidated on token change
- * and explicit branch creation/deletion via markBranchExists.
+ * resolved branch name and its existence; both are invalidated on token change,
+ * the latter also by its own age and by explicit creation/deletion via
+ * markBranchExists.
  */
 export abstract class BranchedStorage extends StorageBase {
   readonly capabilities: StorageCapabilities = { publish: true, update: true };
 
   private userBranch: string | null = null;
   private cacheToken: string | null = null;
-  private branchExistsCache: boolean | null = null;
+  private branchExistsCache: { value: boolean; at: number } | null = null;
 
   protected publishMode: PublishMode;
 
@@ -411,7 +425,7 @@ export abstract class BranchedStorage extends StorageBase {
   }
 
   protected markBranchExists(exists: boolean): void {
-    this.branchExistsCache = exists;
+    this.branchExistsCache = { value: exists, at: Date.now() };
   }
 
   protected async getUserBranch(): Promise<string> {
@@ -427,9 +441,15 @@ export abstract class BranchedStorage extends StorageBase {
   }
 
   protected async branchExists(branch: string): Promise<boolean> {
-    if (this.branchExistsCache !== null) return this.branchExistsCache;
-    this.branchExistsCache = await this.checkBranchExists(branch);
-    return this.branchExistsCache;
+    const cached = this.branchExistsCache;
+
+    if (cached && Date.now() - cached.at < BRANCH_TTL) return cached.value;
+
+    const value = await this.checkBranchExists(branch);
+
+    this.markBranchExists(value);
+
+    return value;
   }
 
   protected async readRef(): Promise<string> {

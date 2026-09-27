@@ -12,12 +12,13 @@ import {
   type MdxJsxAttribute,
   type MdxJsxExpressionAttribute,
 } from "mdast-util-mdx-jsx";
+import { attributeValue, type StaticValue } from "./mdx-attributes.ts";
 import { findComponent } from "./component-lookup.ts";
 import {
+  isRequired,
   objectShape,
   type ComponentSchema,
   type ComponentSchemaMap,
-  type FieldSchema,
 } from "./field-schema.ts";
 import { fieldSchemaToZod } from "./field-to-zod.ts";
 import { collectResolvableLeaves, type ResolvableLeaf } from "./resolvable-leaves.ts";
@@ -30,10 +31,6 @@ interface MdxNode {
   attributes?: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>;
   children?: MdxNode[];
 }
-
-// A statically-known attribute value, or `unknown` for a dynamic `{expr}` we can
-// not evaluate without running JS (left unchecked rather than guessed).
-type AttrValue = { known: true; value: unknown } | { known: false };
 
 // The nearest CMS-component ancestor of a node, or null at the document root.
 type Parent = { name: string; def: ComponentSchema } | null;
@@ -54,25 +51,11 @@ function isComponentName(name: string): boolean {
   return /^[A-Z]/.test(name);
 }
 
-function readAttrValue(attr: MdxJsxAttribute): AttrValue {
-  const value = attr.value;
-
-  if (value === null || value === undefined) return { known: true, value: true };
-
-  if (typeof value === "string") return { known: true, value };
-
-  try {
-    return { known: true, value: JSON.parse(value.value) };
-  } catch {
-    return { known: false };
-  }
-}
-
 function readAttributes(attributes: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>): {
-  values: Map<string, AttrValue>;
+  values: Map<string, StaticValue>;
   hasSpread: boolean;
 } {
-  const values = new Map<string, AttrValue>();
+  const values = new Map<string, StaticValue>();
   let hasSpread = false;
 
   for (const attr of attributes) {
@@ -81,14 +64,10 @@ function readAttributes(attributes: Array<MdxJsxAttribute | MdxJsxExpressionAttr
       continue;
     }
 
-    values.set(attr.name, readAttrValue(attr));
+    values.set(attr.name, attributeValue(attr));
   }
 
   return { values, hasSpread };
-}
-
-function isRequired(field: FieldSchema): boolean {
-  return !field.optional && !field.nullable && field.default === undefined;
 }
 
 function validateProps(

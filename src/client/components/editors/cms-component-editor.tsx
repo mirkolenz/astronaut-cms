@@ -8,13 +8,18 @@ import {
   useLexicalNodeRemove,
 } from "@mdxeditor/editor";
 import { $copyNode } from "lexical";
-import type { MdxJsxAttribute, MdxJsxFlowElement } from "mdast-util-mdx-jsx";
+import type {
+  MdxJsxAttribute,
+  MdxJsxExpressionAttribute,
+  MdxJsxFlowElement,
+} from "mdast-util-mdx-jsx";
 import type { RootContent } from "mdast";
 import { ArrowUp, ArrowDown, Trash2, Copy, Plus } from "lucide-react";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { findComponent } from "@shared/component-lookup";
-import { objectShape } from "@shared/field-schema";
+import { isRequired, objectShape } from "@shared/field-schema";
+import { attributeValue, valueToAttribute } from "@shared/mdx-attributes";
 import { FieldRenderer, getDefaultValue } from "./field-renderer";
 import { EditorCard } from "./editor-card";
 import { Button } from "@client/components/ui/button";
@@ -27,48 +32,23 @@ import {
 
 // ── MDAST helpers ───────────────────────────────────────────────────
 
-function extractProps(node: MdastJsx): Record<string, string | number | boolean> {
-  const props: Record<string, string | number | boolean> = {};
-  for (const attr of node.attributes) {
-    if (attr.type === "mdxJsxAttribute") {
-      if (typeof attr.value === "string") {
-        props[attr.name] = attr.value;
-      } else if (attr.value && typeof attr.value === "object" && "value" in attr.value) {
-        try {
-          const parsed: unknown = JSON.parse(attr.value.value);
-          if (
-            typeof parsed === "string" ||
-            typeof parsed === "number" ||
-            typeof parsed === "boolean"
-          ) {
-            props[attr.name] = parsed;
-          }
-        } catch {
-          props[attr.name] = attr.value.value;
-        }
-      } else {
-        props[attr.name] = true;
-      }
-    }
-  }
-  return props;
-}
+/**
+ * The statically-known props of a node. An expression only a runtime can produce
+ * is left out: the form cannot show it, and {@link CmsComponentEditor} rewrites
+ * an attribute only when its own field is edited, so it survives untouched.
+ */
+function extractProps(node: MdastJsx): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
 
-function propToAttribute(name: string, value: string | number | boolean): MdxJsxAttribute {
-  if (value === true) {
-    return { type: "mdxJsxAttribute", name, value: null };
+  for (const attr of node.attributes) {
+    if (attr.type !== "mdxJsxAttribute") continue;
+
+    const value = attributeValue(attr);
+
+    if (value.known) props[attr.name] = value.value;
   }
-  if (typeof value === "string") {
-    return { type: "mdxJsxAttribute", name, value };
-  }
-  return {
-    type: "mdxJsxAttribute",
-    name,
-    value: {
-      type: "mdxJsxAttributeValueExpression",
-      value: JSON.stringify(value),
-    },
-  };
+
+  return props;
 }
 
 function buildDefaultAttributes(def: ClientComponentDef): MdxJsxAttribute[] {
@@ -78,9 +58,7 @@ function buildDefaultAttributes(def: ClientComponentDef): MdxJsxAttribute[] {
   for (const [key, fieldSchema] of Object.entries(shape)) {
     const val = getDefaultValue(fieldSchema);
     if (val === undefined || val === null) continue;
-    if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
-      attrs.push(propToAttribute(key, val));
-    }
+    attrs.push(valueToAttribute(key, val));
   }
   return attrs;
 }
@@ -159,12 +137,26 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
     hasNext = lexicalNode.getNextSibling() !== null;
   });
 
+  // Only the edited attribute is rewritten, so a spread and any expression the
+  // form cannot render keep their source text rather than being serialized back
+  // from what little `extractProps` could read. Clearing a prop removes it.
   const handlePropChange = useCallback(
-    (key: string, value: string | number | boolean) => {
-      const current = extractProps(mdastNode);
-      const updated = { ...current, [key]: value };
+    (key: string, value: unknown) => {
+      const isTarget = (attr: MdxJsxAttribute | MdxJsxExpressionAttribute) =>
+        attr.type === "mdxJsxAttribute" && attr.name === key;
+
+      if (value === undefined) {
+        updateMdastNode({ attributes: mdastNode.attributes.filter((attr) => !isTarget(attr)) });
+
+        return;
+      }
+
+      const attribute = valueToAttribute(key, value);
+
       updateMdastNode({
-        attributes: Object.entries(updated).map(([k, v]) => propToAttribute(k, v)),
+        attributes: mdastNode.attributes.some(isTarget)
+          ? mdastNode.attributes.map((attr) => (isTarget(attr) ? attribute : attr))
+          : [...mdastNode.attributes, attribute],
       });
     },
     [mdastNode, updateMdastNode],
@@ -261,13 +253,9 @@ export function CmsComponentEditor({ mdastNode, descriptor }: JsxEditorProps) {
                 key={key}
                 schema={fieldSchema}
                 value={currentProps[key]}
-                onChange={(v) => {
-                  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-                    handlePropChange(key, v);
-                  }
-                }}
+                onChange={(v) => handlePropChange(key, v)}
                 name={key}
-                required={!fieldSchema.optional}
+                required={isRequired(fieldSchema)}
               />
             ))}
           </div>

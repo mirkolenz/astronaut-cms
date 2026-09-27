@@ -8,6 +8,7 @@ import { GitLabStorage } from "./gitlab";
 import { RemoteMedia } from "@client/lib/media/remote";
 import type { MediaBackend } from "@client/lib/media/types";
 import { parseRepo } from "@shared/access";
+import { isTransactionalMedia } from "@shared/media";
 
 let wired: { storage: StorageBase; media: MediaBackend } | null = null;
 
@@ -52,6 +53,9 @@ function createStorage(): StorageBase {
   }
 }
 
+/** This site's answer to {@link isTransactionalMedia}, bound once. */
+export const mediaIsTransactional = isTransactionalMedia(config.mediaBackend);
+
 /**
  * The one place both backends are constructed, because a repository media
  * library *is* the storage backend — and so is the working tree a dev run puts
@@ -65,7 +69,9 @@ function wire(): { storage: StorageBase; media: MediaBackend } {
   const storage = createStorage();
   const backend = config.mediaBackend;
   const media =
-    backend.type === "remote" && !backend.local ? new RemoteMedia(backend.publicUrl) : storage;
+    backend.type === "remote" && !mediaIsTransactional
+      ? new RemoteMedia(backend.publicUrl)
+      : storage;
 
   storage.useMediaSource(media);
   wired = { storage, media };

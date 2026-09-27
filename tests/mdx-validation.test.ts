@@ -19,6 +19,32 @@ describe("validateMdx", () => {
     ]);
   });
 
+  // A braced prop is JavaScript, not JSON, so a single-quoted string is valid
+  // and has to resolve like the quoted form: the build bundles what this reports.
+  it("reads a statically-known expression prop", () => {
+    const { diagnostics, leaves } = validateMdx(
+      "<Figure src={'/src/assets/hero.png'} alt={`Hero`} />",
+      "mdx",
+      components,
+    );
+
+    expect(diagnostics).toEqual([]);
+    expect(leaves).toEqual([
+      { kind: "image", value: "/src/assets/hero.png", path: '<Figure> prop "src"' },
+    ]);
+  });
+
+  it("leaves a prop only a runtime can produce unchecked", () => {
+    const { diagnostics, leaves } = validateMdx(
+      "<Figure src={hero} alt={`Hero ${n}`} />",
+      "mdx",
+      components,
+    );
+
+    expect(diagnostics).toEqual([]);
+    expect(leaves).toEqual([]);
+  });
+
   it("still reports schema violations in props", () => {
     const { diagnostics } = validateMdx(
       '<Figure src="/src/assets/hero.png" />',

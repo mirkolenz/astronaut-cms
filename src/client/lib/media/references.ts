@@ -99,6 +99,11 @@ export function indexEntry(
  * Walks every entry of every collection: one read per entry, so callers run it
  * on demand and cache the result rather than refreshing it eagerly. Collections
  * are listed together, then their entries read through one bounded pool.
+ *
+ * A read that fails takes the whole scan with it. The index is what deletions
+ * and renames are checked against, and an entry that could not be read cannot be
+ * shown to reference nothing: skipping it would turn a transient provider error
+ * into a file classified as unused and a destructive operation waved through.
  */
 async function buildReferenceIndex(): Promise<ReferenceIndex> {
   const storage = getStorage();
@@ -110,12 +115,7 @@ async function buildReferenceIndex(): Promise<ReferenceIndex> {
   );
 
   await inParallel(listings.flat(), async ({ col, meta }) => {
-    try {
-      indexEntry(index, col, await storage.getEntry(col.name, meta.id, meta.format));
-    } catch {
-      // An unreadable entry cannot be shown to reference nothing, so it is
-      // skipped rather than counted as evidence that a file is unused.
-    }
+    indexEntry(index, col, await storage.getEntry(col.name, meta.id, meta.format));
   });
 
   return index;
