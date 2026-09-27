@@ -154,7 +154,7 @@ export type MediaContent = {
   | {
       body: BodyInit | null;
       contentType: string;
-      /** Set when the backend already cut the range it was asked for. */
+      /** How the range the backend was asked for was answered, absent without one. */
       partial?: PartialContent;
     }
 );
@@ -223,8 +223,9 @@ export interface MediaBackend {
   renameMedia(from: string, to: string): Promise<void>;
   deleteMedia(path: string): Promise<void>;
   /**
-   * A backend that can read part of a file honours `range` and says so with
-   * `partial`. One that cannot ignores it, and the route cuts the bytes.
+   * A backend handing over bytes honours `range` and says so with `partial`, so
+   * a seek in a large video never reads the whole file. A redirect leaves the
+   * range to whoever serves it.
    */
   readMedia(path: string, range?: ByteRange): Promise<MediaContent>;
   /**

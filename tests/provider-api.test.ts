@@ -225,4 +225,17 @@ describe("GitLab requests", () => {
 
     await expect(storage().listEntries("posts")).rejects.toMatchObject({ status: 503 });
   });
+  // Relayed like GitHub's proxied download: the range is forwarded, and a 206
+  // is passed through as it came.
+  it("streams a media range with the range forwarded", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { status: 206, headers: { "content-range": "bytes 0-1/10" } },
+    ]);
+
+    const content = await storage().readMedia("films/teaser.mp4", { start: 0, end: 1 });
+
+    expect(calls[1].headers.range).toBe("bytes=0-1");
+    expect(content).toMatchObject({ partial: { status: 206, contentRange: "bytes 0-1/10" } });
+  });
 });

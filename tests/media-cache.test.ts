@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "pathe";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { handle } from "@/server/handler";
@@ -15,11 +15,11 @@ const NAME = "astronaut-cms-cache-fixture.svg";
 const FILE = join(process.cwd(), "src/assets", NAME);
 const BYTES = '<svg xmlns="http://www.w3.org/2000/svg" />';
 
-// Matches the local backend's own naming of its bytes (SHA-256, hex).
-async function digestOf(content: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
+// Matches the local backend's own naming of its bytes, read off the file's metadata.
+async function versionOf(): Promise<string> {
+  const { size, mtimeMs } = await stat(FILE);
 
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${size}-${mtimeMs}`;
 }
 
 const get = (query: string, headers: HeadersInit = {}) =>
@@ -40,7 +40,7 @@ afterAll(async () => {
 
 describe("media caching", () => {
   it("keeps an addressed file for good and anything else for minutes", async () => {
-    const version = await digestOf(BYTES);
+    const version = await versionOf();
 
     const addressed = await get(`?v=${version}`);
     const bare = await get("");
@@ -55,7 +55,7 @@ describe("media caching", () => {
   });
 
   it("answers a revalidation with 304 and no body", async () => {
-    const etag = `"${await digestOf(BYTES)}"`;
+    const etag = `"${await versionOf()}"`;
     const response = await get("", { "if-none-match": etag });
 
     expect(response.status).toBe(304);
@@ -102,7 +102,9 @@ describe("media a backend would redirect for", () => {
     vi.stubGlobal("fetch", (input: string) => {
       fetched.push(input);
 
-      return Promise.resolve(new Response(PROXIED));
+      return Promise.resolve(
+        new Response(PROXIED, { headers: { "content-length": String(PROXIED.length) } }),
+      );
     });
 
     return fetched;
@@ -135,6 +137,17 @@ describe("media a backend would redirect for", () => {
     // means it is handed over as a download rather than run as a document.
     expect(response.headers.get("content-type")).toBe("image/svg+xml");
     expect(response.headers.get("content-disposition")).toBe("attachment");
+  });
+
+  // GitHub's download URL and GitLab's raw endpoint are relayed alike, and a
+  // source that ignores the range is cut while streaming.
+  it("cuts a range the source answered whole", async () => {
+    redirecting("abc");
+    const response = await get("?v=abc", { range: "bytes=1-3" });
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe(`bytes 1-3/${PROXIED.length}`);
+    expect(await response.text()).toBe(PROXIED.slice(1, 4));
   });
 
   it("redirects a backend that cannot name its bytes, whatever the caller appended", async () => {

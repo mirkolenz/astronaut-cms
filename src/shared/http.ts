@@ -121,7 +121,8 @@ export interface ByteRange {
 /** How a range of a file is answered: 206 with its bytes, or 416 when none lie inside. */
 export interface PartialContent {
   status: 206 | 416;
-  contentRange: string;
+  /** Absent only for a 416 relayed from a source that did not name the size. */
+  contentRange?: string;
   /** Inclusive offsets of the bytes to send, absent for a 416. */
   span?: { start: number; end: number };
 }
@@ -141,6 +142,9 @@ export function parseByteRange(header: string | null): ByteRange | null {
     end: match[2] ? Number(match[2]) : undefined,
   };
 }
+
+/** The header a range is forwarded upstream with. Inverse of {@link parseByteRange}. */
+export const rangeHeader = ({ start, end }: ByteRange): string => `bytes=${start ?? ""}-${end ?? ""}`;
 
 /** Settles a range against the size of the file it addresses. */
 export function partialContent({ start, end }: ByteRange, size: number): PartialContent {

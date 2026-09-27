@@ -28,6 +28,9 @@ export interface ApiRequest {
   body?: unknown;
   /** Overrides the client's default, e.g. to select a provider media type. */
   accept?: string;
+  headers?: Record<string, string>;
+  /** Failure statuses answered as a response rather than thrown, e.g. a 416 to relay. */
+  allow?: number[];
 }
 
 export class ApiClient {
@@ -39,7 +42,15 @@ export class ApiClient {
     this.headers = headers;
   }
 
-  async send({ path, method = "GET", query, body, accept }: ApiRequest): Promise<Response> {
+  async send({
+    path,
+    method = "GET",
+    query,
+    body,
+    accept,
+    headers,
+    allow,
+  }: ApiRequest): Promise<Response> {
     const url = new URL(`${this.baseUrl}/${path.replace(/^\/+/, "")}`);
 
     for (const [key, value] of Object.entries(query ?? {})) {
@@ -50,13 +61,16 @@ export class ApiClient {
       method,
       headers: {
         ...this.headers,
+        ...headers,
         ...(accept && { accept }),
         ...(body !== undefined && { "content-type": "application/json" }),
       },
       ...(body !== undefined && { body: JSON.stringify(body) }),
     });
 
-    if (!response.ok) throw new ApiError(response.status, await describe(response));
+    if (!response.ok && !allow?.includes(response.status)) {
+      throw new ApiError(response.status, await describe(response));
+    }
 
     return response;
   }

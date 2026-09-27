@@ -26,12 +26,11 @@ import {
   BodyTooLargeError,
   HARDENING_HEADERS,
   parseByteRange,
-  partialContent,
   readBody,
   readBytes,
   type ByteRange,
-  type PartialContent,
 } from "../shared/http.ts";
+import { fetchRange } from "./ranges.ts";
 import { isActiveContentType, mediaContentType } from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
@@ -503,8 +502,7 @@ async function route(
     const library = await ctx.media();
     // A range is what lets a browser play and seek a video or audio file, and
     // Safari will not play one at all without it.
-    const rangeHeader = request.headers.get("range");
-    const range = parseByteRange(rangeHeader);
+    const range = parseByteRange(request.headers.get("range"));
     const content = await library.readMedia(filePath, range ?? undefined);
     // Kept for good only when the URL names the bytes that came back. The
     // version is what makes the address change with the file, so honouring a `v`
@@ -541,6 +539,9 @@ async function route(
     };
 
     if (etag && request.headers.get("if-none-match") === etag) {
+      // A streamed body would otherwise hold its upstream open until collected.
+      if ("body" in content && content.body instanceof ReadableStream) void content.body.cancel();
+
       return new Response(null, { status: 304, headers: { ...caching, ...extra } });
     }
 
@@ -551,15 +552,15 @@ async function route(
     // fresh redirect every few minutes.
     const source =
       "redirect" in content
-        ? await proxyMedia(content.redirect, filePath, rangeHeader)
-        : cut(content, range);
+        ? await proxyMedia(content.redirect, filePath, range)
+        : content;
 
     return new Response(source.body, {
       status: source.partial?.status ?? 200,
       headers: {
         "content-type": source.contentType,
         "accept-ranges": "bytes",
-        ...(source.partial && { "content-range": source.partial.contentRange }),
+        ...(source.partial?.contentRange && { "content-range": source.partial.contentRange }),
         // These bytes are served same-origin with the admin's own cookie, so a
         // type a browser would run as a document is stored XSS waiting for an
         // editor to open it. An object store is told the same thing at upload
@@ -612,52 +613,19 @@ async function route(
   return fail("Not found.", 404);
 }
 
-/** Library bytes as the media route answers with them, whole or as one range. */
-interface MediaBytes {
-  body: BodyInit | null;
-  contentType: string;
-  partial?: PartialContent;
-}
-
 /**
  * The bytes behind a URL a backend would rather hand the browser directly, read
  * here because the caller named a version and only an answer from this origin can
- * promise to keep being that one. Streamed rather than buffered, so a large file
- * costs the function no more memory than a small one, and a range is forwarded
- * for the source to cut.
+ * promise to keep being that one. Relayed through {@link fetchRange} exactly as
+ * GitLab's bytes are, so a large file costs the function no more memory than a
+ * small one.
  */
-async function proxyMedia(source: string, path: string, range: string | null): Promise<MediaBytes> {
-  const response = await fetch(source, range ? { headers: { range } } : undefined);
-  const { status } = response;
-  const contentRange = response.headers.get("content-range");
+async function proxyMedia(source: string, path: string, range: ByteRange | null) {
+  const { body, partial } = await fetchRange((headers) => fetch(source, { headers }), range);
 
-  if (status !== 416 && (!response.ok || !response.body)) {
-    throw new HttpError(`Could not read the media file (${status}).`, 502);
-  }
-
-  // Derived from the name rather than taken from the answer, so a file served
+  // Typed from the name rather than taken from the answer, so a file served
   // this way is typed exactly as one the library stored itself.
-  return {
-    body: response.body,
-    contentType: mediaContentType(path),
-    ...((status === 206 || status === 416) && contentRange && { partial: { status, contentRange } }),
-  };
-}
-
-/**
- * The range of a file a backend handed over whole, which it already holds in
- * memory, so only the range is copied. A body the backend streamed without
- * cutting is sent whole.
- */
-function cut(content: MediaBytes, range: ByteRange | null): MediaBytes {
-  const { body } = content;
-
-  if (content.partial || !range || !(body instanceof Uint8Array)) return content;
-
-  const partial = partialContent(range, body.length);
-  const span = partial.span;
-
-  return { ...content, body: span ? body.slice(span.start, span.end + 1) : null, partial };
+  return { body, partial, contentType: mediaContentType(path) };
 }
 
 async function startLogin(url: URL, getEnv: EnvReader): Promise<Response> {

@@ -9,6 +9,8 @@ import type {
 } from "./types.ts";
 import { MergeConflictError, exists, getErrorStatus, staleWrite } from "./types.ts";
 import { ApiClient } from "./api.ts";
+import { fetchRange } from "../ranges.ts";
+import type { ByteRange } from "../../shared/http.ts";
 import { joinUrl } from "../../shared/url.ts";
 
 export interface GitLabConfig {
@@ -213,20 +215,31 @@ export class GitLabStorage extends BranchedStorage {
     await this.commitUpsert(repoPath, toBase64(bytes), `Upload ${repoPath}`, "base64");
   }
 
-  /** GitLab has no pre-signed download URL, so the bytes travel through this server. */
-  async readMedia(path: string): Promise<MediaContent> {
-    const response = await this.api.send({
-      path: `${this.filePath(this.mediaRepoPath(path))}/raw`,
-      query: { ref: await this.readRef() },
-    });
+  /**
+   * GitLab has no pre-signed download URL, so the bytes travel through this
+   * server, streamed and relayed through {@link fetchRange} exactly as GitHub's
+   * are when the route proxies its download URL.
+   */
+  async readMedia(path: string, range?: ByteRange): Promise<MediaContent> {
+    const ref = await this.readRef();
+    const { headers, ...bytes } = await fetchRange(
+      (forwarded) =>
+        this.api.send({
+          path: `${this.filePath(this.mediaRepoPath(path))}/raw`,
+          query: { ref },
+          headers: forwarded,
+          allow: [416],
+        }),
+      range,
+    );
 
     return {
-      body: new Uint8Array(await response.arrayBuffer()),
+      ...bytes,
       contentType: this.contentTypeOf(path),
       // Read off the response rather than asked for: GitLab documents this
       // header on the file endpoints, and where it is absent the route simply
       // falls back to the short cache.
-      version: response.headers.get("x-gitlab-blob-id") ?? undefined,
+      version: headers.get("x-gitlab-blob-id") ?? undefined,
     };
   }
 

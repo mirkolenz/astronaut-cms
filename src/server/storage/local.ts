@@ -10,6 +10,7 @@
  * Node-only. The integration substitutes a stub for it in any build that is not
  * a dev run, so `node:fs` never enters a Workers or edge bundle.
  */
+import { openAsBlob, type Stats } from "node:fs";
 import { link, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "pathe";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
@@ -18,6 +19,7 @@ import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
 import { getErrorCode, staleWrite, type Precondition } from "./types.ts";
 import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
+import { partialContent, type ByteRange } from "../../shared/http.ts";
 
 export interface LocalConfig {
   /** Absolute project root. Every managed path is resolved against it. */
@@ -103,9 +105,9 @@ export class LocalStorage extends StorageBase {
 
         if (entry.isDirectory()) return this.listDirectory(path);
 
-        const { size } = await stat(await this.resolve(path));
+        const stats = await stat(await this.resolve(path));
 
-        return [{ path, size }];
+        return [{ path, size: stats.size, version: statVersion(stats) }];
       }),
     );
 
@@ -223,14 +225,20 @@ export class LocalStorage extends StorageBase {
     await this.removeFile(repoPath);
   }
 
-  async readMedia(path: string): Promise<MediaContent> {
-    const bytes = await readFile(await this.resolve(this.mediaRepoPath(path)));
+  /** Streamed from disk, and only the range asked for, so no read costs the whole file. */
+  async readMedia(path: string, range?: ByteRange): Promise<MediaContent> {
+    const fullPath = await this.resolve(this.mediaRepoPath(path));
+    const stats = await stat(fullPath);
+    const partial = range && partialContent(range, stats.size);
+    const base = { contentType: this.contentTypeOf(path), version: statVersion(stats), partial };
 
-    return {
-      body: new Uint8Array(bytes),
-      contentType: this.contentTypeOf(path),
-      version: await digest(bytes),
-    };
+    if (partial && !partial.span) return { ...base, body: null };
+
+    // A file-backed blob reads nothing until it is sent, and a slice of one
+    // reads only its own bytes.
+    const blob = await openAsBlob(fullPath);
+
+    return { ...base, body: partial?.span ? blob.slice(partial.span.start, partial.span.end + 1) : blob };
   }
 
   // Nothing to publish into: the working tree is the published state. Discard is
@@ -272,10 +280,16 @@ async function canonical(path: string): Promise<string> {
   }
 }
 
+/**
+ * A media file's version, read off its metadata so neither a listing nor a read
+ * has to hash the bytes. A write changes the modification time, which is all
+ * the admin's cache needs to notice a replaced file.
+ */
+const statVersion = ({ size, mtimeMs }: Stats): string => `${size}-${mtimeMs}`;
+
 /** A file's contents, named. Not a git hash: nothing here compares it to one. */
-async function digest(content: string | Uint8Array): Promise<string> {
-  const input = typeof content === "string" ? new TextEncoder().encode(content) : content;
-  const hashed = await crypto.subtle.digest("SHA-256", input as BufferSource);
+async function digest(content: string): Promise<string> {
+  const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
 
   return Array.from(new Uint8Array(hashed), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
