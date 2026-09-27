@@ -139,7 +139,7 @@ function refuse(message: string): never {
  * rather than as the correctable mistake it usually is.
  */
 async function assertInLibrary(ctx: RequestContext, path: string): Promise<void> {
-  const files = await (await ctx.media()).listMedia();
+  const files = await ctx.media().listMedia();
 
   if (files.some((file) => file.path === path)) return;
 
@@ -253,7 +253,7 @@ export const operations = {
 
   // --- Media ---------------------------------------------------------------
 
-  listMedia: op(none, async (ctx) => (await ctx.media()).listMedia()),
+  listMedia: op(none, async (ctx) => ctx.media().listMedia()),
 
   beginUpload: op(
     z.object({
@@ -262,7 +262,7 @@ export const operations = {
       overwrite: z.boolean().default(false),
     }),
     async (ctx, { path, size, overwrite }) =>
-      (await ctx.media()).beginUpload(path, size, overwrite),
+      ctx.media().beginUpload(path, size, overwrite),
   ),
 
   renameMedia: op(
@@ -270,7 +270,7 @@ export const operations = {
     async (ctx, { from, to, force }) => {
       await assertInLibrary(ctx, from);
       await assertUnreferenced(ctx, from, force);
-      await (await ctx.media()).renameMedia(from, to);
+      await ctx.media().renameMedia(from, to);
 
       return ok;
     },
@@ -281,7 +281,7 @@ export const operations = {
     async (ctx, { path, force }) => {
       await assertInLibrary(ctx, path);
       await assertUnreferenced(ctx, path, force);
-      await (await ctx.media()).deleteMedia(path);
+      await ctx.media().deleteMedia(path);
 
       return ok;
     },
@@ -291,10 +291,10 @@ export const operations = {
    * The deletions still undoable. A repository library answers with none, so the
    * admin can ask unconditionally and show a trash only where there is one.
    */
-  listTrash: op(none, async (ctx) => (await ctx.media()).listTrash()),
+  listTrash: op(none, async (ctx) => ctx.media().listTrash()),
 
   restoreMedia: op(z.object({ id: z.string() }), async (ctx, { id }) => {
-    await (await ctx.media()).restoreMedia(id);
+    await ctx.media().restoreMedia(id);
 
     return ok;
   }),
@@ -305,7 +305,7 @@ export const operations = {
    * is not among them.
    */
   purgeTrash: op(z.object({ id: z.string() }), async (ctx, { id }) => {
-    await (await ctx.media()).purgeTrash(id);
+    await ctx.media().purgeTrash(id);
 
     return ok;
   }),

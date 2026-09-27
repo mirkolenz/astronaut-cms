@@ -19,10 +19,10 @@ export interface RequestContext {
    * The repository backend itself, or the object store configured beside it.
    *
    * Resolved on first use rather than per request: reaching an object store
-   * means reading credentials and, on a cold instance, importing the AWS SDK —
-   * and most requests, the assistant's above all, never touch media at all.
+   * means reading credentials, and most requests,
+   * the assistant's above all, never touch media at all.
    */
-  media: () => Promise<MediaBackend>;
+  media: () => MediaBackend;
 }
 
 /**
@@ -31,16 +31,16 @@ export interface RequestContext {
  * and the storage backend is then told which library to validate references
  * against.
  */
-async function openLibrary(
+function openLibrary(
   storage: StorageBase,
   getEnv: EnvReader,
   getBinding: BindingReader,
-): Promise<MediaBackend> {
+): MediaBackend {
   const { media } = serverConfig;
 
   if (!media) return storage;
 
-  const library = new ObjectStoreLibrary(await openStore(media, getEnv, getBinding), media, {
+  const library = new ObjectStoreLibrary(openStore(media, getEnv, getBinding), media, {
     extensions: serverConfig.mediaExtensions,
     maxFileSize: serverConfig.maxFileSize,
   });
@@ -56,7 +56,7 @@ export function createContext(
   getBinding: BindingReader,
 ): RequestContext {
   const storage = createStorage(session);
-  let library: Promise<MediaBackend> | null = null;
+  let library: MediaBackend | null = null;
 
   return {
     session,

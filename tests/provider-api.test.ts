@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, ApiError } from "@/server/storage/api";
+import { ApiClient } from "@/server/storage/api";
+import { ApiError } from "@/server/errors";
 import { GitHubStorage } from "@/server/storage/github";
 import { GitLabStorage } from "@/server/storage/gitlab";
 import { getErrorStatus, StaleWriteError } from "@/server/storage/types";

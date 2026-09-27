@@ -1,18 +1,11 @@
 /**
- * The only module that needs the AWS SDK, which the package bundles. The route
- * imports it lazily (see `open-store.ts`), so a cold start that never touches
- * media never loads it.
+ * The S3 implementation of {@link MediaStore}: plain `fetch` requests signed
+ * with `aws4fetch`, which is small enough to load with the route itself.
  */
-import {
-  CopyObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-  ListObjectsV2Command,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { encodeKeyPath } from "../shared/media.ts";
+import { AwsClient } from "aws4fetch";
+import { ApiError } from "../server/errors.ts";
+import { encodeKeyPath, presignedUploadOrigin, remoteMediaUrl } from "../shared/media.ts";
+import { joinUrl } from "../shared/url.ts";
 import {
   isFileKey,
   MAX_KEYS,
@@ -26,23 +19,47 @@ import {
   versionOf,
 } from "./store.ts";
 
+const XML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+
+const unescapeXml = (text: string): string =>
+  text.replace(/&(?:#x([\da-f]+)|#(\d+)|(\w+));/gi, (entity, hex?: string, dec?: string, name?: string) =>
+    hex ? String.fromCodePoint(parseInt(hex, 16))
+    : dec ? String.fromCodePoint(Number(dec))
+    : (XML_ENTITIES[name ?? ""] ?? entity),
+  );
+
+/**
+ * The text of the first `<name>` element, unescaped. S3's responses are flat
+ * enough for this, and a Worker has no `DOMParser` to do better.
+ */
+function xmlText(xml: string, name: string): string | undefined {
+  const text = new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1];
+
+  return text === undefined ? undefined : unescapeXml(text);
+}
+
+/** The response itself, or an error carrying what the store said. */
+async function ensureOk(response: Response, action: string): Promise<Response> {
+  if (response.ok) return response;
+
+  throw new ApiError(response.status, `S3 ${action} failed: ${await response.text()}`);
+}
+
 export class S3Store implements MediaStore {
-  private readonly client: S3Client;
+  private readonly client: AwsClient;
   private readonly bucket: string;
+  /** The bucket's URL, which keys are joined onto. */
+  private readonly base: string;
 
   constructor(target: S3Target, credentials: S3Credentials) {
     this.bucket = target.bucket;
-    this.client = new S3Client({
-      endpoint: target.endpoint,
-      region: target.region,
-      forcePathStyle: target.pathStyle,
-      credentials,
-      // The SDK otherwise adds a CRC32 checksum to every request, which
-      // S3-compatible stores reject and which a presigned URL would force the
-      // browser to reproduce exactly.
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      responseChecksumValidation: "WHEN_REQUIRED",
-    });
+    this.base = joinUrl(presignedUploadOrigin(target), target.pathStyle ? target.bucket : "");
+    // Three attempts rather than aws4fetch's eleven.
+    this.client = new AwsClient({ ...credentials, service: "s3", region: target.region, retries: 2 });
+  }
+
+  private url(key: string): URL {
+    return new URL(remoteMediaUrl(key, this.base));
   }
 
   async list(prefix: string): Promise<StoredObject[]> {
@@ -50,39 +67,47 @@ export class S3Store implements MediaStore {
     let cursor: string | undefined;
 
     do {
-      const page = await this.client.send(
-        new ListObjectsV2Command({
-          Bucket: this.bucket,
-          Prefix: prefix || undefined,
-          ContinuationToken: cursor,
-          MaxKeys: MAX_KEYS,
-        }),
-      );
+      const query = {
+        "list-type": "2",
+        prefix: prefix || undefined,
+        "continuation-token": cursor,
+        "max-keys": String(MAX_KEYS),
+      };
+      const url = new URL(this.base);
+      // Encoded by hand, since `URLSearchParams` writes a space as `+`, which stores read inconsistently.
+      url.search = Object.entries(query)
+        .flatMap(([name, value]) => (value === undefined ? [] : [`${name}=${encodeURIComponent(value)}`]))
+        .join("&");
 
-      for (const object of page.Contents ?? []) {
-        if (!object.Key || !isFileKey(object.Key)) continue;
+      const response = await ensureOk(await this.client.fetch(url), `list of "${prefix}"`);
+      const xml = await response.text();
 
-        objects.push({ key: object.Key, size: object.Size ?? 0, version: versionOf(object.ETag) });
+      for (const [, entry = ""] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const key = xmlText(entry, "Key");
+
+        if (!key || !isFileKey(key)) continue;
+
+        objects.push({ key, size: Number(xmlText(entry, "Size") ?? 0), version: versionOf(xmlText(entry, "ETag")) });
       }
 
-      cursor = page.IsTruncated ? page.NextContinuationToken : undefined;
+      cursor = xmlText(xml, "IsTruncated") === "true" ? xmlText(xml, "NextContinuationToken") : undefined;
     } while (cursor);
 
     return objects;
   }
 
   async head(key: string): Promise<StoredObject | null> {
-    try {
-      const object = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
+    const response = await this.client.fetch(this.url(key), { method: "HEAD" });
 
-      return { key, size: object.ContentLength ?? 0, version: versionOf(object.ETag) };
-    } catch (err) {
-      if ((err as { name?: string }).name === "NotFound") return null;
+    if (response.status === 404) return null;
 
-      throw err;
-    }
+    await ensureOk(response, `HEAD ${key}`);
+
+    return {
+      key,
+      size: Number(response.headers.get("content-length") ?? 0),
+      version: versionOf(response.headers.get("etag") ?? undefined),
+    };
   }
 
   /**
@@ -109,55 +134,56 @@ export class S3Store implements MediaStore {
       ...(terms.ifAbsent && { "if-none-match": "*" }),
     };
 
-    const url = await getSignedUrl(
-      this.client,
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        ContentLength: terms.length,
-        ContentType: terms.contentType,
-        ...(terms.ifAbsent && { IfNoneMatch: "*" }),
-      }),
-      {
-        expiresIn: UPLOAD_EXPIRY_SECONDS,
-        // `content-length` is set by the browser from the body itself, so it is
-        // signed but never listed here for the caller to send.
-        signableHeaders: new Set(["content-length", ...Object.keys(headers)]),
-      },
-    );
+    const url = this.url(key);
+    url.searchParams.set("X-Amz-Expires", String(UPLOAD_EXPIRY_SECONDS));
 
-    return { url, headers };
+    const signed = await this.client.sign(url, {
+      method: "PUT",
+      // `content-length` is set by the browser from the body itself, so it is
+      // signed but never listed in `headers` for the caller to send.
+      headers: { ...headers, "content-length": String(terms.length) },
+      // aws4fetch otherwise skips `content-type` and `content-length`, the two
+      // terms that matter most. Only the headers given here are signed.
+      aws: { signQuery: true, allHeaders: true },
+    });
+
+    return { url: signed.url, headers };
   }
 
   async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: stream,
-        ContentType: terms.contentType,
-        ContentLength: terms.length,
-        ...(terms.attachment && { ContentDisposition: "attachment" }),
-        ...(terms.ifAbsent && { IfNoneMatch: "*" }),
-      }),
-    );
+    const request = await this.client.sign(this.url(key), {
+      method: "PUT",
+      body: stream,
+      headers: {
+        "content-type": terms.contentType,
+        "content-length": String(terms.length),
+        ...(terms.attachment && { "content-disposition": "attachment" }),
+        ...(terms.ifAbsent && { "if-none-match": "*" }),
+      },
+    });
+
+    // Sent once, since a stream cannot be replayed for a retry.
+    await ensureOk(await fetch(request), `PUT ${key}`);
   }
 
   async copy(from: string, to: string, ifAbsent = false): Promise<void> {
-    await this.client.send(
-      new CopyObjectCommand({
-        Bucket: this.bucket,
-        Key: to,
-        // `CopySource` is parsed, not decoded, so the key arrives encoded; the SDK does not do it.
-        CopySource: `${this.bucket}/${encodeKeyPath(from)}`,
+    const response = await this.client.fetch(this.url(to), {
+      method: "PUT",
+      headers: {
+        // Parsed, not decoded, so the key has to arrive encoded.
+        "x-amz-copy-source": `${this.bucket}/${encodeKeyPath(from)}`,
         // Conditional in the store, so two renames onto one destination cannot
         // both pass a prior existence check and the second silently win.
-        ...(ifAbsent && { IfNoneMatch: "*" }),
-      }),
-    );
+        ...(ifAbsent && { "if-none-match": "*" }),
+      },
+    });
+    const body = await (await ensureOk(response, `copy of ${from} to ${to}`)).text();
+
+    // A copy can fail after the store has already answered 200.
+    if (body.includes("<Error>")) throw new Error(`S3 copy of ${from} to ${to} failed: ${body}`);
   }
 
   async remove(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await ensureOk(await this.client.fetch(this.url(key), { method: "DELETE" }), `DELETE ${key}`);
   }
 }

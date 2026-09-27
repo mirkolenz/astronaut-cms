@@ -9,16 +9,7 @@
  * Errors carry the HTTP status, which is the only thing any caller reads off
  * them (see `getErrorStatus`).
  */
-
-export class ApiError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-}
+import { ApiError } from "../errors.ts";
 
 export interface ApiRequest {
   /** Appended to the base URL. Interpolate and encode path segments before passing them. */

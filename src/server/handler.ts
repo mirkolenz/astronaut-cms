@@ -499,7 +499,7 @@ async function route(
 
   if (path.startsWith("/media/") && request.method === "GET") {
     const filePath = decodeURIComponent(path.slice("/media/".length));
-    const library = await ctx.media();
+    const library = ctx.media();
     // A range is what lets a browser play and seek a video or audio file, and
     // Safari will not play one at all without it.
     const range = parseByteRange(request.headers.get("range"));
@@ -605,7 +605,7 @@ async function route(
 
     const bytes = await readBytes(request, MAX_PROXY_UPLOAD_BYTES);
 
-    await (await ctx.media()).uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
+    await ctx.media().uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
 
     return json({ ok: true }, 200, extra);
   }

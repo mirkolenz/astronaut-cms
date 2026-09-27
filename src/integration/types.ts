@@ -331,7 +331,7 @@ export interface S3MediaConfig extends ObjectStoreConfig {
  *   go straight from the browser to the bucket, and renames and deletions are
  *   copies inside R2, so file size is bounded by R2 alone.
  * - `binding`: a Workers binding on `@astrojs/cloudflare`, which needs no
- *   credential and never loads the AWS SDK. Uploads, renames and deletions pass
+ *   credential. Uploads, renames and deletions pass
  *   through the Worker instead, so an upload is bounded by the plan's request
  *   body limit.
  *

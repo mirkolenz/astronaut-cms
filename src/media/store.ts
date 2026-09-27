@@ -2,8 +2,7 @@ import type { S3Target as SharedS3Target } from "../shared/media.ts";
 
 /**
  * The object store as the media route uses it. The S3 implementation lives in
- * `s3-store.ts` and is loaded on demand, so a deployment reaching R2 through a
- * Workers binding never pays for the AWS SDK.
+ * `s3-store.ts`, the binding one below.
  */
 
 /**

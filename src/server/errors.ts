@@ -17,3 +17,14 @@ export function checked<T>(status: number, run: () => T): T {
     throw new HttpError(err instanceof Error ? err.message : "Invalid request.", status);
   }
 }
+
+/** A failed call to an upstream API, a Git provider or the object store, with the status it answered. */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}

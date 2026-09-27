@@ -18,7 +18,7 @@ function context(overrides: Partial<RequestContext> = {}): RequestContext {
   return {
     session: { provider: "local", token: "", login: "test" },
     storage: new Proxy({}, { get: () => unreachable }) as RequestContext["storage"],
-    media: () => Promise.resolve(new Proxy({}, { get: () => unreachable }) as never),
+    media: () => new Proxy({}, { get: () => unreachable }) as never,
     ...overrides,
   };
 }

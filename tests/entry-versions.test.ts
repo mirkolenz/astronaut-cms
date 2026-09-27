@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "@/server/storage/api";
+import { ApiError } from "@/server/errors";
 import {
   StaleWriteError,
   satisfies,
