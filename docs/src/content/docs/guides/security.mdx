@@ -184,7 +184,7 @@ Because the admin holds no credential and makes no cross-origin call, its policy
 ```
 default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self';
-worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none';
+worker-src blob:; frame-src 'none'; frame-ancestors 'none';
 base-uri 'none'; form-action 'self'
 ```
 
@@ -193,7 +193,31 @@ base-uri 'none'; form-action 'self'
 The one exception is a presigned media upload, whose store origin is added, because those bytes go browser-to-store.
 
 The CMS needs an SSR adapter, so the admin always renders on demand and the policy always reaches the browser as a header — which is what lets it carry `frame-ancestors`, something a `<meta>` policy cannot.
-Every CMS response also carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+Every CMS response also carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin` and `Cross-Origin-Opener-Policy: same-origin`.
+
+`worker-src blob:` admits only workers started from a blob, because a blob worker inherits this policy.
+A worker loaded from a URL would run under the headers of its own response, which a site's static assets usually lack.
+
+## Third-party code
+
+The CMS ships its code in two halves that treat their dependencies differently.
+
+The server half, meaning the API, the storage backends and the integration, compiles in no third-party code.
+Its libraries are regular `dependencies` of the package, so a fix reaches your site through `npm update`, Renovate or Dependabot without waiting for a release, and `npm audit` sees them.
+
+The admin half is one prebuilt bundle, so your site installs none of its several hundred packages, the editor and its toolchain among them.
+None of that code ever runs on the server.
+The package's build enforces this: a server import of any package that is not a declared dependency fails it.
+
+A flaw in a bundled package can therefore reach at most an editor's browser tab, where it meets the rest of this page.
+The policy above keeps injected markup from becoming script and gives a script that got in nowhere to send anything.
+The session cookie is `HttpOnly`, every write is validated on the server, and publishing needs a human.
+
+Attached documents are the one place the admin parses bytes from outside the repository.
+A PDF or Word file is read in a worker of its own that has no DOM and no admin state, runs under the admin's policy and is terminated after that one file.
+
+The licenses of the bundled packages ship in the package as `dist/admin/THIRD_PARTY_LICENSES.md`.
+A deployment that serves the admin also distributes that code, so keep the notices available the way you do for the rest of your site's bundled dependencies.
 
 ## Media
 
@@ -306,6 +330,10 @@ Request size and output tokens are capped per editor by [`ai.limits`](/astronaut
 
 <StepItem title="Serve media from a separate origin">
   A CDN subdomain, cookieless, with `nosniff`.
+</StepItem>
+
+<StepItem title="Keep dependencies updated">
+  Let Renovate or Dependabot update your lockfile, which covers the CMS's server dependencies too.
 </StepItem>
 
 <StepItem title="Cap AI spend at the gateway">

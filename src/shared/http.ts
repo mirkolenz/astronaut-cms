@@ -7,7 +7,9 @@
  * Hardening headers carried by every response the CMS serves. `nosniff` keeps a
  * body from being interpreted as something other than the type it declares, and
  * `no-referrer` keeps repository, entry and media paths out of the `Referer` of
- * everything the admin reaches.
+ * everything the admin reaches. The cross-origin policies keep other sites from
+ * embedding what the CMS serves or holding a handle on the admin's window, which
+ * the admin needs neither of, since it opens nothing it talks back to.
  *
  * Deliberately no `Permissions-Policy`: WebMCP is gated by the `tools` feature,
  * which is allowed for a document's own origin only while nothing says
@@ -17,6 +19,8 @@
 export const HARDENING_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
+  "cross-origin-resource-policy": "same-origin",
+  "cross-origin-opener-policy": "same-origin",
 };
 
 /**

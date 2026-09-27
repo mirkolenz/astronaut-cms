@@ -4,6 +4,9 @@ import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@/shared/media";
 import { uploadMedia } from "@/client/lib/media";
 import { call } from "@/client/lib/api";
 import { optimizeImage } from "@/client/lib/image-utils";
+import { extractInWorker } from "@/client/lib/ai/workers/extraction";
+import docxWorker from "@/client/lib/ai/workers/docx?worker&url";
+import pdfWorker from "@/client/lib/ai/workers/pdf?worker&url";
 
 const WORD_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -39,22 +42,15 @@ export function isImageAttachment(file: File): boolean {
 }
 
 // Extracts readable text from a document entirely client-side: PDFs via pdf.js
-// (bundled by unpdf, no worker setup), Word `.docx` via mammoth, everything else
-// as UTF-8 text.
+// (bundled by unpdf), Word `.docx` via mammoth, each in a worker of its own, and
+// everything else as UTF-8 text.
 async function extractDocumentText(file: File): Promise<string> {
   if (file.type === "application/pdf" || hasAllowedExtension(file.name, [".pdf"])) {
-    const { extractText, getDocumentProxy } = await import("unpdf");
-    const pdf = await getDocumentProxy(new Uint8Array(await file.arrayBuffer()));
-    const { text } = await extractText(pdf, { mergePages: true });
-
-    return text;
+    return extractInWorker(pdfWorker, file);
   }
 
   if (file.type === WORD_MIME || hasAllowedExtension(file.name, [".docx"])) {
-    const { default: mammoth } = await import("mammoth");
-    const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-
-    return value;
+    return extractInWorker(docxWorker, file);
   }
 
   return file.text();
@@ -82,7 +78,12 @@ export async function prepareMessage(
 ): Promise<PreparedMessage> {
   const files: FileUIPart[] = [];
   const savedPaths: string[] = [];
-  const documents: string[] = [];
+  // Each in a worker of its own, so they run side by side with the uploads.
+  const documents = Promise.all(
+    attachments
+      .filter(({ file }) => !isImageAttachment(file))
+      .map(async ({ file }) => `### ${file.name}\n\n${(await extractDocumentText(file)).trim()}`),
+  );
 
   // Nobody is asked whether to overwrite here, so every saved attachment gets a
   // free name instead. Listed once and grown as uploads land, so two attachments
@@ -93,28 +94,23 @@ export async function prepareMessage(
       : [],
   );
 
-  for (const { file, save } of attachments) {
-    if (isImageAttachment(file)) {
-      if (save) {
-        const optimized = await optimizeImage(file);
-        const path = uniqueMediaPath(optimized.name, taken);
+  for (const { file, save } of attachments.filter(({ file }) => isImageAttachment(file))) {
+    if (save) {
+      const optimized = await optimizeImage(file);
+      const path = uniqueMediaPath(optimized.name, taken);
 
-        taken.add(path);
-        await uploadMedia(path, optimized);
-        // The model is handed the reference content stores, not the library path,
-        // since the only thing it does with it is write it into a field.
-        savedPaths.push(mediaRef(path, config));
-        files.push(await imageToFilePart(optimized));
-      } else {
-        files.push(await imageToFilePart(file));
-      }
-
-      continue;
+      taken.add(path);
+      await uploadMedia(path, optimized);
+      // The model is handed the reference content stores, not the library path,
+      // since the only thing it does with it is write it into a field.
+      savedPaths.push(mediaRef(path, config));
+      files.push(await imageToFilePart(optimized));
+    } else {
+      files.push(await imageToFilePart(file));
     }
-
-    const extracted = (await extractDocumentText(file)).trim();
-    documents.push(`### ${file.name}\n\n${extracted}`);
   }
+
+  const extracted = await documents;
 
   const sections = [text.trim()];
 
@@ -125,8 +121,8 @@ export async function prepareMessage(
     );
   }
 
-  if (documents.length > 0) {
-    sections.push(`Attached documents:\n\n${documents.join("\n\n")}`);
+  if (extracted.length > 0) {
+    sections.push(`Attached documents:\n\n${extracted.join("\n\n")}`);
   }
 
   return { text: sections.filter(Boolean).join("\n\n"), files };

@@ -1,21 +1,10 @@
 /**
- * What a custom component `editor` in `cms.config` is built with: the props it
- * is handed and the editing primitives of the admin's MDXEditor. The admin
- * bundles its editor, so these are the only handles on that very instance. A
- * separate install of `@mdxeditor/editor` would be a second copy whose hooks
- * find none of the admin's state.
- *
- * The types are the CMS's own, so a site needs no editor packages installed to
- * check its config.
+ * The contract of `astronaut-cms/editor`, apart from the module that implements
+ * it with the admin's MDXEditor. The config and the Node stand-ins are typed by
+ * this alone, so neither reaches the editor packages, which only the admin has.
  */
-import { createElement, type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { RootContent } from "mdast";
-import {
-  NestedLexicalEditor as MdxNestedLexicalEditor,
-  useLexicalNodeRemove as useMdxLexicalNodeRemove,
-  useMdastNodeUpdater as useMdxMdastNodeUpdater,
-  type MdastJsx,
-} from "@mdxeditor/editor";
 
 /** `name="value"`, or `name={expression}` with the expression as source text. */
 export interface MdxJsxAttribute {
@@ -58,25 +47,12 @@ export interface NestedLexicalEditorProps {
   block?: boolean;
 }
 
-/** A rich-text editor for content nested inside the element, such as its children. */
-export function NestedLexicalEditor({
-  getUpdatedMdastNode,
-  ...props
-}: NestedLexicalEditorProps): ReactElement {
-  return createElement(MdxNestedLexicalEditor<MdastJsx>, {
-    ...props,
-    getUpdatedMdastNode: (node, content) => getUpdatedMdastNode(node, content) as MdastJsx,
-  });
-}
-
-/** Merges fields into the element being edited. */
-export function useMdastNodeUpdater(): (node: Partial<MdxJsxElement>) => void {
-  const update = useMdxMdastNodeUpdater<MdastJsx>();
-
-  return (node) => update(node as Partial<MdastJsx>);
-}
-
-/** Removes the element being edited from the document. */
-export function useLexicalNodeRemove(): () => void {
-  return useMdxLexicalNodeRemove();
+/** The runtime exports of `astronaut-cms/editor`. */
+export interface EditorExports {
+  /** A rich-text editor for content nested inside the element, such as its children. */
+  NestedLexicalEditor: (props: NestedLexicalEditorProps) => ReactElement;
+  /** Merges fields into the element being edited. */
+  useMdastNodeUpdater: () => (node: Partial<MdxJsxElement>) => void;
+  /** Removes the element being edited from the document. */
+  useLexicalNodeRemove: () => () => void;
 }

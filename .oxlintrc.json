@@ -3,5 +3,30 @@
     "src/**/*.gen.ts",
     "src/client/components/ai-elements/**",
     "src/client/components/ui/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/**"
+      ],
+      "excludeFiles": [
+        "src/client/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/client/**"
+                ],
+                "message": "Only the admin bundle may import admin code, the server and the integration never run it."
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

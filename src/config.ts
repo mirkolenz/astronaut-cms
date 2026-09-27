@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { JsxEditor, JsxEditorProps } from "./editor.ts";
+import type { JsxEditor, JsxEditorProps } from "./shared/jsx-editor.ts";
 import type { z } from "zod";
 import type { schemaHelpers } from "./shared/cms-markers.ts";
 import type { CollectionSort } from "./shared/types.ts";

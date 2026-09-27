@@ -5,39 +5,30 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
 import { dts } from "rolldown-plugin-dts";
 import pkg from "./package.json" with { type: "json" };
+import { dependencyPolicy, environmentAliases, licenseExtras } from "./vite.plugins.ts";
 
 const src = (path: string) => resolve(import.meta.dirname, "src", path);
 
-/** Whether an import stays out of a bundle that shares `packages` with the site. */
-const externalTo =
-  (packages: string[]) =>
-  (id: string): boolean =>
-    id.startsWith("virtual:") ||
-    id.startsWith("astro:") ||
-    packages.some((name) => id === name || id.startsWith(`${name}/`));
+const licenses = licenseExtras(pkg.name, "THIRD_PARTY_LICENSES.md");
 
-// Two bundles, each with every dependency compiled in, so a site installs and
-// rebuilds none of them. The server shares the peers with the site. The admin
-// shares only React, which the site's editors render inside it. Its zod is
-// private, since the site's schemas are lowered on the site's own copy.
+// The server compiles in no third-party code and may import only the declared
+// dependencies. The admin is one bundle with everything compiled in but React,
+// which the site's editors render inside it. See the security guide.
 export default defineConfig({
   base: "./",
   // The declarations the dts plugin emits are modules too, and not for stripping.
   oxc: { exclude: /\.(js|d\.ts)$/ },
-  resolve: {
-    alias: [
-      { find: "@", replacement: src("") },
+  resolve: { tsconfigPaths: true },
+  plugins: [
+    environmentAliases("client", {
       // CommonJS `acorn-jsx` would otherwise pull in acorn's CommonJS build beside
       // the ES one micromark imports, the same parser twice.
-      { find: /^acorn$/, replacement: fileURLToPath(import.meta.resolve("acorn")) },
-      // Slimmer stand-ins for what the admin's dependencies import. Matched
-      // exactly, so the shiki substitute can still reach shiki's core.
-      { find: /^shiki$/, replacement: src("client/bundle/shiki.ts") },
-      { find: /^@codemirror\/language-data$/, replacement: src("client/bundle/codemirror-languages.ts") },
-      { find: /^rehype-raw$/, replacement: src("client/bundle/disabled-plugin.ts") },
-    ],
-  },
-  plugins: [
+      acorn: fileURLToPath(import.meta.resolve("acorn")),
+      // Slimmer stand-ins for what the admin's dependencies import.
+      shiki: src("client/bundle/shiki.ts"),
+      "@codemirror/language-data": src("client/bundle/codemirror-languages.ts"),
+      "rehype-raw": src("client/bundle/disabled-plugin.ts"),
+    }),
     tailwindcss(),
     tanstackRouter({
       target: "react",
@@ -48,14 +39,21 @@ export default defineConfig({
       quoteStyle: "double",
     }),
   ],
+  // Self-contained, since each is loaded on its own from a blob (see `extractInWorker`).
+  worker: {
+    format: "es",
+    rolldownOptions: { output: { codeSplitting: false } },
+  },
   builder: {},
   environments: {
     server: {
       consumer: "server",
-      // Everything but the peers is bundled, for Node and Workers alike.
-      resolve: { noExternal: true, conditions: ["module", "worker", "development|production"] },
+      // Vite externalizes nothing itself, so `dependencyPolicy` alone decides.
+      resolve: { noExternal: true },
       build: {
         outDir: "dist/server",
+        // The site's own build lowers it for its runtime.
+        target: "esnext",
         lib: {
           entry: {
             integration: src("integration/index.ts"),
@@ -69,9 +67,15 @@ export default defineConfig({
           formats: ["es"],
         },
         rolldownOptions: {
-          // One declaration file beside each entry, with every type it needs inlined.
-          plugins: [dts()],
-          external: externalTo(Object.keys(pkg.peerDependencies)),
+          // One declaration file beside each entry.
+          plugins: [
+            dependencyPolicy({
+              self: pkg.name,
+              external: Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }),
+              strict: true,
+            }),
+            dts(),
+          ],
           output: { chunkFileNames: "chunks/[name]-[hash].js" },
         },
       },
@@ -81,16 +85,25 @@ export default defineConfig({
       build: {
         outDir: "dist/admin",
         copyPublicDir: false,
+        // The licenses of the packages compiled in, which their terms require to travel with them.
+        license: licenses.option,
         rolldownOptions: {
           input: {
             bootstrap: src("client/bootstrap.ts"),
-            editor: src("editor.ts"),
+            editor: src("client/editor.ts"),
             styles: src("astro/styles.css"),
           },
           // An app build rather than a library one, which would inline every font.
           preserveEntrySignatures: "strict",
-          plugins: [dts()],
-          external: externalTo(["react", "react-dom"]),
+          // Worker builds take these too, where the license plugin lists their packages.
+          plugins: [
+            // React is the site's, and the editor's declarations use the mdast types
+            // the server's already depend on.
+            dependencyPolicy({ self: pkg.name, external: ["react", "react-dom", "@types/mdast"] }),
+            // Only what a site imports is declared, not every module the admin reaches.
+            dts({ entry: ["src/client/editor.ts", "src/client/bootstrap.ts"] }),
+            licenses.plugin,
+          ],
           output: {
             entryFileNames: "[name].js",
             // The stylesheet is an entry, so it keeps its name like the scripts do.

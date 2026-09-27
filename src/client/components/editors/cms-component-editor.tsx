@@ -6,7 +6,7 @@ import {
   NestedLexicalEditor,
   useMdastNodeUpdater,
   useLexicalNodeRemove,
-} from "@/editor";
+} from "@/client/editor";
 import { $copyNode } from "lexical";
 import type {
   MdxJsxAttribute,

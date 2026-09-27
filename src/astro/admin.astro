@@ -51,7 +51,8 @@ const csp = [
   "media-src 'self' https:",
   "font-src 'self' data:",
   `connect-src ${connectSrc.join(" ")}`,
-  "worker-src 'self' blob:",
+  // Workers start only from blobs, which inherit this policy (see `extractInWorker`).
+  "worker-src blob:",
   "frame-src 'none'",
   "frame-ancestors 'none'",
   "base-uri 'none'",

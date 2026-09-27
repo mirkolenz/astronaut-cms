@@ -7,8 +7,8 @@ const path = (...segments: string[]) => resolve(import.meta.dirname, ...segments
 // integration generates the virtual modules, so tests resolve them to fixtures.
 export default defineConfig({
   resolve: {
+    tsconfigPaths: true,
     alias: [
-      { find: "@", replacement: path("src") },
       { find: "astro:env/server", replacement: path("tests/fixtures/env.ts") },
       ...["server", "local-storage", "order", "user-config"].map((name) => ({
         find: `virtual:astronaut-cms/${name}`,
