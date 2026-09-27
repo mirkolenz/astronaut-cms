@@ -4,8 +4,8 @@ import react from "@astrojs/react";
 import cms from "../src/integration/index.ts";
 
 export default defineConfig({
-  site: process.env.SITE_URL ?? "https://mirkolenz.github.io",
-  base: process.env.BASE_PATH ?? "/astronaut-cms",
+  site: "https://mirkolenz.github.io",
+  base: "/astronaut-cms",
   trailingSlash: "always",
   integrations: [
     starlight({
@@ -33,6 +33,13 @@ export default defineConfig({
       ],
     }),
     react(),
-    cms(),
+    cms({
+      storage: {
+        type: "github",
+        repo: "mirkolenz/astronaut-cms",
+        branch: "main",
+        clientId: "Ov23liO6YlidLM2gkKBv",
+      },
+    }),
   ],
 });
