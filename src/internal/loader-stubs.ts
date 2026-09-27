@@ -1,6 +1,6 @@
 /**
  * Node-only stand-ins for `astro:content` and `astro/loaders`, aliased in via
- * jiti when the integration loads the user's `content.config.ts` to extract
+ * Vite when the integration loads the user's `content.config.ts` to extract
  * collection metadata (see `load-config.ts`).
  *
  * `astro:content` is a build-time virtual module that cannot be resolved
@@ -59,8 +59,8 @@ export function file(fileName: Parameters<typeof AstroLoaders.file>[0]): LoaderM
 // --- Drift assertions ------------------------------------------------------
 
 // Each fails to compile if astro grows a config-time export this module does not
-// stand in for, which would otherwise surface as a jiti `TypeError` at
-// config:setup and degrade every collection to an empty manifest.
+// stand in for, which would otherwise surface as a `TypeError` at config:setup
+// in any site whose content config uses it.
 type AssertNever<_T extends never> = void;
 
 export type AllLoadersStubbed = AssertNever<Exclude<keyof typeof AstroLoaders, "glob" | "file">>;

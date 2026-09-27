@@ -102,7 +102,6 @@
     "cmdk": "^1",
     "es-module-lexer": "^3",
     "i18next": "^26",
-    "jiti": "^2",
     "jose": "^6",
     "lucide-react": "^1",
     "mammoth": "^1",
@@ -154,6 +153,7 @@
     "astro": "^7",
     "react": "^19",
     "react-dom": "^19",
+    "vite": "^8",
     "zod": "^4"
   },
   "peerDependenciesMeta": {

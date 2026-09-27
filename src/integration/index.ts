@@ -5,13 +5,12 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
-import type { CollectionManifest } from "../shared/types.ts";
 import { API_PATTERN, GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
-import { loadCollections, loadComponents } from "./load-config.ts";
+import { loadConfigs } from "./load-config.ts";
 import { checkContent } from "./check-content.ts";
 import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
@@ -140,7 +139,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
   return {
     name: "astronaut-cms",
     hooks: {
-      "astro:config:setup": ({
+      "astro:config:setup": async ({
         config: astroConfig,
         command,
         injectRoute,
@@ -253,19 +252,21 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Auto-discover and load content.config.{ts,mts,js,mjs}
         const contentConfigPath = findConfig(rootDir, "src/content.config");
-        let collections: CollectionManifest = {};
+
         if (contentConfigPath) {
           logger.info(`Found content config at ${contentConfigPath}`);
-          collections = loadCollections(contentConfigPath, rootDir, logger);
         } else {
           logger.warn("No content.config found — collections will be empty");
         }
 
-        collections = resolveCollections(collections, effectiveConfig);
-
         // Read once for every pass over content: the check below and, in a build,
         // the assets it bundles.
-        const components = userConfigPath ? loadComponents(userConfigPath, rootDir, logger) : {};
+        const loaded = await loadConfigs(rootDir, {
+          content: contentConfigPath,
+          cms: userConfigPath,
+        });
+        const { components } = loaded;
+        const collections = resolveCollections(loaded.collections, effectiveConfig);
         const entries =
           command === "build" || command === "dev"
             ? contentEntries(rootDir, collections, components)
