@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot } from "lucide-react";
@@ -12,23 +11,12 @@ import {
 import { Message, MessageContent, MessageResponse } from "@client/components/ai-elements/message";
 import { ToolCall } from "@client/components/ai/tool-call";
 import { Button } from "@client/components/ui/button";
-import { getChat, saveMessages } from "@client/lib/ai/chat";
+import { getChat } from "@client/lib/ai/chat";
 import { cn } from "@client/lib/utils";
 
-// The single shared Chat, wrapped so both the sidebar panel and the full-screen
-// assistant view stay in sync. Mirror to storage whenever the run settles;
-// skipping the streaming phase avoids re-serializing the conversation on every
-// token, while every pause point (ready, error, approval-requested) persists.
-// An empty conversation is never written: it would clobber the stored one while
-// the restore is still validating it, and clearChat owns removing the key.
+/** Subscribes to the shared Chat, so every view that renders it stays in sync. */
 export function useCmsChat() {
-  const chat = useChat({ chat: getChat() });
-
-  useEffect(() => {
-    if (chat.messages.length > 0 && chat.status !== "streaming") saveMessages(chat.messages);
-  }, [chat.messages, chat.status]);
-
-  return chat;
+  return useChat({ chat: getChat() });
 }
 
 export type CmsChat = ReturnType<typeof useCmsChat>;

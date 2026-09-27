@@ -7,10 +7,10 @@ export const Route = createFileRoute("/assistant")({
   component: AssistantPage,
 });
 
-// A full-screen chat surface, reached from the sidebar menu. It shares the same
-// Chat instance as the sidebar ChatPanel via useCmsChat(), so the conversation
-// is identical wherever it is shown. A centered column keeps lines readable on
-// wide screens.
+// A full-screen chat surface, reached from the sidebar menu. The conversation
+// itself lives in the shared Chat behind useCmsChat(), so leaving and returning
+// to this route resumes it. A centered column keeps lines readable on wide
+// screens.
 function AssistantPage() {
   const chat = useCmsChat();
 

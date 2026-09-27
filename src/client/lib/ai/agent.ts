@@ -5,7 +5,8 @@ import {
   type InferUITools,
   type ToolUIPart,
 } from "ai";
-import { useAiPanelStore } from "@client/stores/ai-panel-store";
+import { queryClient } from "@client/lib/query-client";
+import { useAiSettingsStore } from "@client/stores/ai-settings-store";
 import { aiConfig } from "./config";
 import { aiProvider } from "./provider";
 import { SYSTEM_PROMPT } from "./system-prompt";
@@ -17,7 +18,7 @@ import { cmsTools, cmsToolApproval } from "./tools";
 // option because the OpenAI-compatible provider drops "none" instead of
 // forwarding it, which would leave reasoning on when the user turned it off.
 function callSettings() {
-  const { model, effort } = useAiPanelStore.getState();
+  const { model, effort } = useAiSettingsStore.getState();
 
   return {
     model: aiProvider.chatModel(model),
@@ -40,6 +41,13 @@ export const cmsAgent = new ToolLoopAgent({
   toolApproval: cmsToolApproval,
   stopWhen: isStepCount(aiConfig?.maxSteps ?? 24),
   prepareCall: (settings) => ({ ...settings, ...callSettings() }),
+  // Tools write through the storage layer directly, bypassing the mutation hooks
+  // in `queries/` that normally invalidate. Doing it here rather than per tool
+  // keeps new tools covered automatically; read-only tools invalidate too, which
+  // only ever costs a refetch of the queries currently on screen.
+  onToolExecutionEnd: () => {
+    void queryClient.invalidateQueries({ queryKey: ["cms"] });
+  },
 });
 
 /** Chat message type of this agent, with its tool inputs and outputs typed. */

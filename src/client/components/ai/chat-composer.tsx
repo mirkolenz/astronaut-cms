@@ -23,7 +23,7 @@ import {
 } from "@client/components/ui/select";
 import { Button } from "@client/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@client/components/ui/tooltip";
-import { useAiPanelStore } from "@client/stores/ai-panel-store";
+import { useAiSettingsStore } from "@client/stores/ai-settings-store";
 import { aiConfig } from "@client/lib/ai/config";
 import {
   ATTACHMENT_ACCEPT,
@@ -118,10 +118,10 @@ function AttachmentChip({
 // docx) are extracted to text in the browser and folded into the message.
 export function ChatComposer({ chat, className }: { chat: CmsChat; className?: string }) {
   const { t } = useTranslation();
-  const model = useAiPanelStore((state) => state.model);
-  const setModel = useAiPanelStore((state) => state.setModel);
-  const effort = useAiPanelStore((state) => state.effort);
-  const setEffort = useAiPanelStore((state) => state.setEffort);
+  const model = useAiSettingsStore((state) => state.model);
+  const setModel = useAiSettingsStore((state) => state.setModel);
+  const effort = useAiSettingsStore((state) => state.effort);
+  const setEffort = useAiSettingsStore((state) => state.setEffort);
   const queryClient = useQueryClient();
 
   const { sendMessage, status, stop, messages } = chat;
@@ -221,16 +221,22 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
           onChange={handleInputChange}
         />
 
-        {/* In the composer so both the sidebar panel and the full-screen view get it. */}
-        <PromptInputButton
-          tooltip={t(($) => $.ai.newChat)}
-          aria-label={t(($) => $.ai.newChat)}
-          // Stays enabled on error: that is when starting over matters most.
-          disabled={messages.length === 0 || preparing || status === "streaming"}
-          onClick={clearChat}
-        >
-          <SquarePen className="size-4" />
-        </PromptInputButton>
+        {/* Unmounted rather than disabled while there is nothing to clear: the
+            surrounding input group mutes its entire contents whenever any
+            descendant is disabled. Stops a running turn first; `stop` is a no-op
+            when idle. */}
+        {messages.length > 0 && (
+          <PromptInputButton
+            tooltip={t(($) => $.ai.newChat)}
+            aria-label={t(($) => $.ai.newChat)}
+            onClick={() => {
+              void stop();
+              clearChat();
+            }}
+          >
+            <SquarePen className="size-4" />
+          </PromptInputButton>
+        )}
 
         <Select value={effort} onValueChange={(value) => setEffort(value as ReasoningEffort)}>
           <SelectTrigger

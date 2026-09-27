@@ -3,33 +3,27 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { aiConfig } from "@client/lib/ai/config";
 import type { ReasoningEffort } from "@client/lib/ai/reasoning";
 
-interface AiPanelState {
-  open: boolean;
+interface AiSettingsState {
   model: string;
   effort: ReasoningEffort;
-  setOpen: (open: boolean) => void;
-  toggle: () => void;
   setModel: (model: string) => void;
   setEffort: (effort: ReasoningEffort) => void;
 }
 
-// Persisted to sessionStorage so the panel's open state, model, and reasoning
-// effort survive the full page reloads that content edits trigger in dev.
-export const useAiPanelStore = create<AiPanelState>()(
+// The composer writes these and the agent reads them per call. Persisted so the
+// selection is not lost when the dev server reloads the page after a content edit.
+export const useAiSettingsStore = create<AiSettingsState>()(
   persist(
     (set) => ({
-      open: false,
       model: aiConfig?.models[0] ?? "",
       effort: "provider-default",
-      setOpen: (open) => set({ open }),
-      toggle: () => set((state) => ({ open: !state.open })),
       setModel: (model) => set({ model }),
       setEffort: (effort) => set({ effort }),
     }),
     {
-      name: "astronaut-cms:ai-panel",
+      name: "astronaut-cms:ai-settings",
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ open: state.open, model: state.model, effort: state.effort }),
+      partialize: (state) => ({ model: state.model, effort: state.effort }),
     },
   ),
 );

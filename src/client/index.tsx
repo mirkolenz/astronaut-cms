@@ -1,8 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import { RouterProvider } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@client/components/ui/tooltip";
+import { queryClient } from "@client/lib/query-client";
 import i18n from "@client/i18n";
 import { router } from "./router";
 
@@ -13,15 +14,6 @@ const darkModeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const applyTheme = (dark: boolean) => document.documentElement.classList.toggle("dark", dark);
 applyTheme(darkModeQuery.matches);
 darkModeQuery.addEventListener("change", (e) => applyTheme(e.matches));
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-    },
-  },
-});
 
 export default function AdminApp() {
   return (
