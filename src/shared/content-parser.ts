@@ -66,86 +66,88 @@ export function serializeContent(
   }
 }
 
+/** The entries of a file collection, keyed by id in the order the file holds them. */
+export type FileEntries = Map<string, Record<string, unknown>>;
+
+// A Map keeps the array's order even for integer-like ids, which an object
+// would move to the front.
+function arrayEntries(items: Record<string, unknown>[]): FileEntries {
+  const entries: FileEntries = new Map();
+
+  for (const item of items) {
+    const id = typeof item.id === "string" || typeof item.id === "number" ? `${item.id}` : "";
+
+    if (id) entries.set(id, item);
+  }
+
+  return entries;
+}
+
+function parseContainer(rawContent: string, format: string): unknown {
+  switch (format) {
+    case "json":
+      return JSON.parse(rawContent);
+    case "yaml":
+    case "yml":
+      return parseYaml(rawContent);
+    case "toml":
+      return parseToml(rawContent);
+    default:
+      return null;
+  }
+}
+
+/** A file collection's container, parsed. */
+export interface MultiEntryFile {
+  entries: FileEntries;
+  layout: FileEntryLayout;
+  /** The `$schema` key of an object layout, which astro skips and a rewrite keeps. */
+  jsonSchema?: string;
+}
+
 /**
  * Parses a file that contains multiple entries (used by file() loader collections).
- * Returns a record of entries keyed by ID and the detected layout.
+ * Returns the entries keyed by ID in file order and the detected layout.
  */
-export function parseMultiEntryFile(
-  rawContent: string,
-  format: string,
-): { entries: Record<string, Record<string, unknown>>; layout: FileEntryLayout } {
-  switch (format) {
-    case "json": {
-      const parsed = JSON.parse(rawContent) as unknown;
-      if (Array.isArray(parsed)) {
-        const entries: Record<string, Record<string, unknown>> = {};
-        for (const item of parsed as Record<string, unknown>[]) {
-          const id = typeof item.id === "string" || typeof item.id === "number" ? `${item.id}` : "";
-          if (id) entries[id] = item;
-        }
-        return { entries, layout: "array" };
-      }
-      return { entries: parsed as Record<string, Record<string, unknown>>, layout: "object" };
-    }
-    case "yaml":
-    case "yml": {
-      const parsed = parseYaml(rawContent) as unknown;
-      if (Array.isArray(parsed)) {
-        const entries: Record<string, Record<string, unknown>> = {};
-        for (const item of parsed as Record<string, unknown>[]) {
-          const id = typeof item.id === "string" || typeof item.id === "number" ? `${item.id}` : "";
-          if (id) entries[id] = item;
-        }
-        return { entries, layout: "array" };
-      }
-      return {
-        entries: (parsed as Record<string, Record<string, unknown>>) ?? {},
-        layout: "object",
-      };
-    }
-    case "toml": {
-      const parsed = parseToml(rawContent) as Record<string, Record<string, unknown>>;
-      return { entries: parsed, layout: "object" };
-    }
-    default:
-      return { entries: {}, layout: "object" };
-  }
+export function parseMultiEntryFile(rawContent: string, format: string): MultiEntryFile {
+  const parsed = parseContainer(rawContent, format);
+
+  if (Array.isArray(parsed)) return { entries: arrayEntries(parsed), layout: "array" };
+
+  const record = (parsed ?? {}) as Record<string, unknown>;
+  const { $schema, ...rest } = record;
+  // Only a string `$schema` is a schema reference; astro reads any other as an entry.
+  const isReference = typeof $schema === "string";
+  const entries = Object.entries(isReference ? rest : record) as [string, Record<string, unknown>][];
+
+  return { entries: new Map(entries), layout: "object", ...(isReference && { jsonSchema: $schema }) };
 }
 
 /**
  * Serializes multiple entries back into a single file string.
  * Preserves the original layout (array vs object).
  */
-export function serializeMultiEntryFile(
-  entries: Record<string, Record<string, unknown>>,
-  format: string,
-  layout: FileEntryLayout,
-): string {
+export function serializeMultiEntryFile({ entries, layout, jsonSchema }: MultiEntryFile, format: string): string {
   if (layout === "array") {
     // The map key is the entry id, so it overrides any `id` still embedded in the
     // data: a duplicated entry carries the source's, which would otherwise be
     // written back and collapse the two entries into one on the next read.
-    const arr = Object.entries(entries).map(([id, data]) => ({ ...data, id }));
-    switch (format) {
-      case "json":
-        return JSON.stringify(arr, null, 2) + "\n";
-      case "yaml":
-      case "yml":
-        return stringifyYaml(arr, { lineWidth: 0 });
-      default:
-        return JSON.stringify(arr, null, 2) + "\n";
-    }
+    const arr = [...entries].map(([id, data]) => ({ ...data, id }));
+
+    return format === "yaml" || format === "yml"
+      ? stringifyYaml(arr, { lineWidth: 0 })
+      : JSON.stringify(arr, null, 2) + "\n";
   }
 
+  const record = { ...(jsonSchema !== undefined && { $schema: jsonSchema }), ...Object.fromEntries(entries) };
+
   switch (format) {
-    case "json":
-      return JSON.stringify(entries, null, 2) + "\n";
     case "yaml":
     case "yml":
-      return stringifyYaml(entries, { lineWidth: 0 });
+      return stringifyYaml(record, { lineWidth: 0 });
     case "toml":
-      return stringifyToml(entries as Record<string, Record<string, string>>) + "\n";
+      return stringifyToml(record as Record<string, Record<string, string>>) + "\n";
     default:
-      return JSON.stringify(entries, null, 2) + "\n";
+      return JSON.stringify(record, null, 2) + "\n";
   }
 }

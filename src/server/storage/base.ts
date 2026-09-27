@@ -23,7 +23,6 @@ import type {
   EntryFormat,
   SaveEntryRequest,
   MediaFile,
-  FileEntryLayout,
   FileCollectionInfo,
   FileChange,
   TrashedFile,
@@ -40,6 +39,8 @@ import {
   serializeContent,
   serializeMultiEntryFile,
   getFileExtension,
+  type FileEntries,
+  type MultiEntryFile,
 } from "../../shared/content-parser.ts";
 import {
   validateSegment,
@@ -77,11 +78,9 @@ export function fromBase64(content: string): string {
 }
 
 /** A file collection's container, parsed. */
-interface FileCollection {
+interface FileCollection extends MultiEntryFile {
   path: string;
   format: EntryFormat;
-  entries: Record<string, Record<string, unknown>>;
-  layout: FileEntryLayout;
   /** The container's version, which is every one of its entries' version too. */
   version?: string;
 }
@@ -199,11 +198,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     const edited = this.isFileCollection(collection)
       ? await this.editFileCollection(collection, (entries) => {
-          if (data.createOnly && Object.hasOwn(entries, id)) {
-            throw staleWrite(`${collection}/${id}`);
-          }
+          if (data.createOnly && entries.has(id)) throw staleWrite(`${collection}/${id}`);
 
-          entries[id] = data.data;
+          entries.set(id, data.data);
         })
       : {
           path: this.getEntryPath(collection, id, data.format),
@@ -233,7 +230,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     if (this.isFileCollection(collection)) {
       const { path, content } = await this.editFileCollection(collection, (entries) => {
-        delete entries[id];
+        entries.delete(id);
       });
 
       await this.persist(path, content, message, versioned(expectedVersion));
@@ -259,12 +256,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       throw new Error(`Collection is not ordered: ${collection}`);
     }
 
-    const { path, content } = await this.editFileCollection(collection, (entries) =>
-      Object.fromEntries(
-        [...ids, ...Object.keys(entries)]
-          .filter((id, index, all) => id in entries && all.indexOf(id) === index)
-          .map((id) => [id, entries[id]]),
-      ),
+    const { path, content } = await this.editFileCollection(
+      collection,
+      (entries) =>
+        new Map(
+          [...new Set([...ids, ...entries.keys()])]
+            .filter((id) => entries.has(id))
+            .map((id) => [id, entries.get(id)!]),
+        ),
     );
 
     await this.persist(path, content, `Reorder ${collection}`, versioned(expectedVersion));
@@ -277,10 +276,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     if (this.isFileCollection(collection)) {
       const { format, entries, version } = await this.readFileCollection(collection);
+      const data = entries.get(id);
 
-      if (!entries[id]) throw new Error(`Entry not found: ${collection}/${id}`);
+      if (!data) throw new Error(`Entry not found: ${collection}/${id}`);
 
-      return { id, data: entries[id], body: "", format, ...(version && { version }) };
+      return { id, data, body: "", format, ...(version && { version }) };
     }
 
     const known: readonly EntryFormat[] = col.type === "content" ? CONTENT_FORMATS : DATA_FORMATS;
@@ -308,37 +308,27 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     throw new Error(`Entry not found: ${collection}/${id}`);
   }
 
-  // Rename and duplicate compose the storage primitives, so they work uniformly
-  // for glob and file collections (saveEntry/deleteEntry already branch on layout).
-  /**
-   * `expectedVersion` constrains the write that creates the target, which is only
-   * the caller's to state when the target shares a file with the source — see
-   * {@link renameEntry}, its one caller that passes it.
-   */
+  /** A copy under a new id, which works uniformly because saveEntry branches on layout. */
   async duplicateEntry(
     collection: string,
     sourceId: string,
     targetId: string,
-    expectedVersion?: string,
-  ): Promise<string | undefined> {
+  ): Promise<void> {
     const source = await this.getEntry(collection, sourceId);
 
-    return this.saveEntry(collection, targetId, {
+    await this.saveEntry(collection, targetId, {
       data: source.data,
       body: source.body,
       format: source.format,
       createOnly: true,
-      ...(expectedVersion !== undefined && { expectedVersion }),
     });
   }
 
   /**
-   * Two writes, of which only the first is based on what the caller read — the
-   * second is based on what this request has just done. Which one that is
-   * depends on the layout: in a file collection both entries live in the same
-   * container, so the version describes the write that adds the new entry; in a
-   * glob collection they are separate files, so it describes the removal of the
-   * old one.
+   * In a glob collection two writes, a copy and the removal of the original, and
+   * the version describes the removal. In a file collection both entries share
+   * one container, so it is one rewrite that keeps the entry where it was, since
+   * its position may be the collection's order.
    */
   async renameEntry(
     collection: string,
@@ -348,16 +338,35 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   ): Promise<void> {
     if (oldId === newId) return;
 
-    const shared = this.isFileCollection(collection);
+    if (!this.isFileCollection(collection)) {
+      await this.duplicateEntry(collection, oldId, newId);
+      await this.deleteEntry(collection, oldId, expectedVersion);
 
-    const version = await this.duplicateEntry(
-      collection,
-      oldId,
-      newId,
-      shared ? expectedVersion : undefined,
+      return;
+    }
+
+    const { data, format } = await this.getEntry(collection, oldId);
+
+    await assertEntryWritable(this.contentSource, {
+      col: this.schemas[collection],
+      id: newId,
+      data,
+      body: "",
+      format,
+    });
+
+    const { path, content } = await this.editFileCollection(collection, (entries) => {
+      if (entries.has(newId)) throw staleWrite(`${collection}/${newId}`);
+
+      return new Map([...entries].map(([id, item]) => [id === oldId ? newId : id, item]));
+    });
+
+    await this.persist(
+      path,
+      content,
+      `Rename ${collection}/${oldId} to ${newId}`,
+      versioned(expectedVersion),
     );
-
-    await this.deleteEntry(collection, oldId, shared ? version : expectedVersion);
   }
 
   /** The format the listing reports for an entry, or null when it holds no such entry. */
@@ -528,7 +537,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   private async loadFileCollection(collection: string): Promise<FileCollection> {
     const path = this.getFileLoaderPath(collection);
     const format = path ? this.containerFormat(path) : "json";
-    const empty = { path: path ?? "", format, entries: {}, layout: "object" as const };
+    const empty: FileCollection = { path: path ?? "", format, entries: new Map(), layout: "object" };
 
     if (!path) return empty;
 
@@ -556,7 +565,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
     const { entries, format } = await this.readFileCollection(collection);
 
-    return Object.keys(entries).map((id) => ({ id, collection, format }));
+    return [...entries.keys()].map((id) => ({ id, collection, format }));
   }
 
   /**
@@ -566,16 +575,14 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    */
   protected async editFileCollection(
     collection: string,
-    mutate: (
-      entries: Record<string, Record<string, unknown>>,
-    ) => Record<string, Record<string, unknown>> | void,
+    mutate: (entries: FileEntries) => FileEntries | void,
   ): Promise<{ path: string; content: string; version?: string }> {
-    const { path, format, entries, layout, version } = await this.readFileCollection(collection);
-    const edited = { ...entries };
+    const { path, format, version, ...file } = await this.readFileCollection(collection);
+    const edited = new Map(file.entries);
 
     return {
       path,
-      content: serializeMultiEntryFile(mutate(edited) ?? edited, format, layout),
+      content: serializeMultiEntryFile({ ...file, entries: mutate(edited) ?? edited }, format),
       version,
     };
   }

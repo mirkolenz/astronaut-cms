@@ -106,9 +106,10 @@ class EntryFailureStorage extends StubStorage {
   }
 }
 
-class RacingFileStorage extends StubStorage {
-  private file: VersionedContent = {
-    content: JSON.stringify({ old: { name: "Original" } }),
+/** A file collection's container held in memory, versioned by write count. */
+class ContainerStorage extends StubStorage {
+  file: VersionedContent = {
+    content: JSON.stringify({ first: { name: "First" }, old: { name: "Old" }, last: { name: "Last" } }),
     version: "v1",
   };
   private writes = 1;
@@ -131,21 +132,9 @@ class RacingFileStorage extends StubStorage {
       return Promise.reject(staleWrite(path));
     }
 
-    const version = `v${++this.writes}`;
-    this.file = { content, version };
+    this.file = { content, version: `v${++this.writes}` };
 
-    if (version === "v2") {
-      const entries = JSON.parse(content) as Record<string, Record<string, unknown>>;
-
-      entries.old.name = "Concurrent";
-      this.file = { content: JSON.stringify(entries), version: `v${++this.writes}` };
-    }
-
-    return Promise.resolve(version);
-  }
-
-  storedEntries(): Record<string, Record<string, unknown>> {
-    return JSON.parse(this.file.content) as Record<string, Record<string, unknown>>;
+    return Promise.resolve(this.file.version!);
   }
 }
 
@@ -300,15 +289,17 @@ describe("file collections", () => {
     await expect(store.listEntries("authors")).rejects.toThrow();
   });
 
-  it("uses the newly written container version when deleting a renamed source", async () => {
-    const store = new RacingFileStorage(storageOptions(fileCollections));
+  // An entry's position can be the collection's order, so a rename rewrites the
+  // container once, in place, against the version the editor read.
+  it("renames an entry in place, refusing a stale container", async () => {
+    const store = new ContainerStorage(storageOptions(fileCollections));
 
-    await expect(store.renameEntry("authors", "old", "new", "v1")).rejects.toBeInstanceOf(
+    await expect(store.renameEntry("authors", "old", "new", "v0")).rejects.toBeInstanceOf(
       StaleWriteError,
     );
-    expect(store.storedEntries().old).toEqual({ name: "Concurrent" });
-    await expect(store.getEntry("authors", "old")).resolves.toMatchObject({
-      data: { name: "Concurrent" },
-    });
+
+    await store.renameEntry("authors", "old", "new", "v1");
+
+    expect(Object.keys(JSON.parse(store.file.content))).toEqual(["first", "new", "last"]);
   });
 });

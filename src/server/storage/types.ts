@@ -187,11 +187,7 @@ export interface StorageBackend {
     newId: string,
     expectedVersion?: string,
   ): Promise<void>;
-  duplicateEntry(
-    collection: string,
-    sourceId: string,
-    targetId: string,
-  ): Promise<string | undefined>;
+  duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
   reorderEntries(collection: string, ids: string[], expectedVersion?: string): Promise<void>;
   getFileLayout(collection: string): Promise<FileCollectionInfo>;
 

@@ -61,7 +61,7 @@ export function contentEntries(
       // A file collection holds many entries in one file and has no body, so each
       // is named by its id.
       if (isFile) {
-        for (const [id, data] of Object.entries(parseMultiEntryFile(raw, format).entries)) {
+        for (const [id, data] of parseMultiEntryFile(raw, format).entries) {
           entries.push({ collection, file, scope: `entry "${id}"`, data, body: null });
         }
 
