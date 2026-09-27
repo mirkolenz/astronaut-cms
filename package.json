@@ -148,7 +148,7 @@
     "typescript": "^6",
     "unplugin-dts": "^1",
     "vite": "^8",
-    "vitest": "^4"
+    "vitest": "^5"
   },
   "peerDependencies": {
     "@astrojs/react": "^6",
