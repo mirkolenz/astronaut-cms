@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Folder } from "lucide-react";
+import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries, useCreateEntry } from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
@@ -12,6 +12,7 @@ import { baseName, listDirectory } from "@client/lib/entry-tree";
 import { extractFormatsFromLoader } from "@shared/types";
 import { FileCollectionEditor } from "@client/components/file-collection-editor";
 import { Button } from "@client/components/ui/button";
+import { Badge } from "@client/components/ui/badge";
 import collectionMeta from "virtual:astronaut-cms/collections";
 
 export const Route = createFileRoute("/collections/$collection/")({
@@ -147,11 +148,12 @@ function GlobCollectionPage({
               params={{ collection, entry: entry.id }}
               className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
             >
-              <div>
+              <div className="flex items-center gap-2">
+                <File className="size-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">
                   {baseName(entry.id)}
                 </span>
-                <span className="ml-2 text-xs text-muted-foreground">.{entry.format}</span>
+                <Badge variant="outline">{entry.format}</Badge>
               </div>
               <ChevronRight className="size-4 text-muted-foreground" />
             </Link>
