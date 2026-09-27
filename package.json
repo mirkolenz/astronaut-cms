@@ -129,6 +129,7 @@
     "@fontsource-variable/geist": "^5",
     "@tanstack/router-plugin": "^1",
     "@types/estree": "^1",
+    "@types/mdast": "^4",
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",

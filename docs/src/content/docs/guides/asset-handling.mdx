@@ -224,6 +224,12 @@ astro to fetch and optimize those images at all.
   component props, `resolveFile()`, relative-path rules — is unchanged.
 </Aside>
 
+A markdown image is astro's to resolve, so the editor writes it as the file's public URL
+(`![alt](https://cdn.example.com/photos/hero.png)`), which astro optimizes as a remote image under both
+markdown processors. The CMS reads that URL back as the library key it serves, so the image counts as a
+use of the file, and delete and rename warn about it. Changing `publicUrl` later leaves those URLs
+pointing at the old base, and the media view lists them as references to missing files.
+
 Nothing is bundled, because nothing is in the project to bundle: the build emits no copies, and
 `media.alwaysInclude` has no effect. That also means a build cannot tell you an asset is missing.
 The check moves earlier instead: the admin (and the assistant) refuse to write an `image()` or

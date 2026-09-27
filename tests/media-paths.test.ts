@@ -3,6 +3,7 @@ import {
   isActiveContentType,
   isLibraryFile,
   mediaContentType,
+  markdownImageUrl,
   mediaKind,
   mediaPath,
   mediaRef,
@@ -54,7 +55,6 @@ function bindingStore(initial: Record<string, string>) {
 
       if (!value) return null;
 
-
       return {
         etag: value.etag,
         body: new ReadableStream({
@@ -95,6 +95,18 @@ describe("media paths", () => {
     expect(mediaRef("photos/hero.png", devLocal)).toBe("photos/hero.png");
     expect(mediaPath("photos/hero.png", devLocal)).toBe("photos/hero.png");
     expect(mediaPath("/src/assets/photos/hero.png", devLocal)).toBeNull();
+  });
+
+  // A markdown image in an object-store library is its public URL, which astro
+  // fetches, and which still has to read back as the key it serves.
+  it("reads a public URL back as its key", () => {
+    const url = markdownImageUrl("photos/a b.png", remote, "src/content/blog/post.md");
+
+    expect(url).toBe("https://cdn.example.com/photos/a%20b.png");
+    expect(mediaPath(url, remote)).toBe("photos/a b.png");
+    expect(markdownImageUrl("photos/hero.png", repo, "src/content/blog/post.md")).toBe(
+      "../../assets/photos/hero.png",
+    );
   });
 
   it("rejects a value that does not address the library", () => {

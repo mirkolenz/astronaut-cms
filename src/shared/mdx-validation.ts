@@ -5,6 +5,7 @@
  * assets an entry actually reaches. Both get the same answer because both run
  * this walk against the same `cms.config` component manifest.
  */
+import type { Root } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { mdxJsx } from "micromark-extension-mdx-jsx";
 import {
@@ -23,6 +24,7 @@ import {
 import { fieldSchemaToZod } from "./field-to-zod.ts";
 import { collectResolvableLeaves, type ResolvableLeaf } from "./resolvable-leaves.ts";
 import { diagnostic, type Diagnostic } from "./diagnostics.ts";
+import { imageUrls } from "./markdown-images.ts";
 
 /** The parts of an mdast tree this walk reads: JSX element names, attributes, children. */
 interface MdxNode {
@@ -181,6 +183,8 @@ export interface MdxValidation {
   diagnostics: Diagnostic[];
   /** Asset and reference props found on components, for the caller to resolve. */
   leaves: ResolvableLeaf[];
+  /** URLs the body embeds as markdown images. */
+  images: string[];
 }
 
 /**
@@ -197,23 +201,26 @@ export function validateMdx(
   format: string,
   components: ComponentSchemaMap,
 ): MdxValidation {
-  if (format !== "mdx") return { diagnostics: [], leaves: [] };
+  if (format !== "mdx") return { diagnostics: [], leaves: [], images: [] };
 
-  let tree: MdxNode;
+  let root: Root;
 
   try {
-    tree = fromMarkdown(body, {
+    root = fromMarkdown(body, {
       extensions: [mdxJsx()],
       mdastExtensions: [mdxJsxFromMarkdown()],
-    }) as MdxNode;
+    });
   } catch (err) {
     return {
       diagnostics: [
         diagnostic(`Failed to parse MDX: ${err instanceof Error ? err.message : String(err)}`),
       ],
       leaves: [],
+      images: [],
     };
   }
+
+  const tree = root as MdxNode;
 
   const ctx: WalkContext = {
     components,
@@ -224,5 +231,5 @@ export function validateMdx(
 
   if (tree.children) walk(ctx, tree.children, null);
 
-  return { diagnostics: ctx.diagnostics, leaves: ctx.leaves };
+  return { diagnostics: ctx.diagnostics, leaves: ctx.leaves, images: imageUrls(root) };
 }

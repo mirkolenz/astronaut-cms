@@ -1,5 +1,5 @@
 import mime from "mime/lite";
-import { extname } from "pathe";
+import { dirname, extname, relative } from "pathe";
 import { assetKey } from "./asset-path.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
 
@@ -128,8 +128,12 @@ export function mediaRef(path: string, config: MediaRefConfig): string {
  * and its references are bare keys, so a base is ignored there.
  */
 export function mediaPath(ref: string, config: MediaRefConfig, base?: string): string | null {
-  if (config.mediaBackend.type === "remote") {
-    return ref.startsWith("/") || isAbsoluteUrl(ref) ? null : trimSlashes(ref);
+  const backend = config.mediaBackend;
+
+  if (backend.type === "remote") {
+    if (isAbsoluteUrl(ref)) return publicKey(ref, backend.publicUrl);
+
+    return ref.startsWith("/") ? null : trimSlashes(ref);
   }
 
   const project = base && !ref.startsWith("/") ? assetKey(ref, base) : ref;
@@ -137,6 +141,39 @@ export function mediaPath(ref: string, config: MediaRefConfig, base?: string): s
   const normalized = project.replace(/^\/+/, "");
 
   return normalized.startsWith(prefix) ? normalized.slice(prefix.length) : null;
+}
+
+/** The key a URL under the public base serves. Inverse of {@link remoteMediaUrl}. */
+function publicKey(url: string, publicUrl: string): string | null {
+  const prefix = `${publicUrl}/`;
+
+  if (!url.startsWith(prefix)) return null;
+
+  try {
+    return decodeURIComponent(url.slice(prefix.length).split(/[?#]/)[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How a markdown image names a library file: relative to the entry for a
+ * repository library, as astro resolves one, and as the public URL for an
+ * object store, which astro fetches as a remote image. {@link mediaPath} reads
+ * both back as the library path, so the reference stays tracked.
+ */
+export function markdownImageUrl(
+  path: string,
+  config: MediaRefConfig,
+  contentFile: string | undefined,
+): string {
+  const backend = config.mediaBackend;
+
+  if (backend.type === "remote") return remoteMediaUrl(path, backend.publicUrl);
+
+  const ref = mediaRef(path, config);
+
+  return contentFile ? relative(dirname(contentFile), ref.slice(1)) : ref;
 }
 
 /**

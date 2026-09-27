@@ -17,6 +17,7 @@ import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
 import { components } from "virtual:astronaut-cms/user-config";
 import { isLibraryFile, mediaPath } from "../shared/media.ts";
+import { markdownImages } from "../shared/markdown-images.ts";
 import { validateMdx } from "../shared/mdx-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
@@ -35,22 +36,6 @@ async function inParallel<T>(items: T[], fn: (item: T) => Promise<void>): Promis
       while (next < items.length) await fn(items[next++]);
     }),
   );
-}
-
-function add(
-  index: Map<string, AssetReference[]>,
-  value: string,
-  base: string,
-  reference: AssetReference,
-): void {
-  const path = mediaPath(value, config, base);
-
-  if (path == null) return;
-
-  const existing = index.get(path);
-
-  if (existing) existing.push(reference);
-  else index.set(path, [reference]);
 }
 
 /**
@@ -72,23 +57,36 @@ export function indexEntry(
   entry: EntryContent,
 ): void {
   const base = entryFilePath(col, entry.id, entry.format);
-  const reference = (where: string, declared: boolean): AssetReference => ({
-    collection: col.name,
-    entryId: entry.id,
-    where,
-    declared,
-  });
+  // Keyed by the library path a value resolves to, so a file an entry declares
+  // is not counted again when its body also mentions it, however it is spelled.
+  const declared = new Set<string>();
 
-  for (const leaf of [
-    ...dataLeaves(col.schema, entry.data),
-    ...validateMdx(entry.body, entry.format, components).leaves,
-  ]) {
-    if (leaf.kind !== "reference") add(index, leaf.value, base, reference(leaf.path, true));
+  const add = (value: string, where: string, isDeclared: boolean): void => {
+    const path = mediaPath(value, config, base);
+
+    if (path == null || (!isDeclared && declared.has(path))) return;
+
+    if (isDeclared) declared.add(path);
+
+    const reference = { collection: col.name, entryId: entry.id, where, declared: isDeclared };
+    const existing = index.get(path);
+
+    if (existing) existing.push(reference);
+    else index.set(path, [reference]);
+  };
+
+  const mdx = validateMdx(entry.body, entry.format, components);
+
+  for (const leaf of [...dataLeaves(col.schema, entry.data), ...mdx.leaves]) {
+    if (leaf.kind !== "reference") add(leaf.value, leaf.path, true);
   }
 
-  for (const value of textualPaths(entry.body)) {
-    add(index, value, base, reference("body", false));
+  // A markdown image names its file as plainly as a schema field does.
+  for (const url of [...mdx.images, ...markdownImages(entry.body, entry.format)]) {
+    add(url, "markdown image", true);
   }
+
+  for (const value of textualPaths(entry.body)) add(value, "body", false);
 }
 
 /**
