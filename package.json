@@ -47,7 +47,7 @@
     "provenance": true
   },
   "scripts": {
-    "dev": "vite build --watch",
+    "dev": "vite build --watch --no-emptyOutDir",
     "build": "vite build",
     "typecheck": "tsc",
     "test": "vitest run",
