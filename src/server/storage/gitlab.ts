@@ -114,27 +114,23 @@ export class GitLabStorage extends BranchedStorage {
     const found: TreeFile[] = [];
     let page = "1";
 
-    try {
-      while (page) {
-        const response = await this.api.send({
-          path: `${this.project}/repository/tree`,
-          query: { path, ref, recursive: true, per_page: 100, page },
-        });
-        const items = (await response.json()) as Array<{
-          type: string;
-          path: string;
-          id: string;
-        }>;
+    while (page) {
+      const response = await this.api.send({
+        path: `${this.project}/repository/tree`,
+        query: { path, ref, recursive: true, per_page: 100, page },
+      });
+      const items = (await response.json()) as Array<{
+        type: string;
+        path: string;
+        id: string;
+      }>;
 
-        found.push(
-          ...items
-            .filter((item) => item.type === "blob")
-            .map((item) => ({ path: item.path, version: item.id })),
-        );
-        page = response.headers.get("x-next-page") ?? "";
-      }
-    } catch {
-      return [];
+      found.push(
+        ...items
+          .filter((item) => item.type === "blob")
+          .map((item) => ({ path: item.path, version: item.id })),
+      );
+      page = response.headers.get("x-next-page") ?? "";
     }
 
     return found;

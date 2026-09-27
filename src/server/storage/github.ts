@@ -113,13 +113,13 @@ export class GitHubStorage extends BranchedStorage {
             .filter((item) => item.type === "blob")
             .map((item) => ({ path: item.path, size: item.size ?? 0, version: item.sha })),
         )
-        .catch((): TreeFile[] => {
+        .catch((error: unknown): never => {
           // A failed listing must not become what every later call reads: the
           // cache is dropped so the next caller retries instead of seeing an
           // empty repository.
           if (this.treeCache === cache) this.treeCache = null;
 
-          return [];
+          throw error;
         }),
     };
 

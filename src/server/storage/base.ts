@@ -8,7 +8,7 @@ import type {
   StorageBackend,
   UploadTicket,
 } from "./types.ts";
-import { mapMergeError, type VersionedContent } from "./types.ts";
+import { isNotFound, mapMergeError, type VersionedContent } from "./types.ts";
 import type {
   CollectionManifest,
   EntryMeta,
@@ -270,7 +270,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
         const { data, body } = parseContent(content, ext);
 
         return { id, data, body, format: ext, ...(version && { version }) };
-      } catch {
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
+
         continue;
       }
     }
@@ -509,7 +511,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       const { content, version } = await this.fetchFileContent(path);
 
       return { path, format, version, ...parseMultiEntryFile(content, format) };
-    } catch {
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+
       return empty;
     }
   }

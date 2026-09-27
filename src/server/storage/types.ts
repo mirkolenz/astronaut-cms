@@ -80,6 +80,15 @@ export function getErrorStatus(err: unknown): number | undefined {
   return typeof status === "number" ? status : undefined;
 }
 
+export function getErrorCode(err: unknown): unknown {
+  return typeof err === "object" && err !== null && "code" in err ? err.code : undefined;
+}
+
+/** Absence, in the dialect of every backend: a provider 404 or a filesystem `ENOENT`. */
+export function isNotFound(err: unknown): boolean {
+  return getErrorStatus(err) === 404 || getErrorCode(err) === "ENOENT";
+}
+
 /**
  * Whether a lookup found its target. Only a provider 404 counts as absent:
  * reading an auth failure, a rate limit or an outage that way would report a
@@ -92,7 +101,7 @@ export async function exists(lookup: Promise<unknown>): Promise<boolean> {
 
     return true;
   } catch (err) {
-    if (getErrorStatus(err) === 404) return false;
+    if (isNotFound(err)) return false;
 
     throw err;
   }
