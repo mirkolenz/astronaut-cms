@@ -19,6 +19,21 @@ describe("validateBody", () => {
     ]);
   });
 
+  // A build bundles only what this reports, so a child component's image has to
+  // be found as surely as a top-level one's.
+  it("reports asset props of nested child components", () => {
+    const { diagnostics, leaves } = validateBody(
+      '<Gallery>\n  <Tile src="/src/assets/tile.png" alt="Tile" />\n</Gallery>',
+      "mdx",
+      components,
+    );
+
+    expect(diagnostics).toEqual([]);
+    expect(leaves).toEqual([
+      { kind: "image", value: "/src/assets/tile.png", path: '<Tile> prop "src"' },
+    ]);
+  });
+
   // A braced prop is JavaScript, not JSON, so a single-quoted string is valid
   // and has to resolve like the quoted form: the build bundles what this reports.
   it("reads a statically-known expression prop", () => {
