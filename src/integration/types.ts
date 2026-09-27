@@ -5,7 +5,7 @@ import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts"
 export type { AiGateway };
 
 export interface CmsConfig {
-  /** Path to the CMS config file, relative to the project root (default: auto-discovered from src/cms.config.{ts,mts,js,mjs}) */
+  /** Path to the CMS config file, relative to the project root (default: auto-discovered from src/cms.config.{ts,tsx,mts,js,jsx,mjs}) */
   config?: string;
   /** Mount point for the admin panel (default: "/admin") */
   mountPoint?: string;

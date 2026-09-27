@@ -46,7 +46,7 @@ export type {
   SchemaHelpers,
 } from "../config.ts";
 
-const CONFIG_EXTENSIONS = ["ts", "mts", "js", "mjs"];
+const CONFIG_EXTENSIONS = ["ts", "tsx", "mts", "js", "jsx", "mjs"];
 
 function findConfig(rootDir: string, base: string): string | null {
   for (const ext of CONFIG_EXTENSIONS) {

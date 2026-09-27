@@ -53,6 +53,8 @@ async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) =
       root: rootDir,
       logLevel: "error",
       resolve: { alias: ALIASES, tsconfigPaths: true },
+      // A component's editor is JSX, which Node cannot run as written.
+      oxc: { jsx: { runtime: "automatic" } },
       // Dependencies run in Node as they are, as astro's own config loader has them.
       environments: {
         [RUNNER]: {
