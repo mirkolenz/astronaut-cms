@@ -1,3 +1,4 @@
+import type { ByteRange, PartialContent } from "../../shared/http.ts";
 import type {
   EntryMeta,
   EntryContent,
@@ -148,7 +149,15 @@ export type MediaContent = {
    * what makes that short cache end in a 304 rather than in the bytes again.
    */
   version?: string;
-} & ({ redirect: string } | { body: BodyInit; contentType: string });
+} & (
+  | { redirect: string }
+  | {
+      body: BodyInit | null;
+      contentType: string;
+      /** Set when the backend already cut the range it was asked for. */
+      partial?: PartialContent;
+    }
+);
 
 /**
  * Content storage, as the operation registry addresses it. The media library is
@@ -213,7 +222,11 @@ export interface MediaBackend {
   uploadMedia(path: string, bytes: Uint8Array, overwrite: boolean): Promise<void>;
   renameMedia(from: string, to: string): Promise<void>;
   deleteMedia(path: string): Promise<void>;
-  readMedia(path: string): Promise<MediaContent>;
+  /**
+   * A backend that can read part of a file honours `range` and says so with
+   * `partial`. One that cannot ignores it, and the route cuts the bytes.
+   */
+  readMedia(path: string, range?: ByteRange): Promise<MediaContent>;
   /**
    * Deletions that can still be undone. Empty for a library whose deletions are
    * a commit, since git keeps those whether or not the CMS offers a trash.

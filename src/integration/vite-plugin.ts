@@ -114,7 +114,8 @@ function generateMediaSourceModule(options: CmsVitePluginOptions): string {
 }
 
 // Emits the lazy loader maps that back `astronaut-cms/assets`, keyed by
-// root-absolute path. Lazy loaders keep the Promise-based form expected by
+// root-absolute path. A file is never inlined as a data URL, which would lose
+// its name as a download and its caching as a video. Lazy loaders keep the Promise-based form expected by
 // astro:assets <Image>, resolving straight to the ImageMetadata / URL.
 //
 // A build emits one entry per asset content actually references (see
@@ -152,7 +153,7 @@ export const files = {};`;
     return `\
 export const referencedOnly = false;
 export const images = import.meta.glob(${imagesGlob}, { import: "default" });
-export const files = import.meta.glob(${filesGlob}, { query: "?url", import: "default" });`;
+export const files = import.meta.glob(${filesGlob}, { query: "?url&no-inline", import: "default" });`;
   }
 
   // The component prop schemas are read here rather than handed in, so the one
@@ -172,7 +173,7 @@ export const files = import.meta.glob(${filesGlob}, { query: "?url", import: "de
   return `\
 export const referencedOnly = true;
 export const images = ${loaderMap(images, "")};
-export const files = ${loaderMap(files, "?url")};`;
+export const files = ${loaderMap(files, "?url&no-inline")};`;
 }
 
 function loaderMap(keys: string[], query: string): string {

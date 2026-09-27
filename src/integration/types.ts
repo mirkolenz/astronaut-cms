@@ -206,6 +206,7 @@ export type StorageConfig =
 export interface MediaConfig {
   /** Repository directory holding the library. `repo` backend only (default: "src/assets"). */
   directory?: string;
+  /** Restricts the library to these extensions (e.g. `[".png", ".pdf"]`). Any file is accepted when unset. */
   allowedExtensions?: string[];
   maxFileSize?: number;
   /**
@@ -406,7 +407,8 @@ export interface CmsServerConfig {
   /** Null when the assistant is disabled. */
   ai: AiServerConfig | null;
   mediaDirectory: string;
-  mediaExtensions: string[];
+  /** Null when the library accepts any file. */
+  mediaExtensions: string[] | null;
   maxFileSize: number | null;
 }
 
@@ -417,8 +419,8 @@ export interface CmsClientConfig {
   // injected relay route (an API endpoint) in the form Astro will actually match.
   trailingSlash: "always" | "never" | "ignore";
   mediaDirectory: string;
-  /** File extensions the media library lists, e.g. [".png", ".pdf"]. */
-  mediaExtensions: string[];
+  /** File extensions the media library lists, e.g. [".png", ".pdf"], or null for any file. */
+  mediaExtensions: string[] | null;
   /** Upload size limit in bytes, or null for unlimited. */
   maxFileSize: number | null;
   /** `media.alwaysInclude` globs, so the admin knows which files site code reaches. */

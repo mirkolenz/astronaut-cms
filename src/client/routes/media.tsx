@@ -4,7 +4,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   useMedia,
   useDeleteMedia,
-  useUploadMedia,
   useRenameMedia,
   useReferenceIndex,
   useTrash,
@@ -22,25 +21,23 @@ import {
 } from "@/shared/references";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { ImageLightbox } from "@/client/components/image-lightbox";
+import { MediaLightbox } from "@/client/components/media-lightbox";
+import { PathDialog } from "@/client/components/path-dialog";
 import { dirname, join } from "pathe";
-import { isImagePath, getFileName } from "@/client/lib/asset-utils";
-import { MediaImage } from "@/client/components/media-image";
-import { dirSegments, listDirectory } from "@/client/lib/entry-tree";
-import { optimizeImage } from "@/client/lib/image-utils";
-import { mediaUrl } from "@/client/lib/media";
-import type { MediaFile } from "@/shared/types";
-import { isTransactionalMedia } from "@/shared/media";
+import { getFileName } from "@/client/lib/asset-utils";
+import { MediaThumbnail } from "@/client/components/media-thumbnail";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/client/components/ui/dialog";
+  FolderCard,
+  MediaBreadcrumbs,
+  mediaPathRefusal,
+  NewFolderButton,
+  UploadButton,
+  useMediaUpload,
+} from "@/client/components/media-browser";
+import { listDirectory } from "@/client/lib/entry-tree";
+import type { MediaFile } from "@/shared/types";
+import { isTransactionalMedia, mediaKind } from "@/shared/media";
 import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
 
 export const Route = createFileRoute("/media")({
   component: MediaLibrary,
@@ -57,7 +54,7 @@ function MediaLibrary() {
   const { t } = useTranslation();
   const { data: files, isLoading, error } = useMedia();
   const deleteMutation = useDeleteMedia();
-  const uploadMutation = useUploadMedia();
+  const upload = useMediaUpload(files);
   const renameMutation = useRenameMedia();
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,11 +63,9 @@ function MediaLibrary() {
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
   const [lightboxFile, setLightboxFile] = useState<MediaFile | null>(null);
-  const [duplicateFile, setDuplicateFile] = useState<{ path: string; file: File } | null>(null);
-  const [optimizing, setOptimizing] = useState(false);
   const [unusedOnly, setUnusedOnly] = useState(false);
 
-  const writeError = uploadMutation.error ?? deleteMutation.error ?? renameMutation.error;
+  const writeError = upload.mutation.error ?? deleteMutation.error ?? renameMutation.error;
 
   const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
   const referencesOf = (path: string | null): AssetReference[] =>
@@ -93,8 +88,7 @@ function MediaLibrary() {
     };
   }, [files, index]);
 
-  // Everything in this folder, before the unused filter: an upload has to be
-  // checked against every name here, not only the ones currently on screen.
+  // Everything in this folder, before the unused filter narrows it to what is on screen.
   const { folders, files: dirFiles } = useMemo(
     () => listDirectory(files ?? [], currentDir, (file) => file.path),
     [files, currentDir],
@@ -113,34 +107,6 @@ function MediaLibrary() {
     if (kind === "orphan") return t(($) => $.media.unused);
 
     return t(($) => $.media.uses, { count: referencesOf(path).length });
-  };
-
-  const breadcrumbs = dirSegments(currentDir);
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawFile = e.target.files?.[0];
-    if (!rawFile) return;
-    setOptimizing(true);
-    const file = await optimizeImage(rawFile);
-    setOptimizing(false);
-    const path = currentDir ? `${currentDir}/${file.name}` : file.name;
-    const exists = dirFiles.some((f) => getFileName(f.path) === file.name);
-    e.target.value = "";
-
-    if (exists) {
-      setDuplicateFile({ path, file });
-      return;
-    }
-
-    // `mutate`, not `mutateAsync`: a refused upload (the size limit, say) belongs
-    // in the banner below rather than in an unhandled rejection.
-    uploadMutation.mutate({ path, file });
-  };
-
-  const handleOverwrite = () => {
-    if (!duplicateFile) return;
-    uploadMutation.mutate({ ...duplicateFile, overwrite: true });
-    setDuplicateFile(null);
   };
 
   const handleDelete = () => {
@@ -165,7 +131,7 @@ function MediaLibrary() {
   const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !replaceTarget) return;
-    uploadMutation.mutate({ path: replaceTarget, file, overwrite: true });
+    upload.mutation.mutate({ path: replaceTarget, file, overwrite: true });
     setReplaceTarget(null);
     e.target.value = "";
   };
@@ -219,43 +185,15 @@ function MediaLibrary() {
             </Button>
           )}
         </div>
-        <Button asChild>
-          <label className="cursor-pointer">
-            {optimizing
-              ? t(($) => $.common.optimizing)
-              : uploadMutation.isPending
-                ? t(($) => $.common.uploading)
-                : t(($) => $.common.upload)}
-            <input
-              type="file"
-              onChange={handleUpload}
-              className="hidden"
-              disabled={uploadMutation.isPending}
-            />
-          </label>
-        </Button>
+        <div className="flex items-center gap-2">
+          <NewFolderButton dir={currentDir} onCreate={setCurrentDir} />
+          <UploadButton state={upload} dir={currentDir} />
+        </div>
       </div>
 
-      {/* Breadcrumb navigation */}
-      {breadcrumbs.length > 0 && (
-        <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-          <Button type="button" variant="link" size="xs" onClick={() => setCurrentDir("")}>
-            {t(($) => $.media.title)}
-          </Button>
-          {breadcrumbs.map(({ name, path }, i) => (
-            <span key={path} className="flex items-center gap-1">
-              <span>/</span>
-              {i === breadcrumbs.length - 1 ? (
-                <span className="font-medium text-foreground">{name}</span>
-              ) : (
-                <Button type="button" variant="link" size="xs" onClick={() => setCurrentDir(path)}>
-                  {name}
-                </Button>
-              )}
-            </span>
-          ))}
-        </nav>
-      )}
+      <div className="mb-3">
+        <MediaBreadcrumbs dir={currentDir} onNavigate={setCurrentDir} />
+      </div>
 
       {stale.length > 0 && (
         <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/5 p-3">
@@ -291,27 +229,22 @@ function MediaLibrary() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Folder cards */}
         {folders.map(({ name, path }) => (
-          <Button
+          <FolderCard
             key={path}
-            type="button"
-            variant="outline"
-            onClick={() => setCurrentDir(path)}
-            className="flex h-28 flex-col items-center justify-center gap-2 hover:border-accent-foreground/30 hover:bg-accent"
-          >
-            <span className="text-3xl text-muted-foreground">&#128193;</span>
-            <span className="text-sm font-medium text-foreground">{name}</span>
-          </Button>
+            name={name}
+            onOpen={() => setCurrentDir(path)}
+            className="h-28"
+          />
         ))}
 
         {/* File cards */}
         {currentFiles.map((file) => {
-          const isImage = isImagePath(file.path);
           return (
             <div
               key={file.path}
               className="group relative overflow-hidden rounded-lg border border-border"
             >
-              {isImage ? (
+              {mediaKind(file.path) !== "file" ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -319,11 +252,11 @@ function MediaLibrary() {
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${getFileName(file.path)}`}
                 >
-                  <MediaImage file={file} className="h-full w-full object-contain" />
+                  <MediaThumbnail file={file} className="h-full w-full object-contain" />
                 </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-muted">
-                  <MediaImage file={file} />
+                  <MediaThumbnail file={file} />
                 </div>
               )}
               {/* Hover action buttons */}
@@ -381,7 +314,7 @@ function MediaLibrary() {
         type="file"
         onChange={handleReplace}
         className="hidden"
-        disabled={uploadMutation.isPending}
+        disabled={upload.mutation.isPending}
       />
 
       {/* Delete confirmation */}
@@ -403,42 +336,30 @@ function MediaLibrary() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Overwrite confirmation */}
-      <ConfirmDialog
-        open={duplicateFile !== null}
-        title={t(($) => $.media.fileExists)}
-        message={t(($) => $.media.fileExistsMessage, {
-          name: duplicateFile ? getFileName(duplicateFile.path) : "",
-        })}
-        confirmLabel={t(($) => $.common.overwrite)}
-        variant="danger"
-        onConfirm={handleOverwrite}
-        onCancel={() => setDuplicateFile(null)}
-      />
-
       {/* Rename dialog */}
       {renameTarget !== null && (
-        <RenameDialog
-          warning={
-            <ReferenceWarning
-              references={referencesOf(renameTarget)}
-              pending={scanPending}
-              error={scanError}
-              consequence={t(($) => $.media.renameReferenced)}
-            />
-          }
-          currentName={getFileName(renameTarget)}
+        <PathDialog
+          title={t(($) => $.media.renameFile)}
+          description={t(($) => $.media.current, { name: getFileName(renameTarget) })}
+          initial={getFileName(renameTarget)}
+          confirmLabel={t(($) => $.common.rename)}
+          pendingLabel={t(($) => $.media.renaming)}
           isPending={renameMutation.isPending}
-          onConfirm={handleRename}
+          requireChange
+          validate={mediaPathRefusal}
+          onSubmit={handleRename}
           onCancel={() => setRenameTarget(null)}
-        />
+        >
+          <ReferenceWarning
+            references={referencesOf(renameTarget)}
+            pending={scanPending}
+            error={scanError}
+            consequence={t(($) => $.media.renameReferenced)}
+          />
+        </PathDialog>
       )}
 
-      <ImageLightbox
-        open={lightboxFile !== null}
-        src={lightboxFile ? mediaUrl(lightboxFile.path, lightboxFile.version) : ""}
-        onClose={() => setLightboxFile(null)}
-      />
+      <MediaLightbox file={lightboxFile} onClose={() => setLightboxFile(null)} />
     </div>
   );
 }
@@ -572,60 +493,5 @@ function ReferenceWarning({
         ))}
       </ul>
     </>
-  );
-}
-
-function RenameDialog({
-  warning,
-  currentName,
-  isPending,
-  onConfirm,
-  onCancel,
-}: {
-  warning: React.ReactNode;
-  currentName: string;
-  isPending: boolean;
-  onConfirm: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation();
-  // Owned here, so a keystroke re-renders the dialog rather than the whole library.
-  const [value, setValue] = useState(currentName);
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onCancel();
-      }}
-    >
-      <DialogContent showCloseButton={false} className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t(($) => $.media.renameFile)}</DialogTitle>
-          <DialogDescription>{t(($) => $.media.current, { name: currentName })}</DialogDescription>
-        </DialogHeader>
-        {warning}
-        <Input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
-          }}
-          autoFocus
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {t(($) => $.common.cancel)}
-          </Button>
-          <Button
-            onClick={() => onConfirm(value.trim())}
-            disabled={isPending || !value.trim() || value === currentName}
-          >
-            {isPending ? t(($) => $.media.renaming) : t(($) => $.common.rename)}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

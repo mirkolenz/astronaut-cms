@@ -432,6 +432,7 @@ function AssetField({
       {children}
       <MediaPickerDialog
         open={showPicker}
+        kind={assetType === "image" ? "image" : undefined}
         onSelect={handleSelect}
         onCancel={() => setShowPicker(false)}
       />

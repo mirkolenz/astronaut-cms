@@ -1,6 +1,6 @@
 ---
 title: Media Library
-description: Manage images and files in the CMS admin panel.
+description: Manage images, videos, audio and other files in the CMS admin panel.
 ---
 
 import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
@@ -8,6 +8,8 @@ import Steps from "@/components/Steps.astro";
 import StepItem from "@/components/StepItem.astro";
 
 The admin panel includes a media library for uploading, renaming, replacing, and deleting media files.
+It holds any kind of file, in folders nested as deeply as you like, on every backend.
+Images and videos get thumbnails, and images, videos and audio files play in the preview.
 
 ## Configuration
 
@@ -17,8 +19,7 @@ Configure the media library in your `astro.config.ts`:
 cms({
   media: {
     directory: "src/assets",
-    allowedExtensions: [".jpg", ".jpeg", ".png", ".webp", ".svg", ".pdf"],
-    maxFileSize: 10_000_000,
+    maxFileSize: 100_000_000,
   },
 });
 ```
@@ -28,15 +29,22 @@ cms({
 | Option              | Type                               | Default        | Description                                                                                           |
 | ------------------- | ---------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------- |
 | `directory`         | `string`                           | `"src/assets"` | Directory where media files are stored, relative to the project root                                  |
-| `allowedExtensions` | `string[]`                         | See below      | List of allowed file extensions                                                                       |
+| `allowedExtensions` | `string[]`                         | any file       | Restricts the library to these extensions, e.g. `[".png", ".pdf"]`                                  |
 | `maxFileSize`       | `number`                           | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
 | `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled        | How an image is reshaped in the browser before it is uploaded                                         |
 
-### Default Allowed Extensions
+### File types
 
-If `allowedExtensions` is not set, the following extensions are allowed by default:
+The library accepts any file unless `allowedExtensions` restricts it.
+Hidden files (`.DS_Store`, `.gitkeep`) are never listed.
+A file's content type comes from its extension, and one no registry can name is stored as a generic download.
+HTML, SVG and other XML documents are always served with `Content-Disposition: attachment`, so an uploaded document cannot run as a page.
 
-`.jpg`, `.jpeg`, `.png`, `.webp`, `.avif`, `.svg`, `.gif`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.csv`
+### Folders
+
+Uploads land in the folder you have open, and **New folder** opens one that does not exist yet.
+Neither a repository nor an object store keeps an empty directory, so a new folder exists once its first file is uploaded.
+Renaming a file to `2026/summer/hero.png` moves it into that folder.
 
 ### Image optimization on upload
 
@@ -229,7 +237,9 @@ media: {
 
 - **The admin** reads through signed URLs the CMS server mints per request. Fully supported.
 - **The site** signs a URL per referenced image _while building_, astro downloads it and emits an
-  optimized asset, and the built output refers to the store nowhere.
+  optimized asset, and the built output refers to the store nowhere. Files, videos and audio cannot
+  work this way, since they are linked rather than downloaded, so `resolveFile()` fails the build
+  for them. Give the library a `publicUrl` to serve those.
 
 <Aside type="caution">
   This needs **every page that renders library media to be prerendered**. A signed URL expires, so a
@@ -278,7 +288,7 @@ It cannot work with a private library. None of those CDNs can sign an S3 request
 - **Deletion is recoverable.** The object is moved to a `.trash/` prefix inside the library rather than dropped, and the media view restores it. See [Deleting and restoring](#deleting-and-restoring).
 - **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition; replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) are proxied through the server so they can be stored with `Content-Disposition: attachment`.
 - **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
-- **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `image()`/`file()` markers for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
+- **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `file()` for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
 - **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.
 
 <Aside type="note">

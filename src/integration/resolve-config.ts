@@ -26,25 +26,6 @@ import { parseRepo } from "../shared/repo.ts";
 export const DEFAULT_MOUNT_POINT = "/admin";
 export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
 
-const DEFAULT_MEDIA_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".avif",
-  ".svg",
-  ".gif",
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".ppt",
-  ".pptx",
-  ".zip",
-  ".csv",
-];
-
 /**
  * Content languages, taken from the site's own `astro.config` `i18n` block so a
  * multilingual site needs no second declaration. A locale entry may be a bare
@@ -92,9 +73,9 @@ export function resolveContentI18n(
 export const storageType = (config: CmsConfig): "local" | "github" | "gitlab" =>
   config.storage?.type ?? "local";
 
-/** Lower-cased once, so `hasAllowedExtension` never re-normalizes the list. */
-const mediaExtensions = (config: CmsConfig): string[] =>
-  (config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS).map((ext) => ext.toLowerCase());
+/** Lower-cased once, so `isLibraryFile` never re-normalizes the list. Null admits any file. */
+const mediaExtensions = (config: CmsConfig): string[] | null =>
+  config.media?.allowedExtensions?.map((ext) => ext.toLowerCase()) ?? null;
 
 const mediaDirectory = (config: CmsConfig): string =>
   config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY;

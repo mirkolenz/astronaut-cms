@@ -1,6 +1,7 @@
 import { globSync, readFileSync } from "node:fs";
 import { join, relative } from "pathe";
 import { assetKey } from "../shared/asset-path.ts";
+import { isAstroImage } from "../shared/image-formats.ts";
 import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/content-parser.ts";
 import type { ComponentSchemaMap } from "../shared/field-schema.ts";
 import { validateMdx } from "../shared/mdx-validation.ts";
@@ -86,9 +87,9 @@ export function collectReferencedAssets({
   }
 
   // An always-included file is bundled precisely because no content explains what
-  // it is for, so it goes into both maps.
+  // it is for, so it goes into every map that can load it, exactly as in dev.
   for (const key of globFiles(mediaDir, alwaysInclude).map(keyOf)) {
-    images.add(key);
+    if (isAstroImage(key)) images.add(key);
     files.add(key);
   }
 

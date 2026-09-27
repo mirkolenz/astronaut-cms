@@ -166,10 +166,13 @@ describe("collectReferencedAssets", () => {
   });
 
   it("bundles alwaysInclude patterns no content references", () => {
-    const { images, files } = collect({ alwaysInclude: ["orphan.png"] });
+    const { images, files } = collect({ alwaysInclude: ["orphan.png", "brief.pdf"] });
 
-    // Nothing explains what an always-included file is for, so it goes in both.
+    // Nothing explains what an always-included file is for, so it goes in every
+    // map that can load it, and only astro can load an image.
     expect(images).toContain("/src/assets/orphan.png");
+    expect(images).not.toContain("/src/assets/brief.pdf");
     expect(files).toContain("/src/assets/orphan.png");
+    expect(files).toContain("/src/assets/brief.pdf");
   });
 });

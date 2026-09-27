@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { mediaPath, mediaRef, remoteMediaUrl, uniqueMediaPath } from "@/shared/media";
+import {
+  isActiveContentType,
+  isLibraryFile,
+  mediaContentType,
+  mediaKind,
+  mediaPath,
+  mediaRef,
+  remoteMediaUrl,
+  uniqueMediaPath,
+} from "@/shared/media";
 import { ObjectStoreLibrary } from "@/server/media";
 import { BindingStore, type MediaStore, type R2Binding } from "../src/media/store";
 
@@ -40,16 +49,18 @@ function bindingStore(initial: Record<string, string>) {
 
       return value ? { key, size: value.bytes.byteLength, etag: value.etag } : null;
     },
-    get: async (key) => {
+    get: async (key, options) => {
       const value = objects.get(key);
 
       if (!value) return null;
+
+      const { offset = 0, length = value.bytes.byteLength } = options?.range ?? {};
 
       return {
         etag: value.etag,
         body: new ReadableStream({
           start(controller) {
-            controller.enqueue(value.bytes);
+            controller.enqueue(value.bytes.subarray(offset, offset + length));
             controller.close();
           },
         }),
@@ -110,6 +121,45 @@ describe("media paths", () => {
   });
 });
 
+// A Workers binding streams the bytes through the route, so a seek in a large
+// video has to fetch only the range, never the whole object.
+describe("binding ranges", () => {
+  it("reads only the range it was asked for", async () => {
+    const { store } = bindingStore({ "lib/teaser.mp4": "0123456789" });
+    const content = await store.read("lib/teaser.mp4", { start: 2, end: 4 });
+
+    if (!content || !("body" in content)) throw new Error("expected a body");
+
+    expect(content.partial?.contentRange).toBe("bytes 2-4/10");
+    expect(await new Response(content.body).text()).toBe("234");
+  });
+});
+
+describe("media types", () => {
+  it("admits any visible file unless the library is restricted", () => {
+    expect(isLibraryFile("films/2026/teaser.mp4", null)).toBe(true);
+    expect(isLibraryFile("../assets/photo.png", null)).toBe(true);
+    expect(isLibraryFile("films/.DS_Store", null)).toBe(false);
+    expect(isLibraryFile(".trash/1-x.png", null)).toBe(false);
+    expect(isLibraryFile("brief.pdf", [".png"])).toBe(false);
+  });
+
+  it("previews by the type a file is served with", () => {
+    expect(mediaKind("a/b/hero.PNG")).toBe("image");
+    expect(mediaKind("teaser.webm")).toBe("video");
+    expect(mediaKind("episode.m4a")).toBe("audio");
+    expect(mediaKind("captions.vtt")).toBe("file");
+    expect(mediaContentType("archive.unknown-ext")).toBe("application/octet-stream");
+  });
+
+  it("treats every document type a browser would run as active", () => {
+    expect(isActiveContentType(mediaContentType("logo.svg"))).toBe(true);
+    expect(isActiveContentType(mediaContentType("page.html"))).toBe(true);
+    expect(isActiveContentType(mediaContentType("page.xhtml"))).toBe(true);
+    expect(isActiveContentType(mediaContentType("teaser.mp4"))).toBe(false);
+  });
+});
+
 // Only a library with no public base is read through the server at all: the
 // admin addresses a public one directly. So this route always signs, and the
 // signature is over a key the library admits to holding.
@@ -134,7 +184,7 @@ describe("reading a library", () => {
   // A read may no more reach the prefix the library keeps for itself, or climb
   // out of its root, than a write may.
   it("refuses a reserved or escaping path", async () => {
-    await expect(libraryOf(store).readMedia(".trash/hero.png")).rejects.toThrow(/reserved/);
+    await expect(libraryOf(store).readMedia(".trash/hero.png")).rejects.toThrow(/hidden/);
     await expect(libraryOf(store).readMedia("../secrets.png")).rejects.toThrow();
   });
 

@@ -79,6 +79,7 @@ const en = {
     renameFile: "Rename file",
     current: "Current: {{name}}",
     renaming: "Renaming...",
+    newFolder: "New folder",
     selectMedia: "Select Media",
     filterPlaceholder: "Filter files...",
     failedLoad: "Failed to load media: {{message}}",

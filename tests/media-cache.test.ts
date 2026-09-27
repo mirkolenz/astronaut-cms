@@ -63,6 +63,26 @@ describe("media caching", () => {
   });
 });
 
+// A media element asks for ranges, and Safari plays nothing that refuses them.
+describe("media ranges", () => {
+  it("answers one range with its bytes and where they sit", async () => {
+    const response = await get("", { range: "bytes=1-4" });
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe(`bytes 1-4/${BYTES.length}`);
+    expect(await response.text()).toBe(BYTES.slice(1, 5));
+  });
+
+  it("answers a suffix range and refuses one past the end", async () => {
+    const suffix = await get("", { range: "bytes=-3" });
+    const past = await get("", { range: `bytes=${BYTES.length}-` });
+
+    expect(await suffix.text()).toBe(BYTES.slice(-3));
+    expect(past.status).toBe(416);
+    expect(past.headers.get("content-range")).toBe(`bytes */${BYTES.length}`);
+  });
+});
+
 // A backend that would rather hand the browser a URL of its own. Its bytes are
 // unreachable from here, so the redirect is what the CMS has to decide about:
 // an address naming a version cannot be answered with one, since where it points

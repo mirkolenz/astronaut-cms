@@ -84,6 +84,7 @@ const de: TranslationShape<typeof en> = {
     renameFile: "Datei umbenennen",
     current: "Aktuell: {{name}}",
     renaming: "Umbenennen...",
+    newFolder: "Neuer Ordner",
     selectMedia: "Medien auswählen",
     filterPlaceholder: "Dateien filtern...",
     failedLoad: "Medien konnten nicht geladen werden: {{message}}",

@@ -1,3 +1,4 @@
+import mime from "mime/lite";
 import { extname } from "pathe";
 import { assetKey } from "./asset-path.ts";
 import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
@@ -69,12 +70,26 @@ export function assertWithinSizeLimit(size: number, maxFileSize: number | null):
   }
 }
 
+// A segment starting with a dot, other than a `.` or `..` a relative path walks.
+const HIDDEN_SEGMENT = /(?:^|\/)\.[^./]/;
+
 /**
- * The library holds the configured file types and nothing else. `extensions` is
- * already lower-cased where the config is resolved, so a hot call — once per
- * repository blob, once per path-shaped token in a body — lowers only the path.
+ * Whether a path is a library file: never a hidden one (`.DS_Store`, `.gitkeep`,
+ * the object store's `.trash/`), and of a configured type where the library is
+ * restricted to some. `null` admits any file.
  */
-export function hasAllowedExtension(path: string, extensions: string[]): boolean {
+export function isLibraryFile(path: string, extensions: readonly string[] | null): boolean {
+  if (HIDDEN_SEGMENT.test(path)) return false;
+
+  return extensions == null || hasAllowedExtension(path, extensions);
+}
+
+/**
+ * Whether a path ends in one of `extensions`. The configured list is already
+ * lower-cased where the config is resolved, so a hot call, once per repository
+ * blob and once per path-shaped token in a body, lowers only the path.
+ */
+export function hasAllowedExtension(path: string, extensions: readonly string[]): boolean {
   const lower = path.toLowerCase();
 
   return extensions.some((ext) => lower.endsWith(ext));
@@ -172,56 +187,36 @@ export function remoteMediaUrl(path: string, publicUrl: string): string {
   return joinUrl(publicUrl, encodeKeyPath(path));
 }
 
-// Types the library's default extensions map to. Anything unlisted is stored as
-// a generic download, which is the safe reading of a file the CMS cannot name.
-const CONTENT_TYPES: Record<string, string> = {
-  ".avif": "image/avif",
-  ".csv": "text/csv",
-  ".doc": "application/msword",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ".gif": "image/gif",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".json": "application/json",
-  ".md": "text/markdown",
-  ".mp3": "audio/mpeg",
-  ".mp4": "video/mp4",
-  ".pdf": "application/pdf",
-  ".png": "image/png",
-  ".ppt": "application/vnd.ms-powerpoint",
-  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain",
-  ".webm": "video/webm",
-  ".webp": "image/webp",
-  ".woff2": "font/woff2",
-  ".xls": "application/vnd.ms-excel",
-  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".zip": "application/zip",
-};
-
-// Types a browser executes when it navigates to them. SVG is the one the library
-// accepts by default: harmless in an `<img>`, which ignores the disposition, and
-// a scriptable document when it is a page of its own.
-const ACTIVE_CONTENT_TYPES = new Set([
-  "image/svg+xml",
-  "text/html",
-  "application/xhtml+xml",
-  "application/xml",
-  "text/xml",
-]);
-
 /**
  * The content type a file is stored with, decided from its extension rather than
  * from what the uploader declares. A store serves back whatever type it was
  * given, so letting the caller choose it is letting the caller choose how the
- * bytes are interpreted.
+ * bytes are interpreted. An extension the registry cannot name is stored as a
+ * generic download, which is the safe reading of a file the CMS cannot name.
  */
 export function mediaContentType(path: string): string {
-  return CONTENT_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream";
+  return mime.getType(path) ?? "application/octet-stream";
 }
 
-/** Whether a browser would run this type as a document, given the chance. */
+/**
+ * Whether a browser would run this type as a document, given the chance: HTML
+ * and every XML dialect, SVG among them. SVG is harmless in an `<img>`, which
+ * ignores the disposition, and a scriptable document when it is a page of its own.
+ */
 export function isActiveContentType(type: string): boolean {
-  return ACTIVE_CONTENT_TYPES.has(type);
+  return type === "text/html" || type.endsWith("/xml") || type.endsWith("+xml");
+}
+
+/** How the admin previews a library file. */
+export type MediaKind = "image" | "video" | "audio" | "file";
+
+/**
+ * The kind a file is previewed as, read off the same content type it is stored
+ * and served with, so a file the admin shows as a video is one a browser is
+ * told is a video.
+ */
+export function mediaKind(path: string): MediaKind {
+  const [type] = mediaContentType(path).split("/");
+
+  return type === "image" || type === "video" || type === "audio" ? type : "file";
 }

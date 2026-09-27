@@ -50,7 +50,7 @@ import {
 import { assertEntryWritable, type ContentSource, type MediaSource } from "../validation.ts";
 import {
   assertWithinSizeLimit,
-  hasAllowedExtension,
+  isLibraryFile,
   mediaContentType,
 } from "../../shared/media.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
@@ -91,7 +91,7 @@ export interface StorageOptions {
   collections: CollectionManifest;
   mediaDirectory: string;
   /** Extensions the library lists and accepts, already lower-cased. */
-  mediaExtensions: string[];
+  mediaExtensions: string[] | null;
   maxFileSize: number | null;
   /** The signed-in editor, which is what the draft branch is named after. */
   login: string;
@@ -411,8 +411,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   private async assertUploadable(path: string, size: number, overwrite: boolean): Promise<void> {
     assertWithinSizeLimit(size, this.options.maxFileSize);
 
-    if (!hasAllowedExtension(path, this.options.mediaExtensions)) {
-      throw new Error(`"${path}" does not have an allowed media extension.`);
+    if (!isLibraryFile(path, this.options.mediaExtensions)) {
+      throw new Error(`"${path}" is hidden or not of an allowed media type.`);
     }
 
     // Replacing a file is a different act from adding one: an upload that did
@@ -481,7 +481,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     for (const file of files) {
       const path = stripMediaPrefix(file.path, this.mediaDirectory);
 
-      if (path != null && hasAllowedExtension(path, this.options.mediaExtensions)) {
+      if (path != null && isLibraryFile(path, this.options.mediaExtensions)) {
         result.push({ path, size: file.size ?? 0, ...(file.version && { version: file.version }) });
       }
     }

@@ -16,7 +16,7 @@
 import collections from "virtual:astronaut-cms/collections";
 import config from "virtual:astronaut-cms/config";
 import { components } from "virtual:astronaut-cms/user-config";
-import { hasAllowedExtension, mediaPath } from "../shared/media.ts";
+import { isLibraryFile, mediaPath } from "../shared/media.ts";
 import { validateMdx } from "../shared/mdx-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
@@ -54,14 +54,15 @@ function add(
 }
 
 /**
- * Paths a body mentions with no schema to declare them. Bounded to the library's
- * own extensions, so ordinary prose cannot produce a match, and to a path-sized
+ * Paths a body mentions with no schema to declare them. Bounded to a name with
+ * an extension the library admits, and only a match under the library counts,
+ * so ordinary prose cannot produce one. Bounded as well to a path-sized
  * run: the leading class contains `.` too, so an unbounded one backtracks
  * quadratically over a long stretch of dots that ends in no extension.
  */
 function* textualPaths(body: string): Generator<string> {
   for (const [match] of body.matchAll(/[\w@./-]{1,200}\.[a-zA-Z0-9]+/g)) {
-    if (hasAllowedExtension(match, config.mediaExtensions)) yield match;
+    if (isLibraryFile(match, config.mediaExtensions)) yield match;
   }
 }
 

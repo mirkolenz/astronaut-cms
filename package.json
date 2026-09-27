@@ -40,6 +40,9 @@
     "./Image.astro": {
       "default": "./dist/astro/Image.astro"
     },
+    "./Video.astro": {
+      "default": "./dist/astro/Video.astro"
+    },
     "./assets": {
       "types": "./dist/assets/index.d.ts",
       "default": "./dist/assets.js"
@@ -106,6 +109,7 @@
     "mdast-util-from-markdown": "^2",
     "mdast-util-mdx-jsx": "^3",
     "micromark-extension-mdx-jsx": "^3",
+    "mime": "^4",
     "nanoid": "^6",
     "pathe": "^2",
     "radix-ui": "^1",

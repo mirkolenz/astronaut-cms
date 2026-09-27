@@ -111,3 +111,49 @@ export async function readBody(request: Request, maxBytes: number): Promise<stri
 
   return text + decoder.decode();
 }
+
+/** One `bytes=` range as a request spells it, a suffix when `start` is absent. */
+export interface ByteRange {
+  start?: number;
+  end?: number;
+}
+
+/** How a range of a file is answered: 206 with its bytes, or 416 when none lie inside. */
+export interface PartialContent {
+  status: 206 | 416;
+  contentRange: string;
+  /** Inclusive offsets of the bytes to send, absent for a 416. */
+  span?: { start: number; end: number };
+}
+
+/**
+ * A single `bytes=` range, which is all a media element asks for. Anything else
+ * reads as no range at all, and is answered with the whole file, exactly as a
+ * server that ignores the header would.
+ */
+export function parseByteRange(header: string | null): ByteRange | null {
+  const match = header?.match(/^bytes=(\d*)-(\d*)$/);
+
+  if (!match || (!match[1] && !match[2])) return null;
+
+  return {
+    start: match[1] ? Number(match[1]) : undefined,
+    end: match[2] ? Number(match[2]) : undefined,
+  };
+}
+
+/** Settles a range against the size of the file it addresses. */
+export function partialContent({ start, end }: ByteRange, size: number): PartialContent {
+  const [first, last] =
+    start === undefined
+      ? [Math.max(size - (end ?? 0), 0), size - 1]
+      : [start, Math.min(end ?? size - 1, size - 1)];
+
+  if (first > last || first >= size) return { status: 416, contentRange: `bytes */${size}` };
+
+  return {
+    status: 206,
+    contentRange: `bytes ${first}-${last}/${size}`,
+    span: { start: first, end: last },
+  };
+}

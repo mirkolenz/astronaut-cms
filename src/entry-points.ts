@@ -27,6 +27,7 @@ export const ENTRY_POINTS: EntryPoint[] = [
   { subpath: "./config", source: "config.ts" },
   { subpath: "./admin.astro", source: "astro/admin.astro" },
   { subpath: "./Image.astro", source: "astro/Image.astro" },
+  { subpath: "./Video.astro", source: "astro/Video.astro" },
   { subpath: "./assets", source: "assets/index.ts" },
   { subpath: "./media-presign", source: "media/presign.ts" },
   { subpath: "./client", source: "client/index.tsx" },

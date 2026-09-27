@@ -14,10 +14,11 @@ import type { MediaBackend, MediaContent, UploadTicket } from "./storage/types.t
 import type { MediaFile, TrashedFile } from "../shared/types.ts";
 import type { MediaServerConfig } from "../integration/types.ts";
 import { HttpError, checked } from "./errors.ts";
+import type { ByteRange } from "../shared/http.ts";
 import { validateMediaPath } from "../shared/validation.ts";
 import {
   assertWithinSizeLimit,
-  hasAllowedExtension,
+  isLibraryFile,
   isActiveContentType,
   mediaContentType,
 } from "../shared/media.ts";
@@ -34,15 +35,13 @@ import type { MediaStore, UploadTerms } from "../media/store.ts";
  * reference scan, a mis-click or an assistant that read the wrong thing costs a
  * restore rather than the file.
  *
- * The prefix cannot be addressed as a library path — `toKey` refuses one that
- * starts with it — so it is reachable only through the three methods below.
+ * The prefix cannot be addressed as a library path, since `toKey` refuses every
+ * hidden segment, so it is reachable only through the three methods below.
  * Give it a lifecycle rule to decide how long a deletion stays undoable. Note
  * that a public bucket serves these keys too, so a deleted file stays readable
  * to anyone who knows one until that rule expires it.
  */
 const TRASH_SEGMENT = ".trash";
-
-const isReserved = (path: string): boolean => path.split("/")[0] === TRASH_SEGMENT;
 
 /**
  * A trash id is `.trash/<deleted-at>-<original path>`, which carries everything
@@ -63,13 +62,13 @@ function parseTrashId(id: string): { path: string; deletedAt: number } | null {
 export class ObjectStoreLibrary implements MediaBackend {
   private readonly store: MediaStore;
   private readonly config: MediaServerConfig;
-  private readonly extensions: string[];
+  private readonly extensions: string[] | null;
   private readonly maxFileSize: number | null;
 
   constructor(
     store: MediaStore,
     config: MediaServerConfig,
-    limits: { extensions: string[]; maxFileSize: number | null },
+    limits: { extensions: string[] | null; maxFileSize: number | null },
   ) {
     this.store = store;
     this.config = config;
@@ -81,13 +80,8 @@ export class ObjectStoreLibrary implements MediaBackend {
   private toKey(path: string): string {
     checked(400, () => validateMediaPath(path));
 
-    if (isReserved(path)) throw new HttpError(`"${TRASH_SEGMENT}" is reserved.`, 400);
-
-    if (!hasAllowedExtension(path, this.extensions)) {
-      throw new HttpError(
-        `"${path}" does not have an allowed media extension (${this.extensions.join(", ")}).`,
-        400,
-      );
+    if (!isLibraryFile(path, this.extensions)) {
+      throw new HttpError(`"${path}" is hidden or not of an allowed media type.`, 400);
     }
 
     return `${this.config.prefix}${path}`;
@@ -134,7 +128,7 @@ export class ObjectStoreLibrary implements MediaBackend {
         size,
         ...(version && { version }),
       }))
-      .filter((file) => !isReserved(file.path) && hasAllowedExtension(file.path, this.extensions));
+      .filter((file) => isLibraryFile(file.path, this.extensions));
   }
 
   /**
@@ -144,8 +138,8 @@ export class ObjectStoreLibrary implements MediaBackend {
    * cannot reach on its own. An S3 store signs a URL, while a Workers binding
    * streams the bytes through the route.
    */
-  async readMedia(path: string): Promise<MediaContent> {
-    const content = await this.store.read(this.toKey(path));
+  async readMedia(path: string, range?: ByteRange): Promise<MediaContent> {
+    const content = await this.store.read(this.toKey(path), range);
 
     if (!content) throw new HttpError(`Media file not found: ${path}`, 404);
 

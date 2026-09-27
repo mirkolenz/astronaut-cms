@@ -39,6 +39,7 @@ import { images, files, referencedOnly } from "virtual:astronaut-cms/assets";
 import { mediaSourceUrl } from "virtual:astronaut-cms/media-source";
 
 type RemoteBackend = Extract<ClientMediaBackend, { type: "remote" }>;
+type AssetKind = "image" | "file";
 
 // Read from the config module rather than the generated one, so `publicUrl` has a single source.
 const remote: RemoteBackend | null =
@@ -71,7 +72,7 @@ function libraryKey(path: string): string {
  */
 async function resolve<T>(
   map: Record<string, () => Promise<T>>,
-  kind: string,
+  kind: AssetKind,
   path: string,
   base?: string,
 ): Promise<T | string> {
@@ -90,10 +91,19 @@ async function resolve<T>(
 
   if (!mediaSourceUrl) throw new Error("The media library has no public base and cannot sign one.");
 
+  // An image leaves the store during the build, since astro downloads it and
+  // emits an optimized copy. A file is linked as it is, and a signed URL in a
+  // prerendered page stops working the moment it expires.
+  if (kind === "file") {
+    throw new Error(
+      `CMS file "${path}" cannot be linked: the media library has no publicUrl, and a signed URL would expire in the built page. Set media.backend.publicUrl to serve files from the library.`,
+    );
+  }
+
   return mediaSourceUrl(key);
 }
 
-function load<T>(map: Record<string, () => Promise<T>>, kind: string, key: string): Promise<T> {
+function load<T>(map: Record<string, () => Promise<T>>, kind: AssetKind, key: string): Promise<T> {
   const loader = map[key];
 
   if (!loader) throw new Error(`CMS ${kind} not found: ${key}${hint(kind, key)}`);
@@ -105,7 +115,7 @@ function load<T>(map: Record<string, () => Promise<T>>, kind: string, key: strin
 // schema declares it, so a file plainly sitting on disk can still be missing
 // here. Both narrowings are undone the same way, by naming the file in
 // `media.alwaysInclude`; the hint says which one was hit.
-function hint(kind: string, key: string): string {
+function hint(kind: AssetKind, key: string): string {
   if (!referencedOnly) return "";
 
   // A key in the other map is a mismatch between how content declares the asset

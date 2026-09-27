@@ -48,6 +48,7 @@ const csp = [
   `script-src 'self'${nonce ? ` 'nonce-${nonce}'` : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
+  "media-src 'self' https:",
   "font-src 'self' data:",
   `connect-src ${connectSrc.join(" ")}`,
   "worker-src 'self' blob:",

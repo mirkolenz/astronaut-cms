@@ -1,6 +1,6 @@
 ---
 title: Asset Handling
-description: How CMS-referenced images and files are resolved, optimized and bundled.
+description: How CMS-referenced images, videos, audio and files are resolved, optimized and bundled.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
@@ -15,6 +15,7 @@ default `satteri()` pipeline and under `unified()`.
 | Markdown image `![alt](./x.png)`     | prose               | Astro's Markdown processor, no extra wiring                          |
 | `image()` schema field               | frontmatter, data   | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
 | `image()` / `file()` component prop  | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
+| `file()` schema field                | frontmatter, data   | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | Link to a file `[doc](/files/x.pdf)` | prose               | Put the file in `public/` (plain URL)                                |
 
 ## Collection fields
@@ -94,6 +95,37 @@ const pdfUrl = await resolveFile("/src/assets/report.pdf"); // -> string URL
 
 The `demo` workspace uses exactly this pattern for its `Figure` and `Hero` blocks, so it doubles as
 an end-to-end example.
+
+### Videos and audio
+
+A video or an audio file is a `file()`: nothing optimizes it, so it is bundled as the file itself and `resolveFile()` hands back its URL.
+A video's poster is an `image()`, which is optimized like any other.
+
+```ts title="src/cms.config.ts"
+Film: defineComponent({
+  props: ({ image, file }) => z.object({ src: file(), poster: image(), title: z.string() }),
+  source: "@/components/Film.astro",
+  defaultExport: true,
+});
+```
+
+`astronaut-cms/Video.astro` resolves both and passes every other attribute on to `<video>`.
+It sizes the element from the optimized poster, which carries the video's proportions, so the page does not jump when the video loads.
+
+```astro title="src/components/Film.astro"
+---
+import Video from "astronaut-cms/Video.astro";
+import type { ComponentProps } from "@/cms.config";
+
+type Props = ComponentProps["Film"];
+const { src, poster, title } = Astro.props;
+---
+
+<Video src={src} poster={poster} posterWidth={1920} aria-label={title} controls muted loop playsinline preload="none" />
+```
+
+Audio needs no wrapper: `<audio src={await resolveFile(src)} controls />`.
+A `<track>` goes inside `<Video>`, with its `.vtt` file resolved the same way.
 
 ### Relative paths
 
@@ -189,10 +221,13 @@ astro to fetch and optimize those images at all.
 
 <Aside type="caution">
   Astro's collection `image()` helper imports a local file, so it cannot hold a library key. For an
-  asset field in a collection schema with an object-store library, use the CMS's own `file()` (or
-  `image()` in a component's props) and resolve it as above. Everything else in this guide — MDX
+  asset field in a collection schema with an object-store library, use the CMS's own `file()` and
+  resolve it as above, with `resolveImage()` for an image. Everything else in this guide — MDX
   component props, `resolveFile()`, relative-path rules — is unchanged.
 </Aside>
+
+A [private library](/astronaut-cms/guides/media-library/#no-public-base-at-all) resolves images only.
+`resolveFile()` fails the build there, since the signed URL it would put into the page expires.
 
 Nothing is bundled, because nothing is in the project to bundle: the build emits no copies, and
 `media.alwaysInclude` has no effect. That also means a build cannot tell you an asset is missing.
@@ -275,6 +310,5 @@ It lists files through the storage backend, not through the bundle, so every upl
 
 ## Downloadable files
 
-For files you only link to (PDFs, archives), place them in `public/` and reference them by URL
-(e.g. `/files/report.pdf`). They are served verbatim with no bundling step. Use a `file()` prop
-with `resolveFile()` only when you want the file content-hashed and bundled.
+A file editors manage (a PDF, an archive) belongs in the media library, declared with `file()` and resolved with `resolveFile()`, which content-hashes it and bundles only what content references.
+A file only site code links to can equally sit in `public/` and be referenced by URL (e.g. `/files/report.pdf`), served verbatim with no bundling step.
