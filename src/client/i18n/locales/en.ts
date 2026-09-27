@@ -58,11 +58,9 @@ const en = {
     dataJson: "Data (JSON)",
     body: "Body",
     unsavedChanges: "Unsaved changes",
-    unsavedChangesMessage:
-      "You have unsaved changes. Do you want to discard them and leave?",
+    unsavedChangesMessage: "You have unsaved changes. Do you want to discard them and leave?",
     deleteEntry: "Delete entry",
-    deleteEntryMessage:
-      'Are you sure you want to delete "{{id}}"? This cannot be undone.',
+    deleteEntryMessage: 'Are you sure you want to delete "{{id}}"? This cannot be undone.',
     changesSaved: "Changes saved",
     duplicate: "Duplicate",
     renameEntry: "Rename entry",
@@ -85,8 +83,7 @@ const en = {
     deleteFileMessage:
       "Are you sure you want to delete this file? It may be referenced by content entries.",
     fileExists: "File already exists",
-    fileExistsMessage:
-      'A file named "{{name}}" already exists. Overwrite it?',
+    fileExistsMessage: 'A file named "{{name}}" already exists. Overwrite it?',
     renameFile: "Rename file",
     current: "Current: {{name}}",
     renaming: "Renaming...",
@@ -162,10 +159,12 @@ const en = {
     deny: "Deny",
     approvalPrompt: "This action needs your approval before it runs.",
     attach: "Attach files",
+    newChat: "New chat",
     saveToLibrary: "Save to media library",
     attachError: "Could not read one of the attached files.",
     reasoning: "Thinking effort",
-    reasoningOff: "Off",
+    reasoningDefault: "Default",
+    reasoningNone: "Off",
     reasoningLow: "Low",
     reasoningMedium: "Medium",
     reasoningHigh: "High",

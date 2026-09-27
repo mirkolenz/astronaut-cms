@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot } from "lucide-react";
-import type { ToolUIPart } from "ai";
+import { isStaticToolUIPart } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -23,11 +23,13 @@ import { cn } from "@client/lib/utils";
 // assistant view stay in sync. Mirror to storage whenever the run settles;
 // skipping the streaming phase avoids re-serializing the conversation on every
 // token, while every pause point (ready, error, approval-requested) persists.
+// An empty conversation is never written: it would clobber the stored one while
+// the restore is still validating it, and clearChat owns removing the key.
 export function useCmsChat() {
   const chat = useChat({ chat: getChat() });
 
   useEffect(() => {
-    if (chat.status !== "streaming") saveMessages(chat.messages);
+    if (chat.messages.length > 0 && chat.status !== "streaming") saveMessages(chat.messages);
   }, [chat.messages, chat.status]);
 
   return chat;
@@ -68,13 +70,10 @@ export function ChatMessages({ chat, className }: { chat: CmsChat; className?: s
                     );
                   }
 
-                  if (part.type.startsWith("tool-")) {
+                  // Every CMS tool is statically defined, so no dynamic tool parts.
+                  if (isStaticToolUIPart(part)) {
                     return (
-                      <ToolCall
-                        key={i}
-                        part={part as ToolUIPart}
-                        onApprovalResponse={addToolApprovalResponse}
-                      />
+                      <ToolCall key={i} part={part} onApprovalResponse={addToolApprovalResponse} />
                     );
                   }
 

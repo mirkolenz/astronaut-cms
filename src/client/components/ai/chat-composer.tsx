@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEventHandler, ClipboardEventHandler } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Brain, FileText, Library, Paperclip, X } from "lucide-react";
+import { Brain, FileText, Library, Paperclip, SquarePen, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import {
   PromptInput,
@@ -32,20 +32,23 @@ import {
   type ComposerAttachment,
 } from "@client/lib/ai/attachments";
 import { REASONING_EFFORTS, type ReasoningEffort } from "@client/lib/ai/reasoning";
+import { clearChat } from "@client/lib/ai/chat";
 import { toast } from "@client/components/toast";
 import type { CmsChat } from "@client/components/ai/chat-view";
 import type { TFunction } from "i18next";
 
 function effortLabel(t: TFunction, effort: ReasoningEffort): string {
   switch (effort) {
-    case "off":
-      return t($ => $.ai.reasoningOff);
+    case "provider-default":
+      return t(($) => $.ai.reasoningDefault);
+    case "none":
+      return t(($) => $.ai.reasoningNone);
     case "low":
-      return t($ => $.ai.reasoningLow);
+      return t(($) => $.ai.reasoningLow);
     case "medium":
-      return t($ => $.ai.reasoningMedium);
+      return t(($) => $.ai.reasoningMedium);
     case "high":
-      return t($ => $.ai.reasoningHigh);
+      return t(($) => $.ai.reasoningHigh);
   }
 }
 
@@ -61,14 +64,14 @@ function AttachmentChip({
   const { t } = useTranslation();
   const { id, file, save } = attachment;
   const isImage = isImageAttachment(file);
-  const previewUrl = useMemo(
-    () => (isImage ? URL.createObjectURL(file) : null),
-    [file, isImage],
-  );
+  const previewUrl = useMemo(() => (isImage ? URL.createObjectURL(file) : null), [file, isImage]);
 
-  useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
 
   return (
     <div className="flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-1.5 pr-1 text-xs">
@@ -92,7 +95,7 @@ function AttachmentChip({
               <Library className="size-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t($ => $.ai.saveToLibrary)}</TooltipContent>
+          <TooltipContent>{t(($) => $.ai.saveToLibrary)}</TooltipContent>
         </Tooltip>
       )}
 
@@ -100,7 +103,7 @@ function AttachmentChip({
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label={t($ => $.common.remove)}
+        aria-label={t(($) => $.common.remove)}
         onClick={() => onRemove(id)}
       >
         <X className="size-3.5" />
@@ -121,7 +124,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   const setEffort = useAiPanelStore((state) => state.setEffort);
   const queryClient = useQueryClient();
 
-  const { sendMessage, status, stop } = chat;
+  const { sendMessage, status, stop, messages } = chat;
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +171,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     try {
       prepared = await prepareMessage(text, attachments);
     } catch (error) {
-      toast(error instanceof Error ? error.message : t($ => $.ai.attachError), "error");
+      toast(error instanceof Error ? error.message : t(($) => $.ai.attachError), "error");
       throw error;
     } finally {
       setPreparing(false);
@@ -183,12 +186,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   };
 
   return (
-    <PromptInput
-      onSubmit={handleSubmit}
-      className={className}
-      accept={ATTACHMENT_ACCEPT}
-      multiple
-    >
+    <PromptInput onSubmit={handleSubmit} className={className} accept={ATTACHMENT_ACCEPT} multiple>
       {attachments.length > 0 && (
         <PromptInputHeader>
           {attachments.map((attachment) => (
@@ -203,12 +201,13 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
       )}
 
       <PromptInputBody>
-        <PromptInputTextarea placeholder={t($ => $.ai.placeholder)} onPaste={handlePaste} />
+        <PromptInputTextarea placeholder={t(($) => $.ai.placeholder)} onPaste={handlePaste} />
       </PromptInputBody>
 
       <PromptInputFooter>
         <PromptInputButton
-          tooltip={t($ => $.ai.attach)}
+          tooltip={t(($) => $.ai.attach)}
+          aria-label={t(($) => $.ai.attach)}
           onClick={() => fileInputRef.current?.click()}
         >
           <Paperclip className="size-4" />
@@ -222,10 +221,21 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
           onChange={handleInputChange}
         />
 
+        {/* In the composer so both the sidebar panel and the full-screen view get it. */}
+        <PromptInputButton
+          tooltip={t(($) => $.ai.newChat)}
+          aria-label={t(($) => $.ai.newChat)}
+          // Stays enabled on error: that is when starting over matters most.
+          disabled={messages.length === 0 || preparing || status === "streaming"}
+          onClick={clearChat}
+        >
+          <SquarePen className="size-4" />
+        </PromptInputButton>
+
         <Select value={effort} onValueChange={(value) => setEffort(value as ReasoningEffort)}>
           <SelectTrigger
             className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none"
-            aria-label={t($ => $.ai.reasoning)}
+            aria-label={t(($) => $.ai.reasoning)}
           >
             <Brain className="size-3.5 shrink-0 text-muted-foreground" />
             <SelectValue />

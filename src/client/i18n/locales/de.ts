@@ -36,8 +36,7 @@ const de: TranslationShape<typeof en> = {
   },
   dashboard: {
     noCollections: "Keine Sammlungen gefunden",
-    defineCollections:
-      "Definieren Sie Sammlungen in Ihrer content.config.ts",
+    defineCollections: "Definieren Sie Sammlungen in Ihrer content.config.ts",
     contentCollection: "Inhaltssammlung",
     dataCollection: "Datensammlung",
     fields: "{{count}} Felder",
@@ -76,8 +75,7 @@ const de: TranslationShape<typeof en> = {
     entryIdExists: 'Ein Eintrag namens "{{id}}" existiert bereits',
     entryAdded: "Eintrag hinzugefügt",
     invalidJson: "Ungültiges JSON im Roh-Editor",
-    noSchema:
-      "Kein Schema verfügbar. Verwenden Sie den Roh-Modus zur Bearbeitung.",
+    noSchema: "Kein Schema verfügbar. Verwenden Sie den Roh-Modus zur Bearbeitung.",
     noSchemaShort: "Kein Schema verfügbar.",
     modified: "geändert",
     failedLoad: "Eintrag konnte nicht geladen werden: {{message}}",
@@ -90,8 +88,7 @@ const de: TranslationShape<typeof en> = {
     deleteFileMessage:
       "Sind Sie sicher, dass Sie diese Datei löschen möchten? Sie wird möglicherweise von Inhaltseinträgen referenziert.",
     fileExists: "Datei existiert bereits",
-    fileExistsMessage:
-      'Eine Datei mit dem Namen "{{name}}" existiert bereits. Überschreiben?',
+    fileExistsMessage: 'Eine Datei mit dem Namen "{{name}}" existiert bereits. Überschreiben?',
     renameFile: "Datei umbenennen",
     current: "Aktuell: {{name}}",
     renaming: "Umbenennen...",
@@ -168,10 +165,12 @@ const de: TranslationShape<typeof en> = {
     deny: "Ablehnen",
     approvalPrompt: "Diese Aktion erfordert deine Genehmigung, bevor sie ausgeführt wird.",
     attach: "Dateien anhängen",
+    newChat: "Neuer Chat",
     saveToLibrary: "In Medienbibliothek speichern",
     attachError: "Eine der angehängten Dateien konnte nicht gelesen werden.",
     reasoning: "Denkaufwand",
-    reasoningOff: "Aus",
+    reasoningDefault: "Standard",
+    reasoningNone: "Aus",
     reasoningLow: "Niedrig",
     reasoningMedium: "Mittel",
     reasoningHigh: "Hoch",

@@ -1,4 +1,4 @@
-import { tool, type Tool } from "ai";
+import { tool, type Tool, type ToolApprovalConfiguration } from "ai";
 import { z } from "zod";
 import collections from "virtual:astronaut-cms/collections";
 import { getStorage } from "@client/lib/storage";
@@ -198,11 +198,60 @@ const entryTools: Record<string, Tool> = Object.fromEntries(
   ]),
 );
 
+// Destructive tools. Membership in this object is what marks a tool as
+// approval-gated: `cmsToolApproval` is derived from its keys, so a tool cannot
+// be renamed or added here without its approval policy following along.
+const destructiveTools = {
+  deleteEntry: tool({
+    description: "Delete an entry. Requires user approval before it runs.",
+    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
+    execute: async ({ collection, id }) => {
+      await getStorage().deleteEntry(collection, id);
+
+      return { ok: true };
+    },
+  }),
+
+  deleteMedia: tool({
+    description: "Delete a media file. Requires user approval before it runs.",
+    inputSchema: z.object({ path: z.string() }),
+    execute: async ({ path }) => {
+      const invalid = toErrorResult(await validateMediaExists(path));
+
+      if (invalid) return invalid;
+
+      await getStorage().deleteMedia(path);
+
+      return { ok: true };
+    },
+  }),
+
+  publish: tool({
+    description:
+      "Publish all pending draft changes (merge the draft branch or open a pull request). Requires user approval before it runs.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      await getStorage().publish();
+
+      return { ok: true };
+    },
+  }),
+
+  discard: tool({
+    description: "Discard all pending draft changes. Requires user approval before it runs.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      await getStorage().discard();
+
+      return { ok: true };
+    },
+  }),
+};
+
 // Tools execute in the browser against the same storage backend the UI uses, so
 // the agent inherits exactly the user's permissions and the draft-branch + PR
 // review flow. Writes go through the per-collection `writeEntry_<collection>` /
-// `editEntry_<collection>` tools; destructive operations set `needsApproval` so
-// the SDK pauses for the user to approve or deny the call before it executes.
+// `editEntry_<collection>` tools.
 export const cmsTools = {
   listEntries: tool({
     description: "List the ids of all entries in a collection.",
@@ -214,17 +263,6 @@ export const cmsTools = {
     description: "Read an entry's full content: its `data` fields and markdown `body`.",
     inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
     execute: ({ collection, id }) => getStorage().getEntry(collection, id),
-  }),
-
-  deleteEntry: tool({
-    description: "Delete an entry. Requires user approval before it runs.",
-    inputSchema: z.object({ collection: collectionEnum, id: z.string() }),
-    needsApproval: true,
-    execute: async ({ collection, id }) => {
-      await getStorage().deleteEntry(collection, id);
-
-      return { ok: true };
-    },
   }),
 
   reorderEntries: tool({
@@ -286,49 +324,19 @@ export const cmsTools = {
     },
   }),
 
-  deleteMedia: tool({
-    description: "Delete a media file. Requires user approval before it runs.",
-    inputSchema: z.object({ path: z.string() }),
-    needsApproval: true,
-    execute: async ({ path }) => {
-      const invalid = toErrorResult(await validateMediaExists(path));
-
-      if (invalid) return invalid;
-
-      await getStorage().deleteMedia(path);
-
-      return { ok: true };
-    },
-  }),
-
   getStatus: tool({
     description: "Get the draft branch status: pending changes and how far it is ahead/behind.",
     inputSchema: z.object({}),
     execute: () => getStorage().getStatus(),
   }),
 
-  publish: tool({
-    description:
-      "Publish all pending draft changes (merge the draft branch or open a pull request). Requires user approval before it runs.",
-    inputSchema: z.object({}),
-    needsApproval: true,
-    execute: async () => {
-      await getStorage().publish();
-
-      return { ok: true };
-    },
-  }),
-
-  discard: tool({
-    description: "Discard all pending draft changes. Requires user approval before it runs.",
-    inputSchema: z.object({}),
-    needsApproval: true,
-    execute: async () => {
-      await getStorage().discard();
-
-      return { ok: true };
-    },
-  }),
-
+  ...destructiveTools,
   ...entryTools,
 };
+
+// Approval is configured per call in AI SDK 7 rather than on the tool: the SDK
+// emits an approval request for these calls and only executes them once the user
+// approves.
+export const cmsToolApproval: ToolApprovalConfiguration<typeof cmsTools, never> = Object.fromEntries(
+  Object.keys(destructiveTools).map((name) => [name, "user-approval"] as const),
+);

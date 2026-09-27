@@ -1,22 +1,5 @@
-import {
-  APICallError,
-  type ChatTransport,
-  type UIMessage,
-  type UIMessageChunk,
-  convertToModelMessages,
-  stepCountIs,
-  streamText,
-} from "ai";
-import { aiConfig } from "./config";
-import { aiProvider } from "./provider";
-import type { ReasoningEffort } from "./reasoning";
-import { SYSTEM_PROMPT } from "./system-prompt";
-import { cmsTools } from "./tools";
-
-export interface ChatSettings {
-  model: string;
-  effort: ReasoningEffort;
-}
+import { APICallError, DirectChatTransport } from "ai";
+import { cmsAgent } from "./agent";
 
 // Maps a streaming failure to a concise line for the UI. The complete error is
 // logged separately, so this only needs to be readable, not exhaustive.
@@ -37,50 +20,16 @@ function toUserErrorMessage(error: unknown): string {
   return "The assistant ran into an unexpected error.";
 }
 
-// Runs the whole agent loop in the browser: each turn streams from the model
-// (through the relay) and executes tool calls locally against the storage
-// backend. The relay only ever sees raw, stateless inference requests.
-export class LocalAgentTransport implements ChatTransport<UIMessage> {
-  private readonly getSettings: () => ChatSettings;
+// Drives the browser-side agent in-process instead of posting to an API route,
+// so no HTTP hop sits between the chat UI and the agent loop.
+export const cmsTransport = new DirectChatTransport({
+  agent: cmsAgent,
+  // The complete error goes to the console for inspection; the UI only ever
+  // receives the concise message returned here (the SDK otherwise masks all
+  // failures to a generic "An error occurred.").
+  onError: (error) => {
+    console.error("[astronaut-cms] AI assistant request failed:", error);
 
-  // Settings are read lazily on each request so a single transport (and the
-  // Chat that owns it) can outlive model and effort switches instead of being
-  // recreated.
-  constructor(getSettings: () => ChatSettings) {
-    this.getSettings = getSettings;
-  }
-
-  async sendMessages(
-    options: Parameters<ChatTransport<UIMessage>["sendMessages"]>[0],
-  ): Promise<ReadableStream<UIMessageChunk>> {
-    const { model, effort } = this.getSettings();
-
-    const result = streamText({
-      model: aiProvider.chatModel(model),
-      system: SYSTEM_PROMPT,
-      messages: await convertToModelMessages(options.messages),
-      tools: cmsTools,
-      stopWhen: stepCountIs(aiConfig?.maxSteps ?? 24),
-      abortSignal: options.abortSignal,
-      // Forwarded to the relay as the OpenAI-compatible `reasoning_effort` field;
-      // omitted when "off" so non-reasoning models are unaffected.
-      providerOptions:
-        effort === "off" ? undefined : { openaiCompatible: { reasoningEffort: effort } },
-    });
-
-    return result.toUIMessageStream({
-      // The complete error goes to the console for inspection; the UI only ever
-      // receives the concise message returned here (the SDK otherwise masks all
-      // failures to a generic "An error occurred.").
-      onError: (error) => {
-        console.error("[astronaut-cms] AI assistant request failed:", error);
-
-        return toUserErrorMessage(error);
-      },
-    });
-  }
-
-  async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
-    return null;
-  }
-}
+    return toUserErrorMessage(error);
+  },
+});

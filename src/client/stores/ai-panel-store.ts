@@ -20,7 +20,7 @@ export const useAiPanelStore = create<AiPanelState>()(
     (set) => ({
       open: false,
       model: aiConfig?.models[0] ?? "",
-      effort: "medium",
+      effort: "provider-default",
       setOpen: (open) => set({ open }),
       toggle: () => set((state) => ({ open: !state.open })),
       setModel: (model) => set({ model }),

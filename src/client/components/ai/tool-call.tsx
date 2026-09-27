@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ToolUIPart } from "ai";
 import { Button } from "@client/components/ui/button";
 import {
   Tool,
@@ -9,15 +8,16 @@ import {
   ToolInput,
   ToolOutput,
 } from "@client/components/ai-elements/tool";
+import type { CmsToolUIPart } from "@client/lib/ai/agent";
 
 interface ToolCallProps {
-  part: ToolUIPart;
+  part: CmsToolUIPart;
   onApprovalResponse: (response: { id: string; approved: boolean }) => void;
 }
 
 // Renders a single tool call from the generated ai-elements primitives, adding
-// the inline approve/deny controls for tools that set `needsApproval`. Kept out
-// of components/ai-elements so the generated files stay untouched.
+// the inline approve/deny controls for the tools listed in `cmsToolApproval`.
+// Kept out of components/ai-elements so the generated files stay untouched.
 export function ToolCall({ part, onApprovalResponse }: ToolCallProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

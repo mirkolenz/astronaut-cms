@@ -5,6 +5,7 @@ import type { CmsClientConfig } from "@integration/types";
 const config: CmsClientConfig = {
   mountPoint: "/admin",
   storageType: "local",
+  trailingSlash: "ignore",
   mediaDirectory: "src/assets",
   locale: "en",
 };
