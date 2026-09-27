@@ -1,6 +1,7 @@
 import type { JsxComponentDescriptor, JsxPropertyDescriptor } from "@mdxeditor/editor";
 import type { ClientComponentDef } from "virtual:astronaut-cms/user-config";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
+import { componentEntries } from "@/shared/component-lookup";
 import { CmsComponentEditor } from "@/client/components/editors/cms-component-editor";
 
 /**
@@ -41,24 +42,13 @@ function schemaToJsxProps(schema: FieldSchema | null): JsxPropertyDescriptor[] {
 export function toJsxDescriptors(
   components: Record<string, ClientComponentDef>,
 ): JsxComponentDescriptor[] {
-  const descriptors: JsxComponentDescriptor[] = [];
-
-  for (const [name, def] of Object.entries(components)) {
-    descriptors.push({
-      name,
-      kind: def.kind,
-      source: def.source ?? undefined,
-      defaultExport: def.defaultExport,
-      props: schemaToJsxProps(def.props),
-      hasChildren: !!def.children,
-      Editor: def.editor ?? CmsComponentEditor,
-    });
-
-    // Recursively add child component descriptors
-    if (typeof def.children === "object") {
-      descriptors.push(...toJsxDescriptors(def.children));
-    }
-  }
-
-  return descriptors;
+  return [...componentEntries(components)].map(([name, def]) => ({
+    name,
+    kind: def.kind,
+    source: def.source ?? undefined,
+    defaultExport: def.defaultExport,
+    props: schemaToJsxProps(def.props),
+    hasChildren: !!def.children,
+    Editor: def.editor ?? CmsComponentEditor,
+  }));
 }

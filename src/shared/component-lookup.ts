@@ -1,22 +1,27 @@
 import type { ComponentSchema } from "./field-schema.ts";
 
 /**
- * Finds a component by name anywhere in the tree, including nested child sets.
- * Generic over the definition so the admin gets its full `ClientComponentDef`
- * back while the build gets the structural shape it walks with.
+ * Every component in the tree with its name, nested child sets included. Generic
+ * over the definition so the admin gets its full `ClientComponentDef` back while
+ * the build gets the structural shape it walks with.
  */
+export function* componentEntries<T extends ComponentSchema>(
+  tree: Record<string, T>,
+): Generator<[string, T]> {
+  for (const [name, def] of Object.entries(tree)) {
+    yield [name, def];
+
+    if (typeof def.children === "object") yield* componentEntries(def.children);
+  }
+}
+
+/** Finds a component by name anywhere in the tree, including nested child sets. */
 export function findComponent<T extends ComponentSchema>(
   name: string,
   tree: Record<string, T>,
 ): T | undefined {
-  for (const [key, def] of Object.entries(tree)) {
+  for (const [key, def] of componentEntries(tree)) {
     if (key === name) return def;
-
-    if (typeof def.children === "object") {
-      const found = findComponent(name, def.children);
-
-      if (found) return found;
-    }
   }
 
   return undefined;
