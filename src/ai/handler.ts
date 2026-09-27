@@ -6,8 +6,8 @@
  * against the configured repository. Request/response bodies are proxied verbatim
  * so the client can keep using a plain OpenAI-compatible provider.
  *
- * `ai-endpoint.ts` is the Astro-route shell over this core. To also run it on a
- * true edge runtime later (e.g. a Netlify Edge Function, to escape the serverless
+ * `endpoint.ts` is the Astro-route shell over this core. To also run it on a true
+ * edge runtime later (e.g. a Netlify Edge Function, to escape the serverless
  * duration limit) add a second thin shell that calls `handle`, without changing
  * this file:
  *   1. Expose this module from the package (a `./ai-handler` entry in

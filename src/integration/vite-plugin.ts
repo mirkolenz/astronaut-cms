@@ -121,7 +121,7 @@ export function cmsVitePlugin(
 // Emits the lazy `import.meta.glob` maps that back `astronaut-cms/assets`. Only
 // the globs live here because Vite's import.meta.glob requires a static literal
 // argument with the media directory baked in; the resolver logic that consumes
-// these maps is plain (type-checked) TypeScript in src/runtime/assets.ts. Lazy
+// these maps is plain (type-checked) TypeScript in src/assets/index.ts. Lazy
 // globs keep the Promise-based form expected by astro:assets <Image>, and `import:
 // "default"` makes each loader resolve straight to the ImageMetadata / URL.
 function generateAssetsModule(mediaDirectory: string): string {

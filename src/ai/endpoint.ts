@@ -1,13 +1,13 @@
 /**
- * Astro-route shell over the platform-agnostic relay in `ai-handler.ts`. It
- * supplies the static config (from the virtual modules) and a runtime env reader,
- * then delegates to `handle`. Keeping the core framework-independent lets a true
- * edge function reuse it later (see the note in `ai-handler.ts`).
+ * Astro-route shell over the platform-agnostic relay in `handler.ts`. It supplies
+ * the static config (from the virtual modules) and a runtime env reader, then
+ * delegates to `handle`. Keeping the core framework-independent lets a true edge
+ * function reuse it later (see the note in `handler.ts`).
  */
 import type { APIContext, APIRoute } from "astro";
 import config from "virtual:astronaut-cms/config";
 import gatewayConfig from "virtual:astronaut-cms/ai-server";
-import { handle } from "./ai-handler.ts";
+import { handle } from "./handler.ts";
 
 export const prerender = false;
 

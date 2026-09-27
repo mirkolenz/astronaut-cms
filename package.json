@@ -28,13 +28,13 @@
       "default": "./dist/astro/Image.astro"
     },
     "./assets": {
-      "types": "./dist/runtime/index.d.ts",
-      "source": "./src/runtime/index.ts",
-      "default": "./dist/runtime.js"
+      "types": "./dist/assets/index.d.ts",
+      "source": "./src/assets/index.ts",
+      "default": "./dist/assets.js"
     },
     "./ai-endpoint": {
-      "types": "./dist/runtime/ai-endpoint.d.ts",
-      "source": "./src/runtime/ai-endpoint.ts",
+      "types": "./dist/ai/endpoint.d.ts",
+      "source": "./src/ai/endpoint.ts",
       "default": "./dist/ai-endpoint.js"
     },
     "./client": {
