@@ -26,9 +26,10 @@ type NextFn = () => void;
 const MUTATING_METHODS = new Set(["PUT", "POST", "PATCH", "DELETE"]);
 
 // How long after a CMS write to keep suppressing the dev-server reload it
-// triggers. Generous enough to cover the file-watcher latency, short enough that
-// a manual edit moments later still reloads.
-const SUPPRESS_WINDOW_MS = 2000;
+// triggers. It has to outlast the whole chain — write, content-layer sync, data
+// store rewrite, reload broadcast — while staying short enough that a manual
+// edit moments later still reloads.
+const SUPPRESS_WINDOW_MS = 5000;
 
 export interface DevMiddlewareOptions {
   basePath: string;
@@ -508,7 +509,35 @@ function createDevMiddleware(
   };
 }
 
-// Two cooperating dev plugins that share a suppression window:
+/**
+ * Drops full-reload broadcasts while `isSuppressed()` holds, and leaves every
+ * other message alone.
+ *
+ * Astro reloads the browser from two places: its `astro:hmr-reload` plugin, and
+ * `invalidateDataStore`, which fires when the content layer rewrites
+ * `.astro/data-store.json` after syncing a changed entry. The second is not a
+ * `hotUpdate` at all, and is keyed on a file outside the content directory, so
+ * no hook-level filter can see it. Intercepting the message both paths end in
+ * covers them together.
+ */
+function suppressReloads(
+  channel: { send: (...args: never[]) => void },
+  isSuppressed: () => boolean,
+): void {
+  const send = channel.send.bind(channel);
+
+  channel.send = (...args: never[]) => {
+    const payload: unknown = args[0];
+    const isFullReload =
+      typeof payload === "object" && (payload as { type?: string } | null)?.type === "full-reload";
+
+    if (isFullReload && isSuppressed()) return;
+
+    send(...args);
+  };
+}
+
+// Two cooperating pieces sharing one suppression window:
 //
 //   1. The dev API middleware. Registered as a Vite plugin instead of via
 //      `astro:server:setup` because Astro unshifts its own trailing-slash
@@ -518,12 +547,9 @@ function createDevMiddleware(
 //      `enforce: "post"` makes our post-hook run after Astro's, so the unshift
 //      here places the CMS API ahead of that trailing-slash check.
 //
-//   2. A hotUpdate hook that, for the brief window after a CMS write, drops the
-//      content/media module update so Astro's `astro:hmr-reload` plugin (which
-//      runs with `order: "post"`) sees no modules and broadcasts no full reload.
-//      `order: "pre"` guarantees we run first. Without this, every save would
-//      reload the admin and wipe its React state. Manual edits, which arm no
-//      window, still reload as usual.
+//   2. Reload suppression for the window a CMS write opens. Without it every
+//      save reloads the admin and wipes its state, the open assistant
+//      conversation included. Manual edits arm no window and still reload.
 export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
   const { contentDir, mediaDir } = options;
 
@@ -531,6 +557,7 @@ export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
   const markWrite = () => {
     suppressReloadUntil = Date.now() + SUPPRESS_WINDOW_MS;
   };
+  const isSuppressed = () => Date.now() < suppressReloadUntil;
 
   return [
     {
@@ -539,6 +566,11 @@ export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
 
       configureServer(server) {
         const handle = createDevMiddleware(server, options, markWrite);
+
+        // `server.ws` and the client environment's hot channel are distinct
+        // objects in Vite, and Astro broadcasts reloads through both.
+        suppressReloads(server.environments.client.hot, isSuppressed);
+
         return () => {
           server.middlewares.stack.unshift({ route: "", handle });
         };
@@ -547,15 +579,19 @@ export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
     {
       name: "astronaut-cms:suppress-self-reload",
 
+      // The other half of the suppression: dropping the modules keeps Astro's
+      // `astro:hmr-reload` (order "post") from seeing any and broadcasting a
+      // reload of its own. It broadcasts through `server.ws`, which Vite exposes
+      // as a proxy that ignores patching, so it has to be stopped here rather
+      // than at the channel. The file that reaches this hook is the rewritten
+      // data store, not the entry — hence the `.astro` case.
       hotUpdate: {
         order: "pre",
         handler({ file }) {
-          if (
-            Date.now() < suppressReloadUntil &&
-            (isWithin(file, contentDir) || isWithin(file, mediaDir))
-          ) {
-            return [];
-          }
+          const isOwnWrite =
+            isWithin(file, contentDir) || isWithin(file, mediaDir) || file.includes("/.astro/");
+
+          if (isSuppressed() && isOwnWrite) return [];
         },
       },
     },
