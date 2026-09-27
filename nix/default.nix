@@ -15,6 +15,13 @@
       packages = {
         docs = pkgs.callPackage ./docs.nix { };
         demo = pkgs.callPackage ./demo.nix { };
+        release-env = pkgs.buildEnv {
+          name = "release-env";
+          paths = [ pkgs.nodejs ];
+        };
+      };
+      checks = {
+        inherit (config.packages) docs demo;
       };
       devShells.default = pkgs.callPackage ./shell.nix {
         treefmt = config.treefmt.build.wrapper;
