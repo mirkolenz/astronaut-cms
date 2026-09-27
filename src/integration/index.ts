@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
-import { API_PATTERN, GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
+import { API_BASE, API_PATTERN, GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
 import { S3_ACCESS_KEY_ID_ENV } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
@@ -322,6 +322,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
+        // The working tree is only reachable from Node, so `astro dev` answers the
+        // API itself there, whatever runtime the adapter renders in.
+        const devApi = command === "dev" && serverConfig.storage.type === "local";
+
+        // Which leaves no runtime that holds a Workers binding.
+        if (devApi && access?.type === "binding") {
+          throw new Error(
+            `Media binding '${access.name}' is unreachable from "astro dev" on local storage, whose API runs in Node. Keep localMediaInDev on (the default), or configure 'accountId' to reach the bucket over the S3 API instead.`,
+          );
+        }
+
         const { mediaBackend } = clientConfig;
 
         updateConfig({
@@ -345,7 +356,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
               }),
               // The admin writes files the dev server watches; without this every
               // save reloads the page and wipes its state.
-              ...(command === "dev" ? [cmsDevPlugin()] : []),
+              ...(command === "dev"
+                ? [cmsDevPlugin(devApi ? join("/", astroConfig.base, API_BASE) : null)]
+                : []),
             ],
           },
         });

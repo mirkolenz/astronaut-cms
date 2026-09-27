@@ -9,7 +9,11 @@ import { handle } from "./handler.ts";
 
 export const prerender = false;
 
-const route: APIRoute = ({ request }) => handle(request, readEnv, readBinding);
+/** The whole API for one request, also what the dev server calls without a route around it. */
+export const handleRequest = (request: Request): Promise<Response> =>
+  handle(request, readEnv, readBinding);
+
+const route: APIRoute = ({ request }) => handleRequest(request);
 
 export const GET = route;
 export const POST = route;

@@ -1,0 +1,88 @@
+/**
+ * The CMS API served from Node by `astro dev` itself, for local storage.
+ *
+ * An adapter may render on demand in a runtime other than Node, such as workerd
+ * for `@astrojs/cloudflare`, where `node:fs` cannot see the project. The working
+ * tree is only reachable from Node, so the API runs in a Node environment of its
+ * own and answers before the adapter's handler sees the request. Every adapter
+ * takes this path, so the demo exercises the one a Workers site runs.
+ */
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { pipeline } from "node:stream/promises";
+import {
+  createRunnableDevEnvironment,
+  type EnvironmentOptions,
+  type RunnableDevEnvironment,
+  type ViteDevServer,
+} from "vite";
+import { PACKAGE_NAME } from "../entry-points.ts";
+
+/** The Vite environment the dev API runs in. */
+export const DEV_API_ENVIRONMENT = "astronaut_cms";
+
+type Endpoint = typeof import("../server/endpoint.ts");
+
+export const devApiEnvironment: EnvironmentOptions = {
+  consumer: "server",
+  // The package imports the virtual modules, so Vite has to transform it rather
+  // than hand it to Node.
+  resolve: { noExternal: [PACKAGE_NAME] },
+  dev: { createEnvironment: (name, config) => createRunnableDevEnvironment(name, config) },
+};
+
+/** Answers every request below `apiPath` from the dev API environment. */
+export function serveDevApi(server: ViteDevServer, apiPath: string): void {
+  const environment = server.environments[DEV_API_ENVIRONMENT] as RunnableDevEnvironment;
+
+  server.middlewares.use((req, res, next) => {
+    const path = req.url?.split("?")[0] ?? "";
+
+    if (path !== apiPath && !path.startsWith(`${apiPath}/`)) return next();
+
+    environment.runner
+      .import<Endpoint>(`${PACKAGE_NAME}/endpoint`)
+      .then(({ handleRequest }) => handleRequest(toRequest(req)))
+      .then((response) => send(res, response))
+      .catch(next);
+  });
+}
+
+function toRequest(req: IncomingMessage): Request {
+  const protocol = "encrypted" in req.socket && req.socket.encrypted ? "https" : "http";
+  const url = new URL(req.url ?? "/", `${protocol}://${req.headers.host ?? "localhost"}`);
+  const headers = new Headers();
+
+  for (const [name, value] of Object.entries(req.headers)) {
+    for (const item of [value ?? []].flat()) headers.append(name, item);
+  }
+
+  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+
+  return new Request(url, {
+    method: req.method,
+    headers,
+    ...(hasBody && { body: Readable.toWeb(req) as ReadableStream, duplex: "half" }),
+  });
+}
+
+async function send(res: ServerResponse, response: Response): Promise<void> {
+  res.statusCode = response.status;
+
+  for (const [name, value] of response.headers) {
+    if (name !== "set-cookie") res.setHeader(name, value);
+  }
+
+  const cookies = response.headers.getSetCookie();
+
+  if (cookies.length > 0) res.setHeader("set-cookie", cookies);
+
+  if (!response.body) {
+    res.end();
+
+    return;
+  }
+
+  await pipeline(Readable.fromWeb(response.body as NodeReadableStream), res);
+}

@@ -1,20 +1,17 @@
 /**
- * Reload suppression for `astro dev`.
+ * What `astro dev` adds to the dev server: reload suppression, and for local
+ * storage the CMS API itself (see `dev-api.ts`).
  *
  * The admin writes files the dev server watches, so without this every save
  * reloads the page and wipes its state, the open assistant conversation
  * included. The CMS's own writes arm a short window in which a full reload is
  * dropped; a manual edit arms none and still reloads.
- *
- * There is nothing else here any more. The filesystem API this file used to
- * serve was a second implementation of the storage backend, reachable only in
- * dev; the working tree is now a storage backend like any other, behind the same
- * API the deployed CMS uses (see `server/storage/local.ts`).
  */
 import type { IncomingMessage } from "node:http";
 import type { Plugin } from "vite";
 import { API_BASE } from "../shared/auth.ts";
 import { WRITE_HEADER } from "../shared/http.ts";
+import { DEV_API_ENVIRONMENT, devApiEnvironment, serveDevApi } from "./dev-api.ts";
 
 // How long after a CMS write to keep suppressing the dev-server reload it
 // triggers. It has to outlast the whole chain — write, content-layer sync, data
@@ -66,13 +63,19 @@ function suppressReloads(
  * environment, and the SSR one is a module runner: a `full-reload` there makes
  * it drop its evaluated modules and re-import its entrypoints, which fails on
  * Astro's own `astro:server-app.js` and leaves the dev server unable to render.
+ *
+ * `apiPath` is where the dev server answers the API itself, or null when the
+ * adapter's route does.
  */
-export function cmsDevPlugin(): Plugin {
+export function cmsDevPlugin(apiPath: string | null): Plugin {
   let suppressReloadUntil = 0;
 
   return {
-    name: "astronaut-cms:dev-reloads",
+    name: "astronaut-cms:dev",
     enforce: "post",
+
+    config: () =>
+      apiPath ? { environments: { [DEV_API_ENVIRONMENT]: devApiEnvironment } } : undefined,
 
     configureServer(server) {
       // Appended from the body so it runs before Astro's own catch-all handler
@@ -83,6 +86,9 @@ export function cmsDevPlugin(): Plugin {
 
         next();
       });
+
+      // After the window is armed, since the API answers without passing the request on.
+      if (apiPath) serveDevApi(server, apiPath);
 
       for (const environment of Object.values(server.environments)) {
         suppressReloads(environment.hot, () => Date.now() < suppressReloadUntil);

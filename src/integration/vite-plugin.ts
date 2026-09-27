@@ -9,6 +9,7 @@ import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
 import type { ContentEntry } from "./content-files.ts";
 import { SOURCE_EXPORTS } from "./self-resolve.ts";
+import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
 
 type AstroCommand = HookParameters<"astro:config:setup">["command"];
 
@@ -30,8 +31,9 @@ export interface CmsVitePluginOptions {
   runtime: CmsRuntime;
 }
 
-/** What a module generated per load is told: how to watch a file. */
+/** What a module generated per load is told: whether it runs in the dev API, and how to watch a file. */
 interface LoadContext {
+  devApi: boolean;
   watch: (path: string) => void;
 }
 
@@ -51,17 +53,18 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
     })};`,
     "virtual:astronaut-cms/server": `export default ${JSON.stringify(serverConfig)};`,
     // Workers hand the environment to a module rather than to a global, and the
-    // import only resolves inside a Workers build — so which of these is emitted
-    // has to be settled here, where the target runtime is known.
-    "virtual:astronaut-cms/runtime-env":
-      options.runtime === "cloudflare"
+    // import only resolves inside a Workers build, so which of these is emitted
+    // is settled here, where the target runtime is known. The dev API runs in
+    // Node whatever the adapter.
+    "virtual:astronaut-cms/runtime-env": ({ devApi }) =>
+      options.runtime === "cloudflare" && !devApi
         ? `export { env as default } from "cloudflare:workers";`
         : `export default undefined;`,
     // The filesystem backend is Node-only, so it is linked in exactly where it
-    // can run and stubbed everywhere else: without this, `node:fs` would follow
-    // the injected route into a Workers or edge bundle and fail it outright.
-    "virtual:astronaut-cms/local-storage":
-      serverConfig.storage.type === "local"
+    // runs, the dev API, and stubbed everywhere else: without this, `node:fs`
+    // would follow the injected route into a Workers or edge bundle.
+    "virtual:astronaut-cms/local-storage": ({ devApi }) =>
+      serverConfig.storage.type === "local" && devApi
         ? `export { LocalStorage } from "astronaut-cms/server-local";`
         : `export const LocalStorage = null;`,
     "virtual:astronaut-cms/order": ({ watch }) =>
@@ -88,7 +91,10 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
 
       if (typeof module !== "function") return module;
 
-      return module({ watch: (path) => this.addWatchFile(path) });
+      return module({
+        devApi: this.environment.name === DEV_API_ENVIRONMENT,
+        watch: (path) => this.addWatchFile(path),
+      });
     },
 
     configureServer(server) {
