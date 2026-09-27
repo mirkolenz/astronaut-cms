@@ -1,5 +1,8 @@
 import type { ContentI18n } from "../shared/i18n.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
+import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
+
+export type { AiGateway };
 
 export interface CmsConfig {
   /** Path to the CMS config file, relative to the project root (default: auto-discovered from src/cms.config.{ts,mts,js,mjs}) */
@@ -57,19 +60,6 @@ export interface CmsConfig {
  * never be committed:
  *
  * - `netlify` / `vercel`: the platform injects credentials automatically, so the
- *   bare `{ type }` is enough on those hosts.
- * - `cloudflare`: provide `accountId` (and optionally `gatewayId`). A Cloudflare
- *   API token with AI Gateway permission comes from the `CLOUDFLARE_API_TOKEN`
- *   environment variable.
- * - `custom`: any OpenAI-compatible gateway via `baseUrl`. The key comes from the
- *   `ASTRONAUT_CMS_AI_API_KEY` environment variable.
- */
-export type AiGateway =
-  | { type: "netlify" }
-  | { type: "vercel" }
-  | { type: "cloudflare"; accountId: string; gatewayId?: string }
-  | { type: "custom"; baseUrl: string };
-
 /**
  * Agentic AI assistant. The browser runs the agent loop, but every tool it calls
  * is one operation on the CMS server, so the model reaches exactly what the UI
@@ -82,6 +72,19 @@ export interface AiConfig {
   enabled?: boolean;
   /** AI gateway and (optional) credentials. See {@link AiGateway}. */
   gateway: AiGateway;
+  /**
+   * Whose credential the assistant spends (default: `"relay"`).
+   *
+   * `"byok"` asks each editor for their own key, which stays in their browser
+   * and goes straight to the gateway: no relay route, no function invocations
+   * for inference, and no shared budget anyone can drain. In exchange the
+   * deployment enforces none of {@link AiLimits} or the model allowlist, because
+   * nothing of the deployment's is at stake. Needs a gateway a browser can
+   * address, so `cloudflare` or `custom` rather than the platform-injected ones.
+   *
+   * See {@link AiCredentials}.
+   */
+  credentials?: AiCredentials;
   /**
    * Gateway-qualified model ids the assistant may use (e.g.
    * `"anthropic/claude-opus-4.7"`). The first entry is the default; the relay
@@ -336,6 +339,11 @@ export interface CmsClientConfig {
   ai?: {
     models: string[];
     maxSteps: number;
+    /**
+     * Set when the editor brings their own key: where the browser sends
+     * inference, since it no longer goes through this deployment at all.
+     */
+    byok?: GatewayEndpoint;
   };
   /** What the changeset UI may offer, decided by the backend rather than the UI. */
   capabilities: { publish: boolean; update: boolean };

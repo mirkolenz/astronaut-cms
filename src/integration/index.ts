@@ -17,12 +17,14 @@ import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-config.ts";
 import {
+  isByok,
   resolveAlwaysInclude,
   resolveClientConfig,
   resolveMediaServer,
   resolveServerConfig,
   storageType,
 } from "./resolve-config.ts";
+import { isAddressable } from "../shared/ai.ts";
 
 export type {
   CmsConfig,
@@ -356,7 +358,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             throw new Error("AI assistant: 'gateway' is required (e.g. { type: \"netlify\" }).");
           }
 
-          logger.info("AI assistant enabled");
+          // The platform-injected gateways resolve their base URL from server
+          // environment variables, so there is nothing to hand the browser.
+          if (isByok(effectiveConfig) && !isAddressable(config.ai.gateway)) {
+            throw new Error(
+              `AI assistant: credentials: "byok" needs a gateway the browser can address ("cloudflare" or "custom"), not "${config.ai.gateway.type}". The editor's key is sent straight to the gateway, so its URL has to be known at build time.`,
+            );
+          }
+
+          logger.info(
+            `AI assistant enabled${isByok(effectiveConfig) ? " (each editor brings their own key)" : ""}`,
+          );
         }
       },
     },

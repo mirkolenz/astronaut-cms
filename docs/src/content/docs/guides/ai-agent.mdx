@@ -23,16 +23,62 @@ Each relay call is a single model round-trip rather than a whole multi-step conv
 
 The CMS needs an Astro server adapter regardless (`@astrojs/node`, `@astrojs/netlify`, `@astrojs/vercel`, `@astrojs/cloudflare`), so the assistant adds no new deployment requirement beyond the gateway itself.
 
-## Runtime and limits
+## Where the relay runs decides what it costs
 
-The relay is a pure Fetch-API streaming proxy with negligible CPU use, so its cost depends on where it runs, not on how long the model takes.
-Each call handles a single model round-trip, so its duration is just one response.
+This is the single biggest cost decision the assistant involves, and it is a hosting choice rather than a setting.
 
-- **Cloudflare**: runs on Workers (the edge). Billed on CPU time, which excludes time spent waiting on the model, so a long generation is effectively free and there is no duration cap to worry about.
-- **Vercel**: runs as a serverless function. The default max duration (300s) comfortably covers a single model response.
-- **Netlify**: runs as a serverless function, capped at 10s on the free plan. Most edits finish well within that, but one very long single-shot generation can hit it. Raise it with a paid plan, or keep per-step output modest.
+The relay is a Fetch-API streaming proxy that does almost no work of its own: it attaches a credential, forwards a request, and pipes bytes back. But it is **held open for the whole model response**, because that is what proxying a stream means. The agent loop runs in the browser, so no single call spans a whole turn — but a turn of *n* steps is *n* calls, each held for one model response.
 
-The Astro adapters run on-demand routes on the edge only for Cloudflare; on Netlify and Vercel they run in serverless functions (edge is available for middleware only), which is why the durations above differ.
+What that costs depends entirely on how your host bills a function that is waiting rather than computing:
+
+| Host | Runs as | Billed on | What a long generation costs |
+| --- | --- | --- | --- |
+| **Cloudflare** | Workers, at the edge | CPU time | Effectively nothing: waiting on the model is not CPU time, and there is no duration cap to plan around |
+| **Vercel** | Serverless function | Wall-clock duration | The full length of every model response, on every step |
+| **Netlify** | Serverless function | Wall-clock duration | The same, and capped at 10s on the free plan, which one long single-shot generation can hit |
+
+The Astro adapters run on-demand routes at the edge only for Cloudflare; Netlify and Vercel run them in serverless functions (edge is for middleware only), which is why the three differ.
+
+<Aside type="tip" title="The short version">
+  An I/O-bound pass-through belongs on a runtime that bills CPU. If the assistant will see real use
+  and you have a choice of host, `@astrojs/cloudflare` is the one that matches this workload. On a
+  wall-clock-billed host, expect to pay for the model's thinking time on every step of every turn —
+  or use [bring your own key](#bring-your-own-key), which takes the relay out of the path entirely.
+</Aside>
+
+## Bring your own key
+
+By default the deployment holds one gateway credential and every model call is proxied through the relay, which is what lets the deployment enforce the model list, the output ceiling and the per-editor rate.
+
+The alternative is to ask each editor for their own key:
+
+```ts title="astro.config.ts"
+cms({
+  ai: {
+    enabled: true,
+    credentials: "byok",
+    gateway: { type: "custom", baseUrl: "https://gateway.example/v1" },
+    models: ["anthropic/claude-opus-4.7"],
+  },
+});
+```
+
+The key is entered in the assistant panel, kept in `sessionStorage`, and sent straight to the gateway.
+It never reaches your server, and the relay route is not part of a `byok` build at all.
+
+**What you get.** No function invocations for inference, so none of the billing above applies. No shared budget for a compromised session or a runaway loop to drain. No gateway credential on your server to hold, rotate, or leak.
+
+**What you give up.** The deployment enforces nothing — not the model allowlist, not `limits`, not the per-editor rate — because none of it is protecting anything of yours any more. Each editor's key is spent against their own account, capped by their own provider, and theirs to rotate. Each editor also has to have one.
+
+`byok` needs a gateway the browser can address, so `cloudflare` or `custom`; the `netlify` and `vercel` gateways resolve their base URL from server-side environment variables, and the build fails with a message if you ask for `byok` with one of those. The gateway's origin is added to the admin's `connect-src`, and nothing else is.
+
+<Aside type="caution" title="Not the deployment's key">
+  `byok` means the *editor's* key. Never arrange for the browser to fetch your deployment's gateway
+  key after sign-in: it is a shared, non-expiring, unscoped credential, so any script on the admin
+  origin could read it once and spend it from anywhere until you rotate it — and a browser calling
+  the gateway directly is subject to none of the limits the relay applies. A presigned upload URL is
+  safe to hand out because it is scoped to one file and expires in minutes; an API key is neither.
+</Aside>
 
 ## Enable it
 
@@ -128,8 +174,18 @@ The first model is the default, and the relay rejects any model not in the list.
 <Aside type="note">
   The gateway config holds no secrets, so an API key can never be committed. Credentials come only
   from the environment: `CLOUDFLARE_API_TOKEN` for Cloudflare, `ASTRONAUT_CMS_AI_API_KEY` for a
-  custom gateway, and automatic injection for Netlify and Vercel.
+  custom gateway, and automatic injection for Netlify and Vercel — or from each editor, with
+  [`credentials: "byok"`](#bring-your-own-key).
 </Aside>
+
+| Property      | Type                    | Default    | Description                                                             |
+| ------------- | ----------------------- | ---------- | ----------------------------------------------------------------------- |
+| `enabled`     | `boolean`               | `false`    | Enable the assistant and inject the relay route                         |
+| `gateway`     | `AiGateway`             | required   | Which gateway to reach, and where its credential comes from             |
+| `credentials` | `"relay" \| "byok"`     | `"relay"`  | Whose key is spent: the deployment's, or [each editor's](#bring-your-own-key) |
+| `models`      | `string[]`              | required   | Gateway-qualified model ids; the first is the default                   |
+| `maxSteps`    | `number`                | `24`       | Maximum model/tool round-trips per turn                                 |
+| `limits`      | `AiLimits`              | see below  | Request and output ceilings the relay applies                           |
 
 ## Reviewing what the agent did
 
@@ -171,6 +227,8 @@ The answer is bounded by the server rather than by the tool list:
   you.
 
 ### Cost controls
+
+These apply to the default relay mode. Under [bring your own key](#bring-your-own-key) there is nothing here to configure, because the editor's own provider account is the ceiling.
 
 The relay holds your gateway credential, so a session is otherwise a licence to bill your account without bound.
 `ai.limits` caps what one editor can spend:

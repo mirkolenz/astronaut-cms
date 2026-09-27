@@ -19,7 +19,7 @@ import type {
 import { presignedUploadOrigin, type ClientMediaBackend } from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
-import { DEFAULT_AI_MAX_STEPS } from "../shared/ai.ts";
+import { DEFAULT_AI_MAX_STEPS, gatewayEndpoint, isAddressable } from "../shared/ai.ts";
 import { parseRepo } from "../shared/repo.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
@@ -126,6 +126,10 @@ export function resolveClientConfig(
         ai: {
           models: config.ai.models,
           maxSteps: maxSteps(config),
+          // Present only when the editor brings the key: it is then the browser
+          // that calls the gateway, so the browser has to know where it is.
+          ...(isByok(config) &&
+            isAddressable(config.ai.gateway) && { byok: gatewayEndpoint(config.ai.gateway) }),
         },
       }),
   };
@@ -266,8 +270,18 @@ const DEFAULT_AI_LIMITS: Required<AiLimits> = {
 
 const maxSteps = (config: CmsConfig): number => config.ai?.maxSteps ?? DEFAULT_AI_MAX_STEPS;
 
+/** Whether the editor supplies the credential rather than the deployment. */
+export function isByok(config: CmsConfig): boolean {
+  return config.ai?.credentials === "byok";
+}
+
+/**
+ * Null when there is no relay to configure, which `byok` is one reason for: the
+ * route then has no gateway to reach and refuses, because inference never
+ * touches this deployment.
+ */
 function resolveAiServer(config: CmsConfig): AiServerConfig | null {
-  if (!config.ai?.enabled || !config.ai.gateway) return null;
+  if (!config.ai?.enabled || !config.ai.gateway || isByok(config)) return null;
 
   return {
     gateway: config.ai.gateway,

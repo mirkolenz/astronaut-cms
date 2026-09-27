@@ -203,6 +203,12 @@ const en = {
     reasoningLow: "Low",
     reasoningMedium: "Medium",
     reasoningHigh: "High",
+    keyTitle: "Your AI provider key",
+    keyDescription:
+      "This deployment asks each editor for their own key. It is sent straight to the AI gateway, never to this site, and it is forgotten when you close the tab.",
+    keyPlaceholder: "sk-...",
+    keySubmit: "Start using the assistant",
+    keyForget: "Forget key",
     tools: {
       wrote: "Wrote {{collection}} / {{id}}",
       edited: "Edited {{collection}} / {{id}}",

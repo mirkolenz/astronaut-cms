@@ -10,7 +10,8 @@
  * calls go through the same operation registry as the UI, so they are bounded by
  * the same rules rather than by where they run.
  */
-import type { AiGateway, AiServerConfig } from "../integration/types.ts";
+import type { AiServerConfig } from "../integration/types.ts";
+import { gatewayEndpoint, type AiGateway } from "../shared/ai.ts";
 import { BodyTooLargeError, readBody } from "../shared/http.ts";
 import { RateLimiter } from "../shared/rate-limit.ts";
 import { unreachable } from "../shared/unreachable.ts";
@@ -78,23 +79,18 @@ function resolveGateway(gateway: AiGateway, getEnv: EnvReader): Gateway {
       return { url: "https://ai-gateway.vercel.sh/v1/chat/completions", headers: bearer(key) };
     }
 
-    case "cloudflare": {
-      // OpenAI-compatible REST endpoint (the older `/compat/chat/completions`
-      // path is deprecated). The gateway is selected by header, and a Cloudflare
-      // API token with AI Gateway permission authenticates the call. Provider
-      // credentials are managed by the gateway (unified billing).
-      const key = getEnv("CLOUDFLARE_API_TOKEN");
-
-      return {
-        url: `https://api.cloudflare.com/client/v4/accounts/${gateway.accountId}/ai/v1/chat/completions`,
-        headers: { ...bearer(key), "cf-aig-gateway-id": gateway.gatewayId ?? "default" },
-      };
-    }
-
+    // Both are addressed from the config alone (see `gatewayEndpoint`), which is
+    // what also lets a browser reach them under `byok`. The credential is the
+    // only thing that differs between the two sides.
+    case "cloudflare":
     case "custom": {
-      const key = getEnv("ASTRONAUT_CMS_AI_API_KEY");
+      const { baseUrl, headers } = gatewayEndpoint(gateway);
+      const key =
+        gateway.type === "cloudflare"
+          ? getEnv("CLOUDFLARE_API_TOKEN")
+          : getEnv("ASTRONAUT_CMS_AI_API_KEY");
 
-      return { url: joinUrl(gateway.baseUrl, "chat/completions"), headers: bearer(key) };
+      return { url: joinUrl(baseUrl, "chat/completions"), headers: { ...bearer(key), ...headers } };
     }
 
     case "netlify": {

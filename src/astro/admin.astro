@@ -20,10 +20,12 @@ import { HARDENING_HEADERS } from "astronaut-cms/internal";
 // `script-src 'self'` with no inline scripts is what carries the weight, by
 // keeping injected markup from becoming script in the first place.
 //
-// The one exception is a presigned upload, whose bytes go browser-to-store: that
-// origin has to be reachable or the browser refuses the request before sending
-// it. It is also the one piece of configuration this page cannot hold back,
-// since a policy has to be in place before any script runs.
+// The exceptions are the two places bytes deliberately do not pass through this
+// deployment: a presigned upload, which goes browser-to-store, and an assistant
+// whose editors bring their own key, which goes browser-to-gateway. Both origins
+// have to be reachable or the browser refuses the request before sending it, and
+// both are configuration this page cannot hold back, since a policy has to be in
+// place before any script runs.
 
 // The only inline script here is the dev-only Fast Refresh preamble below. A
 // nonce admits that element and nothing an injection could write, which
@@ -36,6 +38,10 @@ const connectSrc = ["'self'"];
 if (config.mediaBackend.type === "remote" && config.mediaBackend.storeOrigin) {
   connectSrc.push(config.mediaBackend.storeOrigin);
 }
+
+// Named as an origin rather than the full base, which is all a policy can say —
+// and all it needs to, since the key only ever travels to this one host.
+if (config.ai?.byok) connectSrc.push(new URL(config.ai.byok.baseUrl).origin);
 
 const csp = [
   "default-src 'none'",

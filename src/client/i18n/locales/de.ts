@@ -209,6 +209,12 @@ const de: TranslationShape<typeof en> = {
     reasoningLow: "Niedrig",
     reasoningMedium: "Mittel",
     reasoningHigh: "Hoch",
+    keyTitle: "Dein Schlüssel für den KI-Anbieter",
+    keyDescription:
+      "Diese Installation fragt jede Person nach einem eigenen Schlüssel. Er geht direkt an das KI-Gateway, nie an diese Website, und wird beim Schließen des Tabs vergessen.",
+    keyPlaceholder: "sk-...",
+    keySubmit: "Assistenten verwenden",
+    keyForget: "Schlüssel vergessen",
     tools: {
       wrote: "{{collection}} / {{id}} geschrieben",
       edited: "{{collection}} / {{id}} bearbeitet",
