@@ -201,23 +201,21 @@ export interface S3Target {
   bucket: string;
 }
 
-/**
- * Origin a presigned PUT against this target points at. Virtual-host addressing
- * puts the bucket in the hostname, so it is the endpoint's origin only when
- * path-style is forced.
- *
- * Pure URL arithmetic, and shared because the two things that need it sit on
- * opposite sides of the build: the SDK the route configures, and the admin's
- * CSP, which the integration resolves. A `connect-src` that disagrees with the
- * SDK blocks every upload with no error an operator can read.
- */
-export function presignedUploadOrigin(target: S3Target): string {
+/** Bucket URL for requests, including a custom endpoint's path. */
+export function s3BaseUrl(target: S3Target): URL {
   const url = new URL(target.endpoint);
 
-  if (!target.pathStyle) url.hostname = `${target.bucket}.${url.hostname}`;
+  if (target.pathStyle) {
+    url.pathname = joinUrl(url.pathname, target.bucket);
+  } else {
+    url.hostname = `${target.bucket}.${url.hostname}`;
+  }
 
-  return url.origin;
+  return url;
 }
+
+/** Origin allowed by the admin's CSP for a presigned upload. */
+export const presignedUploadOrigin = (target: S3Target): string => s3BaseUrl(target).origin;
 
 /** The public URL a library path is served under by a remote backend. */
 export function remoteMediaUrl(path: string, publicUrl: string): string {

@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import { ApiError } from "../errors.ts";
+import { joinUrl } from "../../shared/url.ts";
 
 export interface ApiRequest {
   /** Appended to the base URL. Interpolate and encode path segments before passing them. */
@@ -30,7 +31,7 @@ export class ApiClient {
   private readonly headers: Record<string, string>;
 
   constructor(baseUrl: string, headers: Record<string, string>) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.baseUrl = baseUrl;
     this.headers = headers;
   }
 
@@ -43,7 +44,7 @@ export class ApiClient {
     headers,
     allow,
   }: ApiRequest): Promise<Response> {
-    const url = new URL(`${this.baseUrl}/${path.replace(/^\/+/, "")}`);
+    const url = new URL(joinUrl(this.baseUrl, path));
 
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, String(value));

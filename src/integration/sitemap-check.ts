@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { globFiles } from "./content-files.ts";
 import { isWithin } from "../server/storage/paths.ts";
+import { parseXml } from "../shared/xml.ts";
 
 /**
  * Whether a built sitemap lists a page under `adminPath`. Reading the output
@@ -9,11 +10,11 @@ import { isWithin } from "../server/storage/paths.ts";
  * an integration listed later, is not seen.
  */
 export function sitemapListsAdmin(outDir: string, adminPath: string): boolean {
-  return globFiles(outDir, "sitemap-*.xml")
-    .flatMap((file) => Array.from(readFileSync(file, "utf-8").matchAll(/<loc>([^<]+)<\/loc>/g)))
-    .some(([, loc = ""]) => {
-      const pathname = URL.parse(loc)?.pathname;
+  return globFiles(outDir, "sitemap-*.xml").some((file) =>
+    Array.from(parseXml(readFileSync(file, "utf-8")).getElementsByTagNameNS("*", "loc")).some((element) => {
+      const pathname = URL.parse(element.textContent ?? "")?.pathname;
 
       return pathname !== undefined && isWithin(pathname, adminPath);
-    });
+    }),
+  );
 }

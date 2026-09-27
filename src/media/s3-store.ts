@@ -4,8 +4,8 @@
  */
 import { AwsClient } from "aws4fetch";
 import { ApiError } from "../server/errors.ts";
-import { encodeKeyPath, presignedUploadOrigin, remoteMediaUrl } from "../shared/media.ts";
-import { joinUrl } from "../shared/url.ts";
+import { encodeKeyPath, remoteMediaUrl, s3BaseUrl } from "../shared/media.ts";
+import { parseXml } from "../shared/xml.ts";
 import {
   isFileKey,
   MAX_KEYS,
@@ -19,24 +19,8 @@ import {
   versionOf,
 } from "./store.ts";
 
-const XML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-
-const unescapeXml = (text: string): string =>
-  text.replace(/&(?:#x([\da-f]+)|#(\d+)|(\w+));/gi, (entity, hex?: string, dec?: string, name?: string) =>
-    hex ? String.fromCodePoint(parseInt(hex, 16))
-    : dec ? String.fromCodePoint(Number(dec))
-    : (XML_ENTITIES[name ?? ""] ?? entity),
-  );
-
-/**
- * The text of the first `<name>` element, unescaped. S3's responses are flat
- * enough for this, and a Worker has no `DOMParser` to do better.
- */
-function xmlText(xml: string, name: string): string | undefined {
-  const text = new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1];
-
-  return text === undefined ? undefined : unescapeXml(text);
-}
+const xmlText = (element: Element, name: string): string | undefined =>
+  element.getElementsByTagNameNS("*", name).item(0)?.textContent ?? undefined;
 
 /** The response itself, or an error carrying what the store said. */
 async function ensureOk(response: Response, action: string): Promise<Response> {
@@ -53,7 +37,7 @@ export class S3Store implements MediaStore {
 
   constructor(target: S3Target, credentials: S3Credentials) {
     this.bucket = target.bucket;
-    this.base = joinUrl(presignedUploadOrigin(target), target.pathStyle ? target.bucket : "");
+    this.base = s3BaseUrl(target).href;
     // Three attempts rather than aws4fetch's eleven.
     this.client = new AwsClient({ ...credentials, service: "s3", region: target.region, retries: 2 });
   }
@@ -80,9 +64,9 @@ export class S3Store implements MediaStore {
         .join("&");
 
       const response = await ensureOk(await this.client.fetch(url), `list of "${prefix}"`);
-      const xml = await response.text();
+      const xml = parseXml(await response.text());
 
-      for (const [, entry = ""] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      for (const entry of Array.from(xml.getElementsByTagNameNS("*", "Contents"))) {
         const key = xmlText(entry, "Key");
 
         if (!key || !isFileKey(key)) continue;
@@ -90,7 +74,10 @@ export class S3Store implements MediaStore {
         objects.push({ key, size: Number(xmlText(entry, "Size") ?? 0), version: versionOf(xmlText(entry, "ETag")) });
       }
 
-      cursor = xmlText(xml, "IsTruncated") === "true" ? xmlText(xml, "NextContinuationToken") : undefined;
+      const root = xml.documentElement;
+      cursor = root && xmlText(root, "IsTruncated") === "true"
+        ? xmlText(root, "NextContinuationToken")
+        : undefined;
     } while (cursor);
 
     return objects;
@@ -180,7 +167,9 @@ export class S3Store implements MediaStore {
     const body = await (await ensureOk(response, `copy of ${from} to ${to}`)).text();
 
     // A copy can fail after the store has already answered 200.
-    if (body.includes("<Error>")) throw new Error(`S3 copy of ${from} to ${to} failed: ${body}`);
+    if (body && parseXml(body).getElementsByTagNameNS("*", "Error").length > 0) {
+      throw new Error(`S3 copy of ${from} to ${to} failed: ${body}`);
+    }
   }
 
   async remove(key: string): Promise<void> {

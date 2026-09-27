@@ -155,14 +155,6 @@ export class GitLabStorage extends BranchedStorage {
     );
   }
 
-  protected override async fetchRawEntry(
-    collection: string,
-    id: string,
-    ext: string,
-  ): Promise<VersionedContent> {
-    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
-  }
-
   /** A repository file's own bytes. GitLab encodes the whole path as one segment. */
   private filePath(path: string): string {
     return `${this.project}/repository/files/${encodeURIComponent(path)}`;

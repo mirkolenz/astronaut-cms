@@ -378,11 +378,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   protected async fetchRawEntry(
-    _collection: string,
-    _id: string,
-    _ext: string,
+    collection: string,
+    id: string,
+    ext: string,
   ): Promise<VersionedContent> {
-    throw new Error("Not implemented");
+    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
   }
 
   /** The raw content of a repository file, by project-relative path. */

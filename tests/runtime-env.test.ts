@@ -16,7 +16,6 @@ function moduleFor(runtime: CmsRuntime, environment = "ssr"): string {
     command: "build",
     rootDir: process.cwd(),
     entries: [],
-    alwaysInclude: [],
     runtime,
   };
   const load = cmsVitePlugin(options).load as (this: unknown, id: string) => string;

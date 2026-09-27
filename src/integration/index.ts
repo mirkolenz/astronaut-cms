@@ -16,7 +16,6 @@ import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
 import {
   isByok,
-  resolveAlwaysInclude,
   resolveClientConfig,
   resolveMediaServer,
   resolveServerConfig,
@@ -361,7 +360,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 entries,
                 command,
                 rootDir,
-                alwaysInclude: resolveAlwaysInclude(effectiveConfig),
                 runtime,
               }),
               // The admin writes files the dev server watches; without this every

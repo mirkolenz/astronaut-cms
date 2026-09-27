@@ -95,7 +95,7 @@ export function resolveClientConfig(
     mediaDirectory: mediaDirectory(config),
     mediaExtensions: mediaExtensions(config),
     maxFileSize: config.media?.maxFileSize ?? null,
-    mediaAlwaysInclude: resolveAlwaysInclude(config),
+    mediaAlwaysInclude: config.media?.alwaysInclude ?? [],
     mediaBackend: resolveClientMediaBackend(config, localMedia),
     imageOptimization: resolveImageOptimization(config),
     locale: config.locale ?? "en",
@@ -268,15 +268,6 @@ export function resolveServerConfig(
     mediaExtensions: mediaExtensions(config),
     maxFileSize: config.media?.maxFileSize ?? null,
   };
-}
-
-/**
- * Media-directory-relative globs the build bundles even when no content
- * references them. The admin reads them too, to tell a file site code uses from
- * one nothing reaches.
- */
-export function resolveAlwaysInclude(config: CmsConfig): string[] {
-  return config.media?.alwaysInclude ?? [];
 }
 
 /** Defaults for {@link AiLimits}: generous for an editor, bounded for a bill. */

@@ -24,8 +24,6 @@ export interface CmsVitePluginOptions {
   entries: ContentEntry[];
   command: AstroCommand;
   rootDir: string;
-  /** Media-directory-relative globs to bundle even when no content references them. */
-  alwaysInclude: string[];
   /** Where the injected routes read secrets and bindings from. */
   runtime: CmsRuntime;
 }
@@ -144,7 +142,7 @@ export const files = import.meta.glob(${filesGlob}, { query: "?url&no-inline", i
     rootDir: options.rootDir,
     mediaDirectory: options.clientConfig.mediaDirectory,
     entries: options.entries,
-    alwaysInclude: options.alwaysInclude,
+    alwaysInclude: options.clientConfig.mediaAlwaysInclude,
   });
 
   return `\

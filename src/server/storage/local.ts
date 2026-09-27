@@ -142,14 +142,6 @@ export class LocalStorage extends StorageBase {
     return { content, version: await digest(content) };
   }
 
-  protected override async fetchRawEntry(
-    collection: string,
-    id: string,
-    ext: string,
-  ): Promise<VersionedContent> {
-    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
-  }
-
   /**
    * The working tree has nothing that names a file's state, so the state is
    * named by its contents. A dev run is one editor, but the assistant writes

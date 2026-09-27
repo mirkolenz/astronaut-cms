@@ -22,9 +22,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@streamdown/math": ["./src/client/bundle/disabled-plugin.ts"],
-      "@streamdown/mermaid": ["./src/client/bundle/disabled-plugin.ts"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "tests", "*.ts"]

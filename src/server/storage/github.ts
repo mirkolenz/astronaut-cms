@@ -151,14 +151,6 @@ export class GitHubStorage extends BranchedStorage {
     );
   }
 
-  protected override async fetchRawEntry(
-    collection: string,
-    id: string,
-    ext: string,
-  ): Promise<VersionedContent> {
-    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
-  }
-
   /**
    * The contents API narrowed to the one file it was asked for. The `object`
    * media type is what raises the 1 MB ceiling to 100 MB and guarantees an

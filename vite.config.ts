@@ -34,10 +34,7 @@ export default defineConfig({
       // exactly, so the shiki substitute can still reach shiki's core.
       { find: /^shiki$/, replacement: src("client/bundle/shiki.ts") },
       { find: /^@codemirror\/language-data$/, replacement: src("client/bundle/codemirror-languages.ts") },
-      {
-        find: /^(@streamdown\/(math|mermaid)|rehype-raw)$/,
-        replacement: src("client/bundle/disabled-plugin.ts"),
-      },
+      { find: /^rehype-raw$/, replacement: src("client/bundle/disabled-plugin.ts") },
     ],
   },
   plugins: [
