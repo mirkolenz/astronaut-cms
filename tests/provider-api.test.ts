@@ -6,6 +6,7 @@ import { GitLabStorage } from "@/server/storage/gitlab";
 import { getErrorStatus, StaleWriteError } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
 import { client } from "virtual:astronaut-cms/server";
+import { storageOptions } from "./fixtures/storage";
 
 // The provider SDKs were 1.1 MB of runtime JavaScript for twenty-nine endpoints,
 // so the CMS calls them over `fetch` instead. These pin what that hand-written
@@ -53,15 +54,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const options: StorageOptions = {
-  collections: client.collections,
-  mediaDirectory: "src/assets",
-  mediaExtensions: [".png"],
-  maxFileSize: null,
-  mediaBackend: { type: "repo" },
-  components: {},
-  login: "alice",
-};
+const options: StorageOptions = storageOptions(client.collections);
 
 describe("ApiClient", () => {
   it("builds the URL, query and headers, and sends JSON only with a body", async () => {
@@ -218,6 +211,29 @@ describe("GitLab requests", () => {
     expect(calls[1]?.url).toContain("page=1");
     expect(calls[2]?.url).toContain("page=2");
     expect(entries.map((entry) => entry.id)).toEqual(["a", "b"]);
+  });
+
+  // The tree API reports no sizes, so they are read from GraphQL, the file's own
+  // size standing in where the blob is an LFS pointer.
+  it("reports media sizes from GraphQL", async () => {
+    stubFetch([
+      { status: 404, body: {} },
+      { body: [{ type: "blob", path: "src/assets/logo.png", id: "l" }] },
+      {
+        body: {
+          data: {
+            project: {
+              repository: {
+                blobs: { nodes: [{ path: "src/assets/logo.png", size: "130", rawSize: "4096" }] },
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    await expect(storage().listMedia()).resolves.toEqual([{ path: "logo.png", size: 4096, version: "l" }]);
+    expect(calls[2]).toMatchObject({ url: "https://gitlab.com/api/graphql", method: "POST" });
   });
 
   it("does not turn a failed repository listing into an empty repository", async () => {

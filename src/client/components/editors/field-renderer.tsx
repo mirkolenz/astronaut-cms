@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
-import { mediaRef } from "@/shared/media";
+import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
@@ -76,6 +76,7 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
           value={asString(resolved)}
           onChange={onChange}
           required={required}
+          repoOnly={schema.repoOnly}
         />
       );
 
@@ -386,6 +387,7 @@ function AssetField({
   onChange,
   required,
   assetType,
+  repoOnly,
   children,
 }: {
   name: string;
@@ -393,18 +395,19 @@ function AssetField({
   onChange: (v: unknown) => void;
   required?: boolean;
   assetType: "image" | "file";
+  repoOnly?: boolean;
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const label = assetType === "image" ? t(($) => $.editors.image) : t(($) => $.editors.file);
   const [showPicker, setShowPicker] = useState(false);
 
-  // The picker yields a library path; `mediaRef` spells it the way this site's
-  // library is referenced — a root-absolute project path ("/src/assets/x.png"),
-  // or a bare key for an object store. Either is resolved at render time by the
-  // host via `astronaut-cms/assets`, so a picked file never needs a relative one.
-  const handleSelect = (assetPath: string) => {
-    onChange(mediaRef(assetPath, config));
+  // The picker yields a library file; `mediaRef` spells it the way content
+  // references that library: a root-absolute project path ("/src/assets/x.png"),
+  // or the object store's public URL. Either resolves at render time, so a
+  // picked file never needs a relative one.
+  const handleSelect = (location: MediaLocation) => {
+    onChange(mediaRef(location, config.media));
     setShowPicker(false);
   };
 
@@ -436,6 +439,7 @@ function AssetField({
       <MediaPickerDialog
         open={showPicker}
         kind={assetType === "image" ? "image" : undefined}
+        repoOnly={repoOnly}
         onSelect={handleSelect}
         onCancel={() => setShowPicker(false)}
       />
@@ -448,16 +452,26 @@ function ImageField({
   value,
   onChange,
   required,
+  repoOnly,
 }: {
   name: string;
   value: string;
   onChange: (v: unknown) => void;
   required?: boolean;
+  /** Astro's plain collection `image()`, which only a repository file satisfies. */
+  repoOnly?: boolean;
 }) {
   const previewSrc = useAssetUrl(value);
 
   return (
-    <AssetField name={name} value={value} onChange={onChange} required={required} assetType="image">
+    <AssetField
+      name={name}
+      value={value}
+      onChange={onChange}
+      required={required}
+      assetType="image"
+      repoOnly={repoOnly}
+    >
       {previewSrc && (
         <div className="mt-2 h-24 w-24 overflow-hidden rounded border border-border">
           <img

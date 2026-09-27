@@ -23,7 +23,6 @@ const de: TranslationShape<typeof en> = {
     appName: "Astronaut CMS",
     collections: "Sammlungen",
     workspace: "Arbeitsbereich",
-    media: "Medien",
     breadcrumbRoot: "CMS",
   },
   auth: {
@@ -72,7 +71,8 @@ const de: TranslationShape<typeof en> = {
     failedLoad: "Eintrag konnte nicht geladen werden: {{message}}",
   },
   media: {
-    title: "Medienbibliothek",
+    libraries: { repo: "Medien", s3: "Cloud-Medien" },
+    tryLibrary: 'Lade sie stattdessen in „{{library}}“ hoch.',
     noFiles: "Keine Mediendateien",
     noFilesFound: "Keine Mediendateien gefunden.",
     deleteFile: "Datei löschen",

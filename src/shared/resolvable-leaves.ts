@@ -9,6 +9,8 @@ export interface ResolvableLeaf {
   kind: "reference" | "image" | "file";
   /** Target collection, present only for references. */
   collection?: string;
+  /** An image field astro types as imported, which only a repository file satisfies. */
+  repoOnly?: true;
   value: string;
   path: string;
 }
@@ -41,8 +43,12 @@ export function collectResolvableLeaves(
         : [];
 
     case "image":
+      return typeof value === "string" && value !== ""
+        ? [{ kind: "image", value, path, ...(schema.repoOnly && { repoOnly: true }) }]
+        : [];
+
     case "file":
-      return typeof value === "string" && value !== "" ? [{ kind: schema.type, value, path }] : [];
+      return typeof value === "string" && value !== "" ? [{ kind: "file", value, path }] : [];
 
     case "object":
       return isRecord(value)

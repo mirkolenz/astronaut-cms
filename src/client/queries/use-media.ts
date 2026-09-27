@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import config from "@/client/lib/config";
-import { mediaPath } from "@/shared/media";
+import { mediaPath, type MediaLibraryId, type MediaLocation } from "@/shared/media";
 import type { ReferenceIndex } from "@/shared/references";
 import { call } from "@/client/lib/api";
 import { cmsKeys } from "@/client/lib/query-keys";
@@ -19,8 +19,8 @@ export const REFERENCES_QUERY = {
   staleTime: 5 * 60 * 1000,
 };
 
-export function useMedia() {
-  return useQuery({ queryKey: cmsKeys.media, queryFn: () => call("listMedia", {}) });
+export function useMedia(library: MediaLibraryId) {
+  return useQuery({ queryKey: cmsKeys.media(library), queryFn: () => call("listMedia", { library }) });
 }
 
 // What a library write ages is stated once per operation in `lib/query-keys.ts`
@@ -34,22 +34,14 @@ export function useMedia() {
  */
 export function useDeleteMedia() {
   return useMutation({
-    mutationFn: ({ path, force }: { path: string; force?: boolean }) =>
-      call("deleteMedia", { path, force }),
+    mutationFn: (input: MediaLocation & { force?: boolean }) => call("deleteMedia", input),
   });
 }
 
 export function useRenameMedia() {
   return useMutation({
-    mutationFn: ({
-      oldPath,
-      newPath,
-      force,
-    }: {
-      oldPath: string;
-      newPath: string;
-      force?: boolean;
-    }) => call("renameMedia", { from: oldPath, to: newPath, force }),
+    mutationFn: (input: { library: MediaLibraryId; from: string; to: string; force?: boolean }) =>
+      call("renameMedia", input),
   });
 }
 
@@ -58,23 +50,25 @@ export function useRenameMedia() {
  * deletions git keeps, so the media view can ask without knowing which backend
  * it is talking to.
  */
-export function useTrash() {
-  return useQuery({ queryKey: cmsKeys.trash, queryFn: () => call("listTrash", {}) });
+export function useTrash(library: MediaLibraryId) {
+  return useQuery({ queryKey: cmsKeys.trash(library), queryFn: () => call("listTrash", { library }) });
 }
 
+type TrashInput = { library: MediaLibraryId; id: string };
+
 export function useRestoreMedia() {
-  return useMutation({ mutationFn: ({ id }: { id: string }) => call("restoreMedia", { id }) });
+  return useMutation({ mutationFn: (input: TrashInput) => call("restoreMedia", input) });
 }
 
 export function usePurgeTrash() {
-  return useMutation({ mutationFn: ({ id }: { id: string }) => call("purgeTrash", { id }) });
+  return useMutation({ mutationFn: (input: TrashInput) => call("purgeTrash", input) });
 }
 
-/** Uploads a file. `overwrite` is what allows it to replace one already at `path`. */
+/** Uploads a file. `overwrite` is what allows it to replace one already at its path. */
 export function useUploadMedia() {
   return useMutation({
-    mutationFn: ({ path, file, overwrite }: { path: string; file: File; overwrite?: boolean }) =>
-      uploadMedia(path, file, overwrite),
+    mutationFn: ({ file, overwrite, ...location }: MediaLocation & { file: File; overwrite?: boolean }) =>
+      uploadMedia(location, file, overwrite),
   });
 }
 
@@ -107,9 +101,9 @@ export function useAssetUrl(ref: string | undefined): string | undefined {
 
   if (!settled) return undefined;
 
-  const path = mediaPath(settled, config, entry?.contentFilePath);
+  const location = mediaPath(settled, config.media, entry?.contentFilePath);
 
-  return path == null ? undefined : mediaUrl(path);
+  return location == null ? undefined : mediaUrl(location);
 }
 
 /**

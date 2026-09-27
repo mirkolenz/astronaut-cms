@@ -8,6 +8,7 @@ import type { ComponentManifest } from "../internal/user-config.ts";
 import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { collectReferencedAssets } from "./collect-assets.ts";
+import { libraryDirectories, type ClientMediaConfig, type MediaRefConfig } from "../shared/media.ts";
 import type { ContentEntry } from "./content-files.ts";
 import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
 
@@ -47,12 +48,9 @@ export const components = ${JSON.stringify(options.components)};`,
     "virtual:astronaut-cms/order": ({ watch }) =>
       generateOrderModule(clientConfig.collections, options.rootDir, watch),
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
-    // The media fields come along so the resolver reads no config module, which
+    // The media config comes along so the resolver reads no config module, which
     // would take the whole admin config into a site island that resolves an asset.
-    "virtual:astronaut-cms/assets": `export const media = ${JSON.stringify({
-      mediaBackend: clientConfig.mediaBackend,
-      mediaDirectory: clientConfig.mediaDirectory,
-    })};\n${generateAssetsModule(options)}`,
+    "virtual:astronaut-cms/assets": `export const media = ${JSON.stringify(assetsMedia(clientConfig.media))};\n${generateAssetsModule(options)}`,
   };
 
   return {
@@ -73,6 +71,14 @@ export const components = ${JSON.stringify(options.components)};`,
         watch: (path) => this.addWatchFile(path),
       });
     },
+  };
+}
+
+/** What the site's resolver reads of the libraries, and so all a page that resolves an asset ships. */
+function assetsMedia({ repo, s3 }: ClientMediaConfig): MediaRefConfig {
+  return {
+    repo: { directory: repo.directory },
+    s3: s3 && { publicUrl: s3.publicUrl, ...(s3.directory != null && { directory: s3.directory }) },
   };
 }
 
@@ -98,29 +104,23 @@ function generateLocalStorageModule(options: CmsVitePluginOptions, devApi: boole
 // rendered. Dev keeps the glob, so a file uploaded through the media library
 // resolves without restarting the server, and the extension list is all it has
 // to go on.
+//
+// The object store has nothing to bundle: its files are never in the project, so
+// the resolver hands back their URL and astro treats it as a remote image. Only a
+// dev run standing in for the store with the working tree globs its directory
+// too, exactly as it does the repository library's.
 function generateAssetsModule(options: CmsVitePluginOptions): string {
-  const { mediaBackend } = options.clientConfig;
-
-  // A library outside the repository has nothing to bundle: its files are never
-  // in the project, so the resolver builds a URL under the public base instead
-  // of importing anything, and astro treats the result as a remote image. Unless
-  // this dev run stands in for the store with the working tree, where the maps
-  // are exactly what a repository library gets.
-  if (mediaBackend.type === "remote" && !mediaBackend.local) {
-    return `\
-export const referencedOnly = false;
-export const images = {};
-export const files = {};`;
-  }
-
-  // join normalizes any leading/trailing slashes into a single root-absolute base.
-  const base = join("/", options.clientConfig.mediaDirectory);
+  const { media } = options.clientConfig;
 
   if (options.command !== "build") {
-    // The glob argument has to be a static literal, which is why these live here
+    // join normalizes any leading/trailing slashes into a single root-absolute base.
+    const bases = libraryDirectories(media).map((dir) => join("/", dir));
+    // The glob arguments have to be static literals, which is why these live here
     // rather than in the (type-checked) resolver in src/assets/index.ts.
-    const imagesGlob = JSON.stringify(`${base}/**/*.{${ASTRO_IMAGE_FORMATS.join(",")}}`);
-    const filesGlob = JSON.stringify(`${base}/**/*`);
+    const imagesGlob = JSON.stringify(
+      bases.map((base) => `${base}/**/*.{${ASTRO_IMAGE_FORMATS.join(",")}}`),
+    );
+    const filesGlob = JSON.stringify(bases.map((base) => `${base}/**/*`));
 
     return `\
 export const referencedOnly = false;
@@ -130,9 +130,8 @@ export const files = import.meta.glob(${filesGlob}, { query: "?url&no-inline", i
 
   const { images, files } = collectReferencedAssets({
     rootDir: options.rootDir,
-    mediaDirectory: options.clientConfig.mediaDirectory,
+    media,
     entries: options.entries,
-    alwaysInclude: options.clientConfig.mediaAlwaysInclude,
   });
 
   return `\

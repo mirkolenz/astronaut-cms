@@ -30,7 +30,7 @@ export function contentModel(config: ToolConfig): ContentModel {
         },
       ]),
     ),
-    mediaReferences: describeMediaRef(config),
+    mediaReferences: describeMediaRef(config.media),
     i18n: config.contentI18n,
   };
 }

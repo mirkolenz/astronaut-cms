@@ -5,6 +5,7 @@ import { GitHubStorage } from "./github.ts";
 import { GitLabStorage } from "./gitlab.ts";
 import type { StorageBase, StorageOptions } from "./base.ts";
 import { unreachable } from "../../shared/unreachable.ts";
+import { mediaLibrary, type MediaLibraryId, type WorkingTreeLibrary } from "../../shared/media.ts";
 import type { Session } from "../session.ts";
 
 export type { StorageBackend };
@@ -18,14 +19,12 @@ export type { StorageBackend };
  * nobody can trust. Everything it memoizes (the repository tree, whether the
  * draft branch exists) is therefore scoped to the request that needs it.
  */
-export function createStorage(session: Session): StorageBase {
+export function createStorage(session: Session, library: MediaLibraryId = "repo"): StorageBase {
   const { storage } = serverConfig;
   const options: StorageOptions = {
     collections: client.collections,
-    mediaDirectory: serverConfig.mediaDirectory,
-    mediaExtensions: serverConfig.mediaExtensions,
-    maxFileSize: serverConfig.maxFileSize,
-    mediaBackend: client.mediaBackend,
+    media: client.media,
+    library: workingTreeLibrary(library),
     components,
     login: session.login,
   };
@@ -47,4 +46,16 @@ export function createStorage(session: Session): StorageBase {
     default:
       return unreachable(storage, "Unknown storage type");
   }
+}
+
+/**
+ * The library a backend instance serves from the working tree or repository:
+ * the repository library, or the object store's stand-in during a dev run.
+ */
+function workingTreeLibrary(id: MediaLibraryId): WorkingTreeLibrary {
+  const library = mediaLibrary(client.media, id);
+
+  if (library.directory == null) throw new Error(`The ${id} media library is not kept in the project.`);
+
+  return { ...library, directory: library.directory };
 }

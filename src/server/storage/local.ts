@@ -21,6 +21,7 @@ import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
 import { assertWithinBase, isWithin } from "./paths.ts";
 import { partialContent, type ByteRange } from "../../shared/http.ts";
 import { sha256 } from "../../shared/digest.ts";
+import { libraryDirectories } from "../../shared/media.ts";
 
 export interface LocalConfig {
   /** Absolute project root. Every managed path is resolved against it. */
@@ -38,7 +39,9 @@ export class LocalStorage extends StorageBase {
     this.rootDir = config.rootDir;
     this.managed = managedPaths({
       rootDir: config.rootDir,
-      mediaDir: join(config.rootDir, options.mediaDirectory),
+      // Both libraries, whichever this instance serves: a discard restores the
+      // object store's dev stand-in along with everything else.
+      mediaDirs: libraryDirectories(options.media).map((dir) => join(config.rootDir, dir)),
       collections: options.collections,
     });
   }

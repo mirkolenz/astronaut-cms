@@ -6,7 +6,6 @@ import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
 import { gatewayAddress } from "../shared/ai.ts";
 import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
-import type { ClientMediaBackend } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
@@ -16,6 +15,7 @@ import { checkContent } from "./check-content.ts";
 import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
 import {
+  DEFAULT_S3_DEV_DIRECTORY,
   isByok,
   resolveClientConfig,
   resolveMediaServer,
@@ -27,13 +27,14 @@ export type {
   CmsConfig,
   StorageConfig,
   MediaConfig,
-  MediaBackendConfig,
+  RepoMediaConfig,
   S3MediaConfig,
+  S3EndpointMediaConfig,
   R2MediaConfig,
   SupportedLocale,
 } from "./types.ts";
 export type { ContentI18n } from "../shared/i18n.ts";
-export { defineCollection, defineComponent, file } from "../config.ts";
+export { defineCollection, defineComponent, file, libraryImage } from "../config.ts";
 export type {
   CollectionOptions,
   CollectionSort,
@@ -109,41 +110,39 @@ function validateAi(config: CmsConfig): void {
   }
 }
 
-/** Everything an object-store media backend has to declare before it can be reached. */
-function validateMediaBackend(config: CmsConfig, site: string | undefined): void {
-  const backend = config.media?.backend;
+/** Everything an object-store library has to declare before it can be reached. */
+function validateS3(config: CmsConfig, site: string | undefined): void {
+  const s3 = config.media?.s3;
 
-  if (!backend || backend.type === "repo") return;
+  if (!s3) return;
 
-  if (!backend.bucket) throw new Error(`${backend.type} media: 'bucket' is required.`);
+  if (!s3.bucket) throw new Error("media.s3: 'bucket' is required.");
 
-  if (!backend.publicUrl) {
+  if (!s3.publicUrl) {
     throw new Error(
-      `${backend.type} media: 'publicUrl' is required, the base the library's keys are served under (e.g. 'https://cdn.example.com').`,
+      "media.s3: 'publicUrl' is required, the base the library's keys are served under (e.g. 'https://cdn.example.com').",
     );
   }
 
-  validateMediaOrigin(backend.publicUrl, site);
+  validateMediaOrigin(s3.publicUrl, site);
 
-  if (backend.type === "s3" && !backend.endpoint) {
+  if (s3.provider === "r2") {
+    if (!s3.accountId) throw new Error("media.s3: 'accountId' is required for R2, for the S3 API endpoint.");
+  } else if (!s3.endpoint) {
     throw new Error(
-      "s3 media: 'endpoint' is required (e.g. 'https://s3.eu-central-1.amazonaws.com').",
+      "media.s3: 'endpoint' is required (e.g. 'https://s3.eu-central-1.amazonaws.com').",
     );
-  }
-
-  if (backend.type === "r2" && !backend.accountId) {
-    throw new Error("r2 media: 'accountId' is required, for the S3 API endpoint.");
   }
 }
 
 /**
- * Narrows `resolveImage` to the media backend the site configures, so the call
- * sites of a repository library never handle a URL they cannot receive.
+ * Narrows `resolveImage` to the libraries the site configures, so the call
+ * sites of a site without an object store never handle a URL they cannot receive.
  */
-function mediaTypes(backend: ClientMediaBackend["type"]): string {
+function mediaTypes(s3: boolean): string {
   return `declare module "astronaut-cms/assets" {
   interface MediaRegistry {
-    backend: ${JSON.stringify(backend)};
+    s3: ${s3};
   }
 }
 
@@ -152,7 +151,7 @@ export {};
 }
 
 export default function cms(config: CmsConfig = {}): AstroIntegration {
-  let mediaBackendType: ClientMediaBackend["type"] = "repo";
+  let hasS3 = false;
   let adminPath = "/";
 
   return {
@@ -171,16 +170,19 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // `astro dev` edits the working tree rather than the configured backends, so
         // running the admin needs neither OAuth credentials nor the production bucket.
         const configuredStorage = storageType(config);
-        const backendType = config.media?.backend?.type ?? "repo";
+        const s3 = config.media?.s3;
         const devStorage =
           command === "dev" && (config.localStorageInDev ?? true) && configuredStorage !== "local";
-        // The working-tree library is reached through the dev file API, so it only
-        // exists where content is edited locally too. Only the bytes move: the
-        // reference format stays the store's, so an entry edited in dev builds
-        // unchanged (which the repository substitution this replaced did not).
-        const wantsLocalMedia =
-          command === "dev" && (config.localMediaInDev ?? true) && backendType !== "repo";
-        const localMedia = wantsLocalMedia && (devStorage || configuredStorage === "local");
+        // The working-tree stand-in for the store is reached through the dev file
+        // API, so it only exists where content is edited locally too. Only the
+        // bytes move: the reference format stays the store's, so an entry edited
+        // in dev builds unchanged.
+        const wantedDevDirectory =
+          command === "dev" && s3 && s3.devDirectory !== false
+            ? (s3.devDirectory ?? DEFAULT_S3_DEV_DIRECTORY)
+            : null;
+        const s3DevDirectory =
+          devStorage || configuredStorage === "local" ? wantedDevDirectory : null;
 
         const effectiveConfig: CmsConfig = {
           ...config,
@@ -193,18 +195,18 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
-        if (wantsLocalMedia) {
+        if (wantedDevDirectory != null) {
           logger.info(
-            localMedia
-              ? `Media library served from the working tree for "astro dev" (the configured "${backendType}" store is used in build; references keep its key format either way)`
-              : `Editing the configured "${backendType}" media store in "astro dev": localMediaInDev needs local storage, and this run uses "${configuredStorage}". Uploads and deletions here reach the bucket the deployed site serves.`,
+            s3DevDirectory != null
+              ? `Object-store library served from "${s3DevDirectory}" for "astro dev" (the bucket is used in build; references keep its URL format either way)`
+              : `Editing the configured bucket in "astro dev": media.s3.devDirectory needs local storage, and this run uses "${configuredStorage}". Uploads and deletions here reach the bucket the deployed site serves.`,
           );
         }
 
-        // Before anything reads the backend: resolving it assumes a complete one,
+        // Before anything reads the store: resolving it assumes a complete one,
         // and a field that is missing rather than wrong would otherwise surface
         // as a TypeError from deep inside the resolver.
-        validateMediaBackend(effectiveConfig, astroConfig.site);
+        validateS3(effectiveConfig, astroConfig.site);
         validateAi(config);
 
         // Validate the effective storage so the dev override skips OAuth-credential checks.
@@ -224,14 +226,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Nothing reaches the store while the library is the working tree, so the
         // route that would hold its credential is never injected.
-        const configuredMedia = resolveMediaServer(effectiveConfig);
-        const mediaServer = localMedia ? null : configuredMedia;
-
-        if (mediaServer && effectiveConfig.media?.alwaysInclude?.length) {
-          logger.warn(
-            "media.alwaysInclude is ignored for an object-store backend: its files are served from the store, never bundled.",
-          );
-        }
+        const mediaServer = s3DevDirectory != null ? null : resolveMediaServer(effectiveConfig);
 
         // Resolve CMS config path
         let userConfigPath: string | null = null;
@@ -277,7 +272,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const clientConfig = resolveClientConfig(
           effectiveConfig,
           astroConfig.i18n,
-          localMedia,
+          s3DevDirectory,
           collections,
         );
         const mountPoint = clientConfig.mountPoint;
@@ -334,13 +329,13 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // API itself there, whatever runtime the adapter renders in.
         const devApi = command === "dev" && serverConfig.storage.type === "local";
 
-        const { mediaBackend } = clientConfig;
+        const { s3: s3Library } = clientConfig.media;
 
-        mediaBackendType = mediaBackend.type;
+        hasS3 = s3Library != null;
 
         updateConfig({
-          ...(mediaBackend.type === "remote" && {
-            image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
+          ...(s3Library && {
+            image: { remotePatterns: [mediaRemotePattern(s3Library.publicUrl)] },
           }),
           env: { schema: secretsSchema(config) },
           vite: {
@@ -423,7 +418,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
       },
 
       "astro:config:done": ({ injectTypes }) => {
-        injectTypes({ filename: "types.d.ts", content: mediaTypes(mediaBackendType) });
+        injectTypes({ filename: "types.d.ts", content: mediaTypes(hasS3) });
       },
 
       // The sitemap lists every page route, the injected admin included, and

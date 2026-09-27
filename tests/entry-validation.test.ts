@@ -3,6 +3,7 @@ import { assertEntryWritable, type ContentSource } from "@/server/validation";
 import { validateAgainstSchema } from "@/shared/collection-schema";
 import { ContentValidationError } from "@/shared/diagnostics";
 import type { CollectionManifestEntry } from "@/shared/types";
+import { repoMedia, s3Media } from "./fixtures/media";
 
 // An entry that does not match its collection schema is fatal to the site: Astro
 // throws while syncing content and the dev server exits. These pin the two ways
@@ -58,7 +59,7 @@ describe("validateAgainstSchema", () => {
 const source: ContentSource = {
   listEntries: () => Promise.resolve([{ id: "a" }]),
   listMedia: () => Promise.resolve([{ path: "hero.svg" }]),
-  media: { mediaBackend: { type: "repo" }, mediaDirectory: "src/assets" },
+  media: repoMedia(),
   components: {},
 };
 
@@ -96,6 +97,19 @@ describe("assertEntryWritable", () => {
 
   it("allows a complete entry", async () => {
     await expect(assertEntryWritable(source, write(complete))).resolves.toBeUndefined();
+  });
+
+  // Astro types a plain image() field as imported metadata, which an
+  // object-store URL would contradict, so only libraryImage(image) takes one.
+  it("takes an object-store image only where the field accepts either library", async () => {
+    const both: ContentSource = { ...source, media: s3Media() };
+    const cover = "https://cdn.example.com/hero.svg";
+    const repoOnly = { ...posts, schema: { type: "object" as const, shape: { cover: { type: "image" as const, repoOnly: true as const } } } };
+
+    await expect(assertEntryWritable(both, { ...write({ cover }), col: repoOnly })).rejects.toThrow(
+      /only takes repository files/,
+    );
+    await expect(assertEntryWritable(both, write({ ...complete, cover }))).resolves.toBeUndefined();
   });
 });
 

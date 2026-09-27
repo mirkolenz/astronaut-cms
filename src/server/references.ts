@@ -14,11 +14,11 @@
  * discipline; this one is a rule of the library.
  */
 import { client as config, components } from "virtual:astronaut-cms/server";
-import { isLibraryFile, mediaPath } from "../shared/media.ts";
+import { isLibraryFile, mediaLibrary, mediaPath } from "../shared/media.ts";
 import { validateBody } from "../shared/body-validation.ts";
 import { dataLeaves } from "../shared/resolvable-leaves.ts";
 import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
-import type { AssetReference, ReferenceIndex } from "../shared/references.ts";
+import type { IndexedFile, ReferenceIndex } from "../shared/references.ts";
 import type { StorageBackend } from "./storage/types.ts";
 
 /** How many entry reads may be in flight at once. */
@@ -36,40 +36,49 @@ async function inParallel<T>(items: T[], fn: (item: T) => Promise<void>): Promis
 }
 
 /**
- * Paths a body mentions with no schema to declare them. Bounded to a name with
- * an extension the library admits, and only a match under the library counts,
- * so ordinary prose cannot produce one. Bounded as well to a path-sized
- * run: the leading class contains `.` too, so an unbounded one backtracks
+ * Paths and object-store URLs a body mentions with no schema to declare them.
+ * Only a match under a library counts, with an extension that library admits,
+ * so ordinary prose cannot produce one. Bounded as well to a path-sized run:
+ * the leading class contains `.` too, so an unbounded one backtracks
  * quadratically over a long stretch of dots that ends in no extension.
  */
 function* textualPaths(body: string): Generator<string> {
-  for (const [match] of body.matchAll(/[\w@./-]{1,200}\.[a-zA-Z0-9]+/g)) {
-    if (isLibraryFile(match, config.mediaExtensions)) yield match;
-  }
+  for (const [match] of body.matchAll(/(?:https?:)?[\w@.%/-]{1,200}\.[a-zA-Z0-9]+/g)) yield match;
 }
 
+/** Library and path, as one key. */
+const fileKey = (library: string, path: string): string => `${library}:${path}`;
+
 export function indexEntry(
-  index: Map<string, AssetReference[]>,
+  index: Map<string, IndexedFile>,
   col: CollectionManifestEntry,
   entry: EntryContent,
 ): void {
   const base = entryFilePath(col, entry.id, entry.format);
-  // Keyed by the library path a value resolves to, so a file an entry declares
+  // Keyed by the library file a value resolves to, so a file an entry declares
   // is not counted again when its body also mentions it, however it is spelled.
   const declared = new Set<string>();
 
   const add = (value: string, where: string, isDeclared: boolean): void => {
-    const path = mediaPath(value, config, base);
+    const location = mediaPath(value, config.media, base);
 
-    if (path == null || (!isDeclared && declared.has(path))) return;
+    if (location == null) return;
 
-    if (isDeclared) declared.add(path);
+    const key = fileKey(location.library, location.path);
+
+    if (isDeclared) {
+      declared.add(key);
+    } else {
+      const { extensions } = mediaLibrary(config.media, location.library);
+
+      if (declared.has(key) || !isLibraryFile(location.path, extensions)) return;
+    }
 
     const reference = { collection: col.name, entryId: entry.id, where, declared: isDeclared };
-    const existing = index.get(path);
+    const existing = index.get(key);
 
-    if (existing) existing.push(reference);
-    else index.set(path, [reference]);
+    if (existing) existing.references.push(reference);
+    else index.set(key, { ...location, references: [reference] });
   };
 
   const body = validateBody(entry.body, entry.format, components);
@@ -97,7 +106,7 @@ export function indexEntry(
  * into a file classified as unused and a destructive operation waved through.
  */
 export async function buildReferenceIndex(storage: StorageBackend): Promise<ReferenceIndex> {
-  const index = new Map<string, AssetReference[]>();
+  const index = new Map<string, IndexedFile>();
   const listings = await Promise.all(
     Object.values(config.collections).map(async (col) =>
       (await storage.listEntries(col.name)).map((meta) => ({ col, meta })),
@@ -108,5 +117,5 @@ export async function buildReferenceIndex(storage: StorageBackend): Promise<Refe
     indexEntry(index, col, await storage.getEntry(col.name, meta.id, meta.format));
   });
 
-  return [...index];
+  return [...index.values()];
 }

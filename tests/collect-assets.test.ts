@@ -6,6 +6,7 @@ import { collectReferencedAssets } from "@/integration/collect-assets";
 import { contentEntries } from "@/integration/content-files";
 import type { ComponentSchemaMap } from "@/shared/field-schema";
 import type { CollectionManifest } from "@/shared/types";
+import { repoMedia } from "./fixtures/media";
 
 // A production build bundles only the assets content can reach, and every one of
 // them is reached through a schema: a collection field or a declared MDX
@@ -85,11 +86,12 @@ A file named "/src/assets/orphan.png" is prose, not a reference.
 let rootDir: string;
 
 function collect({ manifest = collections, alwaysInclude = [] as string[] } = {}) {
+  const media = repoMedia();
+
   return collectReferencedAssets({
     rootDir,
-    mediaDirectory: "src/assets",
+    media: { ...media, repo: { ...media.repo, alwaysInclude } },
     entries: contentEntries(rootDir, manifest, components),
-    alwaysInclude,
   });
 }
 

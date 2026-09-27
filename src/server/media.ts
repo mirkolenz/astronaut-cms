@@ -21,6 +21,7 @@ import {
   isActiveContentType,
   mediaContentType,
   remoteMediaUrl,
+  type ClientLibrary,
 } from "../shared/media.ts";
 import type { MediaStore, UploadTerms } from "../media/s3-store.ts";
 
@@ -75,25 +76,19 @@ function parseTrashId(id: string): { path: string; deletedAt: number } | null {
 export class ObjectStoreLibrary implements MediaBackend {
   private readonly store: MediaStore;
   private readonly config: MediaServerConfig;
-  private readonly extensions: string[] | null;
-  private readonly maxFileSize: number | null;
+  private readonly library: ClientLibrary;
 
-  constructor(
-    store: MediaStore,
-    config: MediaServerConfig,
-    limits: { extensions: string[] | null; maxFileSize: number | null },
-  ) {
+  constructor(store: MediaStore, config: MediaServerConfig, library: ClientLibrary) {
     this.store = store;
     this.config = config;
-    this.extensions = limits.extensions;
-    this.maxFileSize = limits.maxFileSize;
+    this.library = library;
   }
 
   /** A library path, checked and lowered to the store key it addresses. */
   private toKey(path: string): string {
     checked(400, () => validateMediaPath(path));
 
-    if (!isLibraryFile(path, this.extensions)) {
+    if (!isLibraryFile(path, this.library.extensions)) {
       throw new HttpError(`"${path}" is hidden or not of an allowed media type.`, 400);
     }
 
@@ -106,7 +101,7 @@ export class ObjectStoreLibrary implements MediaBackend {
    * the caller choose how the bytes are interpreted.
    */
   private terms(path: string, length: number, overwrite: boolean): UploadTerms {
-    checked(413, () => assertWithinSizeLimit(length, this.maxFileSize));
+    checked(413, () => assertWithinSizeLimit(length, this.library));
 
     const contentType = mediaContentType(path);
 
@@ -149,6 +144,11 @@ export class ObjectStoreLibrary implements MediaBackend {
     await this.store.remove(from);
   }
 
+  /** A store's listing carries sizes anyway. */
+  listPaths(): Promise<MediaFile[]> {
+    return this.listMedia();
+  }
+
   async listMedia(): Promise<MediaFile[]> {
     const objects = await this.store.list(this.config.prefix);
 
@@ -158,7 +158,7 @@ export class ObjectStoreLibrary implements MediaBackend {
         size,
         ...(version && { version }),
       }))
-      .filter((file) => isLibraryFile(file.path, this.extensions));
+      .filter((file) => isLibraryFile(file.path, this.library.extensions));
   }
 
   /**

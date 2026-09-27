@@ -1,5 +1,4 @@
 import { extname } from "pathe";
-import config from "@/client/lib/config";
 import { mediaContentType } from "@/shared/media";
 import type { ImageOutputFormat, ResolvedImageOptimization } from "@/integration/types";
 import type { AstroImageFormat } from "@/shared/image-formats";
@@ -31,8 +30,8 @@ function isOptimizableExtension(ext: string): ext is OptimizableExtension {
 }
 
 /**
- * Optimize an image file by resizing, converting and/or compressing it, as
- * `media.optimizeImages` configures.
+ * Optimize an image file by resizing, converting and/or compressing it, as the
+ * target library's `optimizeImages` configures.
  *
  * - With optimization disabled, every file is returned as-is.
  * - Non-optimizable files (SVG, GIF, non-images) are returned as-is.
@@ -42,9 +41,10 @@ function isOptimizableExtension(ext: string): ext is OptimizableExtension {
  * - If the target format is unsupported by the browser (AVIF, typically), the
  *   original is returned.
  */
-export async function optimizeImage(file: File): Promise<File> {
-  const settings = config.imageOptimization;
-
+export async function optimizeImage(
+  file: File,
+  settings: ResolvedImageOptimization | null,
+): Promise<File> {
   if (!settings) return file;
 
   const ext = getExtension(file.name);

@@ -20,7 +20,6 @@ const en = {
     appName: "Astronaut CMS",
     collections: "Collections",
     workspace: "Workspace",
-    media: "Media",
     breadcrumbRoot: "CMS",
   },
   auth: {
@@ -67,7 +66,8 @@ const en = {
     failedLoad: "Failed to load entry: {{message}}",
   },
   media: {
-    title: "Media Library",
+    libraries: { repo: "Media", s3: "Cloud Media" },
+    tryLibrary: 'Upload it to "{{library}}" instead.',
     noFiles: "No media files",
     noFilesFound: "No media files found.",
     deleteFile: "Delete file",

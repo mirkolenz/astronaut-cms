@@ -13,29 +13,58 @@ Images and videos get thumbnails, and images, videos and audio files play in the
 
 ## Configuration
 
-Configure the media library in your `astro.config.ts`:
+The repository library is always there.
+An object store can be configured beside it, and each library then gets its own entry in the admin's sidebar.
+Every library decides for itself which files it takes, so small assets like SVG logos can be kept in the repository while large photos go to the store.
 
 ```ts title="astro.config.ts"
 cms({
   media: {
-    directory: "src/assets",
-    maxFileSize: 100_000_000,
+    repo: {
+      allowedExtensions: [".svg", ".png", ".ico"],
+      maxFileSize: 1_000_000,
+    },
+    s3: {
+      bucket: "my-media",
+      endpoint: "https://s3.eu-central-1.amazonaws.com",
+      publicUrl: "https://cdn.example.com",
+      allowedExtensions: [".jpg", ".png", ".webp", ".avif", ".mp4"],
+      minFileSize: 500_000,
+    },
   },
 });
 ```
 
+The size bounds may overlap, as above: the editor picks the library, and the bounds only refuse what does not belong there.
+A refused upload names the other library when that one would take the file.
+
 ### Options
 
-| Option              | Type                               | Default        | Description                                                                                           |
-| ------------------- | ---------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------- |
-| `directory`         | `string`                           | `"src/assets"` | Directory where media files are stored, relative to the project root                                  |
-| `allowedExtensions` | `string[]`                         | any file       | Restricts the library to these extensions, e.g. `[".png", ".pdf"]`                                  |
-| `maxFileSize`       | `number`                           | unlimited      | Maximum upload size in bytes, refused by the admin, and again by the server against the stored object |
-| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled        | How an image is reshaped in the browser before it is uploaded                                         |
+Every library takes these:
+
+| Option              | Type                               | Default   | Description                                                                         |
+| ------------------- | ---------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `label`             | `string`                           | translated | The library's name in the admin's sidebar and picker                               |
+| `allowedExtensions` | `string[]`                         | any file  | Restricts the library to these extensions, e.g. `[".svg", ".png"]`                  |
+| `minFileSize`       | `number`                           | none      | Smallest upload in bytes, refused by the admin and again by the server              |
+| `maxFileSize`       | `number`                           | unlimited | Largest upload in bytes, refused by the admin and again by the server               |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled   | How an image is reshaped in the browser before it is uploaded to this library       |
+
+The repository library (`media.repo`) adds `directory` (default `"src/assets"`) and `alwaysInclude`.
+The object store (`media.s3`) is described in [Where files are stored](#where-files-are-stored).
+
+The size is checked against the file as it is uploaded, so after image optimization where that is enabled.
+Replacing a file is checked the same way, so a replacement outside the library's bounds is refused.
+
+<Aside type="caution">
+  Repository uploads pass through the CMS route, which holds each one in memory before committing it.
+  The repository's `maxFileSize` is therefore also that route's body limit.
+  Keep it within your host's own request limit, e.g. 4.5 MB on Vercel and 6 MB on Netlify.
+</Aside>
 
 ### File types
 
-The library accepts any file unless `allowedExtensions` restricts it.
+A library accepts any file unless its `allowedExtensions` restricts it.
 Hidden files (`.DS_Store`, `.gitkeep`) are never listed.
 A file's content type comes from its extension, and one no registry can name is stored as a generic download.
 HTML, SVG and other XML documents are always served with `Content-Disposition: attachment`, so an uploaded document cannot run as a page.
@@ -54,11 +83,13 @@ By default an image is scaled to fit 2048x2048 and re-encoded if it exceeds 8 MB
 ```ts title="astro.config.ts"
 cms({
   media: {
-    optimizeImages: {
-      maxWidth: 1600,
-      maxHeight: 1600,
-      format: "webp",
-      quality: 0.85,
+    repo: {
+      optimizeImages: {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        format: "webp",
+        quality: 0.85,
+      },
     },
   },
 });
@@ -66,7 +97,7 @@ cms({
 
 Only formats a browser can decode and encode are touched (JPEG, PNG, WebP, AVIF).
 SVG, GIF, documents and any image already inside every limit are uploaded byte for byte.
-Set `optimizeImages: false` to turn it off entirely, which is what you want when editors upload masters an object store is meant to hold.
+Each library has its own settings, and `optimizeImages: false` turns it off for that library, which is what you want when editors upload masters an object store is meant to hold.
 
 <Aside type="note">
   This is not a replacement for astro's asset pipeline. The library keeps one sensible master, and
@@ -77,19 +108,18 @@ See [`ImageOptimizationConfig`](/astronaut-cms/reference/configuration/#imageopt
 
 ## Where files are stored
 
-By default the library is a directory in your repository (`media.backend: { type: "repo" }`).
+The repository library is a directory in your repository.
 Uploads are commits on the same draft branch as content, so an image and the entry that uses it publish together, and discarding a draft takes both back.
 
-A library can also live in an object store, which is what you want when the media outgrows the repository: large or numerous files, editors uploading originals, or assets you would rather serve from a CDN than bundle into `dist/`.
-Content then stores library keys instead of project paths, and the site loads them from `publicUrl`.
+An object store beside it is what you want when some media outgrows the repository: large or numerous files, editors uploading originals, or assets you would rather keep out of Git.
+Content stores each of its files as its public URL under `publicUrl`, which astro resolves as a remote image by itself.
 
 <Tabs>
   <TabItem label="S3-compatible">
     ```ts title="astro.config.ts"
     cms({
       media: {
-        backend: {
-          type: "s3",
+        s3: {
           bucket: "my-media",
           endpoint: "https://s3.eu-central-1.amazonaws.com",
           region: "eu-central-1",
@@ -109,8 +139,8 @@ Content then stores library keys instead of project paths, and the site loads th
     ```ts title="astro.config.ts"
     cms({
       media: {
-        backend: {
-          type: "r2",
+        s3: {
+          provider: "r2",
           bucket: "my-media",
           accountId: "<cloudflare-account-id>",
           publicUrl: "https://cdn.example.com",
@@ -119,7 +149,7 @@ Content then stores library keys instead of project paths, and the site loads th
     });
     ```
 
-    R2 speaks the S3 API, so this is the same backend with Cloudflare's endpoint filled in.
+    R2 speaks the S3 API, so this is the same store with Cloudflare's endpoint filled in.
 
   </TabItem>
 </Tabs>
@@ -142,12 +172,12 @@ Content then stores library keys instead of project paths, and the site loads th
   </StepItem>
 
   <StepItem title="Decide how the library is read, and set publicUrl to match">
-    Content stores plain keys, so a signed, expiring URL can never be written into an entry.
-    `publicUrl` is the base those keys are served from. See
+    Content stores public URLs, so a signed, expiring URL can never be written into an entry.
+    `publicUrl` is the base the library's keys are served from. See
     [Reading the library](#reading-the-library) for the three ways to provide one, including
     keeping the bucket itself closed.
 
-    Whatever serves it must **not** share an origin with the site — uploaded files would then be
+    Whatever serves it must **not** share an origin with the site, since uploaded files would then be
     same-origin content in the admin. The integration refuses the configuration when your
     `astro.config` declares a `site` it can check against. See
     [Security Model](/astronaut-cms/guides/security/#serve-the-library-from-its-own-origin).
@@ -179,7 +209,7 @@ The ordinary setup: `publicUrl` points at something anonymous readers can fetch.
 On R2 that means a custom domain, since the `*.r2.dev` hostname is rate-limited and not meant for production traffic.
 
 The admin then loads library files straight from that base.
-It does not ask the CMS server where they are, because the key already is the URL, so a grid of thumbnails costs no function invocations at all.
+It does not ask the CMS server where they are, because the reference already is the URL, so a grid of thumbnails costs no function invocations at all.
 
 #### A closed bucket behind a credentialed CDN (recommended)
 
@@ -211,7 +241,7 @@ The trash is not a place you can otherwise address: it never appears in the libr
 The assistant can delete media but cannot restore or purge: those are the media view's alone.
 That is deliberate, since the point of the trash is to catch a delete that should not have happened, including one the assistant made.
 
-**A repository library has no trash and needs none.** Its deletions are a commit on the draft branch, so the file is still in Git: discard the changeset to bring it back before publishing, and it stays in history afterwards.
+**The repository library has no trash and needs none.** Its deletions are a commit on the draft branch, so the file is still in Git: discard the changeset to bring it back before publishing, and it stays in history afterwards.
 
 ### Image optimization and adapter image services
 
@@ -225,23 +255,25 @@ The adapter image services — `@astrojs/vercel` with `imageService: true`, `@as
 
 The integration already registers `publicUrl` in astro's `image.remotePatterns`, which each adapter translates into its own allowlist (`vercel.json` image domains, netlify.toml `remote_images`), so there is nothing further to configure.
 
-### How it differs from a repository library
+### How it differs from the repository library
 
 - **Uploads and deletions are immediate.** There is no draft branch holding them, so publishing does not include them and discarding does not undo them. A deleted file stops being served to every visitor at once, even if the entry referencing it is still a draft.
 - **Deletion is recoverable.** The object is moved to a `.trash/` prefix inside the library rather than dropped, and the media view restores it. See [Deleting and restoring](#deleting-and-restoring).
-- **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition; replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) get `Content-Disposition: attachment` signed in as well, so the store serves them as downloads.
-- **Content stores keys** (`photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Switching an existing site over therefore means moving the files into the bucket and dropping the directory prefix from the references your entries already hold; a leftover project path fails the build with a message naming it, rather than resolving to a URL that only looks right.
-- **Astro's collection `image()` helper cannot hold a remote value.** Use the CMS's own `file()` for those fields, and resolve them with `astronaut-cms/Image.astro` or `resolveImage()`. See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
-- **Nothing is bundled**, so `media.alwaysInclude` has no effect and images are optimized as remote images instead.
+- **Uploads go browser-to-store.** The server signs a URL for that key, that byte count and that content type, and the store enforces all three as the write happens (see [Security Model](/astronaut-cms/guides/security/#uploads)). An occupied destination is refused by a signed precondition, and replacing is the admin's explicit "Replace"/"Overwrite" action. The stored content type comes from the file extension rather than from the uploader, and active types (SVG) get `Content-Disposition: attachment` signed in as well, so the store serves them as downloads.
+- **Content stores public URLs** (`https://cdn.example.com/photos/hero.png`) rather than project paths (`/src/assets/photos/hero.png`). Astro resolves them itself, in a `libraryImage(image)` collection field and a markdown image alike. Changing `publicUrl` later means rewriting the URLs your entries hold.
+- **Nothing is bundled.** Astro fetches and optimizes the images as remote images instead, so a prerendered page serves the optimized variants and never the originals.
+- **Files never move between the libraries.** Their references are spelled differently, so a file stays in the library it was uploaded to.
 
 <Aside type="note">
-  `astro dev` keeps the library in the working tree rather than the bucket, exactly as it
-  substitutes local storage for content, so running the admin locally needs no bucket credentials
-  and cannot touch what the deployed site serves. Only the bytes move: references are still written
-  as keys, so an entry edited in dev builds unchanged. It needs local storage, since the files live
-  in the working tree. Set `localMediaInDev: false` to point dev at the configured store instead —
-  and note that a dev run has no sign-in at all, so anyone who can reach the dev server can reach
-  the bucket.
+  `astro dev` keeps the object store in the working tree rather than the bucket, under
+  `media.s3.devDirectory` (default `.astronaut-cms/s3`, worth adding to `.gitignore`), exactly as it
+  substitutes local storage for content. Running the admin locally therefore needs no bucket
+  credentials and cannot touch what the deployed site serves. Only the bytes move: references are
+  still written as the store's URLs, so an entry edited in dev builds unchanged. It needs local
+  storage, since the files live in the working tree. Set `devDirectory: false` to point dev at the
+  bucket instead, and note that a dev run has no sign-in at all, so anyone who can reach the dev
+  server can reach the bucket. A markdown image is fetched by astro from `publicUrl` even in dev,
+  so one uploaded there only shows once it is in the bucket.
 </Aside>
 
 ## Using Media in Content
@@ -260,8 +292,11 @@ const blog = defineCollection({
 });
 ```
 
-Astro imports the file itself, so `entry.data.cover` is already `ImageMetadata` and goes straight
-to `astro:assets` `<Image>`. Nothing has to be resolved at render time.
+Astro imports the file itself, so `entry.data.cover` is `ImageMetadata`.
+A plain `image()` field takes repository files only.
+Wrap it as `libraryImage(image)`, imported from `astronaut-cms/config`, to take object-store files too.
+The field is then typed `ImageMetadata | string`, and `astronaut-cms/Image.astro` renders either.
+See [Asset Handling](/astronaut-cms/guides/asset-handling/#object-store-libraries).
 
 ### In CMS Component Props
 
@@ -281,8 +316,8 @@ defineComponent({
 ```
 
 A component prop is the one asset reference Astro has no mechanism for, so the CMS resolves it.
-These props are stored as root-absolute path strings (e.g. `/src/assets/photo.png`) and turned into
-optimized assets at render time. Render them with `astronaut-cms/Image.astro` or the
+These props are stored as root-absolute path strings (e.g. `/src/assets/photo.png`) or object-store
+URLs, and turned into optimized assets at render time. Render them with `astronaut-cms/Image.astro` or the
 `resolveImage()`/`resolveFile()` helpers from `astronaut-cms/assets`, see
 [Asset Handling](/astronaut-cms/guides/asset-handling/).
 
@@ -298,10 +333,12 @@ optimized assets at render time. Render them with `astronaut-cms/Image.astro` or
 
 The media library supports the following operations through the admin panel:
 
-- **Upload** — Drag and drop or click to upload files to the media directory.
-- **Rename** — Change the file name while preserving the extension.
-- **Replace** — Upload a new file to replace an existing one at the same path.
-- **Delete** — Remove a file from the media directory.
+- **Upload**: drag and drop or click to upload files into the library you have open.
+- **Rename**: change the file name while preserving the extension.
+- **Replace**: upload a new file to replace an existing one at the same path.
+- **Delete**: remove a file from the library.
+
+The media picker in the entry editor shows one tab per library.
 
 ## Usage and unused files
 
@@ -320,11 +357,11 @@ markdown prose or in a Markdoc tag still counts as referenced.
 
 The same scan reports the opposite problem: **references pointing at files the library no longer
 holds**. Only schema-declared references are reported there, since a path-shaped string in prose is
-reason enough to keep a file but not to call an entry broken. With a repository library the build
-catches these; with an object store nothing else does.
+reason enough to keep a file but not to call an entry broken. For the repository library the build
+catches these, for the object store nothing else does.
 
 <Aside type="note">
   A file referenced only from site code is invisible to this scan, since the admin reads content and
-  not your `.astro` files. List those under `media.alwaysInclude` (you already have to, for the
+  not your `.astro` files. List those under `media.repo.alwaysInclude` (you already have to, for the
   build to bundle them) and they are excluded from the unused list too.
 </Aside>

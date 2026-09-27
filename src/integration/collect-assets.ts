@@ -1,6 +1,7 @@
 import { join, relative } from "pathe";
 import { assetKey } from "../shared/asset-path.ts";
 import { isAstroImage } from "../shared/image-formats.ts";
+import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
 import { dataLeaves, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
 import { globFiles, type ContentEntry } from "./content-files.ts";
 
@@ -15,7 +16,8 @@ import { globFiles, type ContentEntry } from "./content-files.ts";
  * picture: the admin commits entries through the storage backend before a build
  * runs, and i18n fallbacks render an entry from another locale directory, a file
  * this walk already visits. What content cannot account for is a path hard-coded
- * in site code, which is what `media.alwaysInclude` is for.
+ * in site code, which is what `media.repo.alwaysInclude` is for. The object store
+ * is never bundled, so its references are left for astro to fetch.
  *
  * Both sources of asset paths are read through their schema: a frontmatter or
  * data field through the collection's, an MDX component prop through the one its
@@ -32,21 +34,18 @@ export interface CollectedAssets {
 
 export interface CollectAssetsOptions {
   rootDir: string;
-  /** Project-relative media directory, e.g. "src/assets". */
-  mediaDirectory: string;
+  media: ClientMediaConfig;
   /** The entries on disk, their bodies walked against the `cms.config` components. */
   entries: ContentEntry[];
-  /** Extra glob patterns, relative to the media directory, to bundle unconditionally. */
-  alwaysInclude: string[];
 }
 
 export function collectReferencedAssets({
   rootDir,
-  mediaDirectory,
+  media,
   entries,
-  alwaysInclude,
 }: CollectAssetsOptions): CollectedAssets {
-  const mediaDir = join(rootDir, mediaDirectory);
+  const { directory, alwaysInclude } = media.repo;
+  const mediaDir = join(rootDir, directory);
   const keyOf = (path: string): string => join("/", relative(rootDir, path));
 
   // The library itself, listed once, so deciding whether a value names an asset
@@ -59,12 +58,18 @@ export function collectReferencedAssets({
   for (const entry of entries) {
     const { file } = entry;
 
-    for (const { value, where, map } of entryAssets(entry)) {
+    for (const { value, where, map, repoOnly } of entryAssets(entry)) {
+      if (mediaPath(value, media)?.library === "s3") {
+        if (!repoOnly) continue;
+
+        throw new Error(`astronaut-cms: ${file} (${where}): ${repoOnlyRefusal(value)}`);
+      }
+
       const key = assetKey(value, file);
 
       if (!mediaFiles.has(key)) {
         throw new Error(
-          `astronaut-cms: ${file} (${where}) references "${value}", which is not a file in the media directory ("${mediaDirectory}").`,
+          `astronaut-cms: ${file} (${where}) references "${value}", which is not a file in the media directory ("${directory}").`,
         );
       }
 
@@ -90,6 +95,7 @@ interface AssetCandidate {
   where: string;
   /** The map that must hold it, or null when the asset is astro's to import. */
   map: "images" | "files" | null;
+  repoOnly?: true;
 }
 
 /** Every asset an entry names: its schema-declared fields, then its MDX components. */
@@ -122,6 +128,7 @@ function* candidates(
       value: leaf.value,
       where: scope ? `${scope} ${leaf.path}` : leaf.path,
       map: leaf.kind === "image" ? imageMap : "files",
+      repoOnly: leaf.repoOnly,
     };
   }
 }

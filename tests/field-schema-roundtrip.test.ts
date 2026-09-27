@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
 import { CMS_IMAGE, CMS_REFERENCE } from "@/shared/field-schema";
+import { libraryImage, repoImageMarker } from "@/shared/cms-markers";
 import { fieldSchemaToZod } from "@/shared/field-to-zod";
 import type { FieldSchema } from "@/shared/field-schema";
 
@@ -56,6 +57,16 @@ describe("zodToFieldSchema lowering", () => {
     expect(zodToFieldSchema(z.string().meta({ [CMS_REFERENCE]: "posts" }))).toEqual({
       type: "reference",
       collection: "posts",
+    });
+  });
+
+  // Astro's own collection image() only ever imports a repository file, while
+  // libraryImage wraps it to take an object-store URL as well.
+  it("tells a repository image field from one that takes either library", () => {
+    expect(zodToFieldSchema(repoImageMarker())).toEqual({ type: "image", repoOnly: true });
+    expect(zodToFieldSchema(libraryImage(repoImageMarker).optional())).toEqual({
+      type: "image",
+      optional: true,
     });
   });
 

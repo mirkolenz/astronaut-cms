@@ -1,6 +1,12 @@
 import { validateAgainstSchema } from "@/shared/collection-schema";
 import { validatePath } from "@/shared/validation";
-import { describeMediaRef, mediaPath, type MediaRefConfig } from "@/shared/media";
+import {
+  describeMediaRef,
+  mediaPath,
+  repoOnlyRefusal,
+  type ClientMediaConfig,
+  type MediaLibraryId,
+} from "@/shared/media";
 import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
 import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { validateBody } from "@/shared/body-validation";
@@ -14,20 +20,17 @@ import { errorMessage } from "../shared/errors.ts";
  * its own writes without depending on the module that constructs it.
  */
 export interface MediaSource {
-  listMedia(): Promise<{ path: string }[]>;
+  /** The library's paths, which is all a check needs, so a backend may skip what the listing adds. */
+  listPaths(): Promise<{ path: string }[]>;
 }
 
-export interface ContentSource extends MediaSource {
+export interface ContentSource {
+  listMedia(library: MediaLibraryId): Promise<{ path: string }[]>;
   listEntries(collection: string): Promise<{ id: string }[]>;
-  /** How an asset value addresses the library. */
-  media: MediaRefConfig;
+  /** How an asset value addresses the libraries. */
+  media: ClientMediaConfig;
   /** The components a body may use, with the prop schemas their values follow. */
   components: ComponentSchemaMap;
-}
-
-/** Every library path the backend reports, as the checks below compare against it. */
-async function libraryPaths(source: MediaSource): Promise<Set<string>> {
-  return new Set((await source.listMedia()).map((m) => m.path));
 }
 
 /** An entry id must be a safe, slug-like path (the same rule the storage layer enforces). */
@@ -108,19 +111,31 @@ async function checkAssets(
 ): Promise<Diagnostic[]> {
   if (assets.length === 0) return [];
 
-  const paths = await libraryPaths(source);
+  const located = assets.map((asset) => ({ asset, location: mediaPath(asset.value, source.media, base) }));
+  // Each library a value names is listed once, and one no value names not at all.
+  const libraries = new Set(located.map(({ location }) => location?.library).filter((id) => id != null));
+  const paths = new Map(
+    await Promise.all(
+      [...libraries].map(
+        async (library) =>
+          [library, new Set((await source.listMedia(library)).map((m) => m.path))] as const,
+      ),
+    ),
+  );
 
-  return assets.flatMap((asset) => {
-    const path = mediaPath(asset.value, source.media, base);
-
-    if (path == null) {
+  return located.flatMap(({ asset, location }) => {
+    if (location == null) {
       return diagnostic(
-        `"${asset.value}" does not address the media library. An asset value must be ${describeMediaRef(source.media)}; upload the file there and use the path the media library reports.`,
+        `"${asset.value}" does not address a media library. An asset value must be ${describeMediaRef(source.media)}; upload the file there and use the reference the media library reports.`,
         asset.path,
       );
     }
 
-    if (!paths.has(path)) {
+    if (asset.repoOnly && location.library !== "repo") {
+      return diagnostic(repoOnlyRefusal(asset.value), asset.path);
+    }
+
+    if (!paths.get(location.library)?.has(location.path)) {
       return diagnostic(
         `"${asset.value}" is not in the media library. Use a path the media library reports.`,
         asset.path,

@@ -33,7 +33,12 @@ import {
   type ByteRange,
 } from "../shared/http.ts";
 import { fetchRange } from "./ranges.ts";
-import { isActiveContentType, mediaContentType } from "../shared/media.ts";
+import {
+  isActiveContentType,
+  mediaContentType,
+  mediaLibrary,
+  parseMediaLibrary,
+} from "../shared/media.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
 import { getSecret } from "astro:env/server";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
@@ -74,9 +79,6 @@ import { errorMessage } from "../shared/errors.ts";
 
 /** An RPC body is entry data, which is text. A media upload takes its own route. */
 const MAX_RPC_BYTES = 4 * 1024 * 1024;
-
-/** Largest upload this server takes through itself, which only a repository library needs. */
-const MAX_PROXY_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** Carries the PKCE verifier between the redirect out and the redirect back. */
 const LOGIN_COOKIE = "astronaut_cms_login";
@@ -486,8 +488,13 @@ async function route(path: string, request: Request, url: URL): Promise<Response
   }
 
   if (path.startsWith("/media/") && request.method === "GET") {
-    const filePath = decodeURIComponent(path.slice("/media/".length));
-    const library = ctx.media();
+    const [id = "", ...segments] = path.slice("/media/".length).split("/");
+    const libraryId = parseMediaLibrary(clientConfig.media, id);
+
+    if (!libraryId) return fail("Unknown media library.", 404);
+
+    const filePath = decodeURIComponent(segments.join("/"));
+    const library = ctx.media(libraryId);
     // A range is what lets a browser play and seek a video or audio file, and
     // Safari will not play one at all without it.
     const range = parseByteRange(request.headers.get("range"));
@@ -588,14 +595,23 @@ async function route(path: string, request: Request, url: URL): Promise<Response
     const params = url.searchParams;
     const uploadPath = params.get("path");
 
+    const libraryId = parseMediaLibrary(clientConfig.media, params.get("library"));
+
     if (!uploadPath) return fail("An upload path is required.", 400);
 
-    const library = ctx.media();
+    if (!libraryId) return fail("Unknown media library.", 404);
+
+    const library = ctx.media(libraryId);
 
     // An object store takes every upload straight from the browser.
     if (!library.uploadMedia) return fail("This library takes uploads directly.", 400);
 
-    const bytes = await readBytes(request, MAX_PROXY_UPLOAD_BYTES);
+    // The body is held in memory until it is committed, so the library's own
+    // limit is also how much of it is read before refusing.
+    const bytes = await readBytes(
+      request,
+      mediaLibrary(clientConfig.media, libraryId).maxFileSize ?? Number.POSITIVE_INFINITY,
+    );
 
     await library.uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
 

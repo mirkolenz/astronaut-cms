@@ -25,6 +25,7 @@ import { RateLimiter, limited } from "../shared/rate-limit.ts";
 import type { RequestContext } from "./context.ts";
 import { HttpError } from "./errors.ts";
 import { changesetDigest } from "../shared/digest.ts";
+import { mediaLibraries, type MediaLocation } from "../shared/media.ts";
 
 /**
  * One operation: a schema for what the caller may send and a handler that runs
@@ -92,6 +93,11 @@ const saveRequest = z.object({
 
 const mediaPathSchema = z.string().min(1);
 
+/** Which library a media operation addresses, refused where the site has no object store. */
+const library = z.enum(mediaLibraries(client.media));
+
+const mediaFile = z.object({ library, path: mediaPathSchema });
+
 /**
  * The reference scan reads every entry of every collection, which is by a wide
  * margin the most expensive thing a signed-in caller can ask for: one provider
@@ -139,28 +145,28 @@ function refuse(message: string): never {
  * act on it destructively, and "no such key" from a store reads as a failure
  * rather than as the correctable mistake it usually is.
  */
-async function assertInLibrary(ctx: RequestContext, path: string): Promise<void> {
-  const files = await ctx.media().listMedia();
+async function assertInLibrary(ctx: RequestContext, { library, path }: MediaLocation): Promise<void> {
+  const files = await ctx.media(library).listPaths();
 
   if (files.some((file) => file.path === path)) return;
 
-  refuse(`"${path}" is not in the media library. Use a path listMedia reports.`);
+  refuse(`"${path}" is not in the ${library} media library. Use a path listMedia reports.`);
 }
 
 async function assertUnreferenced(
   ctx: RequestContext,
-  path: string,
+  location: MediaLocation,
   force: boolean,
 ): Promise<void> {
   if (force) return;
 
   const index = await scan(ctx);
-  const references = referencesFor(index, path);
+  const references = referencesFor(index, location);
 
   if (references.length === 0) return;
 
   refuse(
-    `"${path}" is still referenced by ${references.length} entries: ${references.map(describeReference).join(", ")}. Update them first.`,
+    `"${location.path}" is still referenced by ${references.length} entries: ${references.map(describeReference).join(", ")}. Update them first.`,
   );
 }
 
@@ -260,48 +266,45 @@ export const operations = {
 
   // --- Media ---------------------------------------------------------------
 
-  listMedia: op(none, async (ctx) => ctx.media().listMedia()),
+  listMedia: op(z.object({ library }), async (ctx, input) => ctx.media(input.library).listMedia()),
 
   beginUpload: op(
-    z.object({
-      path: mediaPathSchema,
+    mediaFile.extend({
       size: z.number().int().nonnegative(),
       overwrite: z.boolean().default(false),
     }),
-    async (ctx, { path, size, overwrite }) =>
-      ctx.media().beginUpload(path, size, overwrite),
+    async (ctx, { library, path, size, overwrite }) =>
+      ctx.media(library).beginUpload(path, size, overwrite),
   ),
 
+  /** Within one library: a file never moves to the other, whose references are spelled differently. */
   renameMedia: op(
-    z.object({ from: mediaPathSchema, to: mediaPathSchema, force: acknowledged }),
-    async (ctx, { from, to, force }) => {
-      await assertInLibrary(ctx, from);
-      await assertUnreferenced(ctx, from, force);
-      await ctx.media().renameMedia(from, to);
+    z.object({ library, from: mediaPathSchema, to: mediaPathSchema, force: acknowledged }),
+    async (ctx, { library, from, to, force }) => {
+      const file = { library, path: from };
+
+      await Promise.all([assertInLibrary(ctx, file), assertUnreferenced(ctx, file, force)]);
+      await ctx.media(library).renameMedia(from, to);
 
       return ok;
     },
   ),
 
-  deleteMedia: op(
-    z.object({ path: mediaPathSchema, force: acknowledged }),
-    async (ctx, { path, force }) => {
-      await assertInLibrary(ctx, path);
-      await assertUnreferenced(ctx, path, force);
-      await ctx.media().deleteMedia(path);
+  deleteMedia: op(mediaFile.extend({ force: acknowledged }), async (ctx, { force, ...file }) => {
+    await Promise.all([assertInLibrary(ctx, file), assertUnreferenced(ctx, file, force)]);
+    await ctx.media(file.library).deleteMedia(file.path);
 
-      return ok;
-    },
-  ),
+    return ok;
+  }),
 
   /**
    * The deletions still undoable. A repository library answers with none, so the
    * admin can ask unconditionally and show a trash only where there is one.
    */
-  listTrash: op(none, async (ctx) => ctx.media().listTrash()),
+  listTrash: op(z.object({ library }), async (ctx, input) => ctx.media(input.library).listTrash()),
 
-  restoreMedia: op(z.object({ id: z.string() }), async (ctx, { id }) => {
-    await ctx.media().restoreMedia(id);
+  restoreMedia: op(z.object({ library, id: z.string() }), async (ctx, { library, id }) => {
+    await ctx.media(library).restoreMedia(id);
 
     return ok;
   }),
@@ -311,8 +314,8 @@ export const operations = {
    * the media view alone: the assistant's tools are enumerated by hand, and this
    * is not among them.
    */
-  purgeTrash: op(z.object({ id: z.string() }), async (ctx, { id }) => {
-    await ctx.media().purgeTrash(id);
+  purgeTrash: op(z.object({ library, id: z.string() }), async (ctx, { library, id }) => {
+    await ctx.media(library).purgeTrash(id);
 
     return ok;
   }),

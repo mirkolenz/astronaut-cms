@@ -23,7 +23,7 @@ async function versionOf(): Promise<string> {
 }
 
 const get = (query: string, headers: HeadersInit = {}) =>
-  handle(new Request(`https://cms.test${API_MEDIA}/${NAME}${query}`, { headers }));
+  handle(new Request(`https://cms.test${API_MEDIA}/repo/${NAME}${query}`, { headers }));
 
 beforeAll(async () => {
   await mkdir(join(process.cwd(), "src/assets"), { recursive: true });

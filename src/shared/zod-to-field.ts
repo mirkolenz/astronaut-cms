@@ -104,6 +104,7 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
   if (!(schema instanceof z.ZodType)) return { type: "unknown" };
 
   const meta = schema.meta();
+  if (meta?.[CMS_IMAGE] === "repo") return { type: "image", repoOnly: true };
   if (meta?.[CMS_IMAGE]) return { type: "image" };
   if (meta?.[CMS_FILE]) return { type: "file" };
   if (meta?.[CMS_LINK]) return { type: "string", format: "link" };

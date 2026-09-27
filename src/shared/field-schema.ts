@@ -54,7 +54,15 @@ export type FieldSchema = FieldMods &
     | { type: "date" }
     | { type: "enum"; options: string[] }
     | { type: "literal"; value: string | number | boolean }
-    | { type: "image" }
+    | {
+        type: "image";
+        /**
+         * Only repository files: astro's own collection `image()`, which types its
+         * value as imported `ImageMetadata`. `libraryImage(image)` and a
+         * component's `image()` take either library.
+         */
+        repoOnly?: true;
+      }
     | { type: "file" }
     | { type: "reference"; collection: string }
     | { type: "array"; element: FieldSchema; minItems?: number; maxItems?: number }
@@ -102,6 +110,7 @@ export function objectShape(
 // Zod `.meta()` keys that tag a string field as a CMS asset / cross-reference.
 // Writers (see `cms-markers.ts`) tag with these keys; `zod-to-field.ts` reads
 // them back when lowering a schema.
+/** `true` for an image from either library, `"repo"` for one from the repository alone. */
 export const CMS_IMAGE = "x-cms-image";
 export const CMS_FILE = "x-cms-file";
 export const CMS_REFERENCE = "x-cms-reference";

@@ -2,14 +2,15 @@ import { StorageBase } from "@/server/storage/base";
 import type { BranchStatus, Precondition } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
 import type { CollectionManifest, EntryMeta, FileChange, MediaFile } from "@/shared/types";
+import { repoMedia } from "./media";
 
 /** The rest of the storage contract, for a test that only cares about its collections. */
+const media = repoMedia([".png"]);
+
 export const storageOptions = (collections: CollectionManifest): StorageOptions => ({
   collections,
-  mediaDirectory: "src/assets",
-  mediaExtensions: [".png"],
-  maxFileSize: null,
-  mediaBackend: { type: "repo" },
+  media,
+  library: media.repo,
   components: {},
   login: "alice",
 });

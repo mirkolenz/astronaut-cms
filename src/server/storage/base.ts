@@ -54,7 +54,9 @@ import {
   assertWithinSizeLimit,
   isLibraryFile,
   mediaContentType,
-  type ClientMediaBackend,
+  type ClientMediaConfig,
+  type MediaLibraryId,
+  type WorkingTreeLibrary,
 } from "../../shared/media.ts";
 import type { ComponentSchemaMap } from "../../shared/field-schema.ts";
 import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
@@ -79,12 +81,13 @@ interface FileCollection extends MultiEntryFile {
 /** Everything a backend needs that is not the provider credential itself. */
 export interface StorageOptions {
   collections: CollectionManifest;
-  mediaDirectory: string;
-  /** Extensions the library lists and accepts, already lower-cased. */
-  mediaExtensions: string[] | null;
-  maxFileSize: number | null;
-  /** Where the library lives, which decides how an entry spells an asset. */
-  mediaBackend: ClientMediaBackend;
+  /** Both libraries, which decide how an entry spells an asset. */
+  media: ClientMediaConfig;
+  /**
+   * The library this instance serves: the repository library, or, in a dev
+   * run, the working-tree stand-in for the object store.
+   */
+  library: WorkingTreeLibrary;
   components: ComponentSchemaMap;
   /** The signed-in editor, which is what the draft branch is named after. */
   login: string;
@@ -92,8 +95,9 @@ export interface StorageOptions {
 
 /**
  * A Git storage backend is also the repository media library: media there is
- * committed to the same draft branch as content. When the library lives
- * elsewhere, {@link useMediaSource} points entry validation at it instead.
+ * committed to the same draft branch as content. Entry validation checks assets
+ * against whichever library a reference names, which {@link useMediaLibraries}
+ * hands it.
  *
  * One instance serves one request. Nothing here is cached across requests, which
  * is what makes it correct on a serverless runtime where an instance may be
@@ -103,7 +107,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected readonly options: StorageOptions;
   protected readonly schemas: CollectionManifest;
   protected readonly mediaDirectory: string;
-  private mediaSource: MediaSource = this;
+  private libraryOf: (library: MediaLibraryId) => MediaSource = () => this;
 
   /**
    * The container file of each file collection, read at most once per request.
@@ -115,12 +119,12 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   constructor(options: StorageOptions) {
     this.options = options;
     this.schemas = options.collections;
-    this.mediaDirectory = options.mediaDirectory;
+    this.mediaDirectory = options.library.directory;
   }
 
-  /** Only the listing is needed, so this never grants writes to a library it does not own. */
-  useMediaSource(source: MediaSource): void {
-    this.mediaSource = source;
+  /** Only the listings are needed, so this never grants writes to a library it does not own. */
+  useMediaLibraries(libraryOf: (library: MediaLibraryId) => MediaSource): void {
+    this.libraryOf = libraryOf;
   }
 
   abstract listEntries(collection: string): Promise<EntryMeta[]>;
@@ -384,8 +388,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   protected get contentSource(): ContentSource {
     return {
       listEntries: (collection) => this.listEntries(collection),
-      listMedia: () => this.mediaSource.listMedia(),
-      media: { mediaBackend: this.options.mediaBackend, mediaDirectory: this.mediaDirectory },
+      listMedia: (library) => this.libraryOf(library).listPaths(),
+      media: this.options.media,
       components: this.options.components,
     };
   }
@@ -411,15 +415,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   private async assertUploadable(path: string, size: number, overwrite: boolean): Promise<void> {
-    assertWithinSizeLimit(size, this.options.maxFileSize);
+    assertWithinSizeLimit(size, this.options.library);
 
-    if (!isLibraryFile(path, this.options.mediaExtensions)) {
+    if (!isLibraryFile(path, this.options.library.extensions)) {
       throw new Error(`"${path}" is hidden or not of an allowed media type.`);
     }
 
     // Replacing a file is a different act from adding one: an upload that did
     // not ask to replace does not get to.
-    if (!overwrite && (await this.listMedia()).some((entry) => entry.path === path)) {
+    if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path)) {
       throw new Error(`A file already exists at "${path}".`);
     }
   }
@@ -445,6 +449,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   abstract readMedia(path: string): Promise<MediaContent>;
+
+  listPaths(): Promise<{ path: string }[]> {
+    return this.listMedia();
+  }
 
   /**
    * A repository library has no trash, and needs none: a deletion here is a
@@ -482,7 +490,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       .flatMap((file) => {
         const path = stripMediaPrefix(file.path, this.mediaDirectory);
 
-        return path != null && isLibraryFile(path, this.options.mediaExtensions)
+        return path != null && isLibraryFile(path, this.options.library.extensions)
           ? [{ path, size: file.size ?? 0, ...(file.version && { version: file.version }) }]
           : [];
       })

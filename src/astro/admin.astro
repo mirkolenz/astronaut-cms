@@ -35,9 +35,7 @@ const nonce = import.meta.env.DEV ? crypto.randomUUID() : null;
 
 const connectSrc = ["'self'"];
 
-if (config.mediaBackend.type === "remote") {
-  connectSrc.push(config.mediaBackend.storeOrigin);
-}
+if (config.media.s3) connectSrc.push(config.media.s3.storeOrigin);
 
 // Named as an origin rather than the full base, which is all a policy can say —
 // and all it needs to, since the key only ever travels to this one host.

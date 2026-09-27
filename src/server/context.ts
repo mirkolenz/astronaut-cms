@@ -3,55 +3,56 @@
  * carries. An operation receives this and nothing else, so it cannot reach a
  * credential, an environment variable or a store the request did not earn.
  */
-import { server as serverConfig } from "virtual:astronaut-cms/server";
+import { client, server as serverConfig } from "virtual:astronaut-cms/server";
 import { S3Store } from "../media/s3-store.ts";
 import { ObjectStoreLibrary } from "./media.ts";
+import { HttpError } from "./errors.ts";
 import { createStorage } from "./storage/index.ts";
 import type { MediaBackend, StorageBackend } from "./storage/types.ts";
 import type { StorageBase } from "./storage/base.ts";
 import type { Session } from "./session.ts";
+import type { MediaLibraryId } from "../shared/media.ts";
 
 export interface RequestContext {
   session: Session;
   storage: StorageBackend;
   /**
-   * The repository backend itself, or the object store configured beside it.
+   * One media library: the repository backend itself, or the object store
+   * configured beside it.
    *
    * Resolved on first use rather than per request: reaching an object store
    * means reading credentials, and most requests,
    * the assistant's above all, never touch media at all.
    */
-  media: () => MediaBackend;
+  media: (library: MediaLibraryId) => MediaBackend;
 }
 
 /**
- * The media library for this request. A repository library *is* the storage
- * backend, so the two are the same object; an object store is a separate one,
- * and the storage backend is then told which library to validate references
- * against.
+ * The object store for this request: the bucket, or, in a dev run, a second
+ * working-tree backend rooted at the store's dev directory.
  */
-function openLibrary(storage: StorageBase): MediaBackend {
-  const { media } = serverConfig;
+function openObjectStore(session: Session): MediaBackend {
+  const s3 = client.media.s3;
 
-  if (!media) return storage;
+  if (!s3) throw new HttpError("No object-store media library is configured.", 404);
 
-  const library = new ObjectStoreLibrary(S3Store.fromEnv(media.s3), media, {
-    extensions: serverConfig.mediaExtensions,
-    maxFileSize: serverConfig.maxFileSize,
-  });
+  if (s3.directory != null) return createStorage(session, "s3");
 
-  storage.useMediaSource(library);
+  // Only a dev run leaves the server without the store, and it took the branch above.
+  if (!serverConfig.media) throw new Error("The object store is not configured for this server.");
 
-  return library;
+  return new ObjectStoreLibrary(S3Store.fromEnv(serverConfig.media.s3), serverConfig.media, s3);
 }
 
 export function createContext(session: Session): RequestContext {
-  const storage = createStorage(session);
-  let library: MediaBackend | null = null;
+  const storage: StorageBase = createStorage(session);
+  let objectStore: MediaBackend | null = null;
+  const media = (library: MediaLibraryId): MediaBackend =>
+    library === "repo" ? storage : (objectStore ??= openObjectStore(session));
 
-  return {
-    session,
-    storage,
-    media: () => (library ??= openLibrary(storage)),
-  };
+  // A repository library *is* the storage backend; entry validation checks an
+  // object-store reference against the store's own listing.
+  storage.useMediaLibraries(media);
+
+  return { session, storage, media };
 }

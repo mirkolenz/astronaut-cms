@@ -208,6 +208,8 @@ export type UploadTicket = ({ direct: true } & PresignedUpload) | { direct: fals
  */
 export interface MediaBackend {
   listMedia(): Promise<MediaFile[]>;
+  /** The paths alone, for a check that has no use for sizes a backend would have to look up. */
+  listPaths(): Promise<{ path: string }[]>;
   /**
    * Where to put the bytes for `path`, decided before any of them exist. Nothing
    * is reserved by this call: a ticket says only that the request is allowed in

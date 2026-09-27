@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
-import { imageMarker } from "../shared/cms-markers.ts";
+import { repoImageMarker } from "../shared/cms-markers.ts";
 import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
 import type { CollectionOptions, ComponentDefinition } from "../config.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
@@ -82,10 +82,10 @@ async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) =
 }
 
 // Astro hands a function-style schema exactly one helper, `image`. Standing a
-// marker in for it is what lets the admin read the field as an image picker while
-// astro's real build does the importing. Offering more than astro does would only
+// marker in for it is what lets the admin read the field as a repository image
+// picker while astro's real build does the importing; `libraryImage` wraps either. Offering more than astro does would only
 // let a config lower cleanly here and then fail the actual build.
-const SCHEMA_HELPERS = { image: imageMarker };
+const SCHEMA_HELPERS = { image: repoImageMarker };
 
 // Nothing at runtime would notice astro's bag growing a second helper: a config
 // using it would lower cleanly here and throw in the real build, leaving the admin

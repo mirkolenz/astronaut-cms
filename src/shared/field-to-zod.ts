@@ -91,7 +91,13 @@ function base(field: FieldSchema): z.ZodType {
     // costs a few dozen bytes and saves the round trip a rejected write costs.
     case "image":
     case "file":
-      return z.string().describe('Media library path from listMedia, e.g. "/src/assets/hero.png".');
+      return z
+        .string()
+        .describe(
+          field.type === "image" && field.repoOnly
+            ? "The `ref` of a repository media file, as listMedia reports it."
+            : "The `ref` of a media file, as listMedia reports it.",
+        );
 
     case "reference":
       return z.string().describe(`Id of an entry in the "${field.collection}" collection.`);

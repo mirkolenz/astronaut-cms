@@ -12,12 +12,18 @@ import type {
   CmsClientConfig,
   CmsConfig,
   CmsServerConfig,
-  MediaBackendConfig,
   MediaServerConfig,
+  RepoMediaConfig,
   ResolvedImageOptimization,
+  S3MediaConfig,
   ServerStorageConfig,
 } from "./types.ts";
-import { s3BaseUrl, type ClientMediaBackend } from "../shared/media.ts";
+import {
+  s3BaseUrl,
+  type ClientLibrary,
+  type ClientMediaConfig,
+  type S3Target,
+} from "../shared/media.ts";
 import { trimSlashes } from "../shared/url.ts";
 import type { ContentI18n } from "../shared/i18n.ts";
 import {
@@ -31,6 +37,7 @@ import type { CollectionManifest } from "../shared/types.ts";
 
 export const DEFAULT_MOUNT_POINT = "/admin";
 export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
+export const DEFAULT_S3_DEV_DIRECTORY = ".astronaut-cms/s3";
 
 /**
  * Content languages, taken from the site's own `astro.config` `i18n` block so a
@@ -79,17 +86,10 @@ export function resolveContentI18n(
 export const storageType = (config: CmsConfig): "local" | "github" | "gitlab" =>
   config.storage?.type ?? "local";
 
-/** Lower-cased once, so `isLibraryFile` never re-normalizes the list. Null admits any file. */
-const mediaExtensions = (config: CmsConfig): string[] | null =>
-  config.media?.allowedExtensions?.map((ext) => ext.toLowerCase()) ?? null;
-
-const mediaDirectory = (config: CmsConfig): string =>
-  config.media?.directory ?? DEFAULT_MEDIA_DIRECTORY;
-
 export function resolveClientConfig(
   config: CmsConfig,
   astroI18n: AstroI18n | undefined,
-  localMedia: boolean,
+  s3DevDirectory: string | null,
   collections: CollectionManifest,
 ): CmsClientConfig {
   const type = storageType(config);
@@ -97,12 +97,7 @@ export function resolveClientConfig(
   return {
     mountPoint: config.mountPoint ?? DEFAULT_MOUNT_POINT,
     storageType: type,
-    mediaDirectory: mediaDirectory(config),
-    mediaExtensions: mediaExtensions(config),
-    maxFileSize: config.media?.maxFileSize ?? null,
-    mediaAlwaysInclude: config.media?.alwaysInclude ?? [],
-    mediaBackend: resolveClientMediaBackend(config, localMedia),
-    imageOptimization: resolveImageOptimization(config),
+    media: resolveClientMedia(config, s3DevDirectory),
     locale: config.locale ?? "en",
     contentI18n: resolveContentI18n(config, astroI18n),
     previewUrl: config.previewUrl,
@@ -140,71 +135,78 @@ const DEFAULT_IMAGE_OPTIMIZATION: ResolvedImageOptimization = {
   minQuality: 0.5,
 };
 
-function resolveImageOptimization(config: CmsConfig): ResolvedImageOptimization | null {
-  const optimize = config.media?.optimizeImages;
+/** What every library resolves alike. */
+function resolveLibrary(library: RepoMediaConfig | S3MediaConfig | undefined): ClientLibrary {
+  const optimize = library?.optimizeImages;
 
-  if (optimize === false) return null;
-
-  return { ...DEFAULT_IMAGE_OPTIMIZATION, ...optimize };
-}
-
-const DEFAULT_MEDIA_BACKEND: MediaBackendConfig = { type: "repo" };
-
-function mediaBackend(config: CmsConfig): MediaBackendConfig {
-  return config.media?.backend ?? DEFAULT_MEDIA_BACKEND;
+  return {
+    label: library?.label ?? null,
+    // Lower-cased once, so `isLibraryFile` never re-normalizes the list.
+    extensions: library?.allowedExtensions?.map((ext) => ext.toLowerCase()) ?? null,
+    minFileSize: library?.minFileSize ?? null,
+    maxFileSize: library?.maxFileSize ?? null,
+    imageOptimization: optimize === false ? null : { ...DEFAULT_IMAGE_OPTIMIZATION, ...optimize },
+  };
 }
 
 /**
  * Enough for the admin to address a file, and nothing an object store could be
- * reached with. `localMedia` only says where the bytes are: the reference format
- * is the configured backend's either way, so it cannot differ between a dev run
- * and the build.
+ * reached with. `s3DevDirectory` only says where the store's bytes are during a
+ * dev run: the reference format is the store's either way, so it cannot differ
+ * between a dev run and the build.
  */
-function resolveClientMediaBackend(config: CmsConfig, localMedia: boolean): ClientMediaBackend {
-  const backend = mediaBackend(config);
-
-  if (backend.type === "repo") return { type: "repo" };
+function resolveClientMedia(config: CmsConfig, s3DevDirectory: string | null): ClientMediaConfig {
+  const { repo, s3 } = config.media ?? {};
 
   return {
-    type: "remote",
-    publicUrl: trimSlashes(backend.publicUrl),
-    // Where every presigned upload goes, which the admin's CSP has to allow.
-    storeOrigin: s3BaseUrl(storeS3(backend)).origin,
-    ...(localMedia && { local: true }),
+    repo: {
+      ...resolveLibrary(repo),
+      directory: repo?.directory ?? DEFAULT_MEDIA_DIRECTORY,
+      alwaysInclude: repo?.alwaysInclude ?? [],
+    },
+    s3: s3
+      ? {
+          ...resolveLibrary(s3),
+          publicUrl: trimSlashes(s3.publicUrl),
+          // Where every presigned upload goes, which the admin's CSP has to allow.
+          storeOrigin: s3BaseUrl(storeS3(s3)).origin,
+          ...(s3DevDirectory != null && { directory: s3DevDirectory }),
+        }
+      : null,
   };
 }
 
 /**
  * Server-only, imported by the injected route alone, so a bucket or endpoint
- * never reaches the client. The R2 preset is the S3 backend with
- * Cloudflare's endpoint filled in.
+ * never reaches the client.
  */
 export function resolveMediaServer(config: CmsConfig): MediaServerConfig | null {
-  const backend = mediaBackend(config);
+  const s3 = config.media?.s3;
 
-  if (backend.type === "repo") return null;
+  if (!s3) return null;
 
   return {
-    publicUrl: trimSlashes(backend.publicUrl),
-    prefix: backend.prefix ? `${trimSlashes(backend.prefix)}/` : "",
-    s3: storeS3(backend),
+    publicUrl: trimSlashes(s3.publicUrl),
+    prefix: s3.prefix ? `${trimSlashes(s3.prefix)}/` : "",
+    s3: storeS3(s3),
   };
 }
 
-function storeS3(backend: Exclude<MediaBackendConfig, { type: "repo" }>): MediaServerConfig["s3"] {
-  if (backend.type === "s3") {
+/** The R2 preset is the S3 API with Cloudflare's endpoint filled in. */
+function storeS3(s3: S3MediaConfig): S3Target {
+  if (s3.provider === "r2") {
     return {
-      endpoint: trimSlashes(backend.endpoint),
-      region: backend.region,
-      pathStyle: backend.forcePathStyle ?? false,
-      bucket: backend.bucket,
+      endpoint: `https://${s3.accountId}.r2.cloudflarestorage.com`,
+      pathStyle: true,
+      bucket: s3.bucket,
     };
   }
 
   return {
-    endpoint: `https://${backend.accountId}.r2.cloudflarestorage.com`,
-    pathStyle: true,
-    bucket: backend.bucket,
+    endpoint: trimSlashes(s3.endpoint),
+    region: s3.region,
+    pathStyle: s3.forcePathStyle ?? false,
+    bucket: s3.bucket,
   };
 }
 
@@ -250,9 +252,6 @@ export function resolveServerConfig(
     storage: resolveServerStorage(config, rootDir),
     media,
     ai: resolveAiServer(config),
-    mediaDirectory: mediaDirectory(config),
-    mediaExtensions: mediaExtensions(config),
-    maxFileSize: config.media?.maxFileSize ?? null,
   };
 }
 

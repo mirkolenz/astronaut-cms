@@ -1,6 +1,6 @@
 import { extname } from "pathe";
 import { mediaUrl } from "@/client/lib/media";
-import { mediaKind } from "@/shared/media";
+import { mediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
 
 /**
@@ -11,10 +11,18 @@ import type { MediaFile } from "@/shared/types";
  * it and a grid of these is served from the browser's cache on every visit after
  * the first.
  */
-export function MediaThumbnail({ file, className }: { file: MediaFile; className?: string }) {
+export function MediaThumbnail({
+  library,
+  file,
+  className,
+}: {
+  library: MediaLibraryId;
+  file: MediaFile;
+  className?: string;
+}) {
   const { path } = file;
   const kind = mediaKind(path);
-  const src = mediaUrl(path, file.version);
+  const src = mediaUrl({ library, path }, file.version);
   const hide = (e: React.SyntheticEvent<HTMLElement>) => {
     e.currentTarget.style.display = "none";
   };

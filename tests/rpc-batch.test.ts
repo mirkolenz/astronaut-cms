@@ -43,14 +43,14 @@ describe("batched calls", () => {
     const answers = await Promise.all([
       call("getStatus", {}),
       call("getChanges", {}),
-      call("listMedia", {}),
+      call("listMedia", { library: "repo" }),
     ]);
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.body).toEqual([
       { op: "getStatus", input: {} },
       { op: "getChanges", input: {} },
-      { op: "listMedia", input: {} },
+      { op: "listMedia", input: { library: "repo" } },
     ]);
     expect(answers).toEqual([0, 1, 2]);
     // Nothing in this batch changes anything, so the dev server is not told to

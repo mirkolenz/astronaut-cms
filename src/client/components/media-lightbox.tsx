@@ -1,16 +1,17 @@
 import { X } from "lucide-react";
 import { Dialog, DialogContent } from "@/client/components/ui/dialog";
 import { mediaUrl } from "@/client/lib/media";
-import { mediaKind } from "@/shared/media";
+import { mediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
 
 interface MediaLightboxProps {
+  library: MediaLibraryId;
   file: MediaFile | null;
   onClose: () => void;
 }
 
 /** A library image, video or audio file at full size, playable where it plays. */
-export function MediaLightbox({ file, onClose }: MediaLightboxProps) {
+export function MediaLightbox({ library, file, onClose }: MediaLightboxProps) {
   return (
     <Dialog
       open={file !== null}
@@ -30,15 +31,15 @@ export function MediaLightbox({ file, onClose }: MediaLightboxProps) {
           >
             <X className="size-4" />
           </button>
-          {file && <Preview file={file} />}
+          {file && <Preview library={library} file={file} />}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function Preview({ file }: { file: MediaFile }) {
-  const src = mediaUrl(file.path, file.version);
+function Preview({ library, file }: { library: MediaLibraryId; file: MediaFile }) {
+  const src = mediaUrl({ library, path: file.path }, file.version);
 
   switch (mediaKind(file.path)) {
     case "video":

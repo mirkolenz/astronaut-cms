@@ -1,5 +1,5 @@
 import type { ContentI18n } from "../shared/i18n.ts";
-import type { ClientMediaBackend, S3Target } from "../shared/media.ts";
+import type { ClientMediaConfig, S3Target } from "../shared/media.ts";
 import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 
@@ -14,17 +14,7 @@ export interface CmsConfig {
   storage?: StorageConfig;
   /** Substitute the local filesystem backend during `astro dev`, even when a remote storage is configured (default: true) */
   localStorageInDev?: boolean;
-  /**
-   * Keep the media library in the working tree during `astro dev`, even when an
-   * object store is configured (default: true). Without it, editing in dev
-   * uploads to — and deletes from — the same bucket the deployed site serves.
-   *
-   * Only the bytes move: an asset reference is still written as the store's key,
-   * so an entry edited in dev builds unchanged. Needs local storage, since the
-   * files are reached through the dev server's own file API.
-   */
-  localMediaInDev?: boolean;
-  /** Media file configuration */
+  /** The media libraries, see {@link MediaConfig}. */
   media?: MediaConfig;
   /** Admin panel language, and the default for its language switcher (default: "en") */
   locale?: SupportedLocale;
@@ -192,30 +182,62 @@ export type StorageConfig =
       publishMode?: PublishMode;
     };
 
+/**
+ * The media libraries. The repository library is always there, and an object
+ * store can be configured beside it, each with its own entry in the admin's
+ * sidebar. Each one decides for itself what it takes: extensions and size bounds
+ * say what an editor may upload where, e.g. SVG logos into the repository and
+ * photos into the store. Bounds may overlap, since the editor picks the library
+ * and the bounds only refuse what does not belong there.
+ */
 export interface MediaConfig {
-  /** Repository directory holding the library. `repo` backend only (default: "src/assets"). */
-  directory?: string;
-  /** Restricts the library to these extensions (e.g. `[".png", ".pdf"]`). Any file is accepted when unset. */
+  /** The library in the repository, which content and media publish together from. */
+  repo?: RepoMediaConfig;
+  /** An object store beside it. See {@link S3MediaConfig}. */
+  s3?: S3MediaConfig;
+}
+
+/** What every library takes. */
+interface MediaLibraryConfig {
+  /** The library's name in the admin, overriding the translated default. */
+  label?: string;
+  /** Restricts the library to these extensions (e.g. `[".svg", ".png"]`). Any file is accepted when unset. */
   allowedExtensions?: string[];
+  /**
+   * How the browser reshapes an image before it is uploaded here. Enabled with
+   * the defaults of {@link ImageOptimizationConfig}; pass `false` to upload
+   * every original untouched.
+   */
+  optimizeImages?: ImageOptimizationConfig | false;
+  /**
+   * Smallest file the library accepts, in bytes. Checked against the upload as
+   * it is sent, so after image optimization where that is enabled.
+   */
+  minFileSize?: number;
+  /** Largest file the library accepts, in bytes, checked like {@link minFileSize}. */
   maxFileSize?: number;
+}
+
+/**
+ * The repository library. Uploads join the pending changeset and publish with
+ * it, and astro's asset pipeline optimizes and bundles what content references.
+ *
+ * Its uploads pass through the CMS route, which holds each one in memory before
+ * committing it, so `maxFileSize` is also that route's body limit. Keep it
+ * within the host's own request limit (e.g. 4.5 MB on Vercel).
+ */
+export interface RepoMediaConfig extends MediaLibraryConfig {
+  /** Repository directory holding the library (default: "src/assets"). */
+  directory?: string;
   /**
    * Glob patterns, relative to `directory`, for files to bundle even when no
    * content references them (e.g. `["og/**", "brand/logo.svg"]`).
    *
    * A production build only emits the assets it can reach from content, so a
-   * path that appears solely in site code — `resolveImage("/src/assets/og.png")`
-   * in a layout, say — has to be listed here. `repo` backend only: an object
-   * store is never bundled.
+   * path that appears solely in site code, `resolveImage("/src/assets/og.png")`
+   * in a layout, say, has to be listed here.
    */
   alwaysInclude?: string[];
-  /** Where the library's files live (default: `{ type: "repo" }`). */
-  backend?: MediaBackendConfig;
-  /**
-   * How the browser reshapes an image before it is uploaded. Enabled with the
-   * defaults of {@link ImageOptimizationConfig}; pass `false` to upload every
-   * original untouched.
-   */
-  optimizeImages?: ImageOptimizationConfig | false;
 }
 
 /** The formats a browser canvas can encode to, and therefore convert into. */
@@ -263,24 +285,21 @@ export type ResolvedImageOptimization = Required<Omit<ImageOptimizationConfig, "
 };
 
 /**
- * Where the media library stores its files.
+ * An object store, addressed through its S3 API. Uploads go straight from the
+ * browser to the bucket and take effect immediately rather than joining the
+ * changeset. Content stores each file's public URL, which astro optimizes as a
+ * remote image at build time (the integration authorizes `publicUrl` for it),
+ * so visitors are served the optimized variants rather than the originals.
  *
- * - `repo`: in the repository, alongside content. Uploads join the pending
- *   changeset and publish with it, and astro's asset pipeline optimizes and
- *   bundles what content references.
- * - `s3` / `r2`: in an object store, addressed by key. Uploads take effect
- *   immediately rather than joining the changeset, content stores library keys
- *   instead of project paths, and the site loads them from `publicUrl` (astro
- *   optimizes them as remote images, which the integration authorizes for you).
- *
- * An object store needs the injected media route, and therefore an SSR adapter,
- * because no bucket credential may ever reach the browser. What content stores
- * is always a plain key, never a signed URL that would expire inside an entry;
- * `publicUrl` is where those keys are served from.
+ * It needs the injected media route, and therefore an SSR adapter, because no
+ * bucket credential may ever reach the browser. Credentials come exclusively
+ * from that route's environment: `ASTRONAUT_CMS_S3_ACCESS_KEY_ID`,
+ * `ASTRONAUT_CMS_S3_SECRET_ACCESS_KEY` and optionally
+ * `ASTRONAUT_CMS_S3_SESSION_TOKEN`.
  */
-export type MediaBackendConfig = { type: "repo" } | S3MediaConfig | R2MediaConfig;
+export type S3MediaConfig = S3EndpointMediaConfig | R2MediaConfig;
 
-interface ObjectStoreConfig {
+interface ObjectStoreConfig extends MediaLibraryConfig {
   /** Bucket holding the library. */
   bucket: string;
   /** Key prefix the library is rooted at, e.g. "media" (default: the bucket root). */
@@ -295,16 +314,22 @@ interface ObjectStoreConfig {
    * concerned: set it to the CDN and the bucket stays closed.
    */
   publicUrl: string;
+  /**
+   * Where `astro dev` keeps the library instead of the bucket, relative to the
+   * project root (default: ".astronaut-cms/s3"). Without it, editing in dev
+   * uploads to, and deletes from, the same bucket the deployed site serves.
+   * Pass `false` to edit the bucket from dev anyway.
+   *
+   * Only the bytes move: a reference is still written as the store's URL, so an
+   * entry edited in dev builds unchanged. Needs local storage, since the files
+   * are reached through the dev server's own file API.
+   */
+  devDirectory?: string | false;
 }
 
-/**
- * Any S3-compatible object store (AWS S3, MinIO, Backblaze B2, Hetzner, …).
- * Credentials come exclusively from the environment of the injected route:
- * `ASTRONAUT_CMS_S3_ACCESS_KEY_ID`, `ASTRONAUT_CMS_S3_SECRET_ACCESS_KEY` and
- * optionally `ASTRONAUT_CMS_S3_SESSION_TOKEN`.
- */
-export interface S3MediaConfig extends ObjectStoreConfig {
-  type: "s3";
+/** Any S3-compatible object store (AWS S3, MinIO, Backblaze B2, Hetzner, ...). */
+export interface S3EndpointMediaConfig extends ObjectStoreConfig {
+  provider?: "s3";
   /** API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`. */
   endpoint: string;
   /** Signing region (default: inferred from `endpoint` on AWS, R2 and B2, falling back to "us-east-1"). */
@@ -314,15 +339,14 @@ export interface S3MediaConfig extends ObjectStoreConfig {
 }
 
 /**
- * Cloudflare R2 through its S3 API, with the `ASTRONAUT_CMS_S3_*` credentials.
- * Uploads go straight from the browser to the bucket, and renames and deletions
- * are copies inside R2, so file size is bounded by R2 alone.
+ * Cloudflare R2 through its S3 API. Renames and deletions are copies inside
+ * R2, so file size is bounded by R2 alone.
  *
  * Public serving needs a custom domain on the bucket: the `*.r2.dev` hostname is
  * rate-limited and not meant for production traffic.
  */
 export interface R2MediaConfig extends ObjectStoreConfig {
-  type: "r2";
+  provider: "r2";
   /** Cloudflare account id, for the S3 API endpoint. */
   accountId: string;
 }
@@ -375,30 +399,17 @@ export interface CmsServerConfig {
   /** The site's `trailingSlash` policy, which the CMS's own URLs have to follow for Astro to match them. */
   trailingSlash: "always" | "never" | "ignore";
   storage: ServerStorageConfig;
-  /** Null when the media library lives in the repository. */
+  /** The object store, null when there is none or a dev run keeps it in the working tree. */
   media: MediaServerConfig | null;
   /** Null when the assistant is disabled. */
   ai: AiServerConfig | null;
-  mediaDirectory: string;
-  /** Null when the library accepts any file. */
-  mediaExtensions: string[] | null;
-  maxFileSize: number | null;
 }
 
 export interface CmsClientConfig {
   mountPoint: string;
   storageType: "local" | "github" | "gitlab";
-  mediaDirectory: string;
-  /** File extensions the media library lists, e.g. [".png", ".pdf"], or null for any file. */
-  mediaExtensions: string[] | null;
-  /** Upload size limit in bytes, or null for unlimited. */
-  maxFileSize: number | null;
-  /** `media.alwaysInclude` globs, so the admin knows which files site code reaches. */
-  mediaAlwaysInclude: string[];
-  /** Where the library's files live, minus everything only the server may know. */
-  mediaBackend: ClientMediaBackend;
-  /** How to reshape an image before uploading it, or null when uploads go untouched. */
-  imageOptimization: ResolvedImageOptimization | null;
+  /** The media libraries, minus everything only the server may know. */
+  media: ClientMediaConfig;
   /** Default admin panel UI language. Distinct from `contentI18n`, which is about the site's content. */
   locale: SupportedLocale;
   /** The site's content languages, or null when it is single-language. */

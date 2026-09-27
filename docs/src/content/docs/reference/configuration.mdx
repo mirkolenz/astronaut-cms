@@ -13,7 +13,6 @@ interface CmsConfig {
   mountPoint?: string;
   storage?: StorageConfig;
   localStorageInDev?: boolean;
-  localMediaInDev?: boolean;
   media?: MediaConfig;
   locale?: "en" | "de";
   i18n?: { locales?: string[]; defaultLocale?: string } | false;
@@ -29,8 +28,7 @@ interface CmsConfig {
 | `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
 | `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
 | `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
-| `localMediaInDev`   | `boolean`              | `true`                  | Keep the media library in the working tree during `astro dev` instead of reaching the object store                  |
-| `media`             | `MediaConfig`          | `{}`                    | Media library configuration                                                                                         |
+| `media`             | `MediaConfig`          | `{}`                    | Media libraries configuration                                                                                       |
 | `locale`            | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                                                                                     |
 | `i18n`              | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                                                                                   |
 | `previewUrl`        | `string`               | —                       | URL pattern for branch previews from your host                                                                      |
@@ -112,63 +110,78 @@ The client secret goes in `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET`; see [Storage Bac
 
 ## `MediaConfig`
 
-Options for the media library.
+The media libraries: the repository library, always present, and optionally an object store beside it.
+Each one gets its own entry in the admin's sidebar and decides for itself which files it takes.
 
 ```ts
 interface MediaConfig {
-  directory?: string;
-  allowedExtensions?: string[];
-  maxFileSize?: number;
-  alwaysInclude?: string[];
-  backend?: MediaBackendConfig;
-  optimizeImages?: ImageOptimizationConfig | false;
+  repo?: RepoMediaConfig;
+  s3?: S3MediaConfig;
 }
 ```
 
-| Property            | Type                               | Default            | Description                                                                                                                                              |
-| ------------------- | ---------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `directory`         | `string`                           | `"src/assets"`     | Media directory relative to project root (`repo` backend)                                                                                                |
-| `allowedExtensions` | `string[]`                         | any file           | Restricts the library to these extensions (with leading dot)                                                                                             |
-| `maxFileSize`       | `number`                           | unlimited          | Maximum upload size in bytes. Checked in the admin, signed into the upload URL, and checked again against the stored object before it enters the library |
-| `alwaysInclude`     | `string[]`                         | `[]`               | Globs, relative to `directory`, to bundle regardless (`repo` backend)                                                                                    |
-| `backend`           | `MediaBackendConfig`               | `{ type: "repo" }` | Where the library's files live                                                                                                                           |
-| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled            | How the browser reshapes an image before uploading it, or `false` to upload originals untouched                                                          |
+Every library takes these options:
 
-## `MediaBackendConfig`
+| Property            | Type                               | Default    | Description                                                                                                  |
+| ------------------- | ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `label`             | `string`                           | translated | The library's name in the admin                                                                              |
+| `allowedExtensions` | `string[]`                         | any file   | Restricts the library to these extensions (with leading dot)                                                 |
+| `minFileSize`       | `number`                           | none       | Smallest upload in bytes, checked in the admin and again on the server                                       |
+| `maxFileSize`       | `number`                           | unlimited  | Largest upload in bytes, checked in the admin, signed into an object-store upload URL, and checked on arrival |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How the browser reshapes an image before uploading it here, or `false` to upload originals untouched         |
 
-A discriminated union defining where media is stored.
-It is independent of `storage`: content can live in Git while media lives in an object store.
+The sizes are checked against the file as it is uploaded, after optimization where that is enabled.
+The bounds of the two libraries may overlap.
+
+## `RepoMediaConfig`
+
+The library in the repository. Its uploads are commits on the draft branch, published with content.
+
+| Property        | Type       | Default        | Description                                               |
+| --------------- | ---------- | -------------- | --------------------------------------------------------- |
+| `directory`     | `string`   | `"src/assets"` | Media directory relative to the project root              |
+| `alwaysInclude` | `string[]` | `[]`           | Globs, relative to `directory`, to bundle regardless      |
+
+Its uploads pass through the CMS route, which holds each one in memory, so `maxFileSize` is also that route's body limit.
+
+## `S3MediaConfig`
+
+An object store beside the repository library.
+It is independent of `storage`: content lives in Git either way.
 
 ```ts
-type MediaBackendConfig =
-  | { type: "repo" }
+type S3MediaConfig =
   | {
-      type: "s3";
+      provider?: "s3";
       bucket: string;
       endpoint: string;
       publicUrl: string;
       region?: string;
       prefix?: string;
       forcePathStyle?: boolean;
+      devDirectory?: string | false;
     }
   | {
-      type: "r2";
+      provider: "r2";
       bucket: string;
       publicUrl: string;
       accountId: string;
       prefix?: string;
+      devDirectory?: string | false;
     };
 ```
 
-| Property         | Backend    | Description                                                                                                                                                     |
-| ---------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bucket`         | `s3`, `r2` | Bucket holding the library                                                                                                                                      |
-| `endpoint`       | `s3`       | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                                                                                                      |
-| `publicUrl`      | `s3`, `r2` | Public base URL the library is served under, and what content resolves against. Required                                                                   |
-| `region`         | `s3`       | Signing region (default: inferred from `endpoint` on AWS, R2 and Backblaze B2, otherwise `"us-east-1"`)                                                         |
-| `prefix`         | `s3`, `r2` | Key prefix the library is rooted at (default: the bucket root)                                                                                                  |
-| `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                                                                                                                  |
-| `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint                                                                                                            |
+| Property         | Provider   | Description                                                                                                  |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `provider`       | both       | `"s3"` (default) for any S3-compatible store, `"r2"` for Cloudflare R2                                        |
+| `bucket`         | both       | Bucket holding the library                                                                                   |
+| `endpoint`       | `s3`       | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                                                   |
+| `publicUrl`      | both       | Public base URL the library is served under. Content stores each file's URL under it. Required               |
+| `region`         | `s3`       | Signing region (default: inferred from `endpoint` on AWS, R2 and Backblaze B2, otherwise `"us-east-1"`)      |
+| `prefix`         | both       | Key prefix the library is rooted at (default: the bucket root)                                               |
+| `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                                                               |
+| `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint                                                               |
+| `devDirectory`   | both       | Where `astro dev` keeps the library instead of the bucket (default: `".astronaut-cms/s3"`), `false` for the bucket |
 
 See the [Media Library](../../guides/media-library/#where-files-are-stored) guide for the setup an object store needs.
 
@@ -180,7 +193,9 @@ Anything referenced from site code rather than from an entry is invisible to tha
 ```ts title="astro.config.ts"
 cms({
   media: {
-    alwaysInclude: ["og/**", "brand/logo.svg"],
+    repo: {
+      alwaysInclude: ["og/**", "brand/logo.svg"],
+    },
   },
 });
 ```
@@ -217,4 +232,4 @@ interface ImageOptimizationConfig {
 An image that will not compress that far is uploaded at `minQuality` anyway, still smaller than the original.
 PNG output ignores the ladder entirely, since a canvas has no lossy PNG encoder.
 
-It is distinct from `maxFileSize` on `MediaConfig`: that one refuses an upload, this one shrinks it first.
+It is distinct from a library's own `maxFileSize`: that one refuses an upload, this one shrinks it first.

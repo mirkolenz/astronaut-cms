@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { basename, join } from "pathe";
 import { useUploadMedia } from "@/client/queries/use-media";
+import config from "@/client/lib/config";
 import { dirSegments } from "@/client/lib/entry-tree";
 import { optimizeImage } from "@/client/lib/image-utils";
+import { libraryLabel } from "@/client/lib/media";
 import { cn } from "@/client/lib/utils";
 import { validateMediaPath } from "@/shared/validation";
+import { mediaLibrary, type MediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
 import { Button } from "@/client/components/ui/button";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
@@ -17,13 +20,14 @@ import { PathDialog, refusal } from "@/client/components/path-dialog";
  */
 
 export function MediaBreadcrumbs({
+  library,
   dir,
   onNavigate,
 }: {
+  library: MediaLibraryId;
   dir: string;
   onNavigate: (dir: string) => void;
 }) {
-  const { t } = useTranslation();
   const segments = dirSegments(dir);
 
   if (segments.length === 0) return null;
@@ -31,7 +35,7 @@ export function MediaBreadcrumbs({
   return (
     <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
       <Button type="button" variant="link" size="xs" onClick={() => onNavigate("")}>
-        {t(($) => $.media.title)}
+        {libraryLabel(library)}
       </Button>
       {segments.map(({ name, path }, i) => (
         <span key={path} className="flex items-center gap-1">
@@ -109,11 +113,17 @@ export function NewFolderButton({ dir, onCreate }: { dir: string; onCreate: (dir
 export const mediaPathRefusal = (path: string): string | null => refusal(validateMediaPath, path);
 
 /**
- * An upload into a folder, asking before it replaces a file of the same name.
- * The name is checked against the full library path it would land at, so a file
- * of the same name in another folder is neither mistaken for it nor replaced.
+ * An upload into a folder of one library, asking before it replaces a file of
+ * the same name. The name is checked against the full library path it would land
+ * at, so a file of the same name in another folder is neither mistaken for it
+ * nor replaced. The image is optimized as that library says, which is what its
+ * size bounds are then checked against.
  */
-export function useMediaUpload(files: MediaFile[] | undefined, onUploaded?: (path: string) => void) {
+export function useMediaUpload(
+  library: MediaLibraryId,
+  files: MediaFile[] | undefined,
+  onUploaded?: (path: string) => void,
+) {
   const mutation = useUploadMedia();
   const [optimizing, setOptimizing] = useState(false);
   const [duplicate, setDuplicate] = useState<{ path: string; file: File } | null>(null);
@@ -121,7 +131,7 @@ export function useMediaUpload(files: MediaFile[] | undefined, onUploaded?: (pat
   // A refused upload (the size limit, say) surfaces as `mutation.error` rather
   // than as an unhandled rejection.
   const send = (path: string, file: File, overwrite?: boolean): void => {
-    mutation.mutateAsync({ path, file, overwrite }).then(
+    mutation.mutateAsync({ library, path, file, overwrite }).then(
       () => onUploaded?.(path),
       () => {},
     );
@@ -136,7 +146,9 @@ export function useMediaUpload(files: MediaFile[] | undefined, onUploaded?: (pat
 
     setOptimizing(true);
 
-    const file = await optimizeImage(raw).finally(() => setOptimizing(false));
+    const file = await optimizeImage(raw, mediaLibrary(config.media, library).imageOptimization).finally(
+      () => setOptimizing(false),
+    );
     const path = join(dir, file.name);
 
     if (files?.some((f) => f.path === path)) {
@@ -163,6 +175,13 @@ export function useMediaUpload(files: MediaFile[] | undefined, onUploaded?: (pat
     optimizing,
     mutation,
   };
+}
+
+/** What an upload control offers to pick: the library's own extensions where it restricts them. */
+export function uploadAccept(library: MediaLibraryId, kind?: MediaKind): string | undefined {
+  const extensions = mediaLibrary(config.media, library).extensions;
+
+  return extensions?.join(",") ?? (kind && kind !== "file" ? `${kind}/*` : undefined);
 }
 
 /** The upload control of {@link useMediaUpload}, with its overwrite prompt. */

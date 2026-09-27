@@ -10,9 +10,18 @@ import {
   MediaBreadcrumbs,
   NewFolderButton,
   UploadButton,
+  uploadAccept,
   useMediaUpload,
 } from "@/client/components/media-browser";
-import { mediaKind, type MediaKind } from "@/shared/media";
+import config from "@/client/lib/config";
+import { libraryLabel } from "@/client/lib/media";
+import {
+  mediaKind,
+  mediaLibraries,
+  type MediaKind,
+  type MediaLibraryId,
+  type MediaLocation,
+} from "@/shared/media";
 import {
   Dialog,
   DialogContent,
@@ -21,22 +30,33 @@ import {
   DialogFooter,
 } from "@/client/components/ui/dialog";
 import { Button } from "@/client/components/ui/button";
+import { ButtonGroup } from "@/client/components/ui/button-group";
 import { Input } from "@/client/components/ui/input";
 
 interface MediaPickerDialogProps {
   open: boolean;
   /** Offers only files of this kind, every file when unset. */
   kind?: Exclude<MediaKind, "file">;
-  onSelect: (path: string) => void;
+  /** Offers the repository library alone, for a field only a repository file satisfies. */
+  repoOnly?: boolean;
+  onSelect: (location: MediaLocation) => void;
   onCancel: () => void;
 }
 
-export function MediaPickerDialog({ open, kind, onSelect, onCancel }: MediaPickerDialogProps) {
+export function MediaPickerDialog({
+  open,
+  kind,
+  repoOnly,
+  onSelect,
+  onCancel,
+}: MediaPickerDialogProps) {
   const { t } = useTranslation();
-  const { data, isLoading } = useMedia();
+  const libraries: MediaLibraryId[] = repoOnly ? ["repo"] : mediaLibraries(config.media);
+  const [library, setLibrary] = useState<MediaLibraryId>("repo");
+  const { data, isLoading } = useMedia(library);
   const [filter, setFilter] = useState("");
   const [dir, setDir] = useState("");
-  const upload = useMediaUpload(data, onSelect);
+  const upload = useMediaUpload(library, data, (path) => onSelect({ library, path }));
 
   const pickable = useMemo(
     () => (kind ? data?.filter((file) => mediaKind(file.path) === kind) : data) ?? [],
@@ -65,6 +85,27 @@ export function MediaPickerDialog({ open, kind, onSelect, onCancel }: MediaPicke
           <DialogTitle>{t(($) => $.media.selectMedia)}</DialogTitle>
         </DialogHeader>
 
+        {libraries.length > 1 && (
+          <ButtonGroup>
+            {libraries.map((id) => (
+              <Button
+                key={id}
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={id === library}
+                className="aria-pressed:bg-muted aria-pressed:text-foreground"
+                onClick={() => {
+                  setLibrary(id);
+                  setDir("");
+                }}
+              >
+                {libraryLabel(id)}
+              </Button>
+            ))}
+          </ButtonGroup>
+        )}
+
         <div className="flex items-center gap-2">
           <Input
             type="text"
@@ -74,10 +115,10 @@ export function MediaPickerDialog({ open, kind, onSelect, onCancel }: MediaPicke
             className="flex-1"
           />
           <NewFolderButton dir={dir} onCreate={setDir} />
-          <UploadButton state={upload} dir={dir} accept={kind && `${kind}/*`} />
+          <UploadButton state={upload} dir={dir} accept={uploadAccept(library, kind)} />
         </div>
 
-        {!query && <MediaBreadcrumbs dir={dir} onNavigate={setDir} />}
+        {!query && <MediaBreadcrumbs library={library} dir={dir} onNavigate={setDir} />}
 
         {upload.mutation.error && <ErrorBanner>{upload.mutation.error.message}</ErrorBanner>}
 
@@ -93,11 +134,11 @@ export function MediaPickerDialog({ open, kind, onSelect, onCancel }: MediaPicke
             <button
               key={file.path}
               type="button"
-              onClick={() => onSelect(file.path)}
+              onClick={() => onSelect({ library, path: file.path })}
               className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
             >
               <div className="flex h-20 items-center justify-center bg-muted">
-                <MediaThumbnail file={file} className="h-full w-full object-contain" />
+                <MediaThumbnail library={library} file={file} className="h-full w-full object-contain" />
               </div>
               <div className="border-t border-border px-2 py-1">
                 <p className="truncate text-xs text-muted-foreground" title={file.path}>

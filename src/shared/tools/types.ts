@@ -11,7 +11,7 @@
 import type { z } from "zod";
 import type { CmsCall } from "../../server/operations.ts";
 import type { ContentI18n } from "../i18n.ts";
-import type { MediaRefConfig } from "../media.ts";
+import type { ClientMediaConfig } from "../media.ts";
 import type { CollectionManifest } from "../types.ts";
 
 /**
@@ -22,7 +22,8 @@ import type { CollectionManifest } from "../types.ts";
 export type { CmsCall };
 
 /** What the tools need to know about the deployment beyond what they can ask it. */
-export interface ToolConfig extends MediaRefConfig {
+export interface ToolConfig {
+  media: ClientMediaConfig;
   contentI18n: ContentI18n | null;
   collections: CollectionManifest;
 }

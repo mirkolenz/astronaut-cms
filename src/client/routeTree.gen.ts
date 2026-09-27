@@ -12,8 +12,8 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AssistantRouteImport } from "./routes/assistant";
 import { Route as ChangesRouteImport } from "./routes/changes";
-import { Route as MediaRouteImport } from "./routes/media";
 import { Route as CollectionsCollectionRouteImport } from "./routes/collections.$collection";
+import { Route as MediaLibraryRouteImport } from "./routes/media.$library";
 import { Route as CollectionsCollectionIndexRouteImport } from "./routes/collections.$collection.index";
 import { Route as CollectionsCollectionEntryRouteImport } from "./routes/collections.$collection.$entry";
 
@@ -32,14 +32,14 @@ const ChangesRoute = ChangesRouteImport.update({
   path: "/changes",
   getParentRoute: () => rootRouteImport,
 } as any);
-const MediaRoute = MediaRouteImport.update({
-  id: "/media",
-  path: "/media",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const CollectionsCollectionRoute = CollectionsCollectionRouteImport.update({
   id: "/collections/$collection",
   path: "/collections/$collection",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const MediaLibraryRoute = MediaLibraryRouteImport.update({
+  id: "/media/$library",
+  path: "/media/$library",
   getParentRoute: () => rootRouteImport,
 } as any);
 const CollectionsCollectionIndexRoute =
@@ -59,8 +59,8 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
   "/changes": typeof ChangesRoute;
-  "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
+  "/media/$library": typeof MediaLibraryRoute;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
   "/collections/$collection/": typeof CollectionsCollectionIndexRoute;
 }
@@ -68,7 +68,7 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
   "/changes": typeof ChangesRoute;
-  "/media": typeof MediaRoute;
+  "/media/$library": typeof MediaLibraryRoute;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
   "/collections/$collection": typeof CollectionsCollectionIndexRoute;
 }
@@ -77,8 +77,8 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/assistant": typeof AssistantRoute;
   "/changes": typeof ChangesRoute;
-  "/media": typeof MediaRoute;
   "/collections/$collection": typeof CollectionsCollectionRouteWithChildren;
+  "/media/$library": typeof MediaLibraryRoute;
   "/collections/$collection/$entry": typeof CollectionsCollectionEntryRoute;
   "/collections/$collection/": typeof CollectionsCollectionIndexRoute;
 }
@@ -88,8 +88,8 @@ export interface FileRouteTypes {
     | "/"
     | "/assistant"
     | "/changes"
-    | "/media"
     | "/collections/$collection"
+    | "/media/$library"
     | "/collections/$collection/$entry"
     | "/collections/$collection/";
   fileRoutesByTo: FileRoutesByTo;
@@ -97,7 +97,7 @@ export interface FileRouteTypes {
     | "/"
     | "/assistant"
     | "/changes"
-    | "/media"
+    | "/media/$library"
     | "/collections/$collection/$entry"
     | "/collections/$collection";
   id:
@@ -105,8 +105,8 @@ export interface FileRouteTypes {
     | "/"
     | "/assistant"
     | "/changes"
-    | "/media"
     | "/collections/$collection"
+    | "/media/$library"
     | "/collections/$collection/$entry"
     | "/collections/$collection/";
   fileRoutesById: FileRoutesById;
@@ -115,8 +115,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AssistantRoute: typeof AssistantRoute;
   ChangesRoute: typeof ChangesRoute;
-  MediaRoute: typeof MediaRoute;
   CollectionsCollectionRoute: typeof CollectionsCollectionRouteWithChildren;
+  MediaLibraryRoute: typeof MediaLibraryRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -142,18 +142,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ChangesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/media": {
-      id: "/media";
-      path: "/media";
-      fullPath: "/media";
-      preLoaderRoute: typeof MediaRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/collections/$collection": {
       id: "/collections/$collection";
       path: "/collections/$collection";
       fullPath: "/collections/$collection";
       preLoaderRoute: typeof CollectionsCollectionRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/media/$library": {
+      id: "/media/$library";
+      path: "/media/$library";
+      fullPath: "/media/$library";
+      preLoaderRoute: typeof MediaLibraryRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/collections/$collection/": {
@@ -192,8 +192,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
   ChangesRoute: ChangesRoute,
-  MediaRoute: MediaRoute,
   CollectionsCollectionRoute: CollectionsCollectionRouteWithChildren,
+  MediaLibraryRoute: MediaLibraryRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

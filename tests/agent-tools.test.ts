@@ -10,8 +10,7 @@ import { TOOL_NAME_PATTERN, unexposable } from "@/shared/tools/exposable";
 import type { CmsCall, CmsToolSet, ToolConfig } from "@/shared/tools/types";
 
 const config: ToolConfig = {
-  mediaBackend: { type: "repo" },
-  mediaDirectory: "src/assets",
+  media: client.media,
   contentI18n: null,
   collections: client.collections,
 };

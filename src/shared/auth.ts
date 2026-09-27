@@ -40,7 +40,7 @@ export const API_RPC = `${API_BASE}/rpc`;
  * into a refusal of calls that had nothing wrong with them.
  */
 export const MAX_BATCH_OPS = 20;
-/** Media bytes, addressed as `${API_MEDIA}/<library path>`. */
+/** Media bytes, addressed as `${API_MEDIA}/<library>/<library path>`. */
 export const API_MEDIA = `${API_BASE}/media`;
 /** Upload bytes, for a store the server cannot hand the browser a URL to. */
 export const API_UPLOAD = `${API_BASE}/upload`;

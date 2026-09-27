@@ -33,7 +33,7 @@ export function secretsSchema(config: CmsConfig): Record<string, SecretField> {
     );
   }
 
-  if ((config.media?.backend?.type ?? "repo") !== "repo") {
+  if (config.media?.s3) {
     names.push(S3_ACCESS_KEY_ID_ENV, S3_SECRET_ACCESS_KEY_ENV, S3_SESSION_TOKEN_ENV);
   }
 

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 import {
   useMedia,
   useDeleteMedia,
@@ -31,16 +31,35 @@ import {
   mediaPathRefusal,
   NewFolderButton,
   UploadButton,
+  uploadAccept,
   useMediaUpload,
 } from "@/client/components/media-browser";
 import { listDirectory } from "@/client/lib/entry-tree";
 import type { MediaFile } from "@/shared/types";
-import { isTransactionalMedia, mediaKind } from "@/shared/media";
+import { isTransactionalMedia, mediaKind, parseMediaLibrary, type MediaLibraryId } from "@/shared/media";
+import { libraryLabel } from "@/client/lib/media";
 import { Button } from "@/client/components/ui/button";
 
-export const Route = createFileRoute("/media")({
-  component: MediaLibrary,
+export const Route = createFileRoute("/media/$library")({
+  params: {
+    parse: ({ library }): { library: MediaLibraryId } => {
+      const id = parseMediaLibrary(config.media, library);
+
+      if (!id) throw notFound();
+
+      return { library: id };
+    },
+    stringify: ({ library }) => ({ library }),
+  },
+  component: MediaRoute,
 });
+
+/** Keyed by the library, so switching between them starts from a fresh view. */
+function MediaRoute() {
+  const { library } = Route.useParams();
+
+  return <MediaLibrary key={library} library={library} />;
+}
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "--";
@@ -51,11 +70,11 @@ function formatSize(bytes: number): string {
   return new Intl.NumberFormat(config.locale, { style: "unit", unit, maximumFractionDigits: 1 }).format(value);
 }
 
-function MediaLibrary() {
+function MediaLibrary({ library }: { library: MediaLibraryId }) {
   const { t } = useTranslation();
-  const { data: files, isLoading, error } = useMedia();
+  const { data: files, isLoading, error } = useMedia(library);
   const deleteMutation = useDeleteMedia();
-  const upload = useMediaUpload(files);
+  const upload = useMediaUpload(library, files);
   const renameMutation = useRenameMedia();
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -70,7 +89,7 @@ function MediaLibrary() {
 
   const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
   const referencesOf = (path: string | null): AssetReference[] =>
-    path && index ? referencesFor(index, path) : [];
+    path && index ? referencesFor(index, { library, path }) : [];
 
   // Every destructive action needs to know what it would break, so opening one
   // asks for the index just as the usage view does.
@@ -84,10 +103,10 @@ function MediaLibrary() {
     const paths = files?.map((file) => file.path) ?? [];
 
     return {
-      usage: index && classifyUsage(paths, index, config),
-      stale: index ? staleReferences(index, paths) : [],
+      usage: index && classifyUsage(library, paths, index, config.media),
+      stale: index ? staleReferences(index, library, paths) : [],
     };
-  }, [files, index]);
+  }, [library, files, index]);
 
   // Everything in this folder, before the unused filter narrows it to what is on screen.
   const { folders, files: dirFiles } = useMemo(
@@ -112,7 +131,7 @@ function MediaLibrary() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    deleteMutation.mutate({ path: deleteTarget, force: true });
+    deleteMutation.mutate({ library, path: deleteTarget, force: true });
     setDeleteTarget(null);
   };
 
@@ -120,8 +139,9 @@ function MediaLibrary() {
     if (!renameTarget) return;
 
     renameMutation.mutate({
-      oldPath: renameTarget,
-      newPath: join(dirname(renameTarget), name),
+      library,
+      from: renameTarget,
+      to: join(dirname(renameTarget), name),
       // The dialog above has just shown the editor what references this file,
       // which is exactly the acknowledgement the server asks for.
       force: true,
@@ -132,7 +152,7 @@ function MediaLibrary() {
   const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !replaceTarget) return;
-    upload.mutation.mutate({ path: replaceTarget, file, overwrite: true });
+    upload.mutation.mutate({ library, path: replaceTarget, file, overwrite: true });
     setReplaceTarget(null);
     e.target.value = "";
   };
@@ -155,10 +175,10 @@ function MediaLibrary() {
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{t(($) => $.media.title)}</h1>
+          <h1 className="text-xl font-semibold">{libraryLabel(library)}</h1>
           {/* An object store has no draft branch: what is uploaded or deleted here
               is live at once, unlike a library in the repository. */}
-          {!isTransactionalMedia(config.mediaBackend) && (
+          {!isTransactionalMedia(config.media, library) && (
             <p className="text-xs text-muted-foreground">{t(($) => $.media.immediate)}</p>
           )}
         </div>
@@ -188,12 +208,12 @@ function MediaLibrary() {
         </div>
         <div className="flex items-center gap-2">
           <NewFolderButton dir={currentDir} onCreate={setCurrentDir} />
-          <UploadButton state={upload} dir={currentDir} />
+          <UploadButton state={upload} dir={currentDir} accept={uploadAccept(library)} />
         </div>
       </div>
 
       <div className="mb-3">
-        <MediaBreadcrumbs dir={currentDir} onNavigate={setCurrentDir} />
+        <MediaBreadcrumbs library={library} dir={currentDir} onNavigate={setCurrentDir} />
       </div>
 
       {stale.length > 0 && (
@@ -253,11 +273,11 @@ function MediaLibrary() {
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${basename(file.path)}`}
                 >
-                  <MediaThumbnail file={file} className="h-full w-full object-contain" />
+                  <MediaThumbnail library={library} file={file} className="h-full w-full object-contain" />
                 </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-muted">
-                  <MediaThumbnail file={file} />
+                  <MediaThumbnail library={library} file={file} />
                 </div>
               )}
               {/* Hover action buttons */}
@@ -307,7 +327,7 @@ function MediaLibrary() {
         })}
       </div>
 
-      <TrashPanel />
+      <TrashPanel library={library} />
 
       {/* Hidden file input for replace */}
       <input
@@ -360,7 +380,7 @@ function MediaLibrary() {
         </PathDialog>
       )}
 
-      <MediaLightbox file={lightboxFile} onClose={() => setLightboxFile(null)} />
+      <MediaLightbox library={library} file={lightboxFile} onClose={() => setLightboxFile(null)} />
     </div>
   );
 }
@@ -372,9 +392,9 @@ function MediaLibrary() {
  * library behaves: its deletions are a commit, so `listTrash` answers empty and
  * this never appears. No branch on the backend is needed here.
  */
-function TrashPanel() {
+function TrashPanel({ library }: { library: MediaLibraryId }) {
   const { t } = useTranslation();
-  const { data: trashed } = useTrash();
+  const { data: trashed } = useTrash(library);
   const restore = useRestoreMedia();
   const purge = usePurgeTrash();
   const [open, setOpen] = useState(false);
@@ -419,7 +439,7 @@ function TrashPanel() {
                   variant="outline"
                   size="xs"
                   disabled={restore.isPending}
-                  onClick={() => restore.mutate({ id: file.id })}
+                  onClick={() => restore.mutate({ library, id: file.id })}
                 >
                   {restore.isPending ? t(($) => $.media.restoring) : t(($) => $.media.restore)}
                 </Button>
@@ -448,7 +468,7 @@ function TrashPanel() {
         confirmLabel={t(($) => $.common.delete)}
         variant="danger"
         onConfirm={() => {
-          if (target) purge.mutate({ id: target.id });
+          if (target) purge.mutate({ library, id: target.id });
 
           setPurgeTarget(null);
         }}

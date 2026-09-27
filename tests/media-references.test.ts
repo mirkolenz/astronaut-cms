@@ -4,7 +4,7 @@ import {
   classifyUsage,
   referencesFor,
   staleReferences,
-  type AssetReference,
+  type IndexedFile,
   type ReferenceIndex,
 } from "@/shared/references";
 import { client as config } from "virtual:astronaut-cms/server";
@@ -28,7 +28,7 @@ const posts: CollectionManifestEntry = {
 };
 
 function index(): ReferenceIndex {
-  const result = new Map<string, AssetReference[]>();
+  const result = new Map<string, IndexedFile>();
 
   indexEntry(result, posts, {
     id: "hello",
@@ -37,22 +37,22 @@ function index(): ReferenceIndex {
     body: "Prose with ![alt](../../assets/inline.png) and a note on ../../assets/brief.pdf.",
   });
 
-  return [...result];
+  return [...result.values()];
 }
 
 describe("asset references", () => {
   it("collects a schema field, a markdown image and a path only the body mentions", () => {
     const references = index();
 
-    expect(referencesFor(references, "cover.png")[0]).toMatchObject({
+    expect(referencesFor(references, { library: "repo", path: "cover.png" })[0]).toMatchObject({
       collection: "posts",
       entryId: "hello",
       declared: true,
     });
-    expect(referencesFor(references, "inline.png")).toEqual([
+    expect(referencesFor(references, { library: "repo", path: "inline.png" })).toEqual([
       expect.objectContaining({ where: "markdown image", declared: true }),
     ]);
-    expect(referencesFor(references, "brief.pdf")[0]).toMatchObject({
+    expect(referencesFor(references, { library: "repo", path: "brief.pdf" })[0]).toMatchObject({
       where: "body",
       declared: false,
     });
@@ -60,9 +60,10 @@ describe("asset references", () => {
 
   it("treats only unreferenced files as orphans", () => {
     const usage = classifyUsage(
+      "repo",
       ["cover.png", "inline.png", "brief.pdf", "stray.png"],
       index(),
-      config,
+      config.media,
     );
 
     expect([...usage]).toEqual([
@@ -76,10 +77,11 @@ describe("asset references", () => {
   // The two reports weigh the same evidence differently: prose is enough to keep
   // a file, never enough to call an entry broken.
   it("reports a declared reference to a missing file, but not a textual one", () => {
-    expect(staleReferences(index(), [])).toEqual([
+    expect(staleReferences(index(), "repo", [])).toEqual([
       expect.objectContaining({ path: "cover.png", entryId: "hello", declared: true }),
       expect.objectContaining({ path: "inline.png", where: "markdown image" }),
     ]);
-    expect(staleReferences(index(), ["cover.png", "inline.png"])).toEqual([]);
+    expect(staleReferences(index(), "repo", ["cover.png", "inline.png"])).toEqual([]);
+    expect(staleReferences(index(), "s3", [])).toEqual([]);
   });
 });

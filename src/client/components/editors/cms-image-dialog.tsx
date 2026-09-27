@@ -8,7 +8,7 @@ import {
 import { useEntryContext } from "@/client/lib/entry-context";
 import config from "@/client/lib/config";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
-import { markdownImageUrl } from "@/shared/media";
+import { markdownImageUrl, type MediaLocation } from "@/shared/media";
 
 /**
  * Custom ImageDialog for MDXEditor's imagePlugin.
@@ -22,8 +22,8 @@ export function CmsImageDialog() {
 
   const isOpen = state.type === "new" || state.type === "editing";
 
-  const handleSelect = (path: string) =>
-    saveImage({ src: markdownImageUrl(path, config, ctx?.contentFilePath) });
+  const handleSelect = (location: MediaLocation) =>
+    saveImage({ src: markdownImageUrl(location, config.media, ctx?.contentFilePath) });
 
   return (
     <MediaPickerDialog open={isOpen} kind="image" onSelect={handleSelect} onCancel={closeDialog} />

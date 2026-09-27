@@ -29,7 +29,7 @@ import {
   collectionPatchSchema,
 } from "../collection-schema.ts";
 import { ContentValidationError } from "../diagnostics.ts";
-import { mediaRef } from "../media.ts";
+import { mediaLibraries, mediaRef } from "../media.ts";
 import { unexposable } from "./exposable.ts";
 import type { CollectionManifestEntry } from "../types.ts";
 import { contentModel } from "./content-model.ts";
@@ -149,6 +149,8 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
   const collection = collectionEnum(config.collections).describe(
     "Name of a content or data collection.",
   );
+  const libraries = mediaLibraries(config.media);
+  const librarySchema = z.enum(libraries).describe("Media library holding the file, as listMedia reports it.");
 
   /**
    * One full-overwrite tool per collection, carrying that collection's exact
@@ -333,39 +335,49 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     listMedia: defineTool({
       title: "List media files",
       description:
-        "List all media files (images and documents). `path` addresses a file for renameMedia and deleteMedia; `ref` is the value to write into an image or file field, verbatim.",
+        "List all media files (images and documents) of every media library. `library` and `path` address a file for renameMedia and deleteMedia; `ref` is the value to write into an image or file field, verbatim.",
       inputSchema: z.object({}),
       annotations: { readOnly: true, untrustedOutput: true },
       // The library addresses a file by its own path, while content stores a
       // reference built from it, so both are reported rather than left to be guessed.
       execute: async () =>
-        (await call("listMedia", {})).map((file) => ({
-          ...file,
-          ref: mediaRef(file.path, config),
-        })),
+        (
+          await Promise.all(
+            libraries.map(async (library) =>
+              (await call("listMedia", { library })).map((file) => ({
+                library,
+                ...file,
+                ref: mediaRef({ library, path: file.path }, config.media),
+              })),
+            ),
+          )
+        ).flat(),
     }),
 
     renameMedia: defineTool({
       title: "Rename a media file",
       description:
-        "Rename or move a media file. Refused while content still references the file, since references keep the old path — update the entries first.",
+        "Rename or move a media file within its library. Refused while content still references the file, since references keep the old path — update the entries first.",
       inputSchema: z.object({
+        library: librarySchema,
         oldPath: z.string().describe("Current path of the file, as listMedia reports it."),
         newPath: z.string().describe("Path to move it to, in the same form."),
       }),
       annotations: { destructive: true },
-      execute: ({ oldPath, newPath }) => call("renameMedia", { from: oldPath, to: newPath }),
+      execute: ({ library, oldPath, newPath }) =>
+        call("renameMedia", { library, from: oldPath, to: newPath }),
     }),
 
     deleteMedia: defineTool({
       title: "Delete a media file",
       description:
-        "Delete a media file. Refused while content still references it. On an object store the file is moved to the library's trash rather than dropped.",
+        "Delete a media file. Refused while content still references it. In an object store the file is moved to the library's trash rather than dropped.",
       inputSchema: z.object({
+        library: librarySchema,
         path: z.string().describe("Path of the file, as listMedia reports it."),
       }),
       annotations: { destructive: true },
-      execute: ({ path }) => call("deleteMedia", { path }),
+      execute: (input) => call("deleteMedia", input),
     }),
 
     getChanges: defineTool({

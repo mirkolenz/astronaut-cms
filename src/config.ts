@@ -10,13 +10,18 @@ export type { JsxEditor, JsxEditorProps };
 export type ComponentIcon = (props: { className?: string }) => ReactNode;
 
 /**
- * `file()` names an asset in the media library that is bundled as the file
+ * `file()` names an asset in either media library that is bundled as the file
  * itself, for a collection field astro has no helper for. Its `image()`
  * counterpart is deliberately absent: a collection field takes astro's own
- * `({ image })`, and a component prop takes the one its props function is
- * handed, so there is no spelling that resolves in one place and not the other.
+ * `({ image })`, wrapped in `libraryImage(image)` to take object-store files
+ * too, and a component prop takes the one its props function is handed, so
+ * there is no spelling that resolves in one place and not the other.
  */
-export { fileMarker as file, linkMarker as link } from "./shared/cms-markers.ts";
+export {
+  fileMarker as file,
+  libraryImage,
+  linkMarker as link,
+} from "./shared/cms-markers.ts";
 
 /** The asset, link and reference helpers a component's props function receives. */
 export type SchemaHelpers = typeof schemaHelpers;

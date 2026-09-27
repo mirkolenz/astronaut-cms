@@ -14,6 +14,7 @@ default `satteri()` pipeline and under `unified()`.
 | ------------------------------------ | ------------------- | -------------------------------------------------------------------- |
 | Markdown image `![alt](./x.png)`     | prose               | Astro's Markdown processor, no extra wiring                          |
 | `image()` schema field               | frontmatter, data   | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
+| `libraryImage(image)` schema field   | frontmatter, data   | As above, or the object-store URL as it is                           |
 | `image()` / `file()` component prop  | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | `file()` schema field                | frontmatter, data   | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | Link to a file `[doc](/files/x.pdf)` | prose               | Put the file in `public/` (plain URL)                                |
@@ -146,7 +147,7 @@ const img = await resolveImage("../../assets/photo.png", "src/content/blog/post.
 ```
 
 <Aside type="note">
-  A relative path must resolve into your `media.directory`, since the map only covers that folder.
+  A relative path must resolve into your `media.repo.directory`, since the map only covers that folder.
   Nothing hands an MDX component the path of the entry it was written in, so prefer absolute paths
   in props and keep `base` for the cases where you already have the entry in scope.
 </Aside>
@@ -182,31 +183,29 @@ asset fields.
 
 ## Object-store libraries
 
-Everything above describes a library that lives in your repository, where astro's asset pipeline
-resolves and bundles the files. With `media.backend` set to an object store
-([Media Library](/astronaut-cms/guides/media-library/#where-files-are-stored)) the same references
-work, but they resolve differently, and it is worth knowing where the seams are.
-
-Content stores a **library key** rather than a project path:
+Everything above describes the repository library, where astro's asset pipeline resolves and
+bundles the files. With `media.s3` configured beside it
+([Media Library](/astronaut-cms/guides/media-library/#where-files-are-stored)) the same fields and
+props can also name a file in the store, by its public URL:
 
 ```json
-{ "cover": "photos/hero.png" }
+{ "cover": "https://cdn.example.com/photos/hero.png" }
 ```
 
-`resolveImage()` turns that key into a URL under the configured `publicUrl` instead of importing a
-file, so it hands back a `string` rather than `ImageMetadata`:
+That URL is what astro resolves as a remote image by itself, so every kind of reference in the
+table above takes it without any help from the CMS. A markdown image is fetched and optimized by
+either markdown processor, and `resolveImage()` and `resolveFile()` hand it back unchanged:
 
 ```astro
 ---
 import { resolveImage, resolveFile } from "astronaut-cms/assets";
 
-const cover = await resolveImage("photos/hero.png"); // -> "https://cdn.example.com/photos/hero.png"
-const pdf = await resolveFile("reports/q3.pdf");     // -> "https://cdn.example.com/reports/q3.pdf"
+const cover = await resolveImage("https://cdn.example.com/photos/hero.png"); // the URL itself
+const pdf = await resolveFile("https://cdn.example.com/reports/q3.pdf");
 ---
 ```
 
-`astronaut-cms/Image.astro` handles both cases, so a component written for a repository library keeps
-working unchanged:
+`astronaut-cms/Image.astro` takes both kinds of value, so one component serves either library:
 
 ```astro
 ---
@@ -219,26 +218,41 @@ import Image from "astronaut-cms/Image.astro";
 For a remote image it passes `inferSize` to `astro:assets`, which reads the real dimensions from the
 image itself, at build time for a prerendered page. Pass an explicit `width` and `height` to skip that.
 The integration adds your `publicUrl` to astro's `image.remotePatterns` for you, which is what allows
-astro to fetch and optimize those images at all.
+astro to fetch and optimize those images at all. A prerendered page then serves only the optimized
+variants, so no visitor downloads an original from the store.
 
-<Aside type="caution">
-  Astro's collection `image()` helper imports a local file, so it cannot hold a library key. For an
-  asset field in a collection schema with an object-store library, use the CMS's own `file()` and
-  resolve it as above, with `resolveImage()` for an image. Everything else in this guide — MDX
-  component props, `resolveFile()`, relative-path rules — is unchanged.
-</Aside>
+A collection field declared with astro's plain `image()` takes repository files only, since astro
+types its value as imported `ImageMetadata`. Wrap it in `libraryImage()` to take a file from either
+library:
 
-A markdown image is astro's to resolve, so the editor writes it as the file's public URL
-(`![alt](https://cdn.example.com/photos/hero.png)`), which astro optimizes as a remote image under both
-markdown processors. The CMS reads that URL back as the library key it serves, so the image counts as a
-use of the file, and delete and rename warn about it. Changing `publicUrl` later leaves those URLs
-pointing at the old base, and the media view lists them as references to missing files.
+```ts title="src/content.config.ts"
+import { libraryImage } from "astronaut-cms/config";
 
-Nothing is bundled, because nothing is in the project to bundle: the build emits no copies, and
-`media.alwaysInclude` has no effect. That also means a build cannot tell you an asset is missing.
-The check moves earlier instead: the admin (and the assistant) refuse to write an `image()` or
-`file()` value that is not in the library, which is the same rule, applied when the content is
-written rather than when it is built.
+const posts = defineCollection({
+  loader: glob({ pattern: "**/*.{md,mdx}", base: "src/content/blog" }),
+  schema: ({ image }) =>
+    z.object({
+      logo: image(), // repository files only
+      cover: libraryImage(image), // either library
+    }),
+});
+```
+
+A repository file still goes through astro's own `image()` and arrives as `ImageMetadata`, and an
+object-store file arrives as its URL, so the field is typed `ImageMetadata | string`. TypeScript then
+refuses to hand it to code that only handles `ImageMetadata`, and astro's `<Image>` asks for a
+`width` and `height` or `inferSize` as it does for any remote image. `astronaut-cms/Image.astro`
+takes it as it is. The admin's picker follows the declaration too: a plain `image()` field only
+offers the repository library, and a URL written into one is refused on save and fails the build.
+
+The CMS reads an object-store URL back as the file it names, so the file counts as used, and delete
+and rename warn about it. Changing `publicUrl` later leaves the stored URLs pointing at the old base,
+and the media view lists them as references to missing files.
+
+Nothing of the store is bundled, because nothing of it is in the project: the build emits no copies,
+and a build cannot tell you an object-store asset is missing. The check moves earlier instead: the
+admin (and the assistant) refuse to write an `image()` or `file()` value that is not in the library
+it names, which is the same rule, applied when the content is written rather than when it is built.
 
 ## What a build bundles
 
@@ -262,13 +276,13 @@ Nothing is inferred from the shape of a string, so a prop that merely looks path
 Collection `image()` fields are not in that list, because Astro imports them into `entry.data`
 itself and bundling them again would ship a second copy.
 Markdown bodies are skipped for the same kind of reason: their relative images are Astro's own to resolve.
-A Markdoc body is skipped because the CMS has no schema for its tags, so an asset a Markdoc tag names belongs in `media.alwaysInclude`.
+A Markdoc body is skipped because the CMS has no schema for its tags, so an asset a Markdoc tag names belongs in `media.repo.alwaysInclude`.
 
 Content the CMS or the AI assistant writes is committed before a build runs, so it is read like any other entry.
 The same goes for a translation an i18n fallback renders in place of a missing one, since that is a real entry in another language directory.
 
 <Aside type="caution">
-  An `image()` or `file()` value the media directory does not hold fails the **build**, naming the
+  An `image()` or `file()` repository path the media directory does not hold fails the **build**, naming the
   entry and the field or prop it came from, rather than turning into a broken image at render time.
 </Aside>
 
@@ -281,7 +295,7 @@ each `<Image>` asked for, so the untouched original is never served and is not b
 A `file()` value is bundled as the file itself, since that is the whole point of `resolveFile()`.
 
 If you want the original of an image the CMS only sees as an `image()`, for a "download the
-full-size photo" link say, add it to `media.alwaysInclude`.
+full-size photo" link say, add it to `media.repo.alwaysInclude`.
 The build tells you so by name if you forget.
 
 ## Bundling a file nothing references
@@ -295,12 +309,14 @@ const og = await resolveImage("/src/assets/og-default.png");
 ---
 ```
 
-List those under `media.alwaysInclude`, as globs relative to your media directory:
+List those under `media.repo.alwaysInclude`, as globs relative to your media directory:
 
 ```ts title="astro.config.ts"
 cms({
   media: {
-    alwaysInclude: ["og-default.png", "brand/**"],
+    repo: {
+      alwaysInclude: ["og-default.png", "brand/**"],
+    },
   },
 });
 ```

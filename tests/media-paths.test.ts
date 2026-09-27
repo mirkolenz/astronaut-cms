@@ -8,71 +8,71 @@ import {
   mediaPath,
   mediaRef,
   remoteMediaUrl,
+  sizeLimitError,
   uniqueMediaPath,
 } from "@/shared/media";
 import { ObjectStoreLibrary } from "@/server/media";
 import type { MediaStore } from "@/media/s3-store";
 
-// One rule maps a library path to the string content stores, and back. The two
-// backends spell it differently — a project path for a library in the
-// repository, a bare key for one in an object store — and everything that reads
-// or writes an asset value (the picker, entry validation, the resolver) goes
-// through here, so the two spellings can never drift apart.
+import { repoMedia, s3Media } from "./fixtures/media";
 
-const repo = { mediaBackend: { type: "repo" } as const, mediaDirectory: "src/assets" };
-const remote = {
-  mediaBackend: {
-    type: "remote",
-    publicUrl: "https://cdn.example.com",
-    storeOrigin: "https://s3.example.com",
-  } as const,
-  mediaDirectory: "src/assets",
-};
-// `astro dev` may hold an object store's library in the working tree, which moves
-// the bytes and nothing else: an entry edited there has to build unchanged.
-const devLocal = {
-  mediaBackend: {
-    type: "remote",
-    publicUrl: "https://cdn.example.com",
-    storeOrigin: "https://s3.example.com",
-    local: true,
-  } as const,
-  mediaDirectory: "src/assets",
-};
+// One rule maps a library file to the string content stores, and back. The two
+// libraries spell it differently, a project path for the repository and the
+// public URL for the object store, and everything that reads or writes an asset
+// value (the picker, entry validation, the resolver) goes through here, so the
+// two spellings can never drift apart.
+
+const repo = repoMedia();
+const both = s3Media();
 
 describe("media paths", () => {
   it("round-trips a repository path", () => {
-    expect(mediaRef("photos/hero.png", repo)).toBe("/src/assets/photos/hero.png");
-    expect(mediaPath("/src/assets/photos/hero.png", repo)).toBe("photos/hero.png");
+    expect(mediaRef({ library: "repo", path: "photos/hero.png" }, both)).toBe(
+      "/src/assets/photos/hero.png",
+    );
+    expect(mediaPath("/src/assets/photos/hero.png", both)).toEqual({
+      library: "repo",
+      path: "photos/hero.png",
+    });
   });
 
-  it("round-trips an object-store key", () => {
-    expect(mediaRef("photos/hero.png", remote)).toBe("photos/hero.png");
-    expect(mediaPath("photos/hero.png", remote)).toBe("photos/hero.png");
-  });
-
-  it("spells a locally served object-store library exactly like the store", () => {
-    expect(mediaRef("photos/hero.png", devLocal)).toBe("photos/hero.png");
-    expect(mediaPath("photos/hero.png", devLocal)).toBe("photos/hero.png");
-    expect(mediaPath("/src/assets/photos/hero.png", devLocal)).toBeNull();
-  });
-
-  // A markdown image in an object-store library is its public URL, which astro
-  // fetches, and which still has to read back as the key it serves.
-  it("reads a public URL back as its key", () => {
-    const url = markdownImageUrl("photos/a b.png", remote, "src/content/blog/post.md");
+  // The public URL is what astro resolves itself, and has to read back as the key it serves.
+  it("round-trips an object-store URL", () => {
+    const url = mediaRef({ library: "s3", path: "photos/a b.png" }, both);
 
     expect(url).toBe("https://cdn.example.com/photos/a%20b.png");
-    expect(mediaPath(url, remote)).toBe("photos/a b.png");
-    expect(markdownImageUrl("photos/hero.png", repo, "src/content/blog/post.md")).toBe(
-      "../../assets/photos/hero.png",
+    expect(mediaPath(url, both)).toEqual({ library: "s3", path: "photos/a b.png" });
+    expect(markdownImageUrl({ library: "s3", path: "photos/a b.png" }, both, "src/content/blog/post.md")).toBe(url);
+  });
+
+  // `astro dev` may hold the object store in the working tree, which moves the
+  // bytes and nothing else: an entry edited there has to build unchanged.
+  it("spells a locally served object store exactly like the store", () => {
+    expect(mediaRef({ library: "s3", path: "hero.png" }, s3Media(".astronaut-cms/s3"))).toBe(
+      "https://cdn.example.com/hero.png",
     );
   });
 
-  it("rejects a value that does not address the library", () => {
-    expect(mediaPath("/public/hero.png", repo)).toBeNull();
-    expect(mediaPath("/src/assets/hero.png", remote)).toBeNull();
-    expect(mediaPath("https://elsewhere.example/hero.png", remote)).toBeNull();
+  it("writes a repository markdown image relative to the entry", () => {
+    expect(
+      markdownImageUrl({ library: "repo", path: "photos/hero.png" }, both, "src/content/blog/post.md"),
+    ).toBe("../../assets/photos/hero.png");
+  });
+
+  it("rejects a value that does not address a library", () => {
+    expect(mediaPath("/public/hero.png", both)).toBeNull();
+    expect(mediaPath("photos/hero.png", both)).toBeNull();
+    expect(mediaPath("https://elsewhere.example/hero.png", both)).toBeNull();
+    expect(mediaPath("https://cdn.example.com/hero.png", repo)).toBeNull();
+  });
+
+  // Bounds may overlap between libraries, and each refuses only what falls outside its own.
+  it("refuses a file outside a library's size bounds", () => {
+    const limits = { minFileSize: 5 * 1024 * 1024, maxFileSize: 10 * 1024 * 1024 };
+
+    expect(sizeLimitError(7 * 1024 * 1024, limits)).toBeNull();
+    expect(sizeLimitError(1024, limits)).toMatch(/smaller than the 5 MB minimum/);
+    expect(sizeLimitError(11 * 1024 * 1024, limits)).toMatch(/larger than the 10 MB limit/);
   });
 
   it("serves a key under the public base", () => {
@@ -153,7 +153,7 @@ const libraryOf = (store: MediaStore) =>
       prefix: "lib/",
       s3: { endpoint: "https://s3.example.com", region: "auto", pathStyle: true, bucket: "b" },
     },
-    { extensions: ["png"], maxFileSize: null },
+    repoMedia(["png"]).repo,
   );
 
 describe("reading a library", () => {

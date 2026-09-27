@@ -6,18 +6,38 @@
  * Used by the public `astronaut-cms/config` helpers (`image`/`file`), the
  * `astro:content` stub (`reference`), and the content-config schema helper bag.
  *
- * In a `content.config.ts` `imageMarker` stands in for astro's own schema helper
- * while the integration reads the config in Node: astro's `image()` is what the
- * real build runs, and the marker is only how the admin learns the field takes an
- * image. In a `cms.config.ts` the markers are the real thing, since astro has no
- * say over an MDX component's props.
+ * In a `content.config.ts` `repoImageMarker` stands in for astro's own schema
+ * helper while the integration reads the config in Node: astro's `image()` is
+ * what the real build runs, and the marker is only how the admin learns the field
+ * takes a repository image. In a `cms.config.ts` the markers are the real thing,
+ * since astro has no say over an MDX component's props.
  */
 import { z } from "zod";
 import { CMS_IMAGE, CMS_FILE, CMS_REFERENCE, CMS_LINK } from "./field-schema.ts";
 import { allowedLinks } from "./links.ts";
 
-/** A Zod string naming an image in the media library. */
+/** A Zod string naming an image in either media library. */
 export const imageMarker = () => z.string().meta({ [CMS_IMAGE]: true });
+
+/** Astro's collection `image()` as the admin reads it: an image in the repository library alone. */
+export const repoImageMarker = () => z.string().meta({ [CMS_IMAGE]: "repo" });
+
+/**
+ * A collection image field that takes a file from either media library: an
+ * object-store URL as it is, or anything else through astro's own `image()`,
+ * which imports a repository file as ever. Typed as what arrives, so rendering a
+ * URL where only `ImageMetadata` is handled is a compile error rather than a
+ * failed build. The URL is left to astro, which optimizes it as a remote image,
+ * and whether it names a library file is checked when content is written.
+ *
+ * @example
+ * ```ts
+ * schema: ({ image }) => z.object({ cover: libraryImage(image) })
+ * ```
+ */
+export function libraryImage<T extends z.ZodType>(image: () => T) {
+  return z.union([z.url(), image()]).meta({ [CMS_IMAGE]: true });
+}
 
 /** A Zod string naming a file in the media library, resolved to a bundled URL. */
 export const fileMarker = () => z.string().meta({ [CMS_FILE]: true });

@@ -1,7 +1,14 @@
 import type { FileUIPart } from "ai";
 import config from "@/client/lib/config";
-import { hasAllowedExtension, mediaRef, uniqueMediaPath } from "@/shared/media";
-import { uploadMedia } from "@/client/lib/media";
+import {
+  hasAllowedExtension,
+  mediaLibraries,
+  mediaLibrary,
+  mediaRef,
+  uniqueMediaPath,
+  type MediaLibraryId,
+} from "@/shared/media";
+import { refusalOf, uploadMedia } from "@/client/lib/media";
 import { call } from "@/client/lib/api";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { extractInWorker } from "@/client/lib/ai/workers/extraction";
@@ -69,6 +76,33 @@ async function imageToFilePart(file: File): Promise<FileUIPart> {
   };
 }
 
+/**
+ * The first library that takes an attachment, as that library would optimize
+ * it. No editor picks one here, so the repository library is preferred and the
+ * object store takes what the repository refuses. Libraries optimizing alike
+ * share one encode.
+ */
+async function placeAttachment(file: File): Promise<{ library: MediaLibraryId; optimized: File }> {
+  const encodes = new Map<string, Promise<File>>();
+  let refusal: string | null = null;
+
+  for (const library of mediaLibraries(config.media)) {
+    const settings = mediaLibrary(config.media, library).imageOptimization;
+    const key = JSON.stringify(settings);
+    const encode = encodes.get(key) ?? optimizeImage(file, settings);
+
+    encodes.set(key, encode);
+
+    const optimized = await encode;
+
+    refusal = refusalOf(library, optimized);
+
+    if (!refusal) return { library, optimized };
+  }
+
+  throw new Error(refusal ?? `No media library accepts "${file.name}".`);
+}
+
 // Turns the composed text and attachments into a message: images become visual
 // parts (and, when flagged, are uploaded to the media library), documents are
 // extracted to text and folded into the prompt alongside any saved media paths.
@@ -86,24 +120,30 @@ export async function prepareMessage(
   );
 
   // Nobody is asked whether to overwrite here, so every saved attachment gets a
-  // free name instead. Listed once and grown as uploads land, so two attachments
-  // in one message cannot replace each other either.
-  const taken = new Set<string>(
-    attachments.some((a) => a.save && isImageAttachment(a.file))
-      ? (await call("listMedia", {})).map((file) => file.path)
-      : [],
-  );
+  // free name instead. Each library is listed once and grown as uploads land, so
+  // two attachments in one message cannot replace each other either.
+  const taken = new Map<MediaLibraryId, Promise<Set<string>>>();
+  const takenIn = (library: MediaLibraryId): Promise<Set<string>> => {
+    const names =
+      taken.get(library) ??
+      call("listMedia", { library }).then((files) => new Set(files.map((file) => file.path)));
+
+    taken.set(library, names);
+
+    return names;
+  };
 
   for (const { file, save } of attachments.filter(({ file }) => isImageAttachment(file))) {
     if (save) {
-      const optimized = await optimizeImage(file);
-      const path = uniqueMediaPath(optimized.name, taken);
+      const { library, optimized } = await placeAttachment(file);
+      const names = await takenIn(library);
+      const path = uniqueMediaPath(optimized.name, names);
 
-      taken.add(path);
-      await uploadMedia(path, optimized);
+      names.add(path);
+      await uploadMedia({ library, path }, optimized);
       // The model is handed the reference content stores, not the library path,
       // since the only thing it does with it is write it into a field.
-      savedPaths.push(mediaRef(path, config));
+      savedPaths.push(mediaRef({ library, path }, config.media));
       files.push(await imageToFilePart(optimized));
     } else {
       files.push(await imageToFilePart(file));

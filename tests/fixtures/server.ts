@@ -1,4 +1,5 @@
 import type { CmsClientConfig, CmsServerConfig } from "@/integration/types";
+import { repoMedia } from "./media";
 
 // Stand-in for the build-time `virtual:astronaut-cms/server` module. Local
 // storage, so no provider credential is involved in a test run, and one
@@ -6,12 +7,7 @@ import type { CmsClientConfig, CmsServerConfig } from "@/integration/types";
 export const client: CmsClientConfig = {
   mountPoint: "/admin",
   storageType: "local",
-  mediaDirectory: "src/assets",
-  mediaExtensions: [".png", ".jpg", ".svg", ".pdf"],
-  mediaBackend: { type: "repo" },
-  maxFileSize: null,
-  mediaAlwaysInclude: [],
-  imageOptimization: null,
+  media: repoMedia([".png", ".jpg", ".svg", ".pdf"]),
   locale: "en",
   contentI18n: { locales: ["en", "de"], defaultLocale: "en" },
   capabilities: { publish: false, update: false },
@@ -34,9 +30,6 @@ export const server: CmsServerConfig = {
   storage: { type: "local", rootDir: process.cwd() },
   media: null,
   ai: null,
-  mediaDirectory: "src/assets",
-  mediaExtensions: [".png", ".jpg", ".svg", ".pdf"],
-  maxFileSize: null,
 };
 
 export { components } from "./user-config";

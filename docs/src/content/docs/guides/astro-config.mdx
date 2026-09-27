@@ -36,8 +36,7 @@ cms({
   locale: "en",
   storage: { type: "local" },
   media: {
-    directory: "src/assets",
-    maxFileSize: 10_000_000,
+    repo: { directory: "src/assets", maxFileSize: 10_000_000 },
   },
 });
 ```
@@ -92,7 +91,7 @@ See the [Storage Backends](../storage-backends/) guide for details.
 ### `media`
 
 - **Type:** `MediaConfig`
-- **Default:** `{ directory: "src/assets" }`
+- **Default:** `{ repo: { directory: "src/assets" } }`
 
-Media library configuration.
+The media libraries: the repository library, and optionally an object store beside it.
 See the [Media Library](../media-library/) guide for details.

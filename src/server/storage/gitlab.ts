@@ -1,3 +1,4 @@
+import { join } from "pathe";
 import { z } from "zod";
 import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
 import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
@@ -22,8 +23,8 @@ export interface GitLabConfig {
 }
 
 /** The GitLab API of one instance, with the caller's token attached. */
-export function gitlabClient(instanceUrl: string, token: string): ApiClient {
-  return new ApiClient(joinUrl(instanceUrl, "api/v4"), {
+export function gitlabClient(instanceUrl: string, token: string, api = "api/v4"): ApiClient {
+  return new ApiClient(joinUrl(instanceUrl, api), {
     authorization: `Bearer ${token}`,
   });
 }
@@ -38,6 +39,39 @@ interface TreeFile {
 
 /** A page of the repository tree API. */
 const treeSchema = z.array(z.object({ type: z.string(), path: z.string(), id: z.string() }));
+
+/**
+ * The tree API reports no sizes, so they come from GraphQL, which names many
+ * blobs per request. `rawSize` is the file itself where the blob is an LFS
+ * pointer. Both are `BigInt` scalars, which GitLab serializes as strings.
+ */
+const BLOB_SIZES = `query ($project: ID!, $ref: String!, $paths: [String!]!) {
+  project(fullPath: $project) {
+    repository { blobs(ref: $ref, paths: $paths) { nodes { path size rawSize } } }
+  }
+}`;
+
+const blobSizesSchema = z.object({
+  data: z
+    .object({
+      project: z
+        .object({
+          repository: z.object({
+            blobs: z.object({
+              nodes: z.array(
+                z.object({ path: z.string(), size: z.coerce.number(), rawSize: z.coerce.number().nullish() }),
+              ),
+            }),
+          }),
+        })
+        .nullable(),
+    })
+    .nullish(),
+  errors: z.array(z.object({ message: z.string() })).optional(),
+});
+
+/** How many blobs one size query names, well inside GitLab's query complexity limit. */
+const BLOB_BATCH = 100;
 
 /** One action of a commit, in the shape GitLab's commits API takes. */
 interface CommitAction {
@@ -71,6 +105,7 @@ const summarize = (mr: MergeRequest): ChangeRequestSummary => ({
 export class GitLabStorage extends BranchedStorage {
   private readonly config: GitLabConfig;
   private readonly api: ApiClient;
+  private readonly graphql: ApiClient;
 
   /**
    * Listings already made this request, keyed by ref and path. Every collection
@@ -85,6 +120,7 @@ export class GitLabStorage extends BranchedStorage {
     super(options, config.publishMode);
     this.config = config;
     this.api = gitlabClient(config.instanceUrl, token);
+    this.graphql = gitlabClient(config.instanceUrl, token, "api/graphql");
   }
 
   /** The `projects/<id>` prefix every call repeats; the id is a path, so it is encoded whole. */
@@ -173,8 +209,46 @@ export class GitLabStorage extends BranchedStorage {
     return { content: fromBase64(file.content), version: file.last_commit_id };
   }
 
-  async listMedia(): Promise<MediaFile[]> {
+  /** The tree alone, which names every file but none of their sizes. */
+  override async listPaths(): Promise<MediaFile[]> {
     return this.mediaFiles(await this.listTree(this.mediaDirectory));
+  }
+
+  async listMedia(): Promise<MediaFile[]> {
+    const files = await this.listPaths();
+    const repoPath = (file: MediaFile): string => join(this.mediaDirectory, file.path);
+    const sizes = await this.blobSizes(files.map(repoPath));
+
+    return files.map((file) => ({ ...file, size: sizes.get(repoPath(file)) ?? 0 }));
+  }
+
+  /** The size of each blob at `paths`, batched, since a size is what an upload limit is checked against. */
+  private async blobSizes(paths: string[]): Promise<Map<string, number>> {
+    const ref = await this.readRef();
+    const batches = await Promise.all(
+      Array.from({ length: Math.ceil(paths.length / BLOB_BATCH) }, async (_, i) => {
+        const { data, errors } = blobSizesSchema.parse(
+          await this.graphql.json({
+            path: "",
+            method: "POST",
+            body: {
+              query: BLOB_SIZES,
+              variables: {
+                project: this.config.project,
+                ref,
+                paths: paths.slice(i * BLOB_BATCH, (i + 1) * BLOB_BATCH),
+              },
+            },
+          }),
+        );
+
+        if (errors?.length) throw new Error(`GitLab: ${errors.map((e) => e.message).join("; ")}`);
+
+        return data?.project?.repository.blobs.nodes ?? [];
+      }),
+    );
+
+    return new Map(batches.flat().map((blob) => [blob.path, blob.rawSize ?? blob.size]));
   }
 
   protected async commitFile(

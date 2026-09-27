@@ -1,4 +1,5 @@
 import config from "@/client/lib/config";
+import { libraryDirectories } from "@/shared/media";
 import { stripExtension, stripMediaPrefix } from "@/shared/paths";
 import { collectionBase, type FileChange } from "@/shared/types";
 
@@ -36,5 +37,9 @@ export function describeChange(change: FileChange): DescribedChange {
     }
   }
 
-  return { ...change, label: stripMediaPrefix(path, config.mediaDirectory) ?? path };
+  const media = libraryDirectories(config.media)
+    .map((dir) => stripMediaPrefix(path, dir))
+    .find((label) => label != null);
+
+  return { ...change, label: media ?? path };
 }

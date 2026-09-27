@@ -80,7 +80,8 @@ async function inProject(run: (parent: string) => Promise<void>): Promise<void> 
   }
 }
 
-const localOptions = { ...storageOptions({}), mediaDirectory: MEDIA_DIRECTORY };
+// The fixture's library is rooted at MEDIA_DIRECTORY already.
+const localOptions = storageOptions({});
 
 describe("LocalStorage paths", () => {
   it("refuses a symlink that leaves a managed directory", async () => {

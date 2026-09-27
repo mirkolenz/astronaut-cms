@@ -11,7 +11,7 @@
 import type { OperationInput, OperationName } from "@/server/operations";
 import config from "@/client/lib/config";
 import { queryClient } from "@/client/lib/query-client";
-import { isTransactionalMedia } from "@/shared/media";
+import { isTransactionalMedia, type MediaLibraryId } from "@/shared/media";
 
 export type QueryKey = readonly unknown[];
 
@@ -27,8 +27,8 @@ export const cmsKeys = {
   fileLayout: (collection: string) => [...root, "file-layout", collection],
   branchStatus: [...root, "branch-status"],
   changes: [...root, "changes"],
-  media: [...root, "media"],
-  trash: [...root, "trash"],
+  media: (library: MediaLibraryId) => [...root, "media", library],
+  trash: (library: MediaLibraryId) => [...root, "trash", library],
   references: [...root, "references"],
 } as const;
 
@@ -36,18 +36,18 @@ export const cmsKeys = {
 const CHANGESET: QueryKey[] = [cmsKeys.branchStatus, cmsKeys.changes];
 
 /**
- * A library write moves the two lists a file can be in, and — only where the
- * library is part of the repository — the changeset it joins. A live object
+ * A library write moves the two lists a file can be in, and, only where the
+ * library is part of the repository, the changeset it joins. A live object
  * store is not a backend the CMS commits to, so nothing pending moves there.
  *
  * Read when the write happens rather than at module scope: the config is
  * delivered at runtime, and a library write is rare enough that the array costs
  * nothing (a collection write, which is not, names a constant).
  */
-const mediaWrite = (): QueryKey[] => [
-  cmsKeys.media,
-  cmsKeys.trash,
-  ...(isTransactionalMedia(config.mediaBackend) ? CHANGESET : []),
+const mediaWrite = ({ library }: { library: MediaLibraryId }): QueryKey[] => [
+  cmsKeys.media(library),
+  cmsKeys.trash(library),
+  ...(isTransactionalMedia(config.media, library) ? CHANGESET : []),
 ];
 
 /**
@@ -112,4 +112,4 @@ export function invalidate(keys: readonly QueryKey[]): void {
 }
 
 /** What an upload ages, once the bytes have actually landed. */
-export const invalidateMedia = (): void => invalidate(mediaWrite());
+export const invalidateMedia = (library: MediaLibraryId): void => invalidate(mediaWrite({ library }));

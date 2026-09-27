@@ -166,16 +166,16 @@ export async function discardChanges(rootDir: string, paths: string[]): Promise<
 
 /**
  * The project-relative paths the CMS owns: every collection's storage location
- * plus the media directory. Anything outside this set is the developer's, and no
- * CMS command may read or write it.
+ * plus the media directories. Anything outside this set is the developer's, and
+ * no CMS command may read or write it.
  */
 export function managedPaths(options: {
   rootDir: string;
-  mediaDir: string;
+  mediaDirs: string[];
   collections: CollectionManifest;
 }): string[] {
-  const { rootDir, mediaDir, collections } = options;
-  const paths = new Set([relative(rootDir, mediaDir)]);
+  const { rootDir, mediaDirs, collections } = options;
+  const paths = new Set(mediaDirs.map((dir) => relative(rootDir, dir)));
 
   for (const [name, collection] of Object.entries(collections)) {
     paths.add(collection.loaderFileName ?? collectionBase(name, collection));
