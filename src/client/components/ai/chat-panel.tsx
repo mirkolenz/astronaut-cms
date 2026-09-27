@@ -43,13 +43,16 @@ export function ChatPanel() {
   const setModel = useAiPanelStore((state) => state.setModel);
 
   // A single shared Chat whose messages survive the dev-server reloads that
-  // content edits trigger (see getChat); mirror every change to storage.
+  // content edits trigger (see getChat); mirror to storage whenever the run
+  // settles. Skipping the streaming phase avoids re-serializing the whole
+  // conversation on every token, while every pause point (ready, error,
+  // approval-requested) still persists.
   const { messages, sendMessage, status, stop, error, regenerate, addToolApprovalResponse } =
     useChat({ chat: getChat() });
 
   useEffect(() => {
-    saveMessages(messages);
-  }, [messages]);
+    if (status !== "streaming") saveMessages(messages);
+  }, [messages, status]);
 
   if (!aiConfig || !open) return null;
 
