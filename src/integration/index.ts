@@ -9,6 +9,7 @@ import { conformTrailingSlash } from "../shared/url.ts";
 import type { ClientMediaBackend } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
+import { ENTRY_POINTS, specifierOf } from "../entry-points.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
 import { secretsSchema } from "./env-schema.ts";
@@ -382,6 +383,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 ? [cmsDevPlugin(devApi ? join("/", astroConfig.base, API_BASE) : null)]
                 : []),
             ],
+            // The admin ships bundled, and a site's editors import its
+            // primitives, which have to be the admin's own module instances.
+            // Pre-bundled, an entry would be a copy of what it shares.
+            optimizeDeps: {
+              exclude: ENTRY_POINTS.filter((entry) => entry.admin).map(specifierOf),
+            },
           },
         });
 

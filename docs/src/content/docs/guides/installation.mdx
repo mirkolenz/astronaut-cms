@@ -34,7 +34,6 @@ npm install @astrojs/mdx
 | `@astrojs/react` | `^6`    | React integration for the admin panel |
 | `react`          | `^19`   | React runtime                         |
 | `react-dom`      | `^19`   | React DOM renderer                    |
-| `lucide-react`   | `^1`    | Component icons in `cms.config.ts`    |
 | `vite`           | `^8`    | Shared with Astro, loads your configs |
 | `zod`            | `^4`    | Collection and component schemas      |
 
@@ -44,7 +43,7 @@ npm install @astrojs/mdx
 | -------------- | ------- | -------------------------------- |
 | `@astrojs/mdx` | `^7 \|\| ^8` | MDX support for block components |
 
-The admin's stylesheet ships compiled, so the CMS adds no Tailwind plugin to your build.
+The admin ships compiled with its dependencies, stylesheet included, so the CMS adds no Tailwind plugin to your build and only the peers above plus `@types/mdast` to your lockfile.
 
 ## Testing a local build
 

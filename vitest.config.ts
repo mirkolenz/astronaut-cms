@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
+import { srcDir } from "./vite.shared.ts";
 
 // Standalone config (not the build config) so tests do not pull in the dts /
 // router plugins. Aliases mirror tsconfig; `virtual:astronaut-cms/config` is a
@@ -24,7 +25,7 @@ export default defineConfig({
         "tests/fixtures/local-storage.ts",
       ),
       "virtual:astronaut-cms/s3-store": resolve(import.meta.dirname, "tests/fixtures/s3-store.ts"),
-      "@": resolve(import.meta.dirname, "src"),
+      "@": srcDir,
     },
   },
   test: {

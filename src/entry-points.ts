@@ -2,7 +2,8 @@
  * Every entry point this package publishes, in one table.
  *
  * Three things have to agree about this list: `package.json` `exports` (what
- * Node resolves), `vite.config.ts` (what gets built), and `self-resolve.ts`
+ * Node resolves), `vite.config.ts` and `vite.admin.config.ts` (what gets
+ * built), and `self-resolve.ts`
  * (what the workspace loads from source instead of `dist/`). They are all
  * derived from here, and `tests/entry-points.test.ts` holds `package.json` —
  * the one that cannot import this file — to the same table.
@@ -12,6 +13,8 @@ export interface EntryPoint {
   subpath: string;
   /** Where the entry point lives, relative to `src/`. */
   source: string;
+  /** Built into the admin's browser bundle rather than the server bundle. */
+  admin?: true;
 }
 
 export const PACKAGE_NAME = "astronaut-cms";
@@ -30,9 +33,8 @@ export const ENTRY_POINTS: EntryPoint[] = [
   { subpath: "./Video.astro", source: "astro/Video.astro" },
   { subpath: "./assets", source: "assets/index.ts" },
   { subpath: "./content", source: "content/index.ts" },
-  { subpath: "./client", source: "client/index.tsx" },
-  { subpath: "./bootstrap", source: "client/bootstrap.ts" },
-  { subpath: "./editor", source: "editor.ts" },
+  { subpath: "./bootstrap", source: "client/bootstrap.ts", admin: true },
+  { subpath: "./editor", source: "editor.ts", admin: true },
   { subpath: "./internal", source: "internal/index.ts" },
   { subpath: "./styles.css", source: "astro/styles.css" },
   { subpath: "./endpoint", source: "server/endpoint.ts" },
@@ -53,7 +55,7 @@ export const bundleOf = ({ subpath, source }: EntryPoint): string | null =>
 /** The `exports` entry for one entry point, exactly as `package.json` carries it. */
 export function exportsEntry(entry: EntryPoint): Record<string, string> {
   const bundle = bundleOf(entry);
-  // Declarations are emitted for everything but the admin bundle, which is the
+  // Declarations are emitted for everything outside `client/`, which is the
   // same rule `vite.config.ts` gives the dts plugin.
   const typed = bundle !== null && !entry.source.startsWith("client/");
 

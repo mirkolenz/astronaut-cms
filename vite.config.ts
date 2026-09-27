@@ -1,37 +1,21 @@
-import { cpSync, readFileSync } from "node:fs";
-import { builtinModules } from "node:module";
-import { resolve } from "node:path";
-import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import { cpSync } from "node:fs";
 import { defineConfig } from "vite";
 import dts from "unplugin-dts/vite";
-import { CLIENT_SOURCES, ENTRY_POINTS, bundleOf } from "./src/entry-points.ts";
+import { CLIENT_SOURCES } from "./src/entry-points.ts";
+import { aliases, externalTo, libEntries, peers } from "./vite.shared.ts";
 
-const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, "package.json"), "utf8"));
-
-const externalPackages = [
-  ...builtinModules,
-  ...Object.keys(pkg.dependencies ?? {}),
-  ...Object.keys(pkg.peerDependencies ?? {}),
-];
-
-const isExternal = (id: string) =>
-  id.startsWith("virtual:") ||
-  id.startsWith("astro:") ||
-  externalPackages.some(
-    (name) => id === name || id === `node:${name}` || id.startsWith(`${name}/`),
-  );
-
+// Everything but the admin's browser bundle, which `vite.admin.config.ts`
+// builds. The two share no module at runtime, so neither needs the other's
+// chunks.
 export default defineConfig({
-  resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
+  resolve: {
+    alias: aliases,
+    // The bundled dependencies run wherever the site's server does, Node or
+    // Workers, and at build time in Node. A `worker` build is the portable one,
+    // where a `browser` build may reach for the DOM.
+    conditions: ["module", "worker", "development|production"],
+  },
   plugins: [
-    tanstackRouter({
-      target: "react",
-      autoCodeSplitting: false,
-      routesDirectory: "./src/client/routes",
-      generatedRouteTree: "./src/client/routeTree.gen.ts",
-      semicolons: true,
-      quoteStyle: "double",
-    }),
     dts({ entryRoot: "src", exclude: [`src/${CLIENT_SOURCES}`] }),
     {
       name: "copy-astro-files",
@@ -46,15 +30,11 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: Object.fromEntries(
-        ENTRY_POINTS.map((entry) => [bundleOf(entry), `src/${entry.source}`]).filter(
-          ([bundle]) => bundle !== null,
-        ),
-      ),
+      entry: libEntries(false),
       formats: ["es"],
     },
     rolldownOptions: {
-      external: isExternal,
+      external: externalTo(peers),
       output: {
         chunkFileNames: "shared.js",
       },
