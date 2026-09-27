@@ -9,7 +9,7 @@ import { aiEnabled } from "@/client/lib/ai/config";
 // `?url` forces a URL string in both the standalone Vite lib build (where assets
 // inline as data URIs) and the Astro dev/build runtime, where a bare image import
 // would otherwise resolve to an `astro:assets` ImageMetadata object ([object]).
-import logoUrl from "@/brand/logo.png?url";
+import logoUrl from "@/brand/logo-64.webp?url";
 
 const navLinkClasses =
   "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent [&.active]:bg-sidebar-accent [&.active]:font-medium";
