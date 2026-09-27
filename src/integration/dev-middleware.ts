@@ -20,6 +20,13 @@ import {
 
 type NextFn = () => void;
 
+const MUTATING_METHODS = new Set(["PUT", "POST", "PATCH", "DELETE"]);
+
+// How long after a CMS write to keep suppressing the dev-server reload it
+// triggers. Generous enough to cover the file-watcher latency, short enough that
+// a manual edit moments later still reloads.
+const SUPPRESS_WINDOW_MS = 2000;
+
 export interface DevMiddlewareOptions {
   basePath: string;
   contentDir: string;
@@ -30,10 +37,14 @@ export interface DevMiddlewareOptions {
   collections?: CollectionManifest;
 }
 
-function assertWithinBase(filePath: string, baseDir: string): void {
+function isWithin(filePath: string, baseDir: string): boolean {
   const resolved = resolve(filePath);
   const resolvedBase = resolve(baseDir);
-  if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + "/")) {
+  return resolved === resolvedBase || resolved.startsWith(resolvedBase + "/");
+}
+
+function assertWithinBase(filePath: string, baseDir: string): void {
+  if (!isWithin(filePath, baseDir)) {
     throw new Error("Path escapes the allowed directory");
   }
 }
@@ -313,6 +324,7 @@ async function deleteMedia(mediaDir: string, filePath: string): Promise<void> {
 function createDevMiddleware(
   server: ViteDevServer,
   options: DevMiddlewareOptions,
+  markWrite: () => void,
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
   const {
     basePath,
@@ -350,6 +362,12 @@ function createDevMiddleware(
         return;
       }
     }
+
+    // A mutating request below writes a file the dev server watches; arm the
+    // reload-suppression window now (before that write) so the companion
+    // hotUpdate hook drops the full reload it would otherwise trigger, keeping
+    // the admin's React state across its own saves.
+    if (req.method && MUTATING_METHODS.has(req.method)) markWrite();
 
     const path = url.slice(apiPrefix.length);
 
@@ -484,22 +502,56 @@ function createDevMiddleware(
   };
 }
 
-// Registers the dev API as a Vite plugin instead of `astro:server:setup`. Astro
-// unshifts its own trailing-slash middleware to the front of the connect stack
-// from a configureServer post-hook, and under trailingSlash: "always" it rejects
-// our extensionless `/__cms/*` requests with a 404 before an appended middleware
-// would run. `enforce: "post"` makes our post-hook run after Astro's, so the
-// unshift here places the CMS API ahead of that trailing-slash check.
-export function cmsDevMiddlewarePlugin(options: DevMiddlewareOptions): Plugin {
-  return {
-    name: "astronaut-cms:dev-api",
-    enforce: "post",
+// Two cooperating dev plugins that share a suppression window:
+//
+//   1. The dev API middleware. Registered as a Vite plugin instead of via
+//      `astro:server:setup` because Astro unshifts its own trailing-slash
+//      middleware to the front of the connect stack from a configureServer
+//      post-hook, and under trailingSlash: "always" it rejects our extensionless
+//      `/__cms/*` requests with a 404 before an appended middleware would run.
+//      `enforce: "post"` makes our post-hook run after Astro's, so the unshift
+//      here places the CMS API ahead of that trailing-slash check.
+//
+//   2. A hotUpdate hook that, for the brief window after a CMS write, drops the
+//      content/media module update so Astro's `astro:hmr-reload` plugin (which
+//      runs with `order: "post"`) sees no modules and broadcasts no full reload.
+//      `order: "pre"` guarantees we run first. Without this, every save would
+//      reload the admin and wipe its React state. Manual edits, which arm no
+//      window, still reload as usual.
+export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
+  const { contentDir, mediaDir } = options;
 
-    configureServer(server) {
-      const handle = createDevMiddleware(server, options);
-      return () => {
-        server.middlewares.stack.unshift({ route: "", handle });
-      };
-    },
+  let suppressReloadUntil = 0;
+  const markWrite = () => {
+    suppressReloadUntil = Date.now() + SUPPRESS_WINDOW_MS;
   };
+
+  return [
+    {
+      name: "astronaut-cms:dev-api",
+      enforce: "post",
+
+      configureServer(server) {
+        const handle = createDevMiddleware(server, options, markWrite);
+        return () => {
+          server.middlewares.stack.unshift({ route: "", handle });
+        };
+      },
+    },
+    {
+      name: "astronaut-cms:suppress-self-reload",
+
+      hotUpdate: {
+        order: "pre",
+        handler({ file }) {
+          if (
+            Date.now() < suppressReloadUntil
+            && (isWithin(file, contentDir) || isWithin(file, mediaDir))
+          ) {
+            return [];
+          }
+        },
+      },
+    },
+  ];
 }

@@ -7,7 +7,7 @@ import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
-import { cmsDevMiddlewarePlugin } from "./dev-middleware.ts";
+import { cmsDevPlugins } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
@@ -127,20 +127,19 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
-        // Dev-only filesystem API for the local storage backend.
+        // Dev-only filesystem API for the local storage backend, plus the
+        // reload suppression that keeps the admin's state across its own saves.
         const devPlugins =
           command === "dev"
-            ? [
-                cmsDevMiddlewarePlugin({
-                  basePath,
-                  contentDir,
-                  mediaDir,
-                  mediaPrefix: mediaSubdir,
-                  allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
-                  rootDir,
-                  collections: collections ?? undefined,
-                }),
-              ]
+            ? cmsDevPlugins({
+                basePath,
+                contentDir,
+                mediaDir,
+                mediaPrefix: mediaSubdir,
+                allowedMediaExtensions: config.media?.allowedExtensions ?? DEFAULT_MEDIA_EXTENSIONS,
+                rootDir,
+                collections: collections ?? undefined,
+              })
             : [];
 
         updateConfig({

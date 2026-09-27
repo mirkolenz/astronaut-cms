@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Bot, X } from "lucide-react";
@@ -39,7 +39,7 @@ import {
 import { Button } from "@client/components/ui/button";
 import { useAiPanelStore } from "@client/stores/ai-panel-store";
 import { aiConfig } from "@client/lib/ai/config";
-import { LocalAgentTransport } from "@client/lib/ai/transport";
+import { getChat, saveMessages } from "@client/lib/ai/chat";
 
 export function ChatPanel() {
   const { t } = useTranslation();
@@ -48,9 +48,13 @@ export function ChatPanel() {
   const model = useAiPanelStore((state) => state.model);
   const setModel = useAiPanelStore((state) => state.setModel);
 
-  // A fresh transport per selected model; the agent loop runs inside it.
-  const transport = useMemo(() => new LocalAgentTransport(model), [model]);
-  const { messages, sendMessage, status, stop, error } = useChat({ transport });
+  // A single shared Chat whose messages survive the dev-server reloads that
+  // content edits trigger (see getChat); mirror every change to storage.
+  const { messages, sendMessage, status, stop, error } = useChat({ chat: getChat() });
+
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
 
   if (!aiConfig || !open) return null;
 

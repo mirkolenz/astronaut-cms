@@ -35,17 +35,19 @@ function toUserErrorMessage(error: unknown): string {
 // (through the relay) and executes tool calls locally against the storage
 // backend. The relay only ever sees raw, stateless inference requests.
 export class LocalAgentTransport implements ChatTransport<UIMessage> {
-  private readonly modelId: string;
+  private readonly getModelId: () => string;
 
-  constructor(modelId: string) {
-    this.modelId = modelId;
+  // The model id is read lazily on each request so a single transport (and the
+  // Chat that owns it) can outlive model switches instead of being recreated.
+  constructor(getModelId: () => string) {
+    this.getModelId = getModelId;
   }
 
   async sendMessages(
     options: Parameters<ChatTransport<UIMessage>["sendMessages"]>[0],
   ): Promise<ReadableStream<UIMessageChunk>> {
     const result = streamText({
-      model: aiProvider.chatModel(this.modelId),
+      model: aiProvider.chatModel(this.getModelId()),
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(options.messages),
       tools: cmsTools,
