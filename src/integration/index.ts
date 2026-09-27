@@ -432,6 +432,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
+        // The sitemap lists every page route, the injected admin included, and
+        // exposes no way for another integration to take one out.
+        if (
+          command === "build" &&
+          astroConfig.integrations.some((i) => i.name === "@astrojs/sitemap")
+        ) {
+          logger.warn(
+            `@astrojs/sitemap lists the admin at ${mountPoint}. Exclude it with sitemap({ filter: (page) => !new URL(page).pathname.startsWith("${join("/", astroConfig.base, mountPoint)}") }).`,
+          );
+        }
+
         if (mediaServer?.access.type === "binding") {
           logger.info(`Media library reached through the R2 binding "${mediaServer.access.name}"`);
         }
