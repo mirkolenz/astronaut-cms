@@ -18,7 +18,6 @@ const SUPPRESS_WINDOW_MS = 5000;
 
 export interface DevMiddlewareOptions {
   basePath: string;
-  contentDir: string;
   mediaDir: string;
   rootDir: string;
   collections?: CollectionManifest;
@@ -196,15 +195,15 @@ function createDevMiddleware(
 }
 
 /**
- * Drops full-reload broadcasts while `isSuppressed()` holds, and leaves every
- * other message alone.
+ * Drops full-reload broadcasts on one environment while `isSuppressed()` holds,
+ * and leaves every other message alone.
  *
- * Astro reloads the browser from two places: its `astro:hmr-reload` plugin, and
- * `invalidateDataStore`, which fires when the content layer rewrites
- * `.astro/data-store.json` after syncing a changed entry. The second is not a
- * `hotUpdate` at all, and is keyed on a file outside the content directory, so
- * no hook-level filter can see it. Intercepting the message both paths end in
- * covers them together.
+ * A reload is announced from more places than a single hook can see: Astro's
+ * `astro:hmr-reload` plugin, its `invalidateDataStore` (which fires when the
+ * content layer rewrites `.astro/data-store.json`, not from a `hotUpdate` at
+ * all), and any other plugin watching the files the CMS writes. Intercepting
+ * the message they all end in covers them together, and keeps the module
+ * invalidation each of them does on the way.
  */
 function suppressReloads(
   channel: { send: (...args: never[]) => void },
@@ -223,7 +222,7 @@ function suppressReloads(
   };
 }
 
-// Two cooperating pieces sharing one suppression window:
+// One plugin, two jobs sharing a suppression window:
 //
 //   1. The dev API middleware. Registered as a Vite plugin instead of via
 //      `astro:server:setup` because Astro unshifts its own trailing-slash
@@ -236,48 +235,31 @@ function suppressReloads(
 //   2. Reload suppression for the window a CMS write opens. Without it every
 //      save reloads the admin and wipes its state, the open assistant
 //      conversation included. Manual edits arm no window and still reload.
-export function cmsDevPlugins(options: DevMiddlewareOptions): Plugin[] {
-  const { contentDir, mediaDir } = options;
-
+//
+// Every environment is patched, not just the client. Vite announces reloads per
+// environment, and the SSR one is a module runner: a `full-reload` there makes
+// it drop its evaluated modules and re-import its entrypoints, which fails on
+// Astro's own `astro:server-app.js` and leaves the dev server unable to render.
+export function cmsDevPlugin(options: DevMiddlewareOptions): Plugin {
   let suppressReloadUntil = 0;
   const markWrite = () => {
     suppressReloadUntil = Date.now() + SUPPRESS_WINDOW_MS;
   };
-  const isSuppressed = () => Date.now() < suppressReloadUntil;
 
-  return [
-    {
-      name: "astronaut-cms:dev-api",
-      enforce: "post",
+  return {
+    name: "astronaut-cms:dev-api",
+    enforce: "post",
 
-      configureServer(server) {
-        const handle = createDevMiddleware(server, options, markWrite);
+    configureServer(server) {
+      const handle = createDevMiddleware(server, options, markWrite);
 
-        suppressReloads(server.environments.client.hot, isSuppressed);
+      for (const environment of Object.values(server.environments)) {
+        suppressReloads(environment.hot, () => Date.now() < suppressReloadUntil);
+      }
 
-        return () => {
-          server.middlewares.stack.unshift({ route: "", handle });
-        };
-      },
+      return () => {
+        server.middlewares.stack.unshift({ route: "", handle });
+      };
     },
-    {
-      name: "astronaut-cms:suppress-self-reload",
-
-      // The other half of the suppression: dropping the modules keeps Astro's
-      // `astro:hmr-reload` (order "post") from seeing any and broadcasting a
-      // reload of its own. It broadcasts through `server.ws`, which Vite exposes
-      // as a proxy that ignores patching, so it has to be stopped here rather
-      // than at the channel. The file that reaches this hook is the rewritten
-      // data store, not the entry — hence the `.astro` case.
-      hotUpdate: {
-        order: "pre",
-        handler({ file }) {
-          const isOwnWrite =
-            isWithin(file, contentDir) || isWithin(file, mediaDir) || file.includes("/.astro/");
-
-          if (isSuppressed() && isOwnWrite) return [];
-        },
-      },
-    },
-  ];
+  };
 }

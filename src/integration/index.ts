@@ -7,7 +7,7 @@ import type { CmsConfig } from "./types.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 import { AI_CHAT_COMPLETIONS_PATTERN } from "../shared/ai.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
-import { cmsDevPlugins } from "./dev-middleware.ts";
+import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadCollections } from "./load-collections.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
@@ -39,7 +39,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
       }) => {
         const rootDir = fileURLToPath(astroConfig.root);
         const basePath = astroConfig.base;
-        const contentDir = join(rootDir, "src/content");
         const mediaSubdir = config.media?.directory ?? "src/assets";
         const mediaDir = join(rootDir, mediaSubdir);
 
@@ -104,19 +103,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           logger.warn("No content.config found — collections will be empty");
         }
 
-        // Dev-only filesystem API for the local storage backend, plus the
-        // reload suppression that keeps the admin's state across its own saves.
-        const devPlugins =
-          command === "dev"
-            ? cmsDevPlugins({
-                basePath,
-                contentDir,
-                mediaDir,
-                rootDir,
-                collections: collections ?? undefined,
-              })
-            : [];
-
         updateConfig({
           vite: {
             plugins: [
@@ -127,7 +113,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
                 collections,
                 astroConfig.trailingSlash,
               ),
-              ...devPlugins,
+              // Dev-only filesystem API for the local storage backend, plus the
+              // reload suppression that keeps the admin's state across its own saves.
+              ...(command === "dev"
+                ? [cmsDevPlugin({ basePath, mediaDir, rootDir, collections: collections ?? undefined })]
+                : []),
             ],
           },
         });

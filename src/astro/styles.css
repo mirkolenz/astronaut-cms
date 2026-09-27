@@ -1,5 +1,5 @@
 @import "@mdxeditor/editor/style.css";
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
@@ -9,7 +9,14 @@
 @plugin "@tailwindcss/typography";
 
 @plugin "tailwind-scrollbar-hide";
-@source "../../src/client/";
+
+/* The admin's classes all live in this package, so scanning stops here instead
+   of walking up into the site that embeds it: nothing the CMS renders comes
+   from the user's own files, and every file Tailwind scans is one it also
+   watches, which turns unrelated content edits into dev-server reloads.
+   Resolves to `src/` when the package is linked from source and `dist/` when it
+   is installed, matching where the admin's code sits in each layout. */
+@source "../";
 
 @theme inline {
   --font-heading: var(--font-sans);
