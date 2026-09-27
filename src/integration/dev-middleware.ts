@@ -21,6 +21,7 @@ import { validateSegment, validatePath, validateFormat } from "../shared/validat
 type NextFn = () => void;
 
 export interface DevMiddlewareOptions {
+  basePath: string;
   contentDir: string;
   mediaDir: string;
   mediaPrefix: string;
@@ -320,8 +321,17 @@ export function createDevMiddleware(
   server: ViteDevServer,
   options: DevMiddlewareOptions,
 ): (req: IncomingMessage, res: ServerResponse, next: NextFn) => void {
-  const { contentDir, mediaDir, mediaPrefix, allowedMediaExtensions, rootDir, collections } =
-    options;
+  const {
+    basePath,
+    contentDir,
+    mediaDir,
+    mediaPrefix,
+    allowedMediaExtensions,
+    rootDir,
+    collections,
+  } = options;
+
+  const apiPrefix = `${basePath}__cms`;
 
   function isFileCollection(collection: string): boolean {
     return collections?.[collection]?.loaderType === "file";
@@ -333,7 +343,7 @@ export function createDevMiddleware(
 
   return async (req, res, next) => {
     const url = req.url ?? "";
-    if (!url.startsWith("/__cms/")) {
+    if (!url.startsWith(`${apiPrefix}/`)) {
       next();
       return;
     }
@@ -348,7 +358,7 @@ export function createDevMiddleware(
       }
     }
 
-    const path = url.slice("/__cms".length);
+    const path = url.slice(apiPrefix.length);
 
     try {
       // Entry endpoints

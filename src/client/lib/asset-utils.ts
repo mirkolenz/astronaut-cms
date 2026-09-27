@@ -48,11 +48,11 @@ export function resolveAssetPath(contentFilePath: string, relativePath: string):
 
 /**
  * Convert project-root-relative path to browser-accessible dev URL.
- * "src/assets/photo.jpg" -> "/src/assets/photo.jpg"
+ * Prepends the site base path so requests pass Vite's base middleware.
+ * "src/assets/photo.jpg" -> "/astronaut-cms/src/assets/photo.jpg"
  */
 export function toPreviewUrl(path: string): string {
-  if (path.startsWith("/")) return path;
-  return `/${path}`;
+  return import.meta.env.BASE_URL + path.replace(/^\//, "");
 }
 
 /**

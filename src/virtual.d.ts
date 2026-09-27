@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 declare module "@mdxeditor/editor/style.css";
 
 declare module "virtual:astronaut-cms/config" {

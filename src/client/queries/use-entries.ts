@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStorage } from "@client/lib/storage";
+import { fetchJson } from "@client/lib/api";
 import { parseContent, serializeContent } from "@shared/content-parser";
 import { useChangesStore } from "@client/stores/changes-store";
 import type { SaveEntryRequest } from "@shared/types";
@@ -94,10 +95,14 @@ export function useFileLayout(collection: string) {
   return useQuery({
     queryKey: ["cms", "file-layout", collection],
     queryFn: async () => {
-      const res = await fetch(`/__cms/entries/${collection}/_layout`);
-      if (!res.ok) return "object" as const;
-      const data = (await res.json()) as { layout: "array" | "object" };
-      return data.layout;
+      try {
+        const data = await fetchJson<{ layout: "array" | "object" }>(
+          `/entries/${collection}/_layout`,
+        );
+        return data.layout;
+      } catch {
+        return "object" as const;
+      }
     },
     staleTime: Infinity,
     enabled: !!collection,
@@ -108,12 +113,11 @@ export function useReorderFileEntries(collection: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const res = await fetch(`/__cms/entries/${collection}/_reorder`, {
+      await fetchJson(`/entries/${collection}/_reorder`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
       });
-      if (!res.ok) throw new Error(`Reorder failed: ${res.status}`);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["cms", "entries", collection] });

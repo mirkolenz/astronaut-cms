@@ -128,6 +128,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
   let contentDir = "";
   let mediaDir = "";
   let rootDir = "";
+  let basePath = "/";
   let collectionsMeta: Record<string, LoadedCollectionMeta> | null = null;
 
   return {
@@ -141,6 +142,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         logger,
       }) => {
         rootDir = fileURLToPath(astroConfig.root);
+        basePath = astroConfig.base;
         contentDir = join(rootDir, "src/content");
         mediaDir = join(rootDir, config.media?.directory ?? "src/assets");
 
@@ -208,21 +210,31 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             remarkPlugins: [[remarkCmsAssets, assetFieldsMap]],
           },
           vite: {
-            plugins: [tailwindcss(), cmsVitePlugin(config, userConfigPath, contentConfigPath)],
+            plugins: [
+              tailwindcss(),
+              cmsVitePlugin(config, userConfigPath, contentConfigPath),
+            ],
           },
         });
 
-        injectRoute({
-          pattern: mountPoint,
-          entrypoint: "astronaut-cms/admin.astro",
-        });
-
-        logger.info(`Admin panel will be available at ${mountPoint}`);
+        const storageType = config.storage?.type ?? "local";
+        if (command === "dev" || storageType !== "local") {
+          injectRoute({
+            pattern: mountPoint,
+            entrypoint: "astronaut-cms/admin.astro",
+          });
+          logger.info(`Admin panel will be available at ${mountPoint}`);
+        } else {
+          logger.info(
+            `Admin panel disabled for "${command}" with local storage (only available via "astro dev")`,
+          );
+        }
       },
 
       "astro:server:setup": ({ server }) => {
         server.middlewares.use(
           createDevMiddleware(server, {
+            basePath,
             contentDir,
             mediaDir,
             mediaPrefix: config.media?.directory ?? "src/assets",
