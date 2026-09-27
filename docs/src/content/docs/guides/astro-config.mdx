@@ -49,6 +49,13 @@ cms({
 
 The URL path where the admin panel is served.
 
+`@astrojs/sitemap` lists every page route, the admin included, and another integration cannot take one out.
+Exclude it with the sitemap's `filter`, which the integration's build log also suggests:
+
+```ts title="astro.config.ts"
+sitemap({ filter: (page) => !new URL(page).pathname.startsWith("/admin") });
+```
+
 ### `config`
 
 - **Type:** `string`

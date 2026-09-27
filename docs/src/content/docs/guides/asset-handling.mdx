@@ -93,6 +93,8 @@ const pdfUrl = await resolveFile("/src/assets/report.pdf"); // -> string URL
 ---
 ```
 
+The integration generates types for the media backend you configure, so with a repository library `resolveImage()` is typed as `ImageMetadata` alone and call sites need no URL branch.
+
 The `demo` workspace uses exactly this pattern for its `Figure` and `Hero` blocks, so it doubles as
 an end-to-end example.
 
@@ -123,6 +125,8 @@ const { src, poster, title } = Astro.props;
 
 <Video src={src} poster={poster} posterWidth={1920} aria-label={title} controls muted loop playsinline preload="none" />
 ```
+
+The poster is encoded as webp unless `posterFormat` names another format, as with astro's `<Image>`.
 
 Audio needs no wrapper: `<audio src={await resolveFile(src)} controls />`.
 A `<track>` goes inside `<Video>`, with its `.vtt` file resolved the same way.

@@ -12,6 +12,7 @@ interface CmsConfig {
   config?: string;
   mountPoint?: string;
   storage?: StorageConfig;
+  collections?: Record<string, { sort?: "id" | "natural" | "file" }>;
   runtime?: "cloudflare" | "node";
   localStorageInDev?: boolean;
   localMediaInDev?: boolean;
@@ -29,7 +30,8 @@ interface CmsConfig {
 | `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                            |
 | `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
 | `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
-| `runtime`           | `"cloudflare" \| "node"` | from the adapter      | Where the injected routes read secrets and bindings from                                                            |
+| `collections`       | `Record<string, CollectionOptions>` | `{}`       | Per collection options, see [Entry order](/astronaut-cms/guides/content-collections/#entry-order)                  |
+| `runtime`           | `"cloudflare" \| "node"` | from the adapter      | Where the injected routes read Workers bindings from                                                                  |
 | `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
 | `localMediaInDev`   | `boolean`              | `true`                  | Keep the media library in the working tree during `astro dev` instead of reaching the object store                  |
 | `media`             | `MediaConfig`          | `{}`                    | Media library configuration                                                                                         |
@@ -41,9 +43,9 @@ interface CmsConfig {
 
 ### `runtime`
 
-Where the injected server routes read environment variables and Workers bindings
-from, detected from the Astro adapter: `@astrojs/cloudflare` means the Workers
-`env` module, anything else means `process.env`.
+Whether the injected server routes can reach Workers bindings, detected from the
+Astro adapter: `@astrojs/cloudflare` means the Workers `env` module.
+Secrets are read through `astro:env` on every runtime.
 
 Set it only for an adapter that deploys to Workers under a name the detection
 does not recognise, such as a fork or a wrapper.

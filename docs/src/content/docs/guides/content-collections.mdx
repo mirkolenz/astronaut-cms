@@ -56,8 +56,38 @@ const authors = defineCollection({
 export const collections = { authors };
 ```
 
-File collections support both array and object layouts.
-The admin panel detects the layout automatically and allows reordering entries in array-layout files.
+File collections support both array and object layouts, which the admin panel detects automatically.
+
+## Entry order
+
+Astro's `getCollection()` returns entries sorted by id, whatever order a file holds them in.
+Set `sort` per collection in the integration config to choose another order:
+
+| `sort`            | Order                                                              |
+| ----------------- | ------------------------------------------------------------------ |
+| `"id"` (default)  | By id, as astro returns them                                       |
+| `"natural"`       | By id, with numbers compared as numbers (`2` before `10`)          |
+| `"file"`          | The order of the file, for `file()` collections only               |
+
+```ts title="astro.config.ts"
+cms({
+  collections: { authors: { sort: "file" } },
+});
+```
+
+The admin lists entries in that order, and only a `"file"` collection offers reordering.
+Read the same order in your pages with `sortEntries()`:
+
+```astro title="src/pages/about.astro"
+---
+import { getCollection } from "astro:content";
+import { sortEntries } from "astronaut-cms/content";
+
+const authors = sortEntries(await getCollection("authors"));
+---
+```
+
+No `order` field is needed, so the schema holds nothing the editor has to maintain.
 
 ## References
 

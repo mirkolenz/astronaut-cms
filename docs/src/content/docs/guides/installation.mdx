@@ -34,10 +34,26 @@ npm install @astrojs/mdx
 | `@astrojs/react` | `^6`    | React integration for the admin panel |
 | `react`          | `^19`   | React runtime                         |
 | `react-dom`      | `^19`   | React DOM renderer                    |
+| `lucide-react`   | `^1`    | Component icons in `cms.config.ts`    |
+| `vite`           | `^8`    | Shared with Astro, loads your configs |
 | `zod`            | `^4`    | Collection and component schemas      |
 
 ## Optional Dependencies
 
 | Package        | Version | Purpose                          |
 | -------------- | ------- | -------------------------------- |
-| `@astrojs/mdx` | `^7`    | MDX support for block components |
+| `@astrojs/mdx` | `^7 \|\| ^8` | MDX support for block components |
+
+The admin's stylesheet ships compiled, so the CMS adds no Tailwind plugin to your build.
+
+## Testing a local build
+
+Try an unreleased build as a tarball rather than a `file:` dependency.
+A `file:` link resolves `astro`, `react`, `zod` and `vite` from the CMS checkout's own `node_modules`, and two copies of `zod` make every `defineComponent` a type error.
+
+```sh
+# in the astronaut-cms checkout
+npm pack
+# in your site
+npm install ../astronaut-cms/astronaut-cms-0.0.0.tgz
+```

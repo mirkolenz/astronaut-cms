@@ -27,6 +27,10 @@ cms({
   Local storage only works during development (`astro dev`). There is no sign-in: the editor is
   whoever can reach the dev server, which is the same trust boundary the dev server itself has. For
   production deployments, use the GitHub or GitLab backend.
+
+  The dev server answers the CMS API itself, in Node, whatever runtime your adapter renders in, since
+  only Node can see the working tree. It therefore reads variables from `.env` rather than from an
+  adapter's own file such as Cloudflare's `.dev.vars`.
 </Aside>
 
 ## GitHub Storage
@@ -60,7 +64,7 @@ A GitHub App issues a token limited to the installation that expires in hours an
 
 1. Go to **Settings > Developer Settings > GitHub Apps** and create a new app.
 2. Under **Permissions**, grant **Repository permissions → Contents: Read and write** and **Pull requests: Read and write**. Nothing else is needed.
-3. Set **Callback URL** to `https://your-site.example/_astronaut-cms/api/callback`. Under a site `base`, include it: `https://your-site.example/docs/_astronaut-cms/api/callback`.
+3. Set **Callback URL** to `https://your-site.example/_astronaut-cms/api/callback`. Under a site `base`, include it: `https://your-site.example/docs/_astronaut-cms/api/callback`. With `trailingSlash: "always"`, end it with a slash, since the routes only answer in that form. The integration logs the exact URL on startup.
 4. Enable **Expire user authorization tokens**. The CMS refreshes them on its own, so editors never notice.
 5. Install the app on the content repository.
 6. Copy the **Client ID** into `clientId`, generate a **Client secret**, and set it as `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` on the server.
@@ -97,7 +101,7 @@ cms({
 
 1. Go to **User Settings > Applications** (or **Admin > Applications** for instance-wide).
 2. Create a **confidential** application with the `api` scope.
-3. Set the redirect URI to `https://your-site.example/_astronaut-cms/api/callback`.
+3. Set the redirect URI to `https://your-site.example/_astronaut-cms/api/callback`, with a trailing slash under `trailingSlash: "always"` (the integration logs the exact URL on startup).
 4. Copy the **Application ID** into `clientId` and set the **Secret** as `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` on the server.
 
 <Aside type="note">
@@ -114,6 +118,9 @@ One secret, the one your OAuth app already gave you:
 | ------------------------------------ | --------------------------------------------------------------- |
 | `ASTRONAUT_CMS_GITHUB_CLIENT_SECRET` | GitHub App client secret, for redeeming the authorization code. |
 | `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` | The same, for GitLab.                                           |
+
+The integration declares these through [`astro:env`](https://docs.astro.build/en/guides/environment-variables/#type-safe-environment-variables), so Astro validates and types them without an `env.schema` entry of yours.
+A secret is required only where the run needs it, so `astro dev` on local storage needs none.
 
 The session cookie's key is derived from it, so there is nothing else to generate or seed.
 See [Where the cookie key comes from](/astronaut-cms/guides/security/#where-the-cookie-key-comes-from).

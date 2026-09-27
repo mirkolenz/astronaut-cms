@@ -29,12 +29,17 @@ const Alert = defineComponent({
 });
 ```
 
-## Schema helpers (`image`, `file`, `link`)
+## Schema helpers (`image`, `file`, `link`, `reference`)
 
-A component's `props` may be written as a function, which receives the asset and link helpers:
+A component's `props` may be written as a function, which receives the asset, link and reference helpers:
 
 ```ts
-type SchemaHelpers = { image: () => z.ZodString; file: () => z.ZodString; link: () => z.ZodString };
+type SchemaHelpers = {
+  image: () => z.ZodString;
+  file: () => z.ZodString;
+  link: () => z.ZodString;
+  reference: (collection: string) => z.ZodString;
+};
 
 props: T | ((helpers: SchemaHelpers) => T);
 ```
@@ -71,6 +76,18 @@ const CallToAction = defineComponent({
 });
 ```
 
+`reference(collection)` stores the id of an entry in another collection, which the admin offers as a picker and checks on save.
+The component receives the id and can look the entry up with `getEntry()`.
+
+```ts
+const TeamMember = defineComponent({
+  props: ({ reference }) => z.object({ member: reference("team") }),
+});
+```
+
+`cms.config.ts` is bundled into the browser admin, so it cannot import `content.config.ts` or anything from `astro:content`.
+Keep values both configs use, such as a shared `z.enum()` of colours, in a module of their own that each imports.
+
 `image` is deliberately not importable. A collection field takes astro's own `({ image })` and a
 component prop takes the one its props function is handed, so there is no spelling that resolves in
 one place and silently fails in the other.
@@ -98,16 +115,12 @@ Inside a `cms.config.ts` props function, take `file` and `link` from the helpers
 
 ## `InferComponentProps`
 
-A utility type that maps each component name to its inferred prop types.
+A utility type that maps each component name, nested children included, to its prop types.
 Use this to type-check Astro component props against the CMS schema.
 
-```ts
-type InferComponentProps<Components extends Record<string, ComponentDefinition>> = {
-  [Name in string & keyof Components]: Components[Name] extends ComponentDefinition<infer T>
-    ? z.infer<T>
-    : never;
-};
-```
+The types are the schema's input, since MDX passes attributes exactly as written.
+A prop with `.default()` is therefore optional, and the component applies the default itself.
+Children declared in a parent's `children` map are part of the result, as long as the parent is written with `defineComponent()`.
 
 The props schema is inferred the same way from either form, so a component that declares its props
 directly and one that takes the helpers are indistinguishable to consumers.
