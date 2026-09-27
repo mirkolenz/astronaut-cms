@@ -78,6 +78,42 @@ export abstract class StorageBase implements StorageBackend {
     throw new Error(`Entry not found: ${collection}/${id}`);
   }
 
+  // Rename and duplicate compose the storage primitives, so they work uniformly
+  // for glob and file collections (saveEntry/deleteEntry already branch on layout).
+  async duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void> {
+    const [source, targetExists] = await Promise.all([
+      this.getEntry(collection, sourceId),
+      this.entryExists(collection, targetId),
+    ]);
+
+    if (targetExists) {
+      throw new Error(`Entry already exists: ${collection}/${targetId}`);
+    }
+
+    await this.saveEntry(collection, targetId, {
+      data: source.data,
+      body: source.body,
+      format: source.format,
+    });
+  }
+
+  async renameEntry(collection: string, oldId: string, newId: string): Promise<void> {
+    if (oldId === newId) return;
+
+    await this.duplicateEntry(collection, oldId, newId);
+    await this.deleteEntry(collection, oldId);
+  }
+
+  private async entryExists(collection: string, id: string): Promise<boolean> {
+    try {
+      await this.getEntry(collection, id);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   protected async fetchRawEntry(_collection: string, _id: string, _ext: string): Promise<string> {
     throw new Error("Not implemented");
   }

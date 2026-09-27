@@ -208,10 +208,53 @@ export const cmsTools = {
     },
   }),
 
+  renameEntry: tool({
+    description:
+      "Rename an entry (change its id) while keeping its content. Fails if an entry with the new id already exists.",
+    inputSchema: z.object({ collection: collectionEnum, id: z.string(), newId: z.string() }),
+    execute: async ({ collection, id, newId }) => {
+      await getStorage().renameEntry(collection, id, newId);
+
+      return { ok: true };
+    },
+  }),
+
+  duplicateEntry: tool({
+    description:
+      "Duplicate an entry under a new id, copying its data and body. Fails if an entry with the new id already exists.",
+    inputSchema: z.object({ collection: collectionEnum, id: z.string(), newId: z.string() }),
+    execute: async ({ collection, id, newId }) => {
+      await getStorage().duplicateEntry(collection, id, newId);
+
+      return { ok: true };
+    },
+  }),
+
   listMedia: tool({
     description: "List all media files (images and documents).",
     inputSchema: z.object({}),
     execute: () => getStorage().listMedia(),
+  }),
+
+  renameMedia: tool({
+    description:
+      "Rename or move a media file. Pass its current path (as returned by listMedia) and the new path.",
+    inputSchema: z.object({ oldPath: z.string(), newPath: z.string() }),
+    execute: async ({ oldPath, newPath }) => {
+      await getStorage().renameMedia(oldPath, newPath);
+
+      return { ok: true };
+    },
+  }),
+
+  deleteMedia: tool({
+    description: "Delete a media file. Asks the user to confirm first.",
+    inputSchema: z.object({ path: z.string() }),
+    execute: ({ path }) =>
+      confirmed(
+        { title: "Delete media", message: `Delete "${path}"?`, variant: "danger" },
+        () => getStorage().deleteMedia(path),
+      ),
   }),
 
   getStatus: tool({

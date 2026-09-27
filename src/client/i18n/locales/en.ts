@@ -64,6 +64,12 @@ const en = {
     deleteEntryMessage:
       'Are you sure you want to delete "{{id}}"? This cannot be undone.',
     changesSaved: "Changes saved",
+    duplicate: "Duplicate",
+    renameEntry: "Rename entry",
+    duplicateEntry: "Duplicate entry",
+    entryRenamed: "Entry renamed",
+    entryDuplicated: "Entry duplicated",
+    entryIdExists: 'An entry named "{{id}}" already exists',
     entryAdded: "Entry added",
     invalidJson: "Invalid JSON in raw editor",
     noSchema: "No schema available. Use Raw mode to edit.",

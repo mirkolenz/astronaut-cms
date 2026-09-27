@@ -1,12 +1,20 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
-import { useEntry, useSaveEntry, useDeleteEntry } from "@client/queries/use-entries";
+import {
+  useEntries,
+  useEntry,
+  useSaveEntry,
+  useDeleteEntry,
+  useRenameEntry,
+  useDuplicateEntry,
+} from "@client/queries/use-entries";
 import { useCollections } from "@client/queries/use-collections";
 import { FieldRenderer } from "@client/components/editors/field-renderer";
 import { objectShape } from "@shared/field-schema";
 import { MdxEditor } from "@client/components/editors/mdx-editor";
 import { ConfirmDialog } from "@client/components/confirm-dialog";
+import { EntryIdDialog } from "@client/components/entry-id-dialog";
 import { toast } from "@client/components/toast";
 import { ErrorBanner } from "@client/components/error-banner";
 import { DATA_FORMATS } from "@shared/types";
@@ -25,14 +33,22 @@ function EntryEditor() {
   const { collection, entry: entryId } = Route.useParams();
   const navigate = useNavigate();
   const { data: entry, isLoading, error } = useEntry(collection, entryId);
+  const { data: entries } = useEntries(collection);
   const { data: collections } = useCollections();
   const saveMutation = useSaveEntry(collection, entryId);
   const deleteMutation = useDeleteEntry(collection);
+  const renameMutation = useRenameEntry(collection);
+  const duplicateMutation = useDuplicateEntry(collection);
 
   const shape = objectShape(collections?.[collection]?.schema);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [editBody, setEditBody] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRename, setShowRename] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
+
+  const entryIds = (entries ?? []).map((e) => e.id);
+  const otherIds = entryIds.filter((id) => id !== entryId);
 
   const [isDirty, setIsDirty] = useState(false);
 
@@ -96,6 +112,26 @@ function EntryEditor() {
     setShowDeleteConfirm(false);
   };
 
+  // Rename and duplicate operate on the stored entry, landing on the new id, and
+  // share the same success (toast + navigate) and error handling.
+  const onMoved = (newId: string, message: string) => ({
+    onSuccess: () => {
+      toast(message, "success");
+      void navigate({ to: "/collections/$collection/$entry", params: { collection, entry: newId } });
+    },
+    onError: (err: Error) => toast(err.message, "error"),
+  });
+
+  const handleRename = (newId: string) => {
+    setShowRename(false);
+    renameMutation.mutate({ oldId: entryId, newId }, onMoved(newId, t($ => $.entry.entryRenamed)));
+  };
+
+  const handleDuplicate = (newId: string) => {
+    setShowDuplicate(false);
+    duplicateMutation.mutate({ sourceId: entryId, newId }, onMoved(newId, t($ => $.entry.entryDuplicated)));
+  };
+
   const handleBodyChange = useCallback((value: string) => {
     setEditBody(value);
     setIsDirty(true);
@@ -157,6 +193,20 @@ function EntryEditor() {
               {saveMutation.isPending ? t($ => $.common.saving) : t($ => $.common.save)}
             </Button>
             <Button
+              variant="outline"
+              onClick={() => setShowRename(true)}
+              disabled={isDirty || renameMutation.isPending}
+            >
+              {t($ => $.common.rename)}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowDuplicate(true)}
+              disabled={isDirty || duplicateMutation.isPending}
+            >
+              {t($ => $.entry.duplicate)}
+            </Button>
+            <Button
               variant="destructive"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteMutation.isPending}
@@ -208,6 +258,26 @@ function EntryEditor() {
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
+        />
+
+        <EntryIdDialog
+          open={showRename}
+          title={t($ => $.entry.renameEntry)}
+          confirmLabel={t($ => $.common.rename)}
+          initialId={entryId}
+          existingIds={otherIds}
+          onSubmit={handleRename}
+          onCancel={() => setShowRename(false)}
+        />
+
+        <EntryIdDialog
+          open={showDuplicate}
+          title={t($ => $.entry.duplicateEntry)}
+          confirmLabel={t($ => $.entry.duplicate)}
+          initialId={`${entryId}-copy`}
+          existingIds={entryIds}
+          onSubmit={handleDuplicate}
+          onCancel={() => setShowDuplicate(false)}
         />
 
         <ConfirmDialog

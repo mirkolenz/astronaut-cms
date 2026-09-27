@@ -68,6 +68,12 @@ const de: TranslationShape<typeof en> = {
     deleteEntryMessage:
       'Sind Sie sicher, dass Sie "{{id}}" löschen möchten? Dies kann nicht rückgängig gemacht werden.',
     changesSaved: "Änderungen gespeichert",
+    duplicate: "Duplizieren",
+    renameEntry: "Eintrag umbenennen",
+    duplicateEntry: "Eintrag duplizieren",
+    entryRenamed: "Eintrag umbenannt",
+    entryDuplicated: "Eintrag dupliziert",
+    entryIdExists: 'Ein Eintrag namens "{{id}}" existiert bereits',
     entryAdded: "Eintrag hinzugefügt",
     invalidJson: "Ungültiges JSON im Roh-Editor",
     noSchema:

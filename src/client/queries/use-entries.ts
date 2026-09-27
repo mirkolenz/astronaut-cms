@@ -67,6 +67,31 @@ export function useDeleteEntry(collection: string) {
   });
 }
 
+export function useRenameEntry(collection: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ oldId, newId }: { oldId: string; newId: string }) =>
+      getStorage().renameEntry(collection, oldId, newId),
+    onSuccess: (_, { oldId }) => {
+      invalidateEntries(queryClient, collection);
+      invalidateEntry(queryClient, collection, oldId);
+      invalidateBranchStatus(queryClient);
+    },
+  });
+}
+
+export function useDuplicateEntry(collection: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceId, newId }: { sourceId: string; newId: string }) =>
+      getStorage().duplicateEntry(collection, sourceId, newId),
+    onSuccess: () => {
+      invalidateEntries(queryClient, collection);
+      invalidateBranchStatus(queryClient);
+    },
+  });
+}
+
 export function useFileLayout(collection: string) {
   return useQuery({
     queryKey: ["cms", "file-layout", collection],

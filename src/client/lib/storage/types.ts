@@ -44,6 +44,8 @@ export interface StorageBackend {
   getEntry(collection: string, id: string): Promise<EntryContent>;
   saveEntry(collection: string, id: string, data: SaveEntryRequest): Promise<void>;
   deleteEntry(collection: string, id: string): Promise<void>;
+  renameEntry(collection: string, oldId: string, newId: string): Promise<void>;
+  duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void>;
   reorderEntries(collection: string, ids: string[]): Promise<void>;
   listMedia(): Promise<MediaFile[]>;
   uploadMedia(path: string, file: File): Promise<MediaFile>;
