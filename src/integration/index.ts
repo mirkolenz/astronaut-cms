@@ -48,6 +48,9 @@ export type {
 
 const CONFIG_EXTENSIONS = ["ts", "tsx", "mts", "js", "jsx", "mjs"];
 
+// This module, which the package's watch build rewrites on every server rebuild.
+const INTEGRATION_PATH = fileURLToPath(import.meta.url);
+
 function findConfig(rootDir: string, base: string): string | null {
   for (const ext of CONFIG_EXTENSIONS) {
     const candidate = join(rootDir, `${base}.${ext}`);
@@ -267,7 +270,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const { collections, components } = loaded;
 
         // The integration reads both at startup, so an edit restarts the dev server.
-        for (const path of [contentConfigPath, userConfigPath]) if (path) addWatchFile(path);
+        // So does a rebuild of the integration itself, which only a linked checkout
+        // sees, since the dev server watches nothing below `node_modules`.
+        for (const path of [contentConfigPath, userConfigPath, INTEGRATION_PATH]) {
+          if (path) addWatchFile(path);
+        }
 
         // Every default is applied once, here; `clientConfig` is what the admin
         // and the rest of this hook both read.
@@ -426,6 +433,11 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
       "astro:config:done": ({ injectTypes }) => {
         injectTypes({ filename: "types.d.ts", content: mediaTypes(hasS3) });
+      },
+
+      // Outside the site's root, so the dev server has to be told to watch it.
+      "astro:server:setup": ({ server }) => {
+        server.watcher.add(INTEGRATION_PATH);
       },
 
       "astro:routes:resolved": ({ routes }) => graph?.setRoutes(routes),
