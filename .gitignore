@@ -32,3 +32,6 @@ dist-ssr
 # Nix build outputs
 /result
 /result-*
+
+/*.tgz
+
