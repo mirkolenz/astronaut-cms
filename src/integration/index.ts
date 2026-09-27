@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import type { CmsConfig } from "./types.ts";
 import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
 import { conformTrailingSlash } from "../shared/url.ts";
+import type { ClientMediaBackend } from "../shared/media.ts";
 import { cmsVitePlugin } from "./vite-plugin.ts";
 import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
@@ -136,7 +137,24 @@ function validateMediaBackend(config: CmsConfig, site: string | undefined): void
 /** The one adapter that provides a Workers runtime, as Astro names it. */
 const CLOUDFLARE_ADAPTER = "@astrojs/cloudflare";
 
+/**
+ * Narrows `resolveImage` to the media backend the site configures, so the call
+ * sites of a repository library never handle a URL they cannot receive.
+ */
+function mediaTypes(backend: ClientMediaBackend["type"]): string {
+  return `declare module "astronaut-cms/assets" {
+  interface MediaRegistry {
+    backend: ${JSON.stringify(backend)};
+  }
+}
+
+export {};
+`;
+}
+
 export default function cms(config: CmsConfig = {}): AstroIntegration {
+  let mediaBackendType: ClientMediaBackend["type"] = "repo";
+
   return {
     name: "astronaut-cms",
     hooks: {
@@ -337,6 +355,8 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         const { mediaBackend } = clientConfig;
 
+        mediaBackendType = mediaBackend.type;
+
         updateConfig({
           ...(mediaBackend.type === "remote" && {
             image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
@@ -439,6 +459,10 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             `AI assistant enabled${isByok(effectiveConfig) ? " (each editor brings their own key)" : ""}`,
           );
         }
+      },
+
+      "astro:config:done": ({ injectTypes }) => {
+        injectTypes({ filename: "types.d.ts", content: mediaTypes(mediaBackendType) });
       },
     },
   };

@@ -37,6 +37,20 @@ import config from "virtual:astronaut-cms/config";
 import { images, files, referencedOnly } from "virtual:astronaut-cms/assets";
 
 type RemoteBackend = Extract<ClientMediaBackend, { type: "remote" }>;
+
+/**
+ * Filled in for each site by the types the integration generates, with the
+ * media backend it configures. Empty where those types are not loaded.
+ */
+export interface MediaRegistry {}
+
+/**
+ * What {@link resolveImage} returns: always image metadata for a repository
+ * library, and a URL for an object store too, whose keys resolve to one.
+ */
+export type ResolvedImage = MediaRegistry extends { backend: "repo" }
+  ? ImageMetadata
+  : ImageMetadata | string;
 type AssetKind = "image" | "file";
 
 // Read from the config module rather than the generated one, so `publicUrl` has a single source.
@@ -120,8 +134,9 @@ function hint(kind: AssetKind, key: string): string {
  * backend — to the URL the image is served under. Absolute paths need no `base`;
  * relative paths resolve against `base` (e.g. `entry.filePath`).
  */
-export const resolveImage = async (path: string, base?: string): Promise<ImageMetadata | string> =>
-  resolve(images, "image", path, base);
+export const resolveImage = async (path: string, base?: string): Promise<ResolvedImage> =>
+  // Only a remote backend yields a string, and the generated types name the backend.
+  (await resolve(images, "image", path, base)) as ResolvedImage;
 
 /** Resolve an asset path to a file URL. See {@link resolveImage} for base semantics. */
 export const resolveFile = async (path: string, base?: string): Promise<string> =>
