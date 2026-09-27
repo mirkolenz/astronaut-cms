@@ -23,7 +23,10 @@ describe("zodToFieldSchema lowering", () => {
     expect(zodToFieldSchema(z.boolean())).toEqual({ type: "boolean" });
     expect(zodToFieldSchema(z.date())).toEqual({ type: "date" });
     expect(zodToFieldSchema(z.enum(["a", "b"]))).toEqual({ type: "enum", options: ["a", "b"] });
+    expect(zodToFieldSchema(z.enum({ one: 1, two: 2 }))).toEqual({ type: "enum", options: [1, 2] });
     expect(zodToFieldSchema(z.literal("x"))).toEqual({ type: "literal", value: "x" });
+    expect(zodToFieldSchema(z.literal(null))).toEqual({ type: "literal", value: null });
+    expect(() => zodToFieldSchema(z.literal(undefined))).toThrow(/CMS schema literals/);
   });
 
   it("threads optional / nullable / default flags onto the base type", () => {
@@ -211,6 +214,24 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
     expect(rebuilt.safeParse("archived").success).toBe(false);
   });
 
+  it("preserves numeric, boolean, and null enum values", () => {
+    const numeric = zodToFieldSchema(z.enum({ count: 1, none: 0 }));
+    const rebuilt = fieldSchemaToZod({ type: "enum", options: [1, true, null] });
+
+    expect(numeric).toEqual({ type: "enum", options: [1, 0] });
+    expect(rebuilt.safeParse(1).success).toBe(true);
+    expect(rebuilt.safeParse(true).success).toBe(true);
+    expect(rebuilt.safeParse(null).success).toBe(true);
+    expect(rebuilt.safeParse("1").success).toBe(false);
+  });
+
+  it("round-trips a null literal without changing it into text", () => {
+    const rebuilt = fieldSchemaToZod(zodToFieldSchema(z.literal(null)));
+
+    expect(rebuilt.safeParse(null).success).toBe(true);
+    expect(rebuilt.safeParse("null").success).toBe(false);
+  });
+
   it("re-applies declarative constraints so the rebuilt validator still rejects", () => {
     const string = fieldSchemaToZod(zodToFieldSchema(z.string().min(2).max(4)));
     expect(string.safeParse("a").success).toBe(false);
@@ -241,6 +262,16 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
     const email = fieldSchemaToZod(zodToFieldSchema(z.email()));
     expect(email.safeParse("a@b.com").success).toBe(true);
     expect(email.safeParse("nope").success).toBe(false);
+  });
+
+  it("keeps length constraints on formatted strings", () => {
+    const email = fieldSchemaToZod(zodToFieldSchema(z.email().min(10)));
+    const url = fieldSchemaToZod(zodToFieldSchema(z.url().max(24)));
+
+    expect(email.safeParse("a@b.com").success).toBe(false);
+    expect(email.safeParse("alice@b.com").success).toBe(true);
+    expect(url.safeParse("https://example.com").success).toBe(true);
+    expect(url.safeParse("https://example.com/a-long-path").success).toBe(false);
   });
 });
 

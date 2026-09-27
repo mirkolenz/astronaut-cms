@@ -32,7 +32,7 @@ import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
 export function collectionEnum(manifest: CollectionManifest): z.ZodType<string, string> {
   const names = Object.keys(manifest);
 
-  return names.length ? z.enum(names as [string, ...string[]]) : z.string();
+  return names.length ? z.enum(names as [string, ...string[]]) : z.never();
 }
 
 // In a patch every field is optional (omitted = unchanged) and nullable (null =

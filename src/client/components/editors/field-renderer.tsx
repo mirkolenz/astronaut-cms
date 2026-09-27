@@ -151,7 +151,7 @@ export function FieldRenderer({ schema, value, onChange, name, required }: Field
         <EnumField
           options={schema.options}
           name={name}
-          value={asString(resolved)}
+          value={value === null ? null : resolved}
           onChange={onChange}
           required={required}
         />
@@ -353,26 +353,35 @@ function EnumField({
   onChange,
   required,
 }: {
-  options: string[];
+  options: (string | number | boolean | null)[];
   name: string;
-  value: string;
+  value: unknown;
   onChange: (v: unknown) => void;
   required?: boolean;
 }) {
+  const selected = options.findIndex((option) => Object.is(option, value));
+
   return (
     <div>
       <Label>
         {name}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      <Select value={value || undefined} onValueChange={(val) => onChange(val)}>
+      <Select
+        value={selected < 0 ? undefined : String(selected)}
+        onValueChange={(index) => {
+          const option = options[Number(index)];
+
+          if (option !== undefined) onChange(option);
+        }}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="--" />
         </SelectTrigger>
         <SelectContent>
-          {options.map((opt) => (
-            <SelectItem key={opt} value={opt}>
-              {opt}
+          {options.map((option, index) => (
+            <SelectItem key={index} value={String(index)}>
+              {String(option)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -998,7 +1007,7 @@ export function getDefaultValue(schema?: FieldSchema): unknown {
     case "date":
       return new Date().toISOString();
     case "enum":
-      return schema.options[0] ?? "";
+      return schema.options.length > 0 ? schema.options[0] : "";
     case "literal":
       return schema.value;
     case "array":

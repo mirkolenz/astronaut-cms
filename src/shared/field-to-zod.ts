@@ -30,26 +30,25 @@ const UNKNOWN = z.unknown().refine((value) => !containsLink(value), PLAIN_TEXT_M
 function base(field: FieldSchema): z.ZodType {
   switch (field.type) {
     case "string": {
+      let s = field.format === "url" ? z.url() : z.string();
+      if (typeof field.minLength === "number") s = s.min(field.minLength);
+      if (typeof field.maxLength === "number") s = s.max(field.maxLength);
+      if (field.pattern) s = s.regex(new RegExp(field.pattern));
+
       // Zod's own email check, wrapped so the schema stays a plain string: its
       // lowered form is a ~130-character regex that no model needs to read and
       // that grammar-constrained samplers cannot compile. `url` lowers to a bare
       // `format`, so it passes through as it is.
       if (field.format === "email") {
-        return z
-          .string()
+        return s
           .refine((value) => EMAIL.safeParse(value).success, "Expected an email address.")
           .describe("Email address.");
       }
 
       // A declared URL has to be one a visitor may follow, and only a declared
       // one may be a URL at all (see `links.ts`).
-      if (field.format === "url") return allowedLinks(z.url());
-      if (field.format === "link") return allowedLinks(z.string()).describe(LINK_DESCRIPTION);
-
-      let s = z.string();
-      if (typeof field.minLength === "number") s = s.min(field.minLength);
-      if (typeof field.maxLength === "number") s = s.max(field.maxLength);
-      if (field.pattern) s = s.regex(new RegExp(field.pattern));
+      if (field.format === "url") return allowedLinks(s);
+      if (field.format === "link") return allowedLinks(s).describe(LINK_DESCRIPTION);
 
       return s.refine((value) => !isLinkLike(value), PLAIN_TEXT_MESSAGE);
     }
@@ -80,8 +79,15 @@ function base(field: FieldSchema): z.ZodType {
         .refine((value) => !Number.isNaN(Date.parse(value)), "Expected a date.")
         .describe('ISO date, e.g. "2026-01-31".');
 
-    case "enum":
-      return field.options.length ? z.enum(field.options as [string, ...string[]]) : z.string();
+    case "enum": {
+      if (field.options.length === 0) return z.never();
+
+      if (field.options.every((option): option is string => typeof option === "string")) {
+        return z.enum(field.options as [string, ...string[]]);
+      }
+
+      return z.literal(field.options);
+    }
 
     case "literal":
       return z.literal(field.value);

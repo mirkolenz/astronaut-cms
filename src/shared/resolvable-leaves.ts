@@ -1,4 +1,5 @@
 import type { FieldSchema } from "./field-schema";
+import { fieldSchemaToZod } from "@/shared/field-to-zod";
 
 // Walks a (FieldSchema, value) pair in tandem and collects every leaf that holds
 // a path to another resource: a cross-collection `reference` or an `image`/`file`
@@ -23,10 +24,6 @@ function child(path: string, key: string | number): string {
   if (typeof key === "number") return `${path}[${key}]`;
 
   return path ? `${path}.${key}` : key;
-}
-
-function matchesTag(field: FieldSchema | undefined, tag: unknown): boolean {
-  return field?.type === "literal" && field.value === tag;
 }
 
 export function collectResolvableLeaves(
@@ -77,20 +74,11 @@ export function collectResolvableLeaves(
         : [];
 
     case "union": {
-      // Only a discriminated union can be resolved to a single variant from the
-      // value; a plain union is ambiguous, so descend no further.
-      const discriminator = schema.discriminator;
+      const variant = schema.variants.find((candidate) =>
+        fieldSchemaToZod(candidate).safeParse(value).success,
+      );
 
-      if (discriminator && isRecord(value)) {
-        const tag = value[discriminator];
-        const variant = schema.variants.find(
-          (v) => v.type === "object" && matchesTag(v.shape[discriminator], tag),
-        );
-
-        return variant ? collectResolvableLeaves(variant, value, path) : [];
-      }
-
-      return [];
+      return variant ? collectResolvableLeaves(variant, value, path) : [];
     }
 
     default:

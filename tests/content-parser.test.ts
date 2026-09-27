@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMultiEntryFile, serializeMultiEntryFile } from "@/shared/content-parser";
+import { parseContent, parseMultiEntryFile, serializeContent, serializeMultiEntryFile } from "@/shared/content-parser";
 
 describe("multi-entry files", () => {
   // An array-backed file() collection keys its entries by an `id` field embedded in
@@ -16,6 +16,17 @@ describe("multi-entry files", () => {
 
     expect([...written.keys()]).toEqual(["first", "second"]);
     expect(written.get("second")).toEqual({ id: "second", title: "First" });
+  });
+
+  it("keeps slug-only array entries visible and updates their slug on duplication", () => {
+    const file = parseMultiEntryFile(JSON.stringify([{ slug: "first", title: "First" }, { slug: false }]), "json");
+
+    file.entries.set("second", { ...file.entries.get("first") });
+
+    const written = parseMultiEntryFile(serializeMultiEntryFile(file, "json"), "json").entries;
+
+    expect([...written.keys()]).toEqual(["first", "false", "second"]);
+    expect(written.get("second")).toEqual({ slug: "second", title: "First" });
   });
 
   // File order can be a collection's order, and an object would move integer-like
@@ -56,4 +67,29 @@ describe("multi-entry files", () => {
 
     expect(serializeMultiEntryFile(file, "yaml")).toBe(raw.replace("name: B", "name: Bee"));
   });
+
+  it("keeps slug-based YAML comments with their entries when reordered", () => {
+    const raw = "- slug: first # first\n  name: A\n- slug: second # second\n  name: B\n";
+    const file = parseMultiEntryFile(raw, "yaml");
+
+    file.entries = new Map([...file.entries].reverse());
+
+    expect(serializeMultiEntryFile(file, "yaml")).toBe(
+      "- slug: second # second\n  name: B\n- slug: first # first\n  name: A\n",
+    );
+  });
+});
+
+it("refuses TOML values that would be dropped or cannot be represented", () => {
+  expect(() => serializeContent({ title: null }, "", "toml")).toThrow(/TOML cannot store/);
+  expect(() => serializeContent({ title: undefined }, "", "toml")).toThrow(/TOML cannot store/);
+  expect(() =>
+    serializeMultiEntryFile(
+      { layout: "object", entries: new Map([["first", { tags: ["a", null] }]]) },
+      "toml",
+    ),
+  ).toThrow(/TOML cannot store/);
+
+  const { data } = parseContent("published = 2026-01-01\n", "toml");
+  expect(serializeContent(data, "", "toml")).toContain("published = 2026-01-01");
 });

@@ -52,8 +52,8 @@ export type FieldSchema = FieldMods &
       }
     | { type: "boolean" }
     | { type: "date" }
-    | { type: "enum"; options: string[] }
-    | { type: "literal"; value: string | number | boolean }
+    | { type: "enum"; options: Array<string | number | boolean | null> }
+    | { type: "literal"; value: string | number | boolean | null }
     | {
         type: "image";
         /**

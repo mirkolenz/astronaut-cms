@@ -10,10 +10,12 @@ import {
 } from "yaml";
 import { extname } from "pathe";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import { z } from "zod";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { frontmatter } from "micromark-extension-frontmatter";
 import type { FileEntryLayout } from "./types";
+import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
 
 /**
  * Extracts the file extension from a file name or path.
@@ -21,6 +23,40 @@ import type { FileEntryLayout } from "./types";
 export const getFileExtension = (fileName: string): string => extname(fileName).slice(1);
 
 const isYaml = (format: string): boolean => format === "yaml" || format === "yml";
+
+interface TomlTable {
+  [key: string]: TomlValue;
+}
+
+type TomlValue = string | number | bigint | boolean | Date | TomlValue[] | TomlTable;
+
+const tomlValue: z.ZodType<TomlValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.custom<number>((value): value is number => typeof value === "number"),
+    z.bigint(),
+    z.boolean(),
+    z.instanceof(Date),
+    z.array(tomlValue),
+    z.record(z.string(), tomlValue),
+  ]),
+);
+
+const tomlTable = z.record(z.string(), tomlValue);
+
+function serializableToml(data: Record<string, unknown>): Record<string, TomlValue> {
+  const result = tomlTable.safeParse(data);
+
+  if (!result.success) {
+    throw new ContentValidationError(
+      result.error.issues.map((issue) =>
+        diagnostic("TOML cannot store this value.", issue.path.map(String).join(".")),
+      ),
+    );
+  }
+
+  return result.data;
+}
 
 /** The YAML frontmatter a Markdown file opens with, and the body on the lines after it. */
 function splitFrontmatter(raw: string): { frontmatter?: string; body: string } {
@@ -88,7 +124,7 @@ export function serializeContent(
     case "yml":
       return stringifyYaml(data, { lineWidth: 0 });
     case "toml":
-      return stringifyToml(data as Record<string, string>) + "\n";
+      return stringifyToml(serializableToml(data)) + "\n";
     default:
       return body;
   }
@@ -103,7 +139,7 @@ function arrayEntries(items: Record<string, unknown>[]): FileEntries {
   const entries: FileEntries = new Map();
 
   for (const item of items) {
-    const id = typeof item.id === "string" || typeof item.id === "number" ? `${item.id}` : "";
+    const id = idOf(item.id ?? item.slug);
 
     if (id) entries.set(id, item);
   }
@@ -175,15 +211,15 @@ export function serializeMultiEntryFile(
   format: string,
 ): string {
   if (layout === "array") {
-    // The map key is the entry id, so it overrides any `id` still embedded in the
-    // data: a duplicated entry carries the source's, which would otherwise be
-    // written back and collapse the two entries into one on the next read. An
-    // embedded id that already names the entry keeps its type, so `id: 1` is
-    // not rewritten as a string.
-    const arr = [...entries].map(([id, data]) => ({
-      ...data,
-      id: idOf(data.id) === id ? data.id : id,
-    }));
+    // Astro reads `id` first and falls back to `slug`. A duplicate must update
+    // whichever field names the source, or the next read would collapse it.
+    // An unchanged numeric identifier keeps its type.
+    const arr = [...entries].map(([id, data]) => {
+      const key = data.id == null && data.slug != null ? "slug" : "id";
+      const current = data[key];
+
+      return { ...data, [key]: idOf(current) === id ? current : id };
+    });
 
     return isYaml(format)
       ? serializeYaml(arr, yaml)
@@ -197,7 +233,7 @@ export function serializeMultiEntryFile(
     case "yml":
       return serializeYaml(record, yaml);
     case "toml":
-      return stringifyToml(record as Record<string, Record<string, string>>) + "\n";
+      return stringifyToml(serializableToml(record)) + "\n";
     default:
       return JSON.stringify(record, null, 2) + "\n";
   }
@@ -205,7 +241,9 @@ export function serializeMultiEntryFile(
 
 /** An entry's id as the map keys it, or undefined for a value that is none. */
 function idOf(value: unknown): string | undefined {
-  return typeof value === "string" || typeof value === "number" ? `${value}` : undefined;
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+    ? `${value}`
+    : undefined;
 }
 
 const sameValue = (node: unknown, value: unknown): boolean =>
@@ -241,10 +279,10 @@ function mergeYaml(doc: Document, node: unknown, value: unknown): unknown {
 
   if (isSeq(node) && Array.isArray(value)) {
     const items = node.items;
-    const byId = new Map(items.filter(isMap).map((item) => [idOf(item.get("id")), item]));
+    const byId = new Map(items.filter(isMap).map((item) => [idOf(item.get("id") ?? item.get("slug")), item]));
 
     node.items = value.map((item, index) => {
-      const id = isRecord(item) ? idOf(item.id) : undefined;
+      const id = isRecord(item) ? idOf(item.id ?? item.slug) : undefined;
 
       return mergeYaml(doc, id === undefined ? items[index] : byId.get(id), item);
     });

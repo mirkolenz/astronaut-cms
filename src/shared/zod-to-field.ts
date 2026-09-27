@@ -75,10 +75,12 @@ function lower(input: unknown, depth: number): FieldSchema {
 }
 
 // Coerces a Zod literal value into the JSON-safe subset `FieldSchema` allows.
-function literalValue(value: unknown): string | number | boolean {
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
-    ? value
-    : String(value);
+function literalValue(value: unknown): string | number | boolean | null {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  throw new Error("CMS schema literals must be strings, numbers, booleans, or null.");
 }
 
 // Reads a schema's declarative constraints (min/max, regex, multipleOf, ...) via
@@ -150,7 +152,7 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
 
   if (schema instanceof z.ZodDate) return { type: "date" };
 
-  if (schema instanceof z.ZodEnum) return { type: "enum", options: schema.options.map(String) };
+  if (schema instanceof z.ZodEnum) return { type: "enum", options: schema.options.map(literalValue) };
 
   if (schema instanceof z.ZodLiteral) {
     // A multi-value literal is just a union of single literals; lower it that

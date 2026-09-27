@@ -39,4 +39,39 @@ describe("collectResolvableLeaves", () => {
   it("skips empty and missing values", () => {
     expect(collectResolvableLeaves(schema, { author: "", cover: null })).toEqual([]);
   });
+
+  it("follows the matching branch of a plain union", () => {
+    const variant: FieldSchema = {
+      type: "union",
+      variants: [
+        { type: "object", shape: { image: { type: "image" } } },
+        { type: "object", shape: { document: { type: "file" } } },
+      ],
+    };
+
+    expect(collectResolvableLeaves(variant, { document: "/files/guide.pdf" })).toEqual([
+      { kind: "file", value: "/files/guide.pdf", path: "document" },
+    ]);
+  });
+
+  it("follows a discriminated branch with an enum tag", () => {
+    const variant: FieldSchema = {
+      type: "union",
+      discriminator: "kind",
+      variants: [
+        {
+          type: "object",
+          shape: { kind: { type: "enum", options: ["photo", "drawing"] }, asset: { type: "image" } },
+        },
+        {
+          type: "object",
+          shape: { kind: { type: "literal", value: "document" }, asset: { type: "file" } },
+        },
+      ],
+    };
+
+    expect(collectResolvableLeaves(variant, { kind: "drawing", asset: "/img/sketch.png" })).toEqual([
+      { kind: "image", value: "/img/sketch.png", path: "asset" },
+    ]);
+  });
 });

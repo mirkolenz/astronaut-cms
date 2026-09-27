@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertEntryWritable, type ContentSource } from "@/server/validation";
-import { validateAgainstSchema } from "@/shared/collection-schema";
+import { collectionEnum, validateAgainstSchema } from "@/shared/collection-schema";
 import { ContentValidationError } from "@/shared/diagnostics";
 import type { CollectionManifestEntry } from "@/shared/types";
 import { repoMedia, s3Media } from "./fixtures/media";
@@ -26,6 +26,10 @@ const posts: CollectionManifestEntry = {
     },
   },
 };
+
+it("rejects collection names when the site has no collections", () => {
+  expect(collectionEnum({}).safeParse("posts").success).toBe(false);
+});
 
 describe("validateAgainstSchema", () => {
   it("accepts an entry that matches the collection schema", () => {

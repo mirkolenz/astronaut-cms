@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { Children, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { FieldSchema } from "@/shared/field-schema";
 import { FieldRenderer, getDefaultValue } from "@/client/components/editors/field-renderer";
@@ -58,6 +58,41 @@ describe("FieldRenderer dispatch", () => {
   });
 });
 
+it("keeps enum options with identical labels distinct and preserves their value types", () => {
+  const options = ["1", 1, true, null];
+  const selected: unknown[] = [];
+  const props = {
+    schema: { type: "enum", options } satisfies FieldSchema,
+    value: 1,
+    onChange: (value: unknown) => selected.push(value),
+    name: "choice",
+  };
+  const editor = FieldRenderer(props) as ReactElement<typeof props>;
+  const render = editor.type as (value: typeof editor.props) => ReactElement<{ children: ReactNode }>;
+  const selectOf = (value: unknown) => {
+    const element = FieldRenderer({ ...props, value }) as ReactElement<typeof props>;
+    const field = render(element.props);
+
+    return Children.toArray(field.props.children)[1] as ReactElement<{
+      value: string;
+      onValueChange: (index: string) => void;
+      children: ReactNode;
+    }>;
+  };
+
+  const select = selectOf(1);
+  const content = Children.toArray(select.props.children)[1] as ReactElement<{ children: ReactNode }>;
+  const items = Children.toArray(content.props.children) as ReactElement<{ value: string }>[];
+
+  expect(select.props.value).toBe("1");
+  expect(items.map((item) => item.props.value)).toEqual(["0", "1", "2", "3"]);
+  expect(selectOf(null).props.value).toBe("3");
+
+  for (const index of ["0", "1", "2", "3"]) select.props.onValueChange(index);
+
+  expect(selected).toEqual(options);
+});
+
 describe("getDefaultValue", () => {
   it("returns an empty string when there is no schema", () => {
     expect(getDefaultValue()).toBe("");
@@ -74,6 +109,7 @@ describe("getDefaultValue", () => {
     expect(getDefaultValue({ type: "number" })).toBe(0);
     expect(getDefaultValue({ type: "boolean" })).toBe(false);
     expect(getDefaultValue({ type: "enum", options: ["a", "b"] })).toBe("a");
+    expect(getDefaultValue({ type: "enum", options: [null, 1] })).toBeNull();
     expect(getDefaultValue({ type: "literal", value: "x" })).toBe("x");
     expect(typeof getDefaultValue({ type: "date" })).toBe("string");
   });
