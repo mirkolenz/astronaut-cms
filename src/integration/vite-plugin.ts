@@ -67,6 +67,14 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
       serverConfig.storage.type === "local" && devApi
         ? `export { LocalStorage } from "astronaut-cms/server-local";`
         : `export const LocalStorage = null;`,
+    // The AWS SDK is an optional peer, so only a site reaching its library
+    // through S3 links it, and fails against the stub Vite substitutes for a
+    // peer that is not installed otherwise. The import stays lazy, so a cold
+    // start that never touches media never loads the SDK.
+    "virtual:astronaut-cms/s3-store":
+      serverConfig.media?.access.type === "s3"
+        ? `export const loadS3Store = () => import("astronaut-cms/server-s3").then((m) => m.S3Store);`
+        : `export const loadS3Store = null;`,
     "virtual:astronaut-cms/order": ({ watch }) =>
       generateOrderModule(collections, options.rootDir, watch),
     "virtual:astronaut-cms/collections": `export default ${JSON.stringify(collections)};`,

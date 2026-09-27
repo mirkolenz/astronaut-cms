@@ -74,6 +74,10 @@
     "./server-local": {
       "types": "./dist/server/storage/local.d.ts",
       "default": "./dist/server-local.js"
+    },
+    "./server-s3": {
+      "types": "./dist/media/s3-store.d.ts",
+      "default": "./dist/server-s3.js"
     }
   },
   "publishConfig": {

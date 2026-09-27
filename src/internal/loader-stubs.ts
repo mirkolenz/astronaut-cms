@@ -31,7 +31,7 @@ type AstroGlobOptions = Parameters<typeof AstroLoaders.glob>[0];
  */
 export interface LoaderMarker {
   __cmsPattern?: string | string[] | null;
-  __cmsBase?: string | null;
+  __cmsBase?: string | URL | null;
   __cmsFileName?: string | null;
 }
 
@@ -42,11 +42,7 @@ export function defineCollection<T>(config: T): T {
 export function glob(options: Pick<AstroGlobOptions, "pattern" | "base">): LoaderMarker {
   return {
     __cmsPattern: options.pattern ?? null,
-    // astro also accepts a file URL as the base. The CMS addresses entries by
-    // project-relative path (storage backends, the changeset, the dev
-    // middleware), so a URL base is recorded as absent and the collection falls
-    // back to the conventional directory rather than being mangled into a path.
-    __cmsBase: typeof options.base === "string" ? options.base : null,
+    __cmsBase: options.base ?? null,
   };
 }
 

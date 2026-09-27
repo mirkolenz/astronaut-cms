@@ -34,4 +34,26 @@ describe("multi-entry files", () => {
     expect([...file.entries.keys()]).toEqual(["a"]);
     expect(JSON.parse(serializeMultiEntryFile(file, "json"))).toEqual(JSON.parse(raw));
   });
+
+  // A save rewrites the whole file, which must not cost the comments and blank
+  // lines it left alone, inside an edited entry or around it.
+  it("keeps YAML comments and blank lines", () => {
+    const raw = "# Team\n\n- id: 1 # first\n  name: A\n\n- id: 2\n  # shown\n  name: B\n  role: x\n";
+    const file = parseMultiEntryFile(raw, "yaml");
+
+    expect(serializeMultiEntryFile(file, "yaml")).toBe(raw);
+
+    file.entries.set("2", { id: 2, name: "Bee", role: "x" });
+
+    expect(serializeMultiEntryFile(file, "yaml")).toBe(raw.replace("name: B", "name: Bee"));
+  });
+
+  it("keeps YAML comments of an object layout", () => {
+    const raw = "a:\n  name: A\n\n# second\nb:\n  name: B # old\n";
+    const file = parseMultiEntryFile(raw, "yaml");
+
+    file.entries.set("b", { name: "Bee" });
+
+    expect(serializeMultiEntryFile(file, "yaml")).toBe(raw.replace("name: B", "name: Bee"));
+  });
 });

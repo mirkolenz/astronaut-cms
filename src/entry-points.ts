@@ -36,6 +36,7 @@ export const ENTRY_POINTS: EntryPoint[] = [
   { subpath: "./styles.css", source: "astro/styles.css" },
   { subpath: "./endpoint", source: "server/endpoint.ts" },
   { subpath: "./server-local", source: "server/storage/local.ts" },
+  { subpath: "./server-s3", source: "media/s3-store.ts" },
 ];
 
 export const specifierOf = ({ subpath }: EntryPoint): string =>

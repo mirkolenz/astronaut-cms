@@ -23,6 +23,7 @@ export default defineConfig({
         import.meta.dirname,
         "tests/fixtures/local-storage.ts",
       ),
+      "virtual:astronaut-cms/s3-store": resolve(import.meta.dirname, "tests/fixtures/s3-store.ts"),
       "@": resolve(import.meta.dirname, "src"),
     },
   },

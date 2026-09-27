@@ -57,3 +57,6 @@ npm pack
 # in your site
 npm install ../astronaut-cms/astronaut-cms-0.0.0.tgz
 ```
+
+An `.npmrc` that disables `file:` dependencies with `allow-directory=none` style settings refuses the tarball as well.
+Add `allow-file=all` to your site's `.npmrc` for the install.

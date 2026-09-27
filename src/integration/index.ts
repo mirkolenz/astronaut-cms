@@ -12,6 +12,7 @@ import { routeEntrypoint } from "./self-resolve.ts";
 import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
 import { secretsSchema } from "./env-schema.ts";
+import { sitemapListsAdmin } from "./sitemap-check.ts";
 import { checkContent } from "./check-content.ts";
 import { contentEntries } from "./content-files.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
@@ -152,6 +153,7 @@ export {};
 
 export default function cms(config: CmsConfig = {}): AstroIntegration {
   let mediaBackendType: ClientMediaBackend["type"] = "repo";
+  let adminPath = "/";
 
   return {
     name: "astronaut-cms",
@@ -212,6 +214,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           localMedia,
         );
         const mountPoint = clientConfig.mountPoint;
+        adminPath = join("/", astroConfig.base, mountPoint);
 
         if (clientConfig.contentI18n) {
           const { locales, defaultLocale } = clientConfig.contentI18n;
@@ -358,7 +361,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           ...(mediaBackend.type === "remote" && {
             image: { remotePatterns: [mediaRemotePattern(mediaBackend.publicUrl)] },
           }),
-          env: { schema: secretsSchema(config, serverConfig, configuredMedia, mediaServer) },
+          env: { schema: secretsSchema(config, configuredMedia) },
           vite: {
             plugins: [
               cmsVitePlugin({
@@ -430,17 +433,6 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           );
         }
 
-        // The sitemap lists every page route, the injected admin included, and
-        // exposes no way for another integration to take one out.
-        if (
-          command === "build" &&
-          astroConfig.integrations.some((i) => i.name === "@astrojs/sitemap")
-        ) {
-          logger.warn(
-            `@astrojs/sitemap lists the admin at ${mountPoint}. Exclude it with sitemap({ filter: (page) => !new URL(page).pathname.startsWith("${join("/", astroConfig.base, mountPoint)}") }).`,
-          );
-        }
-
         if (mediaServer?.access.type === "binding") {
           logger.info(`Media library reached through the R2 binding "${mediaServer.access.name}"`);
         }
@@ -470,6 +462,16 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
       "astro:config:done": ({ injectTypes }) => {
         injectTypes({ filename: "types.d.ts", content: mediaTypes(mediaBackendType) });
+      },
+
+      // The sitemap lists every page route, the injected admin included, and
+      // exposes no way for another integration to take one out.
+      "astro:build:done": ({ dir, logger }) => {
+        if (sitemapListsAdmin(fileURLToPath(dir), adminPath)) {
+          logger.warn(
+            `The sitemap lists the admin at ${adminPath}. Exclude it with sitemap({ filter: (page) => !new URL(page).pathname.startsWith("${adminPath}") }).`,
+          );
+        }
       },
     },
   };

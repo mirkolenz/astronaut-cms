@@ -3,6 +3,7 @@
  *
  * The injected route builds it from the environment of a running function.
  */
+import { loadS3Store } from "virtual:astronaut-cms/s3-store";
 import type { MediaServerConfig } from "../integration/types.ts";
 import type { BindingReader, EnvReader } from "../shared/runtime-env.ts";
 import {
@@ -36,6 +37,8 @@ export async function openStore(
     return new BindingStore(binding as R2Binding);
   }
 
+  if (!loadS3Store) throw new Error("The S3 media store is not configured in this build.");
+
   const accessKeyId = getEnv(S3_ACCESS_KEY_ID_ENV);
   const secretAccessKey = getEnv(S3_SECRET_ACCESS_KEY_ENV);
 
@@ -49,7 +52,7 @@ export async function openStore(
   const key = JSON.stringify([access, media.bucket, accessKeyId, secretAccessKey, sessionToken]);
 
   if (cachedStore?.key !== key) {
-    const { S3Store } = await import("./s3-store.ts");
+    const S3Store = await loadS3Store();
 
     cachedStore = {
       key,

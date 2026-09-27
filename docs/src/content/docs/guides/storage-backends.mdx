@@ -120,7 +120,8 @@ One secret, the one your OAuth app already gave you:
 | `ASTRONAUT_CMS_GITLAB_CLIENT_SECRET` | The same, for GitLab.                                           |
 
 The integration declares these through [`astro:env`](https://docs.astro.build/en/guides/environment-variables/#type-safe-environment-variables), so Astro validates and types them without an `env.schema` entry of yours.
-A secret is required only where the run needs it, so `astro dev` on local storage needs none.
+Every secret is optional, so a build with `env.validateSecrets` passes without it, as it must where the host provides secrets only at runtime, like a Workers secret.
+Sign-in reports a missing one when it needs it.
 
 The session cookie's key is derived from it, so there is nothing else to generate or seed.
 See [Where the cookie key comes from](/astronaut-cms/guides/security/#where-the-cookie-key-comes-from).

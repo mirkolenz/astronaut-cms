@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { SOURCE_EXPORTS } from "./self-resolve.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
@@ -103,12 +105,24 @@ interface RawCollection {
 }
 
 /**
+ * A loader path as the CMS addresses entries, relative to the project root.
+ * astro accepts `./src/x`, `src/x`, an absolute path and a file URL alike, and
+ * the storage backends compare paths as plain strings.
+ */
+function rootRelative(rootDir: string, path: string | URL | null | undefined): string | null {
+  if (path == null) return null;
+
+  return relative(rootDir, resolve(rootDir, typeof path === "string" ? path : fileURLToPath(path)));
+}
+
+/**
  * Loads the user's content config and lowers every collection into a fully
  * serializable {@link CollectionManifest}, each in astro's own id order until
  * `cms.config` says otherwise.
  */
 async function loadCollections(
   load: ConfigImport,
+  rootDir: string,
   contentConfigPath: string,
 ): Promise<CollectionManifest> {
   const mod = await load<{ collections?: Record<string, RawCollection> }>(contentConfigPath);
@@ -127,8 +141,8 @@ async function loadCollections(
       schema: rawSchema == null ? null : zodToFieldSchema(rawSchema),
       loaderType: loader?.__cmsFileName != null ? "file" : "glob",
       loaderPattern: loader?.__cmsPattern ?? null,
-      loaderBase: loader?.__cmsBase ?? null,
-      loaderFileName: loader?.__cmsFileName ?? null,
+      loaderBase: rootRelative(rootDir, loader?.__cmsBase),
+      loaderFileName: rootRelative(rootDir, loader?.__cmsFileName),
       sort: "id",
     } satisfies CollectionManifestEntry;
   }
@@ -186,7 +200,7 @@ export function loadConfigs(
 ): Promise<{ collections: CollectionManifest; components: ComponentManifest }> {
   return withConfigImport(rootDir, async (load) => {
     const [collections, cms] = await Promise.all([
-      paths.content ? loadCollections(load, paths.content) : {},
+      paths.content ? loadCollections(load, rootDir, paths.content) : {},
       paths.cms ? load<CmsConfigModule>(paths.cms) : undefined,
     ]);
 

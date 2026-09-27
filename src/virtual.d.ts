@@ -41,6 +41,15 @@ declare module "virtual:astronaut-cms/local-storage" {
   export const LocalStorage: typeof import("./server/storage/local").LocalStorage | null;
 }
 
+/**
+ * Imports the S3 media store, or null unless the media library is reached
+ * through S3. The integration stubs it out so a site without S3 never links the
+ * AWS SDK.
+ */
+declare module "virtual:astronaut-cms/s3-store" {
+  export const loadS3Store: (() => Promise<typeof import("./media/s3-store").S3Store>) | null;
+}
+
 declare module "virtual:astronaut-cms/assets" {
   /** Lazy asset loader maps, keyed by root-absolute path. Consumed by `astronaut-cms/assets`. */
   export const images: Record<string, () => Promise<import("astro").ImageMetadata>>;
