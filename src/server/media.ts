@@ -141,15 +141,15 @@ export class ObjectStoreLibrary implements MediaBackend {
    * Where the admin reads a library file from, which only a private library ever
    * asks. One served from a public base is addressed there directly by the admin
    * (see `client/lib/media.ts`), so this route exists for the bytes a browser
-   * cannot reach on its own — and the answer is a signed URL, so they still
-   * never pass through here.
+   * cannot reach on its own. An S3 store signs a URL, while a Workers binding
+   * streams the bytes through the route.
    */
   async readMedia(path: string): Promise<MediaContent> {
-    const url = await this.store.presignDownload(this.toKey(path));
+    const content = await this.store.read(this.toKey(path));
 
-    if (!url) throw new HttpError("This media store cannot sign read URLs.", 500);
+    if (!content) throw new HttpError(`Media file not found: ${path}`, 404);
 
-    return { redirect: url };
+    return "redirect" in content ? content : { ...content, contentType: mediaContentType(path) };
   }
 
   async beginUpload(path: string, size: number, overwrite: boolean): Promise<UploadTicket> {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { mediaPath, mediaRef, remoteMediaUrl, uniqueMediaPath } from "@shared/media";
-import { ObjectStoreLibrary } from "@server/media";
-import type { MediaStore } from "../src/media/store";
+import { mediaPath, mediaRef, remoteMediaUrl, uniqueMediaPath } from "@/shared/media";
+import { ObjectStoreLibrary } from "@/server/media";
+import { BindingStore, type MediaStore, type R2Binding } from "../src/media/store";
 
 // One rule maps a library path to the string content stores, and back. The two
 // backends spell it differently — a project path for a library in the
@@ -20,6 +20,55 @@ const devLocal = {
   mediaBackend: { type: "remote", publicUrl: "https://cdn.example.com", local: true } as const,
   mediaDirectory: "src/assets",
 };
+
+function bindingStore(initial: Record<string, string>) {
+  const objects = new Map(
+    Object.entries(initial).map(([key, value]) => [
+      key,
+      { bytes: new TextEncoder().encode(value), etag: `"${value}"` },
+    ]),
+  );
+  const bucket: R2Binding = {
+    list: async ({ prefix = "" } = {}) => ({
+      objects: [...objects]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, value]) => ({ key, size: value.bytes.byteLength, etag: value.etag })),
+      truncated: false,
+    }),
+    head: async (key) => {
+      const value = objects.get(key);
+
+      return value ? { key, size: value.bytes.byteLength, etag: value.etag } : null;
+    },
+    get: async (key) => {
+      const value = objects.get(key);
+
+      if (!value) return null;
+
+      return {
+        etag: value.etag,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(value.bytes);
+            controller.close();
+          },
+        }),
+      };
+    },
+    put: async (key, _value, options) => {
+      if (options?.onlyIf?.etagDoesNotMatch === "*" && objects.has(key)) return null;
+
+      objects.set(key, { bytes: new Uint8Array(), etag: '"new"' });
+
+      return { key };
+    },
+    delete: async (key) => {
+      objects.delete(key);
+    },
+  };
+
+  return { objects, store: new BindingStore(bucket) };
+}
 
 describe("media paths", () => {
   it("round-trips a repository path", () => {
@@ -64,20 +113,20 @@ describe("media paths", () => {
 // Only a library with no public base is read through the server at all: the
 // admin addresses a public one directly. So this route always signs, and the
 // signature is over a key the library admits to holding.
+const libraryOf = (store: MediaStore) =>
+  new ObjectStoreLibrary(
+    store,
+    { bucket: "b", prefix: "lib/", s3: null, binding: null },
+    { extensions: ["png"], maxFileSize: null },
+  );
+
 describe("reading a library", () => {
   const store = {
-    presignDownload: (key: string) => Promise.resolve(`https://store.example/${key}?sig=x`),
+    read: (key: string) => Promise.resolve({ redirect: `https://store.example/${key}?sig=x` }),
   } as unknown as MediaStore;
 
-  const library = (from: MediaStore = store) =>
-    new ObjectStoreLibrary(
-      from,
-      { bucket: "b", prefix: "lib/", s3: null, binding: null },
-      { extensions: ["png"], maxFileSize: null },
-    );
-
   it("signs a read under the configured prefix", async () => {
-    await expect(library().readMedia("photos/hero.png")).resolves.toEqual({
+    await expect(libraryOf(store).readMedia("photos/hero.png")).resolves.toEqual({
       redirect: "https://store.example/lib/photos/hero.png?sig=x",
     });
   });
@@ -85,14 +134,20 @@ describe("reading a library", () => {
   // A read may no more reach the prefix the library keeps for itself, or climb
   // out of its root, than a write may.
   it("refuses a reserved or escaping path", async () => {
-    await expect(library().readMedia(".trash/hero.png")).rejects.toThrow(/reserved/);
-    await expect(library().readMedia("../secrets.png")).rejects.toThrow();
+    await expect(libraryOf(store).readMedia(".trash/hero.png")).rejects.toThrow(/reserved/);
+    await expect(libraryOf(store).readMedia("../secrets.png")).rejects.toThrow();
   });
 
-  it("refuses a store that cannot sign", async () => {
-    const binding = { presignDownload: () => Promise.resolve(null) } as unknown as MediaStore;
+  it("streams a private file through an R2 binding", async () => {
+    const { store: binding } = bindingStore({ "lib/photos/hero.png": "image" });
+    const content = await libraryOf(binding).readMedia("photos/hero.png");
 
-    await expect(library(binding).readMedia("photos/hero.png")).rejects.toThrow(/cannot sign/);
+    expect(content.version).toBe("image");
+    expect("body" in content).toBe(true);
+
+    if ("body" in content) {
+      await expect(new Response(content.body).text()).resolves.toBe("image");
+    }
   });
 });
 
@@ -108,7 +163,9 @@ describe("the trash", () => {
       store: {
         list: (prefix: string) =>
           Promise.resolve(
-            [...objects].filter(([key]) => key.startsWith(prefix)).map(([key, size]) => ({ key, size })),
+            [...objects]
+              .filter(([key]) => key.startsWith(prefix))
+              .map(([key, size]) => ({ key, size })),
           ),
         head: (key: string) =>
           Promise.resolve(objects.has(key) ? { key, size: objects.get(key)! } : null),
@@ -127,13 +184,6 @@ describe("the trash", () => {
       } as unknown as MediaStore,
     };
   }
-
-  const libraryOf = (store: MediaStore) =>
-    new ObjectStoreLibrary(
-      store,
-      { bucket: "b", prefix: "lib/", s3: null, binding: null },
-      { extensions: ["png"], maxFileSize: null },
-    );
 
   it("round-trips a deletion back to its original path", async () => {
     const { objects, store } = fakeStore();
@@ -167,5 +217,17 @@ describe("the trash", () => {
     objects.set("lib/photos/hero.png", 99);
 
     await expect(library.restoreMedia(trashed.id)).rejects.toThrow(/already exists/);
+  });
+
+  it("keeps an R2 trash object when its conditional restore is refused", async () => {
+    const id = ".trash/1-photos/hero.png";
+    const { objects, store } = bindingStore({
+      [`lib/${id}`]: "old",
+      "lib/photos/hero.png": "new",
+    });
+
+    await expect(libraryOf(store).restoreMedia(id)).rejects.toThrow(/already exists/);
+    expect(objects.has(`lib/${id}`)).toBe(true);
+    expect(new TextDecoder().decode(objects.get("lib/photos/hero.png")?.bytes)).toBe("new");
   });
 });

@@ -135,8 +135,8 @@ export function mapMergeError(err: unknown): Error {
 
 /**
  * Where the bytes of one library file come from. A backend that can hand out a
- * URL the browser may load itself does; the rest return the bytes and let the
- * route stream them.
+ * URL the browser may load itself does; the rest return a body and let the route
+ * serve it.
  */
 export type MediaContent = {
   /**
@@ -148,7 +148,7 @@ export type MediaContent = {
    * what makes that short cache end in a 304 rather than in the bytes again.
    */
   version?: string;
-} & ({ redirect: string } | { bytes: Uint8Array<ArrayBuffer>; contentType: string });
+} & ({ redirect: string } | { body: BodyInit; contentType: string });
 
 /**
  * Content storage, as the operation registry addresses it. The media library is

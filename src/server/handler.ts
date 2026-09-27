@@ -542,10 +542,7 @@ async function route(
     // points is the provider's to expire. It is also the cheaper answer, because
     // the browser then keeps this version for good rather than coming back for a
     // fresh redirect every few minutes.
-    const source =
-      "bytes" in content
-        ? { body: content.bytes as BodyInit, contentType: content.contentType }
-        : await proxyMedia(content.redirect, filePath);
+    const source = "redirect" in content ? await proxyMedia(content.redirect, filePath) : content;
 
     return new Response(source.body, {
       headers: {

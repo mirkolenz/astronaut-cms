@@ -36,6 +36,10 @@ export interface PresignedUpload {
   headers: Record<string, string>;
 }
 
+export type StoreContent =
+  | { redirect: string }
+  | { body: ReadableStream<Uint8Array>; version?: string };
+
 /** One object in the library, keyed absolutely (prefix included). */
 export interface StoredObject {
   key: string;
@@ -64,12 +68,8 @@ export interface MediaStore {
    * occupied destination is refused by the store as the write happens.
    */
   presignUpload(key: string, terms: UploadTerms): Promise<PresignedUpload | null>;
-  /**
-   * A URL the bytes may be read from without a credential, for a library that is
-   * not publicly readable. Null when the store cannot sign one, which is what
-   * makes a private library unsupported there.
-   */
-  presignDownload(key: string): Promise<string | null>;
+  /** The bytes themselves, or a signed URL the browser may read them from. */
+  read(key: string): Promise<StoreContent | null>;
   put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void>;
   /** `ifAbsent` refuses a destination that already exists, in the store rather than in a prior check. */
   copy(from: string, to: string, ifAbsent?: boolean): Promise<void>;
@@ -103,20 +103,15 @@ export const isFileKey = (key: string): boolean => !key.endsWith("/");
 
 /** Declared structurally so the package needs no Cloudflare types to build. */
 export interface R2Binding {
-  list(options?: {
-    prefix?: string;
-    cursor?: string;
-    limit?: number;
-  }): Promise<{
+  list(options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{
     objects: Array<{ key: string; size: number; etag?: string }>;
     truncated: boolean;
     cursor?: string;
   }>;
   head(key: string): Promise<{ key: string; size: number; etag?: string } | null>;
-  get(
-    key: string,
-  ): Promise<{
-    body: ReadableStream;
+  get(key: string): Promise<{
+    body: ReadableStream<Uint8Array>;
+    etag?: string;
     httpMetadata?: { contentType?: string; contentDisposition?: string };
   } | null>;
   put(
@@ -126,7 +121,7 @@ export interface R2Binding {
       httpMetadata?: { contentType?: string; contentDisposition?: string };
       onlyIf?: { etagDoesNotMatch?: string };
     },
-  ): Promise<unknown>;
+  ): Promise<{ key: string } | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -171,15 +166,19 @@ export class BindingStore implements MediaStore {
     return null;
   }
 
-  async presignDownload(): Promise<null> {
-    return null;
+  async read(key: string): Promise<StoreContent | null> {
+    const object = await this.bucket.get(key);
+
+    return object && { body: object.body, version: versionOf(object.etag) };
   }
 
   async put(key: string, stream: ReadableStream<Uint8Array>, terms: UploadTerms): Promise<void> {
-    await this.bucket.put(key, stream, {
+    const stored = await this.bucket.put(key, stream, {
       httpMetadata: httpMetadata(terms),
       ...(terms.ifAbsent && { onlyIf: { etagDoesNotMatch: "*" } }),
     });
+
+    if (!stored) throw new Error(`Object already exists: ${key}`);
   }
 
   /**
@@ -194,10 +193,12 @@ export class BindingStore implements MediaStore {
 
     // A rewrite, unlike an S3 copy, keeps nothing on its own: without this the
     // renamed object loses its content type and the CDN serves it as a download.
-    await this.bucket.put(to, source.body, {
+    const stored = await this.bucket.put(to, source.body, {
       httpMetadata: source.httpMetadata,
       ...(ifAbsent && { onlyIf: { etagDoesNotMatch: "*" } }),
     });
+
+    if (!stored) throw new Error(`Object already exists: ${to}`);
   }
 
   async remove(key: string): Promise<void> {

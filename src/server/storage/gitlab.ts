@@ -221,7 +221,7 @@ export class GitLabStorage extends BranchedStorage {
     });
 
     return {
-      bytes: new Uint8Array(await response.arrayBuffer()),
+      body: new Uint8Array(await response.arrayBuffer()),
       contentType: this.contentTypeOf(path),
       // Read off the response rather than asked for: GitLab documents this
       // header on the file endpoints, and where it is absent the route simply

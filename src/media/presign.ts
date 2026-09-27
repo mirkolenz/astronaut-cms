@@ -16,10 +16,6 @@ import serverConfig from "virtual:astronaut-cms/server";
 import { readEnv } from "../shared/runtime-env.ts";
 import { s3Store } from "./open-store.ts";
 
-// The build is not a request, so there is no runtime context to read through;
-// `readEnv` falls back to Node and Deno, which is what a build actually has.
-const fromEnvironment = (name: string): string | undefined => readEnv({ locals: {} }, name);
-
 /**
  * One signature per key, not per reference.
  *
@@ -47,10 +43,12 @@ async function sign(key: string): Promise<string> {
 
   if (!media) throw new Error("No object-store media backend is configured.");
 
-  const store = await s3Store(media, fromEnvironment);
-  const url = await store.presignDownload(`${media.prefix}${key}`);
+  const store = await s3Store(media, readEnv);
+  const content = await store.read(`${media.prefix}${key}`);
 
-  if (!url) throw new Error("This media store cannot sign read URLs.");
+  if (!content || !("redirect" in content)) {
+    throw new Error("This media store cannot sign read URLs.");
+  }
 
-  return url;
+  return content.redirect;
 }
