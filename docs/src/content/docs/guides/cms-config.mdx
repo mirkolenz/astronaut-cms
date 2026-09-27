@@ -10,22 +10,20 @@ The CMS config file (`src/cms.config.ts`) defines custom MDX block components th
 ## Basic Setup
 
 ```ts title="src/cms.config.ts"
-import { defineConfig, defineComponent } from "astronaut-cms/config";
+import { defineComponent } from "astronaut-cms/config";
 import { z } from "astro/zod";
 import { TriangleAlert } from "lucide-react";
 
-export default defineConfig({
-  components: {
-    Alert: defineComponent({
-      props: z.object({
-        type: z.enum(["info", "warning", "error"]).default("info"),
-      }),
-      children: "markdown",
-      label: "Alert",
-      icon: TriangleAlert,
+export const components = {
+  Alert: defineComponent({
+    props: z.object({
+      type: z.enum(["info", "warning", "error"]).default("info"),
     }),
-  },
-});
+    children: "markdown",
+    label: "Alert",
+    icon: TriangleAlert,
+  }),
+};
 ```
 
 ## Component Definition
@@ -75,26 +73,24 @@ Components can contain named child components.
 This is useful for container patterns like tabs:
 
 ```ts title="src/cms.config.ts"
-import { defineConfig, defineComponent } from "astronaut-cms/config";
+import { defineComponent } from "astronaut-cms/config";
 import { z } from "astro/zod";
 
-export default defineConfig({
-  components: {
-    Tabs: defineComponent({
-      props: z.object({}),
-      children: {
-        Tab: defineComponent({
-          props: z.object({
-            label: z.string(),
-          }),
-          children: "markdown",
-          label: "Tab",
+export const components = {
+  Tabs: defineComponent({
+    props: z.object({}),
+    children: {
+      Tab: defineComponent({
+        props: z.object({
+          label: z.string(),
         }),
-      },
-      label: "Tabs",
-    }),
-  },
-});
+        children: "markdown",
+        label: "Tab",
+      }),
+    },
+    label: "Tabs",
+  }),
+};
 ```
 
 In MDX content, this renders as:
@@ -116,28 +112,26 @@ Use `image()` and `file()` from `astronaut-cms/config` to define props that refe
 The admin panel renders these as asset pickers connected to the media library.
 
 ```ts title="src/cms.config.ts"
-import { defineConfig, defineComponent, image, file } from "astronaut-cms/config";
+import { defineComponent, image, file } from "astronaut-cms/config";
 import { z } from "astro/zod";
 
-export default defineConfig({
-  components: {
-    Hero: defineComponent({
-      props: z.object({
-        cover: image(),
-        caption: z.string().optional(),
-      }),
-      children: "markdown",
-      label: "Hero",
+export const components = {
+  Hero: defineComponent({
+    props: z.object({
+      cover: image(),
+      caption: z.string().optional(),
     }),
-    Download: defineComponent({
-      props: z.object({
-        document: file(),
-        label: z.string(),
-      }),
-      label: "Download",
+    children: "markdown",
+    label: "Hero",
+  }),
+  Download: defineComponent({
+    props: z.object({
+      document: file(),
+      label: z.string(),
     }),
-  },
-});
+    label: "Download",
+  }),
+};
 ```
 
 ## Matching Astro Components
@@ -145,12 +139,23 @@ export default defineConfig({
 Each component defined in `cms.config.ts` must have a corresponding Astro component that renders the HTML.
 Place these in `src/components/` and import them in your MDX content or configure MDX component mapping.
 
+First, export a bound `ComponentProps` type from your CMS config:
+
+```ts title="src/cms.config.ts" {1} {5}
+import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+export const components = { /* ... */ };
+export type ComponentProps = InferComponentProps<typeof components>;
+```
+
+Then use indexed access in your Astro components:
+
 ```astro title="src/components/Alert.astro"
 ---
-import type { ComponentProps } from "astronaut-cms/config";
-import type cmsConfig from "@/cms.config";
+import type { ComponentProps } from "@/cms.config";
 
-type Props = ComponentProps<typeof cmsConfig, "Alert">;
+type Props = ComponentProps["Alert"];
 
 const { type = "info" } = Astro.props;
 ---
@@ -161,19 +166,3 @@ const { type = "info" } = Astro.props;
 ```
 
 The `ComponentProps` utility type extracts the inferred prop types from the CMS config, ensuring type safety between the CMS schema and the rendering component.
-
-## Remark and Rehype Plugins
-
-The CMS config also accepts custom remark and rehype plugins that are used by the admin panel's markdown preview:
-
-```ts title="src/cms.config.ts"
-import { defineConfig } from "astronaut-cms/config";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-
-export default defineConfig({
-  remarkPlugins: [remarkMath],
-  rehypePlugins: [rehypeKatex],
-  components: {},
-});
-```

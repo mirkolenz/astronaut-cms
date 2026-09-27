@@ -14,10 +14,6 @@ interface RawComponentDef {
   editor?: ComponentType<JsxEditorProps>;
 }
 
-interface RawUserConfig {
-  components?: Record<string, RawComponentDef>;
-}
-
 interface ProcessedComponentDef {
   props: z.ZodType | null;
   children?: "markdown" | Record<string, ProcessedComponentDef>;
@@ -29,7 +25,9 @@ interface ProcessedComponentDef {
   editor: ComponentType<JsxEditorProps> | null;
 }
 
-export function processUserConfig(config: RawUserConfig | null) {
+export function processUserConfig(
+  components: Record<string, RawComponentDef> | undefined,
+): Record<string, ProcessedComponentDef> {
   function transform(defs: Record<string, RawComponentDef>): Record<string, ProcessedComponentDef> {
     const result: Record<string, ProcessedComponentDef> = {};
     for (const [name, def] of Object.entries(defs)) {
@@ -53,7 +51,5 @@ export function processUserConfig(config: RawUserConfig | null) {
     return result;
   }
 
-  return {
-    components: transform(config?.components ?? {}),
-  };
+  return transform(components ?? {});
 }

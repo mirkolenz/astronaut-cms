@@ -1,4 +1,4 @@
-import { defineConfig, defineComponent } from "astronaut-cms/config";
+import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
 import { z } from "astro/zod";
 import {
   MessageSquareWarning,
@@ -10,9 +10,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-export default defineConfig({
-  components: {
-    Aside: defineComponent({
+export const components = {
+  Aside: defineComponent({
       props: z.object({
         type: z.enum(["note", "tip", "caution", "danger"]).default("note"),
         title: z.string().optional(),
@@ -93,5 +92,6 @@ export default defineConfig({
       label: "Tabs",
       icon: Columns2,
     }),
-  },
-});
+};
+
+export type ComponentProps = InferComponentProps<typeof components>;

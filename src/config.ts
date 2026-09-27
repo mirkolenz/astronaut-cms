@@ -18,24 +18,17 @@ export interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   editor?: ComponentType<JsxEditorProps>;
 }
 
-export interface CmsUserConfig {
-  components?: Record<string, ComponentDefinition>;
-}
-
-export function defineConfig<const T extends CmsUserConfig>(config: T): T {
-  return config;
-}
-
 export function defineComponent<T extends z.ZodType>(
   def: ComponentDefinition<T>,
 ): ComponentDefinition<T> {
   return def;
 }
 
-export type ComponentProps<
-  Config extends CmsUserConfig,
-  Name extends string & keyof NonNullable<Config["components"]>,
-> = z.infer<NonNullable<Config["components"]>[Name]["props"]>;
+export type InferComponentProps<
+  Components extends Record<string, ComponentDefinition>,
+> = {
+  [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
+};
 
 export function image() {
   return zod.string().meta({ "x-cms-image": true });

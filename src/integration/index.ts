@@ -12,11 +12,10 @@ import { remarkCmsAssets, type AssetFieldsMap } from "./remark-cms-assets.ts";
 import { getAssetType } from "../shared/schema-utils.ts";
 
 export type { CmsConfig, StorageConfig, MediaConfig, SupportedLocale } from "./types.ts";
-export { defineConfig, defineComponent, image, file } from "../config.ts";
+export { defineComponent, image, file } from "../config.ts";
 export type {
-  CmsUserConfig,
   ComponentDefinition,
-  ComponentProps,
+  InferComponentProps,
   ChildrenConfig,
 } from "../config.ts";
 
@@ -77,16 +76,12 @@ function createCmsJiti(rootDir: string) {
 
 function extractAssetFields(userConfigPath: string, rootDir: string): AssetFieldsMap {
   const jiti = createCmsJiti(rootDir);
-  const userConfig = (
-    jiti(userConfigPath) as {
-      default: {
-        components?: Record<string, LoadedComponentDef>;
-      };
-    }
-  ).default;
+  const { components } = jiti(userConfigPath) as {
+    components?: Record<string, LoadedComponentDef>;
+  };
 
   const result: AssetFieldsMap = {};
-  flattenAssetFields(userConfig.components ?? {}, result);
+  flattenAssetFields(components ?? {}, result);
   return result;
 }
 

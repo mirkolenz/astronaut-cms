@@ -1,30 +1,9 @@
 ---
 title: Config Helpers
-description: API reference for defineConfig, defineComponent, image, file, and ComponentProps.
+description: API reference for defineComponent, image, file, and InferComponentProps.
 ---
 
 These functions and types are exported from `astronaut-cms/config`.
-
-## `defineConfig()`
-
-A type-safe wrapper for the CMS config object.
-Returns the config as-is, providing TypeScript inference.
-
-```ts
-function defineConfig<const T extends CmsUserConfig>(config: T): T;
-```
-
-### Usage
-
-```ts title="src/cms.config.ts"
-import { defineConfig } from "astronaut-cms/config";
-
-export default defineConfig({
-  components: {
-    // ...
-  },
-});
-```
 
 ## `defineComponent()`
 
@@ -98,26 +77,38 @@ const Download = defineComponent({
 });
 ```
 
-## `ComponentProps`
+## `InferComponentProps`
 
-A utility type that extracts inferred prop types from the CMS config.
-Use this in Astro components to type-check props against the CMS schema.
+A utility type that maps each component name to its inferred prop types.
+Use this to type-check Astro component props against the CMS schema.
 
 ```ts
-type ComponentProps<
-  Config extends CmsUserConfig,
-  Name extends string & keyof NonNullable<Config["components"]>,
-> = z.infer<NonNullable<Config["components"]>[Name]["props"]>;
+type InferComponentProps<
+  Components extends Record<string, ComponentDefinition>,
+> = {
+  [Name in string & keyof Components]: z.infer<Components[Name]["props"]>;
+};
 ```
 
 ### Usage
 
+Export a bound `ComponentProps` type from your CMS config file:
+
+```ts title="src/cms.config.ts" {1} {5}
+import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
+import { z } from "astro/zod";
+
+export const components = { /* ... */ };
+export type ComponentProps = InferComponentProps<typeof components>;
+```
+
+Then use indexed access in your Astro components:
+
 ```astro title="src/components/Alert.astro"
 ---
-import type { ComponentProps } from "astronaut-cms/config";
-import type cmsConfig from "@/cms.config";
+import type { ComponentProps } from "@/cms.config";
 
-type Props = ComponentProps<typeof cmsConfig, "Alert">;
+type Props = ComponentProps["Alert"];
 
 const { type } = Astro.props;
 ---
@@ -125,18 +116,6 @@ const { type } = Astro.props;
 <div class={`alert alert-${type}`}>
   <slot />
 </div>
-```
-
-## `CmsUserConfig`
-
-The interface for the CMS config object.
-
-```ts
-interface CmsUserConfig {
-  remarkPlugins?: PluggableList;
-  rehypePlugins?: PluggableList;
-  components?: Record<string, ComponentDefinition>;
-}
 ```
 
 ## `ComponentDefinition`

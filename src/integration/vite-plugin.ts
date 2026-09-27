@@ -176,11 +176,11 @@ export default processCollections(collections);`;
 
 function generateUserConfigModule(configPath: string | null): string {
   const configImport = configPath
-    ? `import config from "${configPath}";`
-    : "const config = null;";
+    ? `import { components as rawComponents } from "${configPath}";`
+    : "const rawComponents = undefined;";
   return `\
 ${configImport}
 import { processUserConfig } from "astronaut-cms/stubs";
-const { components } = processUserConfig(config);
+const components = processUserConfig(rawComponents);
 export { components };`;
 }
