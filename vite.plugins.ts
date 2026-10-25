@@ -53,7 +53,11 @@ interface DependencyPolicy {
  * The CommonJS packages compiled in then import the externals they require,
  * since an ES module has no `require`.
  */
-export function dependencyPolicy({ self, external, strict = false }: DependencyPolicy) {
+export function dependencyPolicy({
+  self,
+  external,
+  strict = false,
+}: DependencyPolicy): [Plugin, ReturnType<typeof esmExternalRequirePlugin>] {
   const externals = new Set(external);
 
   const policy: Plugin = {
