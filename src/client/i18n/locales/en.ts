@@ -71,6 +71,7 @@ const en = {
     tryLibrary: 'Upload it to "{{library}}" instead.',
     noFiles: "No media files",
     noFilesFound: "No media files found.",
+    preview: "Preview {{name}}",
     deleteFile: "Delete file",
     deleteFileMessage:
       "Are you sure you want to delete this file? It may be referenced by content entries.",

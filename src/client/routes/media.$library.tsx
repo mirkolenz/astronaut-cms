@@ -298,7 +298,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   variant="ghost"
                   onClick={() => setLightboxFile(file)}
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
-                  aria-label={`Preview ${basename(file.path)}`}
+                  aria-label={t(($) => $.media.preview, { name: basename(file.path) })}
                 >
                   <MediaThumbnail
                     library={library}
@@ -312,7 +312,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                 </div>
               )}
               {/* Hover action buttons */}
-              <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
+              <div className="absolute right-1 top-1 hidden gap-1 group-focus-within:flex group-hover:flex">
                 <Button
                   type="button"
                   variant="ghost"

@@ -23,9 +23,10 @@ export function MediaLightbox({ library, file, onClose }: MediaLightboxProps) {
         if (!isOpen) onClose();
       }}
     >
+      {/* As wide as the file itself, so it is centered and a click beside it closes. */}
       <DialogContent
         showCloseButton={false}
-        className="border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]"
+        className="w-fit border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]"
       >
         <div className="relative">
           <Button

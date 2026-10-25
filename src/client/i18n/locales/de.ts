@@ -76,6 +76,7 @@ const de: TranslationShape<typeof en> = {
     tryLibrary: "Lade sie stattdessen in „{{library}}“ hoch.",
     noFiles: "Keine Mediendateien",
     noFilesFound: "Keine Mediendateien gefunden.",
+    preview: "Vorschau von {{name}}",
     deleteFile: "Datei löschen",
     deleteFileMessage:
       "Sind Sie sicher, dass Sie diese Datei löschen möchten? Sie wird möglicherweise von Inhaltseinträgen referenziert.",
