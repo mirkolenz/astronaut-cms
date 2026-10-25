@@ -2,7 +2,8 @@
   "ignorePatterns": [
     "src/**/*.gen.ts",
     "src/client/components/ui/**",
-    "src/client/hooks/**",
+    "src/client/hooks/use-highlighted-code.ts",
+    "src/client/hooks/use-mobile.ts",
     "src/client/lib/highlighter.tsx"
   ],
   "overrides": [
