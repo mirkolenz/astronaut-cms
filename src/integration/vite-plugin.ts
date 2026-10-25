@@ -104,7 +104,21 @@ export const components = ${JSON.stringify(options.components)};`,
     },
   };
 
-  return [editorStubPlugin(), virtualModulesPlugin];
+  // The top-level `optimizeDeps` reaches only the client. A server environment,
+  // such as one in workerd, would pre-bundle the licenses route, and the optimizer
+  // cannot load its `?raw` imports. The scanner never sees the API route or the
+  // editor stub, so finding them while rendering would reload the server mid-request.
+  const optimizeDepsPlugin: Plugin = {
+    name: "astronaut-cms:optimize-deps",
+    configEnvironment: (name) => ({
+      optimizeDeps: {
+        exclude: ["astronaut-cms/licenses"],
+        ...(name !== "client" && { include: ["astronaut-cms/endpoint", "astronaut-cms/internal"] }),
+      },
+    }),
+  };
+
+  return [editorStubPlugin(), virtualModulesPlugin, optimizeDepsPlugin];
 }
 
 /** What the site's resolver reads of the libraries, and so all a page that resolves an asset ships. */
