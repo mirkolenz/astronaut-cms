@@ -134,8 +134,19 @@
     "zod": "^4"
   },
   "overrides": {
-    "@streamdown/code": {
-      "shiki": "^4"
+    "@mdxeditor/editor": {
+      "lexical": "$lexical",
+      "@lexical/clipboard": "$lexical",
+      "@lexical/extension": "$lexical",
+      "@lexical/history": "$lexical",
+      "@lexical/link": "$lexical",
+      "@lexical/list": "$lexical",
+      "@lexical/markdown": "$lexical",
+      "@lexical/plain-text": "$lexical",
+      "@lexical/react": "$lexical",
+      "@lexical/rich-text": "$lexical",
+      "@lexical/selection": "$lexical",
+      "@lexical/utils": "$lexical"
     }
   },
   "engines": {
