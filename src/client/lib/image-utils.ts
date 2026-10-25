@@ -96,7 +96,7 @@ export async function optimizeImage(
     if (encoded.size <= settings.maxFileSize) return encoded;
   }
 
-  // Even at the lowest quality it is over the limit — keep that attempt anyway,
+  // Even at the lowest quality it is over the limit. Keep that attempt anyway,
   // as it's still likely smaller than the original.
   return encoded ?? file;
 }

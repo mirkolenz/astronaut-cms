@@ -16,7 +16,7 @@ const pages = defineCollection({
 // Blog posts. Every field maps to an intuitive control in the admin panel: text
 // inputs, a date picker, a media picker for the cover, a dropdown for category,
 // a toggle for featured, and a reference dropdown that lists the team members.
-// The collection key ("posts") is independent of its directory ("blog") — the
+// The collection key ("posts") is independent of its directory ("blog"). The
 // admin resolves storage from the loader's `base`.
 const posts = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "src/content/blog" }),

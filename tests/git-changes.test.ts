@@ -7,7 +7,7 @@ import { discardChanges, readChanges } from "@/server/storage/git-changes";
 
 // The local backend derives its changeset from `git status`, which collapses a
 // directory git has never seen into a single `dir/` record. That record names no
-// file, so it can neither be shown nor deleted — which is what these pin down:
+// file, so it can neither be shown nor deleted, which is what these pin down:
 // every pending file is listed by name, and discarding restores all of them.
 
 const managed = ["src/content", "src/assets"];

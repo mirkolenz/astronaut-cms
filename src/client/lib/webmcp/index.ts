@@ -2,8 +2,8 @@
  * The CMS's tools, as an agent running in the browser reaches them.
  *
  * WebMCP (`document.modelContext`) lets the page hand an agent callable tools
- * instead of a DOM to scrape. The agent is the user's — the browser's own, or
- * one they installed — so it acts inside this tab with exactly the editor's
+ * instead of a DOM to scrape. The agent is the user's, either the browser's own
+ * or one they installed, so it acts inside this tab with exactly the editor's
  * session and no credential of ours, and every guarantee the in-app assistant
  * runs under holds unchanged: nothing publishes, a write joins the pending
  * changeset, and the server refuses to remove or move a file content still
@@ -15,7 +15,7 @@
  *
  * The official MCP TypeScript SDK is deliberately not used here: it implements
  * the protocol (transports, JSON-RPC framing, a server that refuses to register
- * capabilities once connected), and WebMCP needs none of that — the browser is
+ * capabilities once connected), and WebMCP needs none of that. The browser is
  * the transport. It stays the right dependency for a future MCP *server*
  * projecting the same catalog.
  */
@@ -97,8 +97,8 @@ async function register(
 }
 
 /**
- * Exposes the catalog, or does nothing where WebMCP is absent — every browser
- * that has not shipped it, and Chrome without the origin trial token or
+ * Exposes the catalog, or does nothing where WebMCP is absent. That is every
+ * browser that has not shipped it, and Chrome without the origin trial token or
  * `chrome://flags/#enable-webmcp-testing`. Aborting `signal` unregisters
  * everything it registered.
  */
@@ -120,7 +120,7 @@ async function registerAll(signal: AbortSignal): Promise<void> {
 export function useWebmcpTools(): void {
   useEffect(() => {
     // The integration emits this key only when `webmcp.enabled` is set, so its
-    // presence is the whole of the switch — and reading it here keeps the one
+    // presence is the whole of the switch, and reading it here keeps the one
     // statement of it in the module that owns the feature.
     if (!config.webmcp) return;
 

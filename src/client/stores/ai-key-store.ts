@@ -12,7 +12,7 @@ interface AiKeyState {
  * one rather than holding a shared credential of its own.
  *
  * It belongs to the editor, is spent against their account, and is theirs to
- * rotate — which is the whole reason this mode exists. It is never sent to the
+ * rotate, which is the whole reason this mode exists. It is never sent to the
  * CMS server: the only place it goes is the gateway named in the config, and the
  * admin's `connect-src` names that origin and nothing else.
  *

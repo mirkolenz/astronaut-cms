@@ -33,7 +33,7 @@ export const entryToolNames = (collection: string): string[] => [
 /**
  * Why this collection cannot be offered to an agent, or null when it can.
  *
- * The schema check is the round trip the browser makes — the manifest is lowered
+ * The schema check is the round trip the browser makes. The manifest is lowered
  * from Zod when the integration loads the content config and reconstructed on
  * the other side, then described to an agent as JSON Schema. Running it once at
  * build is how a schema that cannot survive that is reported to a person rather

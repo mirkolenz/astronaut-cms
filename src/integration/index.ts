@@ -344,7 +344,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         // Only worth saying where something would read it. The tools a
         // collection gets are named after it, and both an AI gateway and
-        // `registerTool` refuse a name outside their alphabet — a gateway by
+        // `registerTool` refuse a name outside their alphabet, a gateway by
         // rejecting the whole request, so one bad collection would otherwise
         // take the assistant down with a message nobody can act on.
         if (effectiveConfig.ai?.enabled || effectiveConfig.webmcp?.enabled) {

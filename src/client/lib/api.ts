@@ -1,7 +1,7 @@
 /**
  * The CMS server, as the admin sees it: one typed call per operation and nothing
  * else. There is no provider SDK here, no token, and no way to name a repository
- * path — the browser can ask for exactly what the operation registry offers.
+ * path. The browser can ask for exactly what the operation registry offers.
  *
  * The types come from the registry itself (`import type`, so none of the server
  * reaches this bundle), which is what keeps the two from drifting: adding an
@@ -9,7 +9,7 @@
  *
  * Calls made in the same tick travel together. Opening an entry asks for the
  * listing, the entry, the file layout and the state of the changeset, and those
- * are four queries React Query starts at once — as four requests they were four
+ * are four queries React Query starts at once. As four requests they were four
  * function invocations, four cold starts and four repository trees. As one they
  * are one of each, because the server runs a batch against a single context.
  */
@@ -92,7 +92,7 @@ function toError(status: number, message?: string, validation?: Diagnostic[]): E
 
 /**
  * The CMS's own response envelope, unwrapped. Used by the routes that answer one
- * thing — the media upload proxy — so a lapsed session and a refusal the content
+ * thing, the media upload proxy, so a lapsed session and a refusal the content
  * caused read there exactly as they do for an operation.
  */
 export async function unwrap<T>(response: Response): Promise<T> {
@@ -148,8 +148,8 @@ async function send(batch: Queued[]): Promise<void> {
       body: JSON.stringify(batch.map(({ op, input }) => ({ op, input }))),
     });
 
-    // A failure of the request itself — a lapsed session, the whole batch
-    // refused — belongs to every call in it.
+    // A failure of the request itself, such as a lapsed session or the whole
+    // batch being refused, belongs to every call in it.
     if (!response.ok) {
       const { error } = (await response.json().catch(() => ({}))) as ErrorBody;
 

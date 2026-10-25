@@ -48,7 +48,7 @@ function isLoginInterstitial(response: Response): boolean {
  * `fetch` for the CMS's own routes, hardened against an access proxy in front of
  * the site. Those proxies answer an unauthenticated request with a redirect to
  * their own origin, which a browser `fetch` can only surface as an opaque CORS
- * failure — a lapsed proxy session would otherwise reach the user as a bare
+ * failure, and a lapsed proxy session would otherwise reach the user as a bare
  * "network error" on a site that is plainly still up. The CMS's own routes never
  * redirect except on the sign-in path, which is a navigation rather than a fetch,
  * so `redirect: "manual"` is a safe signal.

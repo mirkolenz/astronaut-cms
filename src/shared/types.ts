@@ -285,7 +285,7 @@ export interface EntryMeta {
 export interface FileCollectionInfo {
   layout: FileEntryLayout;
   /**
-   * The container's version, which every entry in it shares — reordering is a
+   * The container's version, which every entry in it shares. Reordering is a
    * rewrite of the whole file, so this is what a reorder is based on.
    */
   version?: string;

@@ -7,8 +7,8 @@ const component = "@/components/Block.astro";
 
 // A component declares its props either directly or as a function handed the
 // asset helpers, the same two forms astro's collection `schema` takes. Both have
-// to lower to the same FieldSchema, since everything downstream — the form
-// renderer, the MDX walk, the build's asset collection — reads only that.
+// to lower to the same FieldSchema, since everything downstream (the form
+// renderer, the MDX walk, the build's asset collection) reads only that.
 describe("processUserConfig", () => {
   it("lowers both props forms, and only the helpers can name an asset", () => {
     const manifest = processUserConfig({

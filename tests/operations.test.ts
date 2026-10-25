@@ -10,8 +10,9 @@ import { referencesFor } from "@/shared/references";
 import type { EntryMeta, FileChange } from "@/shared/types";
 
 // The operation registry is the security boundary: a compromised admin can call
-// anything here and nothing else. These pin the two properties that makes true —
-// only registered names run, and every input is checked before a backend sees it.
+// anything here and nothing else. These pin the two properties that make it
+// true. Only registered names run, and every input is checked before a backend
+// sees it.
 
 function context(overrides: Partial<RequestContext> = {}): RequestContext {
   const unreachable = () => {

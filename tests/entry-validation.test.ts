@@ -124,8 +124,8 @@ describe("assertEntryWritable", () => {
   });
 });
 
-// The storage layer reads the content model itself. When it did not — the
-// backend was constructed with an empty manifest — every write failed with
+// The storage layer reads the content model itself. When it did not, because
+// the backend was constructed with an empty manifest, every write failed with
 // "Unknown collection" instead of being validated.
 describe("storage knows the content model", () => {
   it("validates a write rather than rejecting the collection", async () => {

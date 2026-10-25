@@ -134,7 +134,7 @@ export async function limited<T>(
  *
  * The platform sets one of these in front of a serverless function, and behind
  * one they are trustworthy. Reached directly they are the caller's to spell and
- * to rotate, which buys a fresh budget per request — so a bucket keyed on this
+ * to rotate, which buys a fresh budget per request, so a bucket keyed on this
  * has to sit inside one charged to everybody at once (see the sign-in limiters
  * in `server/handler.ts`), and the real ceiling still belongs at the CDN. This
  * separates honest callers, it does not identify dishonest ones.

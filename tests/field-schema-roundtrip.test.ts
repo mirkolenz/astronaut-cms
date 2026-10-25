@@ -164,7 +164,7 @@ describe("fieldSchemaToZod reconstruction round-trip", () => {
   it("rebuilds a caught field as one that cannot fail", () => {
     const rebuilt = fieldSchemaToZod(zodToFieldSchema(z.object({ a: z.string().catch("x") })));
 
-    // The fallback itself is not reconstructed — only the fact that nothing here
+    // The fallback itself is not reconstructed, only the fact that nothing here
     // can fail, which is all any caller reads.
     expect(rebuilt.safeParse({}).success).toBe(true);
     expect(rebuilt.safeParse({ a: 1 }).success).toBe(true);

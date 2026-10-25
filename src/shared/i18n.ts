@@ -17,7 +17,7 @@ export interface ContentI18n {
 export interface LocalizedId {
   /** Leading locale segment, or `null` when the id carries none. */
   locale: string | null;
-  /** The id without its locale segment — stable across translations. */
+  /** The id without its locale segment, stable across translations. */
   slug: string;
 }
 
@@ -44,7 +44,7 @@ export function joinLocale(locale: string, slug: string): string {
  *
  * Detecting this from the entries themselves keeps multilingual support
  * zero-config: no collection has to declare itself localized. The rule is
- * deliberately strict — a single entry outside a locale directory opts the whole
+ * deliberately strict. A single entry outside a locale directory opts the whole
  * collection back into the plain folder view, so no entry can ever be hidden
  * behind a locale tab. An empty collection counts as localized, so the first
  * entry of a new collection can be created straight into a language.

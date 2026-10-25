@@ -4,7 +4,7 @@
  * In-memory and therefore per warm instance, like the rate limiters beside it:
  * the CMS holds no shared state, and adding a database would put one on the
  * request path. What it buys is that the several requests one admin navigation
- * fires make a single provider call between them — and, where that call spends
+ * fires make a single provider call between them, and, where that call spends
  * something single-use, that they cannot race each other for it.
  *
  * A TTL of zero joins callers to a call already on its way and keeps nothing
@@ -56,7 +56,7 @@ export class Coalesced<T> {
       }
     }
 
-    // Held for the window, or — with none — for as long as the call is on its
+    // Held for the window, or, with none, for as long as the call is on its
     // way, which is what `forget` below then ends.
     const entry: Entry<T> = {
       expiry: this.ttlMs > 0 ? now + this.ttlMs : Infinity,

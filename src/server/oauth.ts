@@ -5,10 +5,10 @@
  *
  * Both providers run the same authorization-code flow with PKCE, so only the
  * endpoints, the identity lookup and the write-access check differ. PKCE is not
- * here to stand in for a client secret — the CMS is a confidential client and
- * both providers still demand the secret at the exchange — but because it binds
- * a code to the browser that asked for it, which a confidential client gets no
- * other way. The verifier never leaves the server: it travels in a short-lived
+ * here to stand in for a client secret, since the CMS is a confidential client
+ * and both providers still demand the secret at the exchange,
+ * but because it binds a code to the browser that asked for it,
+ * which a confidential client gets no other way. The verifier never leaves the server: it travels in a short-lived
  * sealed cookie rather than in `sessionStorage`, where script could read it or
  * plant one.
  *

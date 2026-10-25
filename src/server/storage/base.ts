@@ -369,9 +369,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
         };
 
     // A new entry claims its path by requiring it to be absent. In a file
-    // collection the path is the container, which may well exist already — the
-    // entry inside it is what has to be new, and the rewrite above checked that
-    // — so the claim there is on the container's version instead.
+    // collection the path is the container, which may well exist already.
+    // The entry inside it is what has to be new, and the rewrite above checked
+    // that, so the claim there is on the container's version instead.
     //
     // That version is only ever adopted for a new entry: an ordinary save of a
     // file collection carries the version the editor was given or none at all,
@@ -605,7 +605,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
   /**
    * A repository library has no trash, and needs none: a deletion here is a
-   * commit on the draft branch, so the file is still in git — recoverable by
+   * commit on the draft branch, so the file is still in git, recoverable by
    * discarding the changeset before it publishes, and in history for good
    * afterwards. An object store keeps no history, which is the whole reason the
    * other library has a trash at all.

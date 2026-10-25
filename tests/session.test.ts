@@ -47,7 +47,7 @@ describe("sealed session", () => {
   });
 
   // Every kind of token the CMS issues shares one key, so without the audience a
-  // session would verify as a sign-in cookie — and, once MCP lands, an
+  // session would verify as a sign-in cookie, and, once MCP lands, an
   // authorization code as an access token.
   it("refuses a token issued for another purpose", async () => {
     const login = await issue("oauth-login", { verifier: "abc" }, SECRET, HOUR);

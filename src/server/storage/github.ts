@@ -254,7 +254,7 @@ export class GitHubStorage extends BranchedStorage {
   /**
    * A repository file has no public URL. The contents API answers with a
    * `download_url` carrying its own short-lived token for a private repository,
-   * so the browser loads the bytes itself rather than through this server —
+   * so the browser loads the bytes itself rather than through this server,
    * except when the caller addressed a version, which a redirect cannot promise
    * to keep and which the route therefore serves itself. The blob hash comes
    * back from the same call, so naming it costs nothing.
@@ -437,7 +437,7 @@ export class GitHubStorage extends BranchedStorage {
     const parentSha = knownParent ?? (await this.parentSha());
 
     // The precondition is checked against the very commit this one will name as
-    // its parent, and the ref below is advanced without `force` — so a branch
+    // its parent, and the ref below is advanced without `force`, so a branch
     // that moved in between makes the update a non-fast-forward and the write
     // fails rather than landing on top of whatever arrived. It depends on
     // nothing the parent commit does, so the two are read together.

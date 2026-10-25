@@ -36,7 +36,7 @@ const connectSrc = ["'self'"];
 
 if (config.media.s3) connectSrc.push(config.media.s3.storeOrigin);
 
-// Named as an origin rather than the full base, which is all a policy can say —
+// Named as an origin rather than the full base, which is all a policy can say,
 // and all it needs to, since the key only ever travels to this one host.
 if (config.ai?.byok) connectSrc.push(new URL(config.ai.byok.baseUrl).origin);
 
@@ -59,7 +59,7 @@ const csp = [
 ].join("; ");
 
 // The CMS needs an SSR adapter, so this page always renders on demand and the
-// policy always reaches the browser as a header — which is what lets it carry
+// policy always reaches the browser as a header, which is what lets it carry
 // `frame-ancestors`, something a meta policy cannot.
 for (const [name, value] of Object.entries({
   ...HARDENING_HEADERS,

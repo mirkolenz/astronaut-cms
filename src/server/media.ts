@@ -32,7 +32,7 @@ import { assertLibraryPath } from "@/server/library-path";
  *
  * An object store keeps no history, so a delete is final in a way a repository
  * delete is not. What may safely be deleted also depends on what content
- * references it, and that is a precondition the store cannot check — so rather
+ * references it, and that is a precondition the store cannot check, so rather
  * than pretend the check is airtight, the operation is made undoable: a stale
  * reference scan, a mis-click or an assistant that read the wrong thing costs a
  * restore rather than the file.

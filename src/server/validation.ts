@@ -98,8 +98,8 @@ async function checkReferences(
 /**
  * An `image`/`file` field must name a file in the media library, and nothing
  * else. This is not a house rule: the site resolves these values through the
- * library alone — a map rooted at the media directory, or a URL under the
- * configured public base (see `virtual:astronaut-cms/assets`) — so a value that
+ * library alone, either a map rooted at the media directory or a URL under the
+ * configured public base (see `virtual:astronaut-cms/assets`), so a value that
  * addresses anything else cannot resolve at render time no matter what the file
  * system or the bucket holds. With a repository library a build takes it
  * further and refuses to start, since the same walk decides what is bundled.

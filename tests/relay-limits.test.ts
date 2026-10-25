@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { BodyTooLargeError, readBody, readBytes } from "@/shared/http";
 import { RateLimiter, callerAddress, limited } from "@/shared/rate-limit";
 
-// The injected routes spend something the caller does not own — a gateway
-// credential, a bucket — on a request the caller shapes. These are the three
+// The injected routes spend something the caller does not own, a gateway
+// credential or a bucket, on a request the caller shapes. These are the three
 // places that refuse to take the caller's word for it.
 
 function post(body: string, headers: Record<string, string> = {}): Request {

@@ -14,8 +14,8 @@ const resolved = typeof src === "string" ? await resolveImage(src, base) : src;
 
 // A resolved string means the media library lives in an object store, so this is
 // a remote image and astro needs its dimensions. `inferSize` reads them from the
-// image itself — at build time for a prerendered page — so neither the schema nor
-// the editor has to carry them; an explicit width and height still win.
+// image itself, at build time for a prerendered page, so neither the schema nor
+// the editor has to carry them. An explicit width and height still win.
 const inferSize = rest.width == null || rest.height == null;
 ---
 

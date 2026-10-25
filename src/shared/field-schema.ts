@@ -20,7 +20,7 @@ export interface FieldMods {
   /**
    * Set by Zod `.catch()`: the field accepts anything, because the real schema
    * repairs what it cannot parse rather than rejecting it. Only that fact is
-   * recorded — the CMS never reads the fallback value, and reading it would mean
+   * recorded. The CMS never reads the fallback value, and reading it would mean
    * running the author's catch handler against a fabricated parse failure.
    */
   catch?: true;

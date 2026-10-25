@@ -13,8 +13,8 @@ import i18n from "@/client/i18n";
 export function AdminApp() {
   // Here rather than in a route: the tools are the CMS's, not a page's, so they
   // stay registered across navigation and are withdrawn when the admin goes
-  // away. Nothing below it is needed — the hook reaches the module-level query
-  // client and RPC client directly — so the tree stays providers only.
+  // away. Nothing below it is needed, the hook reaches the module-level query
+  // client and RPC client directly, so the tree stays providers only.
   useWebmcpTools();
 
   return (

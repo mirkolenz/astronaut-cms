@@ -528,7 +528,7 @@ export class GitLabStorage extends BranchedStorage {
     if (!branchExists) this.markBranchExists(true);
 
     // The commit that just landed, which is what `last_commit_id` for this file
-    // now is — so the editor that wrote it can write again without re-reading.
+    // now is, so the editor that wrote it can write again without re-reading.
     return created.id;
   }
 

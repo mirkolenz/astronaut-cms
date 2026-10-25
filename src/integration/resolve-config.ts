@@ -56,9 +56,9 @@ function localeSegment(locale: AstroLocale): string {
 
 /**
  * Astro's `defaultLocale` names a *code*, while `locales` are addressed by their
- * `path` — for `{ path: "english", codes: ["en"] }` the two differ. Entry ids are
- * built from paths, so the default is mapped into the same namespace before it
- * is used as one.
+ * `path`. For `{ path: "english", codes: ["en"] }` the two differ.
+ * Entry ids are built from paths, so the default is mapped into the same
+ * namespace before it is used as one.
  */
 function localePath(code: string, astroI18n: AstroI18n | undefined): string {
   for (const locale of astroI18n?.locales ?? []) {

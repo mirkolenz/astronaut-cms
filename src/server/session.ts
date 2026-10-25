@@ -3,7 +3,7 @@
  *
  * The provider token lives here and nowhere else: it is encrypted with a key the
  * deployment derives, handed back as an HttpOnly cookie, and only ever decrypted
- * inside a server route. That is the whole point of the architecture — script
+ * inside a server route. That is the whole point of the architecture. Script
  * running in the admin can act as the editor while the tab is open, but it has
  * nothing portable to steal.
  *
@@ -12,7 +12,7 @@
  * before it expires. What it grants can be: see `revocable` in `handler.ts`.
  *
  * The format is a JWE (`dir` + A256GCM) rather than a bare AES-GCM blob. Same
- * primitive, standard envelope — which buys the two things a hand-rolled seal
+ * primitive, standard envelope, which buys the two things a hand-rolled seal
  * has to be talked into: an `exp` the *server* enforces, so a copied cookie
  * value stops working whatever the browser does with `Max-Age`, and an `aud`
  * that makes each kind of token structurally unusable as another. It is also
@@ -61,7 +61,7 @@ export const sessionSchema = z.object({
    * When the editor's repository access was last confirmed, in epoch
    * milliseconds. Carried in the cookie rather than in instance memory so the
    * check is made once per editor per window across the whole deployment, not
-   * once per warm instance — on a serverless host most requests land somewhere
+   * once per warm instance. On a serverless host most requests land somewhere
    * cold, and the check is an outbound round trip on the critical path of every
    * one of them. See `revoked` in `handler.ts`.
    */
@@ -131,7 +131,7 @@ export async function issue(
 
 /**
  * What a token carries, or null when it carries nothing this deployment issued
- * for this purpose. Every failure reads the same way — tampered, expired, sealed
+ * for this purpose. Every failure reads the same way. Tampered, expired, sealed
  * with a rotated secret, issued for another audience, or not matching the schema
  * are all "nothing there", because telling them apart is a way to probe the key.
  */
@@ -225,7 +225,7 @@ export function needsRefresh(session: Session): boolean {
  * Cookie authentication is ambient: unlike the bearer token this replaced, the
  * browser attaches it to any request to this origin, whoever caused it.
  * `SameSite=Lax` already blocks a cross-site POST, and this is the explicit
- * check behind it — for the browsers and proxies that do not, and so the rule is
+ * check behind it, for the browsers and proxies that do not, and so the rule is
  * stated where it is enforced rather than assumed from a cookie attribute.
  */
 export function isSameOrigin(request: Request, url: URL): boolean {

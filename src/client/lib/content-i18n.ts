@@ -35,7 +35,7 @@ export interface BrowseLocation {
 
 /**
  * Decodes a collection's `dir` search param, which carries the locale as its
- * first segment — the language is simply the outermost folder, so folder links,
+ * first segment. The language is simply the outermost folder, so folder links,
  * breadcrumbs and the browsed path stay one value. An empty `dir` means the root
  * of the default locale. Shared by the listing and the breadcrumb trail so both
  * read the param the same way.

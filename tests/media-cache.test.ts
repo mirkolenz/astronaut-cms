@@ -7,7 +7,7 @@ import { API_MEDIA } from "@/shared/auth";
 
 // What the admin may keep, decided by the file rather than by the caller. The
 // version makes a library file's URL change with its contents, so an address
-// that names the bytes that came back can be cached for good — and an address
+// that names the bytes that came back can be cached for good, and an address
 // that names something else must not be, which is the case a `?v` alone would
 // get wrong.
 

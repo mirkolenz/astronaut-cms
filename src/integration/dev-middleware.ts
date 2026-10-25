@@ -14,9 +14,9 @@ import { WRITE_HEADER } from "../shared/http.ts";
 import { DEV_API_ENVIRONMENT, devApiEnvironment, serveDevApi } from "./dev-api.ts";
 
 // How long after a CMS write to keep suppressing the dev-server reload it
-// triggers. It has to outlast the whole chain — write, content-layer sync, data
-// store rewrite, reload broadcast — while staying short enough that a manual
-// edit moments later still reloads.
+// triggers. It has to outlast the whole chain of write, content-layer sync,
+// data store rewrite and reload broadcast, while staying short enough that a
+// manual edit moments later still reloads.
 const SUPPRESS_WINDOW_MS = 5000;
 
 /**

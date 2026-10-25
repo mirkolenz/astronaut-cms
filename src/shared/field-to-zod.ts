@@ -73,7 +73,7 @@ function base(field: FieldSchema): z.ZodType {
     // Dates are written as ISO strings in frontmatter, and an unparseable one is
     // what takes the dev server down: Astro coerces it to an Invalid Date, which
     // fails its own content sync. The check is a refinement rather than an ISO
-    // format so that it stays out of the JSON Schema — zod lowers those to a
+    // format so that it stays out of the JSON Schema. Zod lowers those to a
     // several-hundred-character regex, which bloats every tool the model sees and
     // defeats grammar-constrained samplers such as llama.cpp's.
     case "date":
@@ -189,7 +189,8 @@ export function fieldSchemaToZod(field: FieldSchema): z.ZodType {
   if (field.default !== undefined) schema = schema.default(field.default);
   // Outermost, so it covers every other modifier: a caught field never fails,
   // which is the whole point of representing `.catch()` rather than peeling it.
-  // The fallback is immaterial — every caller reads the issues, not the output.
+  // The fallback is immaterial,
+  // since every caller reads the issues, not the output.
   if (field.catch) schema = schema.catch(undefined as never);
 
   cache.set(field, schema);

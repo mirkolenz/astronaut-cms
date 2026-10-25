@@ -3,14 +3,14 @@
  *
  * An attribute is either a string literal (`title="x"`) or a braced JavaScript
  * expression (`title={'x'}`, `items={['a', 'b']}`). The second form is ordinary
- * JS, not JSON — single quotes, unquoted keys and trailing commas are all valid
- * — so it is parsed as such. Everything that reads a prop goes through here: the
+ * JS, not JSON. Single quotes, unquoted keys and trailing commas are all valid,
+ * so it is parsed as such. Everything that reads a prop goes through here: the
  * schema-driven walk that validates a body and collects its assets, and the prop
  * editor in the admin, so the two cannot disagree about what a body says.
  *
- * Only literal data is evaluated. An expression that needs a runtime — an
- * identifier, a call, a template with substitutions — is reported as unknown,
- * which is what lets a caller leave it unchecked instead of guessing.
+ * Only literal data is evaluated. An expression that needs a runtime, such as
+ * an identifier, a call or a template with substitutions,
+ * is reported as unknown, which is what lets a caller leave it unchecked instead of guessing.
  */
 import { parseExpressionAt } from "acorn";
 import type { Expression, Property } from "estree";

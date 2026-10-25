@@ -21,7 +21,7 @@ import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
 
 /**
  * The names a collection may be called, as a schema. The set is fixed at build
- * time, so an unknown name is refused wherever one is accepted — at the server's
+ * time, so an unknown name is refused wherever one is accepted, at the server's
  * operation boundary, where it used to resolve to the conventional directory for
  * that name and quietly read somebody else's files, and in the tools an agent
  * sees, where it is also the list of what exists.
@@ -79,7 +79,7 @@ export function collectionPatchSchema(
 
 /**
  * Starting data for a new entry: the defaults the schema declares and nothing
- * else. Required fields are deliberately left empty — a synthesized value would
+ * else. Required fields are deliberately left empty. A synthesized value would
  * either be wrong (a reference or asset has to name something that exists) or
  * silently satisfy a check the editor is meant to prompt for.
  */

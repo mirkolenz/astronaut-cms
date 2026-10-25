@@ -122,7 +122,7 @@ export function useReorderFileEntries(collection: string) {
 }
 
 // Both of these are invalidated exactly by every write, so the only thing a
-// short window buys is a refetch on navigation — and they are the two most
+// short window buys is a refetch on navigation, and they are the two most
 // expensive reads the CMS makes. Not `Infinity`, because `behind` also moves
 // when somebody else pushes to the default branch, which nothing here can know.
 const CHANGESET_STALE_TIME = 30_000;

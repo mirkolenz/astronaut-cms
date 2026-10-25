@@ -29,7 +29,7 @@ export interface WebmcpToolResult {
 }
 
 export interface WebmcpTool {
-  /** 1–128 characters of ASCII alphanumerics, underscore, hyphen or period. */
+  /** 1 to 128 ASCII alphanumerics, underscores, hyphens or periods. */
   name: string;
   title?: string;
   description: string;

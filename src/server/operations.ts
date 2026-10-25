@@ -3,8 +3,8 @@
  *
  * This registry is the security boundary, not the session cookie. A cookie
  * decides *who* is asking; this decides what asking can accomplish. Every
- * operation names a CMS capability — an entry in a collection, a file in the
- * library — and none of them takes a repository path, a ref, a commit or a
+ * operation names a CMS capability (an entry in a collection, a file in the
+ * library), and none of them takes a repository path, a ref, a commit or a
  * provider parameter, so a browser that has been fully compromised can still
  * only do the things an editor could have done through the UI, and nothing
  * wider.
@@ -108,7 +108,7 @@ const mediaFile = z.object({ library, path: mediaPathSchema });
  * The reference scan reads every entry of every collection, which is by a wide
  * margin the most expensive thing a signed-in caller can ask for: one provider
  * request per entry, against a quota the editor's own token is charged for. The
- * general request budget is far too loose to bound it, so it gets its own —
+ * general request budget is far too loose to bound it, so it gets its own,
  * serialized, and rare enough that a person never notices.
  *
  * The admin caches its index for display, but a mutation scans again so its

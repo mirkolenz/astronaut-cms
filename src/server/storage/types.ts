@@ -37,7 +37,7 @@ export interface ChangeRequestSummary {
  *
  * The token a write hands back to say which state it was based on: a commit id
  * on GitLab, a blob hash on GitHub, a content digest against the working tree.
- * Opaque, and compared only against itself — a backend with nothing to name a
+ * Opaque, and compared only against itself. A backend with nothing to name a
  * state by returns none, and the write then takes the last word as it always
  * did. ({@link MediaFile.version} serves the other purpose a version can, naming
  * bytes so a URL can address them; the two are read from the same listings but
@@ -55,7 +55,7 @@ export interface VersionedContent {
  * Distinct from {@link MergeConflictError}, which is the provider declining to
  * merge a branch. Both are the editor's to resolve, but only one of them is
  * resolved by reloading the entry, so the admin has to be able to tell them
- * apart — and the copy it shows is its own, translated, rather than a sentence
+ * apart, and the copy it shows is its own, translated, rather than a sentence
  * composed here.
  */
 export class StaleWriteError extends Error {

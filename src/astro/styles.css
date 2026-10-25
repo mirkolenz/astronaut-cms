@@ -160,7 +160,7 @@
   }
 }
 
-/* MDX Editor — remap to shadcn theme variables */
+/* Remap the MDX Editor to shadcn theme variables */
 .mdxeditor {
   --basePageBg: var(--popover);
   --baseBase: var(--popover);
@@ -220,7 +220,7 @@
   border-radius: 0;
 }
 
-/* Strip nested editor padding — the parent card body provides it. */
+/* Strip nested editor padding. The parent card body provides it. */
 .mdxeditor [class*="_nestedEditor_"] {
   padding: 0;
   background: transparent;

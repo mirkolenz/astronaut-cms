@@ -146,7 +146,7 @@ export async function relay(options: RelayRequest): Promise<Response> {
   }
 
   // A streaming answer occupies the gateway until its last token, which is what
-  // the concurrency limit is meant to bound — so the slot is held until the body
+  // the concurrency limit is meant to bound, so the slot is held until the body
   // ends or is cancelled, not until its headers arrive.
   const reader = response.body.getReader();
   const body = new ReadableStream<Uint8Array>({

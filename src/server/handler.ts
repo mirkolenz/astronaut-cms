@@ -81,7 +81,7 @@ const LOGIN_MAX_AGE = 600;
  * Sign-in is the only thing an unauthenticated caller can make this server do
  * work for, and redeeming a code means an outbound request to the provider. A
  * flood of those costs invocations and risks the provider rate-limiting the
- * deployment's address, which would break sign-in for everyone — so the cap is
+ * deployment's address, which would break sign-in for everyone, so the cap is
  * on the outbound call rather than on the bytes.
  *
  * Generous against real use: a deployment sees one exchange per editor per
@@ -99,8 +99,8 @@ const signIn = new RateLimiter({ requests: 20, windowMs: 60_000, concurrency: 4 
 const signInTotal = new RateLimiter({ requests: 120, windowMs: 60_000, concurrency: 16 });
 
 /**
- * What one signed-in editor may ask of the server. The admin is chatty — a
- * navigation is several reads — so this is set well above anything a person
+ * What one signed-in editor may ask of the server. The admin is chatty, as a
+ * navigation is several reads, so this is set well above anything a person
  * produces, and exists to bound a runaway agent loop or a compromised tab
  * rather than to pace the interface.
  */
@@ -174,8 +174,8 @@ function siteUrl(url: URL, path: string): string {
  * entropy, server-only, identical across every instance, and stable across
  * deploys, which is exactly what a cookie key has to be. The key itself is
  * derived from it (HKDF, see `sealingKey`), so the two are separate keys that
- * happen to share one input, and rotating the client secret — the thing you do
- * on compromise anyway — invalidates every session with it.
+ * happen to share one input, and rotating the client secret, the thing you do
+ * on compromise anyway, invalidates every session with it.
  *
  * `ASTRONAUT_CMS_SESSION_SECRET` overrides it, for a deployment that wants to
  * expire sessions without touching its OAuth app, or to share one session across
@@ -253,7 +253,7 @@ async function authenticate(
   const raw = readCookie(request, SESSION_COOKIE);
 
   // No cookie, no work: an anonymous request costs a header lookup and nothing
-  // else — no environment read, no key derivation, and no way to learn from the
+  // else, no environment read, no key derivation, and no way to learn from the
   // answer whether the deployment is configured.
   if (!raw) return { kind: "anonymous" };
 
@@ -501,7 +501,7 @@ async function route(path: string, request: Request, url: URL): Promise<Response
     const content = await library.readMedia(filePath, range ?? undefined);
     // Kept for good only when the URL names the bytes that came back. The
     // version is what makes the address change with the file, so honouring a `v`
-    // the file does not have would pin the wrong bytes in a browser for a year —
+    // the file does not have would pin the wrong bytes in a browser for a year,
     // and a backend that cannot name its bytes gets the short cache rather than
     // a policy resting on the caller's word.
     const addressed = content.version != null && url.searchParams.get("v") === content.version;
@@ -695,14 +695,14 @@ const batchSchema = z.array(z.object({ op: z.unknown(), input: z.unknown() })).m
 type BatchCall = z.infer<typeof batchSchema>[number];
 
 /**
- * Every operation of a batch, against the one context the request built — which
+ * Every operation of a batch, against the one context the request built, which
  * is what makes batching worth doing: the repository tree, the file collection
  * containers and whether the draft branch exists are each resolved once for the
  * whole batch rather than once per invocation.
  *
  * Reads run at once. The admin only ever groups calls that were already in
  * flight together, and every one of those caches is a *promise*, so concurrent
- * reads share the lookups instead of repeating them — batching would otherwise
+ * reads share the lookups instead of repeating them. Batching would otherwise
  * buy an invocation by turning a navigation's latency from the slowest call into
  * the sum of them. A write makes order matter, so a batch carrying one runs in
  * the order it was sent.

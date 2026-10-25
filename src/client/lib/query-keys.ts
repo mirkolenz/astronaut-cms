@@ -3,7 +3,7 @@
  *
  * Invalidation used to sit on the mutation hooks, which meant a write that did
  * not go through one left the open admin showing content it had itself
- * replaced — the assistant worked around it by invalidating everything after
+ * replaced. The assistant worked around it by invalidating everything after
  * each of its tool calls, and an agent arriving over WebMCP would have had
  * nothing at all. Stating it per operation puts it where the write is: one
  * place decides, and every caller of `call` inherits it, surgically.

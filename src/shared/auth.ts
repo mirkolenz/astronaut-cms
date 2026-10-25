@@ -75,7 +75,7 @@ export interface SessionState {
 /**
  * Optional. The session cookie's key is derived from the OAuth client secret by
  * default, which every deployment already holds, so nothing has to be generated
- * or seeded. Set this to key sessions off something else instead — to expire
+ * or seeded. Set this to key sessions off something else instead, to expire
  * them without touching the OAuth app, or to share one session across services.
  */
 export const SESSION_SECRET_ENV = "ASTRONAUT_CMS_SESSION_SECRET";

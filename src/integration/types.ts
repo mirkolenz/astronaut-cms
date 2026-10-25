@@ -26,8 +26,8 @@ export interface CmsConfig {
    * needs nothing here.
    *
    * With it in effect, a collection whose entries all sit in locale directories
-   * (`src/content/posts/en/…`, `src/content/posts/de/…` — the layout Astro's i18n
-   * recipe recommends) is edited language by language, with missing translations
+   * (`src/content/posts/en/…`, `src/content/posts/de/…`, the layout Astro's
+   * i18n recipe recommends) is edited language by language, with missing translations
    * surfaced in the listing. Pass `false` to keep the admin locale-agnostic and
    * treat those directories as ordinary folders.
    */
@@ -52,9 +52,9 @@ export interface CmsConfig {
 /**
  * WebMCP: the admin hands an agent running in the editor's own browser the same
  * tools the built-in assistant uses, through `document.modelContext`, instead of
- * a page to scrape. The agent is the editor's — the browser's own, or one they
- * installed — so it spends no credential of this deployment's and reaches the
- * CMS through the editor's session and nothing else.
+ * a page to scrape. The agent is the editor's, either the browser's own or one
+ * they installed, so it spends no credential of this deployment's and reaches
+ * the CMS through the editor's session and nothing else.
  *
  * Everything that bounds the built-in assistant bounds it too: each tool is one
  * operation on the CMS server, nothing publishes, a write joins the pending

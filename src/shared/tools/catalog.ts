@@ -11,8 +11,8 @@
  * repository change lands in the pending changeset, which the user reviews and
  * then publishes or discards as a whole, and an object-store deletion is moved
  * to the library's trash prefix rather than dropped. What keeps an agent talked
- * into a destructive call by text it read — an entry body, an attached document
- * — from doing real damage is that the server refuses to remove or move a file
+ * into a destructive call by text it read (an entry body, an attached document)
+ * from doing real damage is that the server refuses to remove or move a file
  * anything still references, and only a human who has been shown those
  * references can say otherwise.
  *
@@ -120,8 +120,8 @@ function applyBodyEdit(body: string, edit: BodyEdit | undefined): { body: string
  * tool.
  *
  * Doing it here covers everything a tool does, including the read an edit
- * derives its patch from — which, guarded per call, was the one place a
- * correctable refusal still ended the call outright — and means a tool added
+ * derives its patch from (which, guarded per call, was the one place a
+ * correctable refusal still ended the call outright), and means a tool added
  * later cannot forget to.
  */
 function guarded(tools: CmsToolSet): CmsToolSet {
@@ -209,7 +209,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
   /**
    * One partial-update tool per collection. `data` is a patch (every field
    * optional; set a field to null to remove it), and a content collection also
-   * accepts an edit to the markdown `body` — which is what makes its patch
+   * accepts an edit to the markdown `body`, which is what makes its patch
    * optional in turn. Both kinds then save the same way.
    */
   function editEntryTool(name: string, col: CollectionManifestEntry) {

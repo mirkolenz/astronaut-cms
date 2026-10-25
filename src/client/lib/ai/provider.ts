@@ -22,9 +22,9 @@ const byokFetch: typeof fetch = (input, init) => {
 };
 
 /**
- * Where inference goes. Either the relay on this site — which holds the
+ * Where inference goes. Either the relay on this site, which holds the
  * deployment's credential and is authenticated by the same session cookie as
- * every other CMS call — or, when each editor brings their own key, the gateway
+ * every other CMS call, or, when each editor brings their own key, the gateway
  * itself, with this deployment out of the path entirely.
  *
  * Both speak the OpenAI-compatible protocol, so the provider appends

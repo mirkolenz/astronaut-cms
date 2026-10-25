@@ -19,7 +19,7 @@ export const DEFAULT_AI_MAX_STEPS = 24;
  *
  * - `relay`: the deployment's, held on the server. Every model call is proxied,
  *   so the deployment enforces the model allowlist, the output ceiling and the
- *   per-editor rate — and pays for the invocation it is held open for.
+ *   per-editor rate, and pays for the invocation it is held open for.
  * - `byok`: the editor's own, kept in their browser and sent straight to the
  *   gateway. No relay, no invocation, no shared budget to drain. The deployment
  *   enforces nothing, because nothing of the deployment's is being spent.
