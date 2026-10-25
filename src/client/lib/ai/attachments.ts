@@ -9,7 +9,8 @@ import {
   type MediaLibraryId,
 } from "@/shared/media";
 import { refusalOf, uploadMedia } from "@/client/lib/media";
-import { call } from "@/client/lib/api";
+import { queryClient } from "@/client/lib/query-client";
+import { mediaQuery } from "@/client/queries/use-media";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { extractInWorker } from "@/client/lib/ai/workers/extraction";
 import docxWorker from "@/client/lib/ai/workers/docx?worker&url";
@@ -126,7 +127,10 @@ export async function prepareMessage(
   const takenIn = (library: MediaLibraryId): Promise<Set<string>> => {
     const names =
       taken.get(library) ??
-      call("listMedia", { library }).then((files) => new Set(files.map((file) => file.path)));
+      // Always fetched, since a stale listing could hide a name that is taken.
+      queryClient
+        .fetchQuery({ ...mediaQuery(library), staleTime: 0 })
+        .then((files) => new Set(files.map((file) => file.path)));
 
     taken.set(library, names);
 
