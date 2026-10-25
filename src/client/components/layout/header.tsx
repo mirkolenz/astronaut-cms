@@ -1,16 +1,20 @@
 import { Fragment } from "react";
-import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { Link, useMatches, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { collectionLabel, collectionSingleton } from "@/client/lib/collections";
-import { baseName, dirSegments, parentDir } from "@/client/lib/entry-tree";
+import { basename } from "pathe";
+import { dirSegments, parentDir } from "@/client/lib/entry-tree";
 import { joinLocale, splitLocale } from "@/shared/i18n";
 import { useEntries } from "@/client/queries/use-entries";
 import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { Scale } from "lucide-react";
 import { fileUrl } from "@/client/lib/routes";
+import { libraryLabel } from "@/client/lib/media";
 import { LICENSES_PATH } from "@/shared/auth";
 import { UiLocaleMenu } from "@/client/components/layout/ui-locale-menu";
-import { Button } from "@/client/components/ui/button";
+import { IconButton, LabelTooltip } from "@/client/components/icon-button";
+import { Separator } from "@/client/components/ui/separator";
+import { SidebarTrigger } from "@/client/components/ui/sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -32,17 +36,25 @@ export function Header() {
   const params = useParams({ strict: false });
   const search = useSearch({ strict: false });
   const collection = params?.collection;
+  const routeId = useMatches({ select: (matches) => matches.at(-1)?.routeId });
   const i18n = useCollectionI18n(useEntries(collection ?? "").data);
 
   const segments: BreadcrumbSegment[] = [{ label: t(($) => $.layout.breadcrumbRoot), to: "/" }];
-  // A singleton's one entry is the collection, so there is no listing to link to.
-  if (collection && collectionSingleton(collection)) {
+
+  if (routeId === "/changes") {
+    segments.push({ label: t(($) => $.changes.title) });
+  } else if (routeId === "/assistant") {
+    segments.push({ label: t(($) => $.ai.title) });
+  } else if (params.library) {
+    segments.push({ label: libraryLabel(params.library) });
+  } else if (collection && collectionSingleton(collection)) {
+    // A singleton's one entry is the collection, so there is no listing to link to.
     segments.push({ label: collectionLabel(collection) });
   } else if (collection) {
     // Folder trail: the entry's parent folders when editing an entry, otherwise
     // the directory currently being browsed on the collection index. Its leading
     // segment is the language, which the collection page shows as tabs rather
-    // than a folder — so it is dropped here but kept in every link, otherwise
+    // than a folder, so it is dropped here but kept in every link, otherwise
     // going up would silently land in the default language.
     const dir = params.entry ? parentDir(params.entry) : (search.dir ?? "");
     const { locale, slug } = splitLocale(dir, i18n?.locales ?? []);
@@ -59,12 +71,16 @@ export function Header() {
     }
 
     if (params.entry) {
-      segments.push({ label: baseName(params.entry) });
+      segments.push({ label: basename(params.entry) });
     }
   }
 
   return (
-    <header className="flex h-12 items-center border-b border-border px-6">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+      <LabelTooltip label={t(($) => $.layout.toggleSidebar)} shortcut={["mod", "B"]}>
+        <SidebarTrigger aria-label={t(($) => $.layout.toggleSidebar)} />
+      </LabelTooltip>
+      <Separator orientation="vertical" className="data-vertical:h-4" />
       <Breadcrumb>
         <BreadcrumbList>
           {segments.map((seg, i) => (
@@ -86,16 +102,11 @@ export function Header() {
         </BreadcrumbList>
       </Breadcrumb>
       <div className="ml-auto flex items-center">
-        <Button variant="ghost" size="icon-sm" asChild>
-          <a
-            href={fileUrl(LICENSES_PATH)}
-            target="_blank"
-            rel="noopener"
-            aria-label={t(($) => $.layout.licenses)}
-          >
+        <IconButton asChild size="icon-sm" label={t(($) => $.layout.licenses)}>
+          <a href={fileUrl(LICENSES_PATH)} target="_blank" rel="noopener noreferrer">
             <Scale />
           </a>
-        </Button>
+        </IconButton>
         <UiLocaleMenu />
       </div>
     </header>

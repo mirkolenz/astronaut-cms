@@ -1,9 +1,10 @@
-import { createContext, useContext, useState, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "cn";
 import {
   Asterisk,
   Braces,
-  ChevronRight,
+  ChevronsUpDown,
   File as FileIcon,
   Image as ImageIcon,
   Link as LinkIcon,
@@ -13,42 +14,68 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
-import { activeVariant } from "@/shared/field-to-zod";
 import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
 import { arrayMove } from "@/client/lib/arrays";
-import { formatJson } from "@/client/lib/format-json";
 import {
   asArray,
   asRecord,
   collectionItems,
   collectionMissing,
   collectionOf,
+  collectionSummary,
+  emptyValue,
   fieldLabel,
+  followKeys,
+  freeKey,
   getDefaultValue,
-  itemField,
-  valueSummary,
+  isBlank,
+  isUnsettable,
+  missingFields,
+  seedValue,
+  showsEmpty,
+  switchVariant,
   variantLabel,
   type CollectionField,
+  type ItemKey,
   type ValuePath,
 } from "@/client/lib/field-values";
-import { uniqueName } from "@/shared/paths";
+import { collectionLabel } from "@/client/lib/collections";
+import { activeVariant } from "@/shared/field-to-zod";
+import { useEntries } from "@/client/queries/use-entries";
 import { MediaPickerDialog } from "@/client/components/media-picker-dialog";
 import { SortableList } from "@/client/components/sortable-list";
-import { MissingProps } from "@/client/components/editors/block-controls";
-import { useEntries } from "@/client/queries/use-entries";
-import { useAssetUrl } from "@/client/queries/use-media";
+import { IconButton } from "@/client/components/icon-button";
+import { DisclosureChevron } from "@/client/components/disclosure-chevron";
+import { AssetThumbnail } from "@/client/components/editors/asset-thumbnail";
+import { BlockRowButton, MissingProps } from "@/client/components/editors/block-controls";
 import { Input } from "@/client/components/ui/input";
 import { Textarea } from "@/client/components/ui/textarea";
 import { Switch } from "@/client/components/ui/switch";
-import { Label } from "@/client/components/ui/label";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/client/components/ui/field";
 import { Button } from "@/client/components/ui/button";
-import { collectionLabel } from "@/client/lib/collections";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/client/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/client/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -60,9 +87,11 @@ import {
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
+
 function asBoolean(value: unknown): boolean {
   return typeof value === "boolean" ? value : false;
 }
@@ -77,13 +106,18 @@ export const FieldNavContext = createContext<{
 });
 
 /** What every field is shown with: its label, whether it is required, and its description. */
-interface FieldProps<V> {
-  value: V;
-  onChange: (value: unknown) => void;
+interface ShellProps {
   /** Left out for a field whose container already names it, such as an array item. */
   label?: string;
   required?: boolean;
   description?: string;
+  /** Clears a field that may do without a value, while it has one. */
+  onClear?: () => void;
+}
+
+interface FieldProps<V> extends ShellProps {
+  value: V;
+  onChange: (value: unknown) => void;
 }
 
 interface FieldRendererProps {
@@ -104,29 +138,25 @@ export function FieldRenderer({
   required,
   path = [],
 }: FieldRendererProps) {
-  const common = { onChange, label, required, description: schema.description };
+  const blank = isBlank(value);
+  const unsettable = isUnsettable(schema);
+  const shell: ShellProps = {
+    label,
+    required,
+    description: schema.description,
+    onClear: unsettable && !blank ? () => onChange(emptyValue(schema)) : undefined,
+  };
 
-  if (schema.nullable) {
-    const inner: FieldSchema = { ...schema, nullable: false };
-
-    if (value === null || value === undefined) {
-      return (
-        <NullableToggle
-          {...common}
-          value={null}
-          onChange={() => onChange(getDefaultValue(inner))}
-        />
-      );
-    }
-
-    return (
-      <NullableWrapper label={label} required={required} onClear={() => onChange(null)}>
-        <FieldRenderer schema={inner} value={value} onChange={onChange} path={path} />
-      </NullableWrapper>
-    );
+  if (unsettable && blank && !showsEmpty(schema)) {
+    return <UnsetField {...shell} onSet={() => onChange(seedValue(schema))} />;
   }
 
-  const resolved = value ?? schema.default;
+  // An emptied input leaves the field as it is without a value.
+  const common = {
+    ...shell,
+    onChange: (next: unknown) => onChange(next === "" ? emptyValue(schema) : next),
+  };
+  const resolved = value === undefined ? schema.default : value;
 
   switch (schema.type) {
     case "image":
@@ -161,16 +191,15 @@ export function FieldRenderer({
       return <DateField {...common} value={asString(resolved)} />;
 
     case "enum":
-      return (
-        <EnumField {...common} options={schema.options} value={value === null ? null : resolved} />
-      );
+      // An option may be an empty text, which is chosen as it is.
+      return <EnumField {...shell} onChange={onChange} options={schema.options} value={resolved} />;
 
     case "array":
     case "record": {
       const collection = collectionOf(schema);
 
       if (collection)
-        return <CollectionRow {...common} schema={collection} value={resolved} path={path} />;
+        return <CollectionRow {...shell} schema={collection} value={resolved} path={path} />;
 
       return schema.type === "array" ? (
         <ArrayField {...common} element={schema.element} value={asArray(resolved)} />
@@ -211,8 +240,8 @@ export function FieldRenderer({
 
 /**
  * The fields of an object, those without a `group` first and each group after
- * them as a section that opens on demand. Wide enough, the list is a table with
- * the labels in the first column.
+ * them as a section that opens on demand. Wide enough, the labels are a column
+ * next to the controls.
  */
 export function FieldList({
   shape,
@@ -231,8 +260,7 @@ export function FieldList({
       key={key}
       schema={field}
       value={values[key]}
-      // An optional field left empty is not written at all.
-      onChange={(value) => onChange(key, value === "" && !isRequired(field) ? undefined : value)}
+      onChange={(value) => onChange(key, value)}
       label={fieldLabel(key, field)}
       required={isRequired(field)}
       path={[...path, key]}
@@ -240,78 +268,129 @@ export function FieldList({
   );
 
   return (
-    <div className="@container/fields space-y-4">
+    <FieldGroup>
       {groups.get("")?.map(render)}
       {[...groups].flatMap(([group, fields]) =>
         group
           ? [
               <Collapsible key={group} className="rounded-md border border-border">
-                <CollapsibleTrigger className="group flex w-full items-center gap-1 px-3 py-2 text-sm font-medium">
-                  <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                <CollapsibleTrigger className="group/disclosure flex w-full items-center gap-1 px-3 py-2 text-sm font-medium">
+                  <DisclosureChevron className="size-4 text-muted-foreground" />
                   {group}
                   <span className="ml-auto text-xs font-normal text-muted-foreground">
                     {fields.length}
                   </span>
+                  <MissingProps
+                    labels={missingFields(Object.fromEntries(fields), (key) =>
+                      isBlank(values[key]),
+                    )}
+                  />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 border-t border-border p-3">
-                  {fields.map(render)}
+                <CollapsibleContent asChild>
+                  <FieldGroup className="border-t border-border p-3">
+                    {fields.map(render)}
+                  </FieldGroup>
                 </CollapsibleContent>
               </Collapsible>,
             ]
           : [],
       )}
-    </div>
+    </FieldGroup>
   );
 }
 
+/**
+ * The props of a field's control: the id its label names it by, and the marker
+ * that binds it to the page's history, so undo there undoes the page rather than the text.
+ */
+interface ControlProps {
+  id: string;
+  "data-page-history": true;
+}
+
+/**
+ * A field's label, control and description. Given as a function, the control
+ * gets its props from the field, else the field is a set of controls its legend names.
+ */
 function FieldShell({
   label,
   required,
   hint,
   description,
+  invalid,
+  onClear,
   children,
-}: {
-  label?: string;
-  required?: boolean;
+}: ShellProps & {
   /** What kind of value the field takes, where its input does not show it. */
   hint?: { icon: LucideIcon; text: string };
-  description?: string;
-  children: ReactNode;
+  invalid?: boolean;
+  children: ReactNode | ((control: ControlProps) => ReactNode);
 }) {
   const { t } = useTranslation();
+  const id = useId();
+  const single = typeof children === "function";
   const content = (
-    <div className="min-w-0 space-y-1.5">
-      {children}
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
-    </div>
+    <FieldContent className="min-w-0 gap-1.5">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          {single ? children({ id, "data-page-history": true }) : children}
+        </div>
+        {onClear && (
+          <IconButton label={t(($) => $.editors.clear)} className="mt-1.5" onClick={onClear}>
+            <X />
+          </IconButton>
+        )}
+      </div>
+      {description && <FieldDescription>{description}</FieldDescription>}
+    </FieldContent>
   );
 
   // Unlabelled, the field is one its container already names, such as an item of a list.
   if (!label) return content;
 
-  return (
-    <div className="grid gap-1.5 @lg/fields:grid-cols-[9rem_minmax(0,1fr)] @lg/fields:gap-x-4">
-      <Label className="flex-wrap @lg/fields:min-h-9">
-        <span className="leading-snug">
-          {label}
-          {/* A word joiner, so the marker never wraps onto a line of its own. */}
-          {required && (
-            <span className="text-destructive">
-              {"\u2060"}
-              <Asterisk className="ml-0.5 inline size-3 align-text-top" />
-              <span className="sr-only">{t(($) => $.editors.required)}</span>
-            </span>
-          )}
-        </span>
-        {hint && (
-          <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
-            <hint.icon className="size-3" />
-            {hint.text}
+  const caption = (
+    <>
+      <span>
+        {label}
+        {/* A word joiner, so the marker never wraps onto a line of its own. */}
+        {required && (
+          <span className="text-destructive">
+            {"\u2060"}
+            <Asterisk className="ml-0.5 inline size-3 align-text-top" />
+            <span className="sr-only">{t(($) => $.editors.required)}</span>
           </span>
         )}
-      </Label>
+      </span>
+      {hint && (
+        <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+          <hint.icon className="size-3" />
+          {hint.text}
+        </span>
+      )}
+    </>
+  );
+
+  if (!single) {
+    return (
+      <FieldSet className="min-w-0" data-invalid={invalid}>
+        <FieldLegend variant="label" className="flex flex-wrap items-center gap-2">
+          {caption}
+        </FieldLegend>
+        {content}
+      </FieldSet>
+    );
+  }
+
+  return (
+    <Field orientation="responsive" data-invalid={invalid}>
+      <FieldLabel
+        htmlFor={id}
+        className="flex-wrap @md/field-group:min-h-9 @md/field-group:max-w-36"
+      >
+        {caption}
+      </FieldLabel>
       {content}
-    </div>
+    </Field>
   );
 }
 
@@ -323,7 +402,14 @@ function StringField({
 }: FieldProps<string> & { format?: "email" | "url" }) {
   return (
     <FieldShell {...shell}>
-      <Input type={format ?? "text"} value={value} onChange={(e) => onChange(e.target.value)} />
+      {(control) => (
+        <Input
+          {...control}
+          type={format ?? "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -331,7 +417,9 @@ function StringField({
 function TextareaField({ value, onChange, ...shell }: FieldProps<string>) {
   return (
     <FieldShell {...shell}>
-      <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={4} />
+      {(control) => (
+        <Textarea {...control} value={value} onChange={(e) => onChange(e.target.value)} rows={4} />
+      )}
     </FieldShell>
   );
 }
@@ -344,15 +432,19 @@ function NumberField({
 }: FieldProps<number | undefined> & { integer?: boolean }) {
   return (
     <FieldShell {...shell}>
-      <Input
-        type="number"
-        value={value ?? ""}
-        onChange={(e) => {
-          const v = e.target.value;
-          onChange(v === "" ? undefined : integer ? parseInt(v, 10) : parseFloat(v));
-        }}
-        step={integer ? 1 : "any"}
-      />
+      {(control) => (
+        <Input
+          {...control}
+          type="number"
+          value={value ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+
+            onChange(v === "" ? "" : integer ? parseInt(v, 10) : parseFloat(v));
+          }}
+          step={integer ? 1 : "any"}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -360,9 +452,11 @@ function NumberField({
 function BooleanField({ value, onChange, ...shell }: FieldProps<boolean>) {
   return (
     <FieldShell {...shell}>
-      <div className="flex min-h-9 items-center">
-        <Switch checked={value} onCheckedChange={(checked) => onChange(checked)} />
-      </div>
+      {(control) => (
+        <div className="flex min-h-9 items-center">
+          <Switch {...control} checked={value} onCheckedChange={(checked) => onChange(checked)} />
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -375,11 +469,14 @@ function DateField({ value, onChange, ...shell }: FieldProps<string>) {
 
   return (
     <FieldShell {...shell}>
-      <Input
-        type="datetime-local"
-        value={dateStr}
-        onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : "")}
-      />
+      {(control) => (
+        <Input
+          {...control}
+          type="datetime-local"
+          value={dateStr}
+          onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : "")}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -394,25 +491,27 @@ function EnumField({
 
   return (
     <FieldShell {...shell}>
-      <Select
-        value={selected < 0 ? undefined : String(selected)}
-        onValueChange={(index) => {
-          const option = options[Number(index)];
+      {(control) => (
+        <Select
+          value={selected < 0 ? "" : String(selected)}
+          onValueChange={(index) => {
+            const option = options[Number(index)];
 
-          if (option !== undefined) onChange(option);
-        }}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder={<ChoosePlaceholder />} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option, index) => (
-            <SelectItem key={index} value={String(index)}>
-              {String(option)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            if (option !== undefined) onChange(option);
+          }}
+        >
+          <SelectTrigger {...control} className="w-full">
+            <SelectValue placeholder={<ChoosePlaceholder />} />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option, index) => (
+              <SelectItem key={index} value={String(index)}>
+                {String(option)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </FieldShell>
   );
 }
@@ -454,52 +553,42 @@ function AssetField({
       {...shell}
       hint={{ icon: assetType === "image" ? ImageIcon : FileIcon, text: kind }}
     >
-      <div className="flex gap-2">
-        <Input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={kind}
-          className="flex-1"
-        />
-        <Button type="button" variant="outline" onClick={() => setShowPicker(true)}>
-          {t(($) => $.editors.browse)}
-        </Button>
-        {value && (
-          <Button type="button" variant="ghost" size="icon-xs" onClick={() => onChange("")}>
-            <X className="size-4" />
-          </Button>
-        )}
-      </div>
-      {children}
-      <MediaPickerDialog
-        open={showPicker}
-        kind={assetType === "image" ? "image" : undefined}
-        repoOnly={repoOnly}
-        onSelect={handleSelect}
-        onCancel={() => setShowPicker(false)}
-      />
+      {(control) => (
+        <>
+          <div className="flex gap-2">
+            <Input
+              {...control}
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={kind}
+              className="flex-1"
+            />
+            <Button type="button" variant="outline" onClick={() => setShowPicker(true)}>
+              {t(($) => $.editors.browse)}
+            </Button>
+          </div>
+          {children}
+          <MediaPickerDialog
+            open={showPicker}
+            kind={assetType === "image" ? "image" : undefined}
+            repoOnly={repoOnly}
+            onSelect={handleSelect}
+            onCancel={() => setShowPicker(false)}
+          />
+        </>
+      )}
     </FieldShell>
   );
 }
 
 function ImageField(props: FieldProps<string> & { repoOnly?: boolean }) {
-  const previewSrc = useAssetUrl(props.value);
-
   return (
     <AssetField {...props} assetType="image">
-      {previewSrc && (
-        <div className="h-24 w-24 overflow-hidden rounded border border-border">
-          <img
-            src={previewSrc}
-            alt=""
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        </div>
-      )}
+      <AssetThumbnail
+        src={props.value || undefined}
+        className="size-24 rounded border border-border"
+      />
     </AssetField>
   );
 }
@@ -508,6 +597,7 @@ function FileField(props: FieldProps<string>) {
   return <AssetField {...props} assetType="file" />;
 }
 
+/** Picks an entry of a collection, searching them by id. */
 function ReferenceField({
   value,
   onChange,
@@ -516,71 +606,53 @@ function ReferenceField({
 }: FieldProps<string> & { collection: string }) {
   const { t } = useTranslation();
   const { data: entries, isLoading } = useEntries(collection);
-  const [query, setQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-
-  const filtered = useMemo(() => {
-    if (!entries) return [];
-    if (!query) return entries;
-    const lower = query.toLowerCase();
-    return entries.filter((e) => e.id.toLowerCase().includes(lower));
-  }, [entries, query]);
-
-  const handleSelect = (id: string) => {
-    onChange(id);
-    setQuery("");
-    setIsOpen(false);
-  };
+  const [open, setOpen] = useState(false);
+  const name = collectionLabel(collection);
 
   return (
-    <FieldShell {...shell} hint={{ icon: LinkIcon, text: collectionLabel(collection) }}>
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            value={isOpen ? query : value}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              if (!isOpen) setIsOpen(true);
-            }}
-            onFocus={() => {
-              setQuery(value);
-              setIsOpen(true);
-            }}
-            onBlur={() => {
-              // Delay to allow click on dropdown item
-              setTimeout(() => setIsOpen(false), 200);
-            }}
-            placeholder={
-              isLoading
-                ? t(($) => $.editors.loading)
-                : t(($) => $.editors.selectFrom, { collection })
-            }
-          />
-          {isOpen && filtered.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow-lg">
-              {filtered.map((entry) => (
-                <li
-                  key={entry.id}
-                  onMouseDown={() => handleSelect(entry.id)}
-                  className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-accent ${
-                    entry.id === value
-                      ? "bg-accent font-medium text-accent-foreground"
-                      : "text-popover-foreground"
-                  }`}
-                >
-                  {entry.id}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {value && !shell.required && (
-          <Button type="button" variant="ghost" size="icon-xs" onClick={() => onChange("")}>
-            <X className="size-4" />
-          </Button>
-        )}
-      </div>
+    <FieldShell {...shell} hint={{ icon: LinkIcon, text: name }}>
+      {(control) => (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              {...control}
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="w-full justify-between font-normal"
+            >
+              <span className={cn("truncate", !value && "text-muted-foreground")}>
+                {value || t(($) => $.editors.selectFrom, { collection: name })}
+              </span>
+              <ChevronsUpDown className="text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
+            <Command>
+              <CommandInput placeholder={t(($) => $.editors.searchEntries)} />
+              <CommandList>
+                <CommandEmpty>
+                  {isLoading ? t(($) => $.editors.loading) : t(($) => $.editors.nothingFound)}
+                </CommandEmpty>
+                {entries?.map((entry) => (
+                  <CommandItem
+                    key={entry.id}
+                    value={entry.id}
+                    data-checked={entry.id === value}
+                    onSelect={() => {
+                      onChange(entry.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {entry.id}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
     </FieldShell>
   );
 }
@@ -618,24 +690,16 @@ function TupleField({
   );
 }
 
-// Keys that follow array items through moves, so their local state stays with
-// them. Items added or dropped elsewhere, such as by a reset, get fresh keys at
-// the end.
-function useItemKeys(length: number): [string[], (keys: string[]) => void] {
-  const [keys, setKeys] = useState<string[]>(() =>
-    Array.from({ length }, () => crypto.randomUUID()),
-  );
+/** Keys that follow the items of a list through any change, so their local state stays with them. */
+function useItemKeys(items: readonly unknown[]): string[] {
+  const [state, setState] = useState<{ items?: readonly unknown[]; keys: readonly ItemKey[] }>({
+    keys: [],
+  });
+  const keys = state.items === items ? state.keys : followKeys(state.keys, items);
 
-  if (keys.length === length) return [keys, setKeys];
+  if (state.items !== items) setState({ items, keys });
 
-  const synced = [
-    ...keys.slice(0, length),
-    ...Array.from({ length: Math.max(0, length - keys.length) }, () => crypto.randomUUID()),
-  ];
-
-  setKeys(synced);
-
-  return [synced, setKeys];
+  return keys.map(({ key }) => key);
 }
 
 /** A list of single values, such as tags, edited in place. */
@@ -646,17 +710,7 @@ function ArrayField({
   ...shell
 }: FieldProps<unknown[]> & { element: FieldSchema }) {
   const { t } = useTranslation();
-  const [keys, setKeys] = useItemKeys(value.length);
-
-  const moveItem = (from: number, to: number) => {
-    onChange(arrayMove(value, from, to));
-    setKeys(arrayMove(keys, from, to));
-  };
-
-  const removeItem = (index: number) => {
-    onChange(value.filter((_, i) => i !== index));
-    setKeys(keys.filter((_, i) => i !== index));
-  };
+  const keys = useItemKeys(value);
 
   return (
     <FieldShell {...shell}>
@@ -664,7 +718,7 @@ function ArrayField({
         <SortableList
           items={value}
           getKey={(_, index) => keys[index] ?? String(index)}
-          onMove={moveItem}
+          onMove={(from, to) => onChange(arrayMove(value, from, to))}
           className="space-y-2"
         >
           {(item, index, handle) => (
@@ -674,18 +728,15 @@ function ArrayField({
                 <FieldRenderer
                   schema={element}
                   value={item}
-                  onChange={(v) => onChange(value.map((current, i) => (i === index ? v : current)))}
+                  onChange={(v) => onChange(value.with(index, v))}
                 />
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={t(($) => $.common.remove)}
-                onClick={() => removeItem(index)}
+              <IconButton
+                label={t(($) => $.common.remove)}
+                onClick={() => onChange(value.toSpliced(index, 1))}
               >
-                <Trash2 className="size-3.5" />
-              </Button>
+                <Trash2 />
+              </IconButton>
             </div>
           )}
         </SortableList>
@@ -695,7 +746,7 @@ function ArrayField({
           size="xs"
           onClick={() => onChange([...value, getDefaultValue(element)])}
         >
-          <Plus className="size-3" />
+          <Plus />
           {t(($) => $.editors.addItem)}
         </Button>
       </div>
@@ -712,33 +763,20 @@ function CollectionRow({
   value,
   path,
   ...shell
-}: FieldProps<unknown> & { schema: CollectionField; path: ValuePath }) {
-  const { t } = useTranslation();
-  const { selected, open } = useContext(FieldNavContext);
+}: ShellProps & { schema: CollectionField; value: unknown; path: ValuePath }) {
+  const { open } = useContext(FieldNavContext);
   const items = collectionItems(schema, value);
-  const item = itemField(schema);
-  const isOpen = path.every((key, index) => selected[index] === key);
-  const summary = items
-    .map(([key, value]) => valueSummary(item, value) ?? (typeof key === "string" ? key : undefined))
-    .filter(Boolean)
-    .join(", ");
 
   return (
     <FieldShell {...shell}>
-      <Button
-        type="button"
+      <BlockRowButton
+        label={collectionSummary(schema, items)}
+        count={items.length}
+        missing={collectionMissing(schema, items)}
+        onOpen={() => open(path)}
+        inspects
         variant="outline"
-        aria-expanded={isOpen}
-        className="w-full justify-start font-normal"
-        onClick={() => open(path)}
-      >
-        <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {t(($) => $.editors.items, { count: items.length })}
-        </span>
-        <MissingProps labels={collectionMissing(schema, items)} />
-        <ChevronRight className="text-muted-foreground" />
-      </Button>
+      />
     </FieldShell>
   );
 }
@@ -747,9 +785,8 @@ function ObjectField({
   shape,
   value,
   onChange,
-  label,
-  description,
   path,
+  ...shell
 }: FieldProps<Record<string, unknown>> & { shape: Record<string, FieldSchema>; path: ValuePath }) {
   const fields = (
     <FieldList
@@ -760,15 +797,11 @@ function ObjectField({
     />
   );
 
-  // Unlabelled, the object is an item its container already frames.
-  if (!label) return fields;
-
   return (
-    <fieldset className="space-y-3 rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium text-foreground">{label}</legend>
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      {fields}
-    </fieldset>
+    <FieldShell {...shell}>
+      {/* Unlabelled, the object is an item its container already frames. */}
+      {shell.label ? <div className="rounded-md border border-border p-3">{fields}</div> : fields}
+    </FieldShell>
   );
 }
 
@@ -790,12 +823,18 @@ export function NewKeyInput({ onAdd }: { onAdd: (key: string) => void }) {
         type="text"
         value={key}
         onChange={(e) => setKey(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && add()}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+
+          e.preventDefault();
+          add();
+        }}
         placeholder={t(($) => $.editors.newKey)}
+        aria-label={t(($) => $.editors.newKey)}
         className="h-7 max-w-48"
       />
       <Button type="button" variant="outline" size="xs" onClick={add}>
-        <Plus className="size-3" />
+        <Plus />
         {t(($) => $.editors.add)}
       </Button>
     </div>
@@ -810,17 +849,12 @@ function RecordField({
   ...shell
 }: FieldProps<Record<string, unknown>> & { valueSchema: FieldSchema }) {
   const { t } = useTranslation();
-
-  const removeField = (key: string) => {
-    const next = { ...value };
-    delete next[key];
-    onChange(next);
-  };
+  const entries = Object.entries(value);
 
   return (
     <FieldShell {...shell}>
       <div className="space-y-3 rounded-md border border-border p-3">
-        {Object.entries(value).map(([key, val]) => (
+        {entries.map(([key, val]) => (
           <div key={key} className="flex items-start gap-2">
             <span className="mt-1.5 shrink-0 font-mono text-xs text-muted-foreground">{key}</span>
             <div className="min-w-0 flex-1">
@@ -830,24 +864,19 @@ function RecordField({
                 onChange={(v) => onChange({ ...value, [key]: v })}
               />
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={t(($) => $.common.remove)}
-              onClick={() => removeField(key)}
+            <IconButton
+              label={t(($) => $.common.remove)}
+              onClick={() =>
+                onChange(Object.fromEntries(entries.filter(([other]) => other !== key)))
+              }
             >
-              <Trash2 className="size-3.5" />
-            </Button>
+              <Trash2 />
+            </IconButton>
           </div>
         ))}
         <NewKeyInput
           onAdd={(key) =>
-            onChange({
-              ...value,
-              [uniqueName(key, (taken) => Object.hasOwn(value, taken))]:
-                getDefaultValue(valueSchema),
-            })
+            onChange({ ...value, [freeKey(entries, key)]: getDefaultValue(valueSchema) })
           }
         />
       </div>
@@ -882,11 +911,8 @@ function UnionField({
   return (
     <FieldShell {...shell}>
       <Select
-        value={selectedIndex >= 0 ? String(selectedIndex) : undefined}
-        onValueChange={(index) => {
-          const variant = variants[Number(index)];
-          if (variant) onChange(getDefaultValue(variant));
-        }}
+        value={selectedIndex >= 0 ? String(selectedIndex) : ""}
+        onValueChange={(index) => onChange(switchVariant(schema, value, Number(index)))}
       >
         <SelectTrigger className="w-full" aria-label={t(($) => $.editors.variant)}>
           <SelectValue placeholder={<ChoosePlaceholder />} />
@@ -913,13 +939,14 @@ function UnionField({
   );
 }
 
-function NullableToggle({ onChange, ...shell }: FieldProps<null>) {
+/** A field that may do without a value and has none, until one is set. */
+function UnsetField({ onSet, ...shell }: ShellProps & { onSet: () => void }) {
   const { t } = useTranslation();
 
   return (
     <FieldShell {...shell}>
       <div>
-        <Button type="button" variant="outline" size="xs" onClick={() => onChange(undefined)}>
+        <Button type="button" variant="outline" size="xs" onClick={onSet}>
           {t(($) => $.editors.setValue)}
         </Button>
       </div>
@@ -927,51 +954,56 @@ function NullableToggle({ onChange, ...shell }: FieldProps<null>) {
   );
 }
 
-function NullableWrapper({
-  label,
-  required,
-  onClear,
-  children,
-}: Pick<FieldProps<unknown>, "label" | "required"> & { onClear: () => void; children: ReactNode }) {
-  const { t } = useTranslation();
+// No value is written as an empty text.
+const toJson = (value: unknown): string => (isBlank(value) ? "" : JSON.stringify(value, null, 2));
 
-  return (
-    <FieldShell label={label} required={required}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">{children}</div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={t(($) => $.editors.clear)}
-          onClick={onClear}
-        >
-          <X className="size-4" />
-        </Button>
-      </div>
-    </FieldShell>
-  );
+function parseJson(text: string): { value: unknown } | undefined {
+  if (!text.trim()) return { value: "" };
+
+  try {
+    return { value: JSON.parse(text) };
+  } catch {
+    return undefined;
+  }
 }
 
+/** Any value as JSON, written only while it is valid. */
 function FallbackField({ value, onChange, ...shell }: FieldProps<unknown>) {
   const { t } = useTranslation();
-  const [text, setText] = useState(() => formatJson(value));
+  const errorId = useId();
+  const json = useMemo(() => toJson(value), [value]);
+  // What is typed, until the value changes elsewhere, such as by an undo.
+  const [draft, setDraft] = useState<{ text: string; json: string; invalid: boolean }>();
+  const current = draft?.json === json ? draft : undefined;
+  const text = current?.text ?? json;
+  const invalid = current?.invalid ?? false;
 
   return (
-    <FieldShell {...shell} hint={{ icon: Braces, text: t(($) => $.editors.raw) }}>
-      <Textarea
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          try {
-            onChange(JSON.parse(e.target.value));
-          } catch {
-            onChange(e.target.value);
-          }
-        }}
-        rows={3}
-        className="font-mono"
-      />
+    <FieldShell {...shell} hint={{ icon: Braces, text: t(($) => $.editors.raw) }} invalid={invalid}>
+      {(control) => (
+        <>
+          <Textarea
+            {...control}
+            value={text}
+            onChange={(e) => {
+              const parsed = parseJson(e.target.value);
+
+              setDraft({
+                text: e.target.value,
+                json: parsed ? toJson(parsed.value) : json,
+                invalid: !parsed,
+              });
+
+              if (parsed) onChange(parsed.value);
+            }}
+            rows={3}
+            className="font-mono"
+            aria-invalid={invalid}
+            aria-describedby={invalid ? errorId : undefined}
+          />
+          {invalid && <FieldError id={errorId}>{t(($) => $.editors.invalidJson)}</FieldError>}
+        </>
+      )}
     </FieldShell>
   );
 }

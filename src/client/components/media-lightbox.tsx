@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
-import { Button } from "@/client/components/ui/button";
-import { Dialog, DialogContent } from "@/client/components/ui/dialog";
+import { basename } from "pathe";
+import { Dialog, DialogContent, DialogTitle } from "@/client/components/ui/dialog";
 import { mediaUrl } from "@/client/lib/media";
 import { mediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
@@ -9,37 +8,30 @@ import type { MediaFile } from "@/shared/types";
 interface MediaLightboxProps {
   library: MediaLibraryId;
   file: MediaFile | null;
-  onClose: () => void;
+  onCancel: () => void;
 }
 
 /** A library image, video or audio file at full size, playable where it plays. */
-export function MediaLightbox({ library, file, onClose }: MediaLightboxProps) {
+export function MediaLightbox({ library, file, onCancel }: MediaLightboxProps) {
   const { t } = useTranslation();
 
   return (
     <Dialog
       open={file !== null}
       onOpenChange={(isOpen) => {
-        if (!isOpen) onClose();
+        if (!isOpen) onCancel();
       }}
     >
       {/* As wide as the file itself, so it is centered and a click beside it closes. */}
-      <DialogContent
-        showCloseButton={false}
-        className="w-fit border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]"
-      >
-        <div className="relative">
-          <Button
-            type="button"
-            size="icon"
-            onClick={onClose}
-            aria-label={t(($) => $.common.close)}
-            className="absolute -right-2 -top-2 z-10 rounded-full bg-black/60 text-white hover:bg-black/80"
-          >
-            <X />
-          </Button>
-          {file && <Preview library={library} file={file} />}
-        </div>
+      <DialogContent className="w-fit border-none bg-transparent p-0 ring-0 shadow-none sm:max-w-[90vw]">
+        {file && (
+          <>
+            <DialogTitle className="sr-only">
+              {t(($) => $.media.preview, { name: basename(file.path) })}
+            </DialogTitle>
+            <Preview library={library} file={file} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

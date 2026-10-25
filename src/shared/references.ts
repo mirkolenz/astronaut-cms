@@ -30,10 +30,6 @@ export interface IndexedFile extends MediaLocation {
 /** Every library file content reaches, across both libraries. */
 export type ReferenceIndex = IndexedFile[];
 
-/** The paths of one library that content reaches. */
-export const referencedPaths = (index: ReferenceIndex, library: MediaLibraryId): Set<string> =>
-  new Set(index.filter((file) => file.library === library).map((file) => file.path));
-
 /** A reference to a file the library does not hold. */
 export interface StaleReference extends AssetReference {
   path: string;

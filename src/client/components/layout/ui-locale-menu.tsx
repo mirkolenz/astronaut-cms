@@ -19,7 +19,7 @@ export function UiLocaleMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" aria-label={localeLabel(i18n.language)}>
-          <Languages className="size-4" />
+          <Languages />
           {i18n.language}
         </Button>
       </DropdownMenuTrigger>

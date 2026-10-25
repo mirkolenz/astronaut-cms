@@ -1,6 +1,5 @@
-import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ArrowDown, Bot } from "lucide-react";
+import { ArrowDown, Bot } from "lucide-react";
 import { isStaticToolUIPart } from "ai";
 import { cn } from "cn";
 import type { CmsUIMessage } from "@/client/lib/ai/agent";
@@ -8,7 +7,7 @@ import { Markdown } from "@/client/components/ai/markdown";
 import { ReasoningTrace } from "@/client/components/ai/reasoning-trace";
 import { ToolCall } from "@/client/components/ai/tool-call";
 import { Button } from "@/client/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
+import { ErrorBanner } from "@/client/components/error-banner";
 import { Bubble, BubbleContent } from "@/client/components/ui/bubble";
 import {
   Empty,
@@ -27,18 +26,7 @@ import {
   MessageScrollerViewport,
 } from "@/client/components/ui/message-scroller";
 import { TraceLine, TraceTitle } from "@/client/components/ui/trace";
-import { getChat } from "@/client/lib/ai/chat";
-
-/**
- * Subscribes to the shared Chat, so every view that renders it stays in sync.
- * Unthrottled, the hook re-renders the whole transcript on every streamed token;
- * 50ms is the interval the AI SDK documents for this.
- */
-export function useCmsChat() {
-  return useChat({ chat: getChat(), throttle: 50 });
-}
-
-export type CmsChat = ReturnType<typeof useCmsChat>;
+import type { CmsChat } from "@/client/hooks/use-cms-chat";
 
 /**
  * One part of a message. The models speak the OpenAI-compatible protocol, which
@@ -77,10 +65,10 @@ function MessagePart({
 
 /**
  * Whether the agent is busy without looking busy. Only streaming text and
- * streaming reasoning draw themselves as they arrive; everything else is a
- * silent wait — the prefill before a step's first token, a tool's arguments
- * streaming into a collapsed card, the tool running, and the model being called
- * again with its result.
+ * streaming reasoning draw themselves as they arrive.
+ * Everything else is a silent wait, such as the prefill before a step's first token,
+ * a tool's arguments streaming into a collapsed card, the tool running,
+ * and the model being called again with its result.
  */
 function isWorkingSilently({ status, messages }: CmsChat): boolean {
   const part = messages.at(-1)?.parts.at(-1);
@@ -152,15 +140,16 @@ export function ChatError({ chat, className }: { chat: CmsChat; className?: stri
   if (!error) return null;
 
   return (
-    <Alert variant="destructive" className={className}>
-      <AlertTriangle />
-      <AlertTitle>{t(($) => $.ai.errorTitle)}</AlertTitle>
-      <AlertDescription>
-        {error.message && <p className="break-words">{error.message}</p>}
-        <Button variant="outline" size="sm" className="mt-2" onClick={() => void regenerate()}>
+    <ErrorBanner
+      title={t(($) => $.ai.errorTitle)}
+      className={className}
+      action={
+        <Button variant="outline" size="sm" onClick={() => void regenerate()}>
           {t(($) => $.ai.retry)}
         </Button>
-      </AlertDescription>
-    </Alert>
+      }
+    >
+      {error.message && <p className="break-words">{error.message}</p>}
+    </ErrorBanner>
   );
 }

@@ -1,13 +1,10 @@
 import { createContext, useContext } from "react";
 
-interface EntryContextValue {
-  contentFilePath: string;
-}
-
-const EntryContext = createContext<EntryContextValue | null>(null);
+/** The file of the entry being edited, which relative asset references resolve against. */
+const EntryContext = createContext<string | undefined>(undefined);
 
 export const EntryContextProvider = EntryContext.Provider;
 
-export function useEntryContext(): EntryContextValue | null {
+export function useEntryContext(): string | undefined {
   return useContext(EntryContext);
 }

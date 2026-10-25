@@ -17,13 +17,6 @@ export function parentDir(id: string): string {
   return slash === -1 ? "" : id.slice(0, slash);
 }
 
-/** The last path segment of `id`, i.e. its display name within its folder. */
-export function baseName(id: string): string {
-  const slash = id.lastIndexOf("/");
-
-  return slash === -1 ? id : id.slice(slash + 1);
-}
-
 /** Cumulative segments of a directory path, each carrying its full path for linking. */
 export function dirSegments(dir: string): PathSegment[] {
   if (!dir) return [];

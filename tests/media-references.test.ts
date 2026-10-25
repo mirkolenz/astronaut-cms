@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { indexEntry } from "@/server/references";
 import {
-  referencedPaths,
   referencesFor,
   staleReferences,
   type IndexedFile,
@@ -55,12 +54,6 @@ describe("asset references", () => {
       where: "body",
       declared: false,
     });
-  });
-
-  it("counts every kind of reference as use", () => {
-    expect(referencedPaths(index(), "repo")).toEqual(
-      new Set(["cover.png", "inline.png", "brief.pdf"]),
-    );
   });
 
   // The two reports weigh the same evidence differently: prose is enough to keep

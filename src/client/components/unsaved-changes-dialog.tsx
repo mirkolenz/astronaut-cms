@@ -21,9 +21,9 @@ export function UnsavedChangesDialog({
     <ConfirmDialog
       open={blocker.status === "blocked"}
       title={t(($) => $.entry.unsavedChanges)}
-      message={t(($) => $.entry.unsavedChangesMessage)}
+      description={t(($) => $.entry.unsavedChangesMessage)}
       confirmLabel={t(($) => $.common.discard)}
-      variant="danger"
+      variant="destructive"
       onConfirm={() => blocker.status === "blocked" && blocker.proceed()}
       onCancel={() => blocker.status === "blocked" && blocker.reset()}
     />

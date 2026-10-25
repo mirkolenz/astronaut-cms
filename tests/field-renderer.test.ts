@@ -2,7 +2,13 @@ import { Children, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import type { FieldSchema } from "@/shared/field-schema";
 import { FieldRenderer } from "@/client/components/editors/field-renderer";
-import { fieldsAlong, getDefaultValue, setAt } from "@/client/lib/field-values";
+import {
+  fieldsAlong,
+  followKeys,
+  getDefaultValue,
+  setAt,
+  switchVariant,
+} from "@/client/lib/field-values";
 
 // FieldRenderer dispatches each FieldSchema variant to a dedicated editor and
 // uses no hooks itself, so we can call it as a plain function and read which
@@ -81,12 +87,12 @@ it("keeps enum options with identical labels distinct and preserves their value 
   const editor = FieldRenderer(props) as ReactElement<typeof props>;
   const render = editor.type as (
     value: typeof editor.props,
-  ) => ReactElement<{ children: ReactNode }>;
+  ) => ReactElement<{ children: (id: string) => ReactNode }>;
   const selectOf = (value: unknown) => {
     const element = FieldRenderer({ ...props, value }) as ReactElement<typeof props>;
     const field = render(element.props);
 
-    return Children.toArray(field.props.children)[0] as ReactElement<{
+    return field.props.children("id") as ReactElement<{
       value: string;
       onValueChange: (index: string) => void;
       children: ReactNode;
@@ -172,5 +178,60 @@ describe("value paths", () => {
 
     expect(next).toEqual([{ tags: { a: "y" } }]);
     expect(values.links[0]?.tags.a).toBe("x");
+  });
+});
+
+describe("followKeys", () => {
+  it("keeps keys with items through moves and edits, and gives new items new ones", () => {
+    const before = followKeys([], ["a", "b", "c"]);
+    const [a, b, c] = before.map(({ key }) => key);
+
+    expect(followKeys(before, ["a", "b", "c"])).toBe(before);
+    expect(followKeys(before, ["c", "a", "b"]).map(({ key }) => key)).toEqual([c, a, b]);
+    expect(followKeys(before, ["a", "x", "c"]).map(({ key }) => key)).toEqual([a, b, c]);
+    expect(
+      followKeys(before, ["a", "c", "d"])
+        .map(({ key }) => key)
+        .slice(0, 2),
+    ).toEqual([a, c]);
+  });
+
+  it("keeps an edited item's key when it was equal to a later item", () => {
+    const before = followKeys([], ["", ""]);
+
+    expect(followKeys(before, ["a", ""]).map(({ key }) => key)).toEqual(
+      before.map(({ key }) => key),
+    );
+  });
+});
+
+it("keeps the values both variants take alike when switching a union's variant", () => {
+  const union: Extract<FieldSchema, { type: "union" }> = {
+    type: "union",
+    discriminator: "kind",
+    variants: [
+      {
+        type: "object",
+        shape: {
+          kind: { type: "literal", value: "a" },
+          title: { type: "string" },
+          size: { type: "number" },
+        },
+      },
+      {
+        type: "object",
+        shape: {
+          kind: { type: "literal", value: "b" },
+          title: { type: "string" },
+          size: { type: "string" },
+        },
+      },
+    ],
+  };
+
+  expect(switchVariant(union, { kind: "a", title: "T", size: 2 }, 1)).toEqual({
+    kind: "b",
+    title: "T",
+    size: "",
   });
 });

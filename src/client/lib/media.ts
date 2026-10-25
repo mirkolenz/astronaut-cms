@@ -21,7 +21,7 @@ import i18n from "i18next";
 import { API_MEDIA, API_UPLOAD } from "@/shared/auth";
 import {
   encodeKeyPath,
-  libraryRefusal,
+  libraryIssue,
   mediaLibraries,
   mediaLibrary,
   remoteMediaUrl,
@@ -47,7 +47,7 @@ export function mediaUrl({ library, path }: MediaLocation, version?: string): st
   // A public base is a CDN, and a CDN holds what it was given until it expires:
   // without the version, replacing a file leaves every editor looking at the old
   // one. So the version goes on both kinds of URL, and means the same thing on
-  // each — this address is these bytes.
+  // each. This address is these bytes.
   const url =
     s3 && s3.directory == null
       ? remoteMediaUrl(path, s3.publicUrl)
@@ -56,9 +56,39 @@ export function mediaUrl({ library, path }: MediaLocation, version?: string): st
   return version ? `${url}?v=${encodeURIComponent(version)}` : url;
 }
 
-/** Why a library refuses a file, or null when it takes it. */
-export const refusalOf = (library: MediaLibraryId, file: File): string | null =>
-  libraryRefusal(mediaLibrary(config.media, library), file.name, file.size);
+/** A file size in the site's locale, with the unit that suits it. */
+export function formatSize(bytes: number): string {
+  if (bytes === 0) return "--";
+
+  const [value, unit] =
+    bytes < 1024
+      ? [bytes, "byte"]
+      : bytes < 1024 ** 2
+        ? [bytes / 1024, "kilobyte"]
+        : [bytes / 1024 ** 2, "megabyte"];
+
+  return new Intl.NumberFormat(config.locale, {
+    style: "unit",
+    unit,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+/** Why a library refuses a file, in the editor's language, or null when it takes it. */
+export function refusalOf(library: MediaLibraryId, file: File): string | null {
+  const limits = mediaLibrary(config.media, library);
+
+  switch (libraryIssue(limits, file.name, file.size)) {
+    case "type":
+      return i18n.t(($) => $.media.wrongType, { name: file.name });
+    case "tooLarge":
+      return i18n.t(($) => $.media.tooLarge, { size: formatSize(limits.maxFileSize ?? 0) });
+    case "tooSmall":
+      return i18n.t(($) => $.media.tooSmall, { size: formatSize(limits.minFileSize ?? 0) });
+    case null:
+      return null;
+  }
+}
 
 /** Why a library refuses a file, naming the other library where that one would take it. */
 function uploadRefusal(library: MediaLibraryId, file: File): string | null {
@@ -100,6 +130,7 @@ export async function uploadMedia(
   // ticket alone does not: the bytes only land here.
   invalidateMedia(location.library);
 }
+
 /**
  * Sent verbatim: the terms are signed into the URL, so changing or dropping one
  * makes the store reject the request rather than accept different terms.
@@ -115,12 +146,10 @@ async function putDirect(
   // is the only report of an occupied destination on the direct path: nothing
   // checked beforehand, because the write itself is the check.
   if (stored.status === 412) {
-    throw new Error(
-      `A file already exists at "${path}". Use a different name, or replace it deliberately.`,
-    );
+    throw new Error(i18n.t(($) => $.media.uploadExists, { path }));
   }
 
-  if (!stored.ok) throw new Error(`Upload failed (${stored.status}).`);
+  if (!stored.ok) throw new Error(i18n.t(($) => $.media.uploadFailed, { status: stored.status }));
 }
 
 /**

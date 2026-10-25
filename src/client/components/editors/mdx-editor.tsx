@@ -78,6 +78,7 @@ import {
   pruneEmptyLines,
 } from "@/client/lib/empty-lines";
 import { isComponentMdx, parseMdx, pasteText } from "@/client/lib/editor-content";
+import { textEditorAt } from "@/client/lib/text-editors";
 import { createSourcePreserver } from "@/client/lib/markdown-source";
 import { blockActions, isJsxNode } from "@/client/lib/block-editing";
 import {
@@ -207,8 +208,7 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
       const text = event.clipboardData.getData("text/plain");
       const target = event.target;
       // Code blocks and dialogs take the text as it is.
-      const editable =
-        target instanceof Element ? target.closest('[contenteditable="true"]') : null;
+      const editable = target instanceof Element ? textEditorAt(target) : null;
       const editor = editable?.hasAttribute("data-lexical-editor")
         ? getNearestEditorFromDOMNode(editable)
         : null;

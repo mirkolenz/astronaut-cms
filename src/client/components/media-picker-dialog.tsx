@@ -1,14 +1,17 @@
-import { basename } from "pathe";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ImageOff } from "lucide-react";
 import { useMedia } from "@/client/queries/use-media";
 import { listDirectory } from "@/client/lib/entry-tree";
 import { ErrorBanner } from "@/client/components/error-banner";
-import { MediaThumbnail } from "@/client/components/media-thumbnail";
+import { FormDialog } from "@/client/components/form-dialog";
 import {
   FolderCard,
   MediaBreadcrumbs,
+  MediaTile,
+  MediaTileSkeleton,
   NewFolderButton,
+  OverwriteDialog,
   UploadButton,
   uploadAccept,
   useMediaUpload,
@@ -22,20 +25,11 @@ import {
   type MediaLibraryId,
   type MediaLocation,
 } from "@/shared/media";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/client/components/ui/dialog";
+import { DialogFooter, DialogHeader, DialogTitle } from "@/client/components/ui/dialog";
 import { Button } from "@/client/components/ui/button";
-import { ButtonGroup } from "@/client/components/ui/button-group";
-import { Toggle } from "@/client/components/ui/toggle";
+import { ToggleGroup, ToggleGroupItem } from "@/client/components/ui/toggle-group";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
-import { ImageOff } from "lucide-react";
 import { Input } from "@/client/components/ui/input";
-import { Skeleton } from "@/client/components/ui/skeleton";
 
 interface MediaPickerDialogProps {
   open: boolean;
@@ -47,20 +41,26 @@ interface MediaPickerDialogProps {
   onCancel: () => void;
 }
 
-export function MediaPickerDialog({
-  open,
-  kind,
-  repoOnly,
-  onSelect,
-  onCancel,
-}: MediaPickerDialogProps) {
+/** Picks a library file. Its state mounts only while open, so every opening starts at the top. */
+export function MediaPickerDialog({ open, ...props }: MediaPickerDialogProps) {
+  return (
+    <FormDialog open={open} onCancel={props.onCancel} className="sm:max-w-3xl">
+      <MediaPicker {...props} />
+    </FormDialog>
+  );
+}
+
+function MediaPicker({ kind, repoOnly, onSelect, onCancel }: Omit<MediaPickerDialogProps, "open">) {
   const { t } = useTranslation();
   const libraries: MediaLibraryId[] = repoOnly ? ["repo"] : mediaLibraries(config.media);
   const [library, setLibrary] = useState<MediaLibraryId>("repo");
-  const { data, isLoading } = useMedia(library);
+  const { data, isLoading, error } = useMedia(library);
   const [filter, setFilter] = useState("");
   const [dir, setDir] = useState("");
-  const upload = useMediaUpload(library, data, (path) => onSelect({ library, path }));
+  // A fresh upload is picked at once, unless it is not of the kind asked for.
+  const upload = useMediaUpload(library, data, (path) => {
+    if (!kind || mediaKind(path) === kind) onSelect({ library, path });
+  });
 
   const pickable = useMemo(
     () => (kind ? data?.filter((file) => mediaKind(file.path) === kind) : data) ?? [],
@@ -78,96 +78,93 @@ export function MediaPickerDialog({
   );
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onCancel();
-      }}
-    >
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t(($) => $.media.selectMedia)}</DialogTitle>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>{t(($) => $.media.selectMedia)}</DialogTitle>
+      </DialogHeader>
 
-        {libraries.length > 1 && (
-          <ButtonGroup>
-            {libraries.map((id) => (
-              <Toggle
-                key={id}
-                variant="outline"
-                size="sm"
-                pressed={id === library}
-                onPressedChange={() => {
-                  setLibrary(id);
-                  setDir("");
-                }}
-              >
-                {libraryLabel(id)}
-              </Toggle>
-            ))}
-          </ButtonGroup>
-        )}
+      {libraries.length > 1 && (
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          spacing={0}
+          value={library}
+          onValueChange={(value) => {
+            const picked = libraries.find((id) => id === value);
 
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder={t(($) => $.media.filterPlaceholder)}
-            className="flex-1"
-          />
-          <NewFolderButton dir={dir} onCreate={setDir} />
-          <UploadButton state={upload} dir={dir} accept={uploadAccept(library, kind)} />
-        </div>
+            if (!picked) return;
 
-        {!query && <MediaBreadcrumbs library={library} dir={dir} onNavigate={setDir} />}
+            setLibrary(picked);
+            setDir("");
+            setFilter("");
+          }}
+        >
+          {libraries.map((id) => (
+            <ToggleGroupItem key={id} value={id}>
+              {libraryLabel(id)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      )}
 
-        {upload.mutation.error && <ErrorBanner>{upload.mutation.error.message}</ErrorBanner>}
+      <div className="flex items-center gap-2">
+        <Input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder={t(($) => $.media.filterPlaceholder)}
+          aria-label={t(($) => $.media.filterPlaceholder)}
+          className="flex-1"
+        />
+        <NewFolderButton dir={dir} files={data} onCreate={setDir} />
+        <UploadButton
+          accept={uploadAccept(library, kind)}
+          status={upload.status}
+          onPick={(file) => void upload.add(file, dir)}
+        />
+      </div>
 
+      {!query && <MediaBreadcrumbs library={library} dir={dir} onNavigate={setDir} />}
+
+      {error ? (
+        <ErrorBanner>{t(($) => $.media.failedLoad, { message: error.message })}</ErrorBanner>
+      ) : (
         <div className="grid max-h-[60vh] auto-rows-fr grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-          {isLoading && [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
+          {isLoading && [1, 2, 3, 4].map((i) => <MediaTileSkeleton key={i} className="h-20" />)}
           {folders.map(({ name, path }) => (
             <FolderCard key={path} name={name} onOpen={() => setDir(path)} />
           ))}
           {files.map((file) => (
-            <button
+            <MediaTile
               key={file.path}
-              type="button"
-              onClick={() => onSelect({ library, path: file.path })}
-              className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
-            >
-              <div className="flex h-20 items-center justify-center bg-muted">
-                <MediaThumbnail
-                  library={library}
-                  file={file}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <div className="border-t border-border px-2 py-1">
-                <p className="truncate text-xs text-muted-foreground" title={file.path}>
-                  {query ? file.path : basename(file.path)}
-                </p>
-              </div>
-            </button>
+              library={library}
+              file={file}
+              label={query ? file.path : undefined}
+              open={{ label: file.path, onClick: () => onSelect({ library, path: file.path }) }}
+              className="h-20"
+            />
           ))}
-          {folders.length === 0 && files.length === 0 && !isLoading && (
+          {data && folders.length === 0 && files.length === 0 && (
             <Empty className="col-span-full">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ImageOff />
                 </EmptyMedia>
-                <EmptyTitle>{t(($) => $.media.noFilesFound)}</EmptyTitle>
+                <EmptyTitle>{t(($) => $.media.noFiles)}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           )}
         </div>
+      )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {t(($) => $.common.cancel)}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          {t(($) => $.common.cancel)}
+        </Button>
+      </DialogFooter>
+
+      <OverwriteDialog {...upload.overwrite} />
+    </>
   );
 }

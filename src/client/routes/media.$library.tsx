@@ -1,6 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { basename, dirname, join } from "pathe";
+import { ImageOff, Pencil, Replace, Trash2 } from "lucide-react";
 import {
   mediaQuery,
   trashQuery,
@@ -14,50 +16,60 @@ import {
 } from "@/client/queries/use-media";
 import config from "@/client/lib/config";
 import { preload } from "@/client/lib/query-client";
+import { listDirectory } from "@/client/lib/entry-tree";
+import { formatSize, libraryLabel } from "@/client/lib/media";
+import { usePathRefusal } from "@/client/hooks/use-path-refusal";
+import { useRunMutation } from "@/client/hooks/use-run-mutation";
 import {
   describeReference,
-  referencedPaths,
   referencesFor,
   staleReferences,
   type AssetReference,
 } from "@/shared/references";
-import { ErrorBanner } from "@/client/components/error-banner";
-import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { MediaLightbox } from "@/client/components/media-lightbox";
-import { PathDialog } from "@/client/components/path-dialog";
-import { basename, dirname, join } from "pathe";
-import { MediaThumbnail } from "@/client/components/media-thumbnail";
-import {
-  FolderCard,
-  MediaBreadcrumbs,
-  mediaPathRefusal,
-  NewFolderButton,
-  UploadButton,
-  uploadAccept,
-  useMediaUpload,
-} from "@/client/components/media-browser";
-import { listDirectory } from "@/client/lib/entry-tree";
-import type { MediaFile } from "@/shared/types";
 import {
   isTransactionalMedia,
   mediaKind,
   parseMediaLibrary,
   type MediaLibraryId,
 } from "@/shared/media";
-import { libraryLabel } from "@/client/lib/media";
+import type { MediaFile } from "@/shared/types";
+import { ErrorBanner } from "@/client/components/error-banner";
+import { ConfirmDialog } from "@/client/components/confirm-dialog";
+import { DisclosureChevron } from "@/client/components/disclosure-chevron";
+import { IconButton } from "@/client/components/icon-button";
+import { MediaLightbox } from "@/client/components/media-lightbox";
+import { PageHeader } from "@/client/components/page-header";
+import { PathDialog } from "@/client/components/path-dialog";
+import {
+  FileName,
+  FolderCard,
+  MediaBreadcrumbs,
+  MediaTile,
+  MediaTileSkeleton,
+  mediaPathTaken,
+  NewFolderButton,
+  OverwriteDialog,
+  UploadButton,
+  uploadAccept,
+  useMediaUpload,
+} from "@/client/components/media-browser";
 import { Button } from "@/client/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
-import { Card, CardContent } from "@/client/components/ui/card";
+import { Card } from "@/client/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/client/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+} from "@/client/components/ui/item";
 import { Toggle } from "@/client/components/ui/toggle";
-import { ArrowRight, ChevronRight, Dot, FileWarning, ImageOff } from "lucide-react";
 import { Badge } from "@/client/components/ui/badge";
-import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/media/$library")({
   params: {
@@ -70,6 +82,11 @@ export const Route = createFileRoute("/media/$library")({
     },
     stringify: ({ library }) => ({ library }),
   },
+  validateSearch: (search: Record<string, unknown>): { dir?: string } => {
+    const dir = typeof search.dir === "string" ? search.dir : "";
+
+    return dir ? { dir } : {};
+  },
   loader: ({ params: { library } }) =>
     Promise.all([preload(mediaQuery(library)), preload(trashQuery(library))]),
   pendingComponent: MediaSkeleton,
@@ -80,7 +97,7 @@ function MediaSkeleton() {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {[1, 2, 3, 4, 5, 6].map((i) => (
-        <Skeleton key={i} className="h-40 rounded-xl" />
+        <MediaTileSkeleton key={i} />
       ))}
     </div>
   );
@@ -93,39 +110,27 @@ function MediaRoute() {
   return <MediaLibrary key={library} library={library} />;
 }
 
-function formatSize(bytes: number): string {
-  if (bytes === 0) return "--";
-
-  const [value, unit] =
-    bytes < 1024
-      ? [bytes, "byte"]
-      : bytes < 1024 ** 2
-        ? [bytes / 1024, "kilobyte"]
-        : [bytes / 1024 ** 2, "megabyte"];
-
-  return new Intl.NumberFormat(config.locale, {
-    style: "unit",
-    unit,
-    maximumFractionDigits: 1,
-  }).format(value);
-}
+const MiddleDot = () => <span aria-hidden="true"> · </span>;
 
 function MediaLibrary({ library }: { library: MediaLibraryId }) {
   const { t } = useTranslation();
+  const run = useRunMutation();
+  const refusal = usePathRefusal();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { dir = "" } = Route.useSearch();
   const { data: files, error } = useMedia(library);
   const deleteMutation = useDeleteMedia();
-  const upload = useMediaUpload(library, files);
   const renameMutation = useRenameMedia();
-  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const upload = useMediaUpload(library, files);
 
-  const [currentDir, setCurrentDir] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
-  const [replaceTarget, setReplaceTarget] = useState<string | null>(null);
   const [lightboxFile, setLightboxFile] = useState<MediaFile | null>(null);
   const [unusedOnly, setUnusedOnly] = useState(false);
 
-  const writeError = upload.mutation.error ?? deleteMutation.error ?? renameMutation.error;
+  const setDir = (next: string): void => {
+    void navigate({ search: next ? { dir: next } : {} });
+  };
 
   const { index, scanning, pending: scanPending, error: scanError, scan } = useReferenceIndex();
   const scanReady = !scanPending && !scanError && !!index;
@@ -139,10 +144,17 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
     setTarget(path);
   };
 
-  // Library-wide, so it survives folder navigation and filter toggles.
+  // Library-wide, so it survives folder navigation and filter toggles. `used`
+  // counts the references of each file that has any.
   const { used, stale, unusedCount } = useMemo(() => {
     const paths = files?.map((file) => file.path) ?? [];
-    const used = index && referencedPaths(index, library);
+    const used =
+      index &&
+      new Map(
+        index.flatMap((file) =>
+          file.library === library ? [[file.path, file.references.length] as const] : [],
+        ),
+      );
 
     return {
       used,
@@ -153,8 +165,8 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
 
   // Everything in this folder, before the unused filter narrows it to what is on screen.
   const { folders, files: dirFiles } = useMemo(
-    () => listDirectory(files ?? [], currentDir, (file) => file.path),
-    [files, currentDir],
+    () => listDirectory(files ?? [], dir, (file) => file.path),
+    [files, dir],
   );
 
   const currentFiles = useMemo(
@@ -162,42 +174,39 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
     [dirFiles, unusedOnly, used],
   );
 
-  const usageLabel = (path: string): string => {
-    const count = referencesOf(path).length;
-
-    return count === 0 ? t(($) => $.media.unused) : t(($) => $.media.uses, { count });
-  };
+  const usageLabel = (count = 0): string =>
+    count === 0 ? t(($) => $.media.unused) : t(($) => $.media.uses, { count });
 
   const handleDelete = () => {
     if (!deleteTarget || !scanReady) return;
 
-    deleteMutation.mutate({
-      library,
-      path: deleteTarget,
-      acknowledgedReferences: referencesOf(deleteTarget),
-    });
-    setDeleteTarget(null);
+    run(
+      deleteMutation,
+      { library, path: deleteTarget, acknowledgedReferences: referencesOf(deleteTarget) },
+      { success: t(($) => $.media.deleted), onSuccess: () => setDeleteTarget(null) },
+    );
   };
 
   const handleRename = (name: string) => {
     if (!renameTarget || !scanReady) return;
 
-    renameMutation.mutate({
-      library,
-      from: renameTarget,
-      to: join(dirname(renameTarget), name),
-      acknowledgedReferences: referencesOf(renameTarget),
-    });
-    setRenameTarget(null);
+    run(
+      renameMutation,
+      {
+        library,
+        from: renameTarget,
+        to: join(dirname(renameTarget), name),
+        acknowledgedReferences: referencesOf(renameTarget),
+      },
+      { success: t(($) => $.media.renamed), onSuccess: () => setRenameTarget(null) },
+    );
   };
 
-  const handleReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !replaceTarget) return;
-    upload.mutation.mutate({ library, path: replaceTarget, file, overwrite: true });
-    setReplaceTarget(null);
-    e.target.value = "";
-  };
+  const validateRename = (name: string): string | null =>
+    refusal.media(
+      name,
+      (value) => !!renameTarget && mediaPathTaken(files, join(dirname(renameTarget), value)),
+    );
 
   if (error) {
     return <ErrorBanner>{t(($) => $.media.failedLoad, { message: error.message })}</ErrorBanner>;
@@ -205,65 +214,58 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{libraryLabel(library)}</h1>
-          {/* An object store has no draft branch: what is uploaded or deleted here
-              is live at once, unlike a library in the repository. */}
-          {!isTransactionalMedia(config.media, library) && (
-            <p className="text-xs text-muted-foreground">{t(($) => $.media.immediate)}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {used && files && scanReady ? (
-            <>
-              <span className="text-xs text-muted-foreground">
-                {t(($) => $.media.unusedCount, {
-                  count: unusedCount,
-                  total: files.length,
-                })}
-              </span>
-              <Toggle
-                variant="outline"
-                size="sm"
-                pressed={unusedOnly}
-                onPressedChange={setUnusedOnly}
-              >
-                {t(($) => $.media.unusedOnly)}
-              </Toggle>
-            </>
-          ) : (
-            <Button type="button" variant="outline" size="sm" disabled={scanning} onClick={scan}>
-              {scanning ? t(($) => $.media.scanningReferences) : t(($) => $.media.checkUsage)}
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <NewFolderButton dir={currentDir} onCreate={setCurrentDir} />
-          <UploadButton state={upload} dir={currentDir} accept={uploadAccept(library)} />
-        </div>
-      </div>
+      <PageHeader
+        title={libraryLabel(library)}
+        // An object store has no draft branch: what is uploaded or deleted here
+        // is live at once, unlike a library in the repository.
+        description={!isTransactionalMedia(config.media, library) && t(($) => $.media.immediate)}
+        actions={
+          <>
+            {used && files && scanReady ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {t(($) => $.media.unusedCount, { count: unusedCount, total: files.length })}
+                </span>
+                <Toggle
+                  variant="outline"
+                  size="sm"
+                  pressed={unusedOnly}
+                  onPressedChange={setUnusedOnly}
+                >
+                  {t(($) => $.media.unusedOnly)}
+                </Toggle>
+              </>
+            ) : (
+              <Button type="button" variant="outline" size="sm" disabled={scanning} onClick={scan}>
+                {scanning ? t(($) => $.media.scanningReferences) : t(($) => $.media.checkUsage)}
+              </Button>
+            )}
+            <NewFolderButton dir={dir} files={files} onCreate={setDir} />
+            <UploadButton
+              accept={uploadAccept(library)}
+              status={upload.status}
+              onPick={(file) => void upload.add(file, dir)}
+            />
+          </>
+        }
+      />
 
       <div className="mb-3">
-        <MediaBreadcrumbs library={library} dir={currentDir} onNavigate={setCurrentDir} />
+        <MediaBreadcrumbs library={library} dir={dir} onNavigate={setDir} />
       </div>
 
       {stale.length > 0 && (
-        <Alert variant="destructive" className="mb-3">
-          <FileWarning />
-          <AlertTitle>{t(($) => $.media.staleTitle, { count: stale.length })}</AlertTitle>
-          <AlertDescription>
+        <div className="mb-3">
+          <ErrorBanner title={t(($) => $.media.staleTitle, { count: stale.length })}>
             <ul className="list-disc pl-5 text-xs">
-              {stale.map((reference, i: number) => (
+              {stale.map((reference, i) => (
                 <li key={i}>
-                  {describeReference(reference)}{" "}
-                  <ArrowRight className="inline size-3" aria-hidden="true" />{" "}
-                  <code>{reference.path}</code>
+                  {describeReference(reference)} → <code>{reference.path}</code>
                 </li>
               ))}
             </ul>
-          </AlertDescription>
-        </Alert>
+          </ErrorBanner>
+        </div>
       )}
 
       {scanError && (
@@ -271,9 +273,6 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
           {t(($) => $.media.referencesUnavailable, { message: scanError.message })}
         </ErrorBanner>
       )}
-
-      {/* A refused write — the size limit, a store error — has nowhere else to surface. */}
-      {writeError && <ErrorBanner>{writeError.message}</ErrorBanner>}
 
       {folders.length === 0 && currentFiles.length === 0 && !scanning && (
         <Empty>
@@ -289,142 +288,114 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
       )}
 
       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Folder cards */}
         {folders.map(({ name, path }) => (
-          <FolderCard key={path} name={name} onOpen={() => setCurrentDir(path)} />
+          <FolderCard key={path} name={name} onOpen={() => setDir(path)} />
         ))}
 
-        {/* File cards */}
-        {currentFiles.map((file) => {
-          return (
-            <Card key={file.path} className="group relative gap-0 py-0">
-              {mediaKind(file.path) !== "file" ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setLightboxFile(file)}
-                  className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
-                  aria-label={t(($) => $.media.preview, { name: basename(file.path) })}
-                >
-                  <MediaThumbnail
-                    library={library}
-                    file={file}
-                    className="h-full w-full object-contain"
-                  />
-                </Button>
-              ) : (
-                <div className="flex h-28 items-center justify-center bg-muted">
-                  <MediaThumbnail library={library} file={file} />
-                </div>
-              )}
-              {/* Hover action buttons */}
-              <div className="absolute right-1 top-1 hidden gap-1 group-focus-within:flex group-hover:flex">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="bg-black/50 text-white hover:bg-blue-600 hover:text-white"
+        {currentFiles.map((file) => (
+          <MediaTile
+            key={file.path}
+            library={library}
+            file={file}
+            open={
+              mediaKind(file.path) === "file"
+                ? undefined
+                : {
+                    label: t(($) => $.media.preview, { name: basename(file.path) }),
+                    onClick: () => setLightboxFile(file),
+                  }
+            }
+            actions={
+              <>
+                <IconButton
+                  variant="secondary"
+                  label={t(($) => $.common.rename)}
                   onClick={() => askFor(setRenameTarget, file.path)}
                 >
-                  {t(($) => $.common.rename)}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="bg-black/50 text-white hover:bg-blue-600 hover:text-white"
-                  onClick={() => {
-                    setReplaceTarget(file.path);
-                    replaceInputRef.current?.click();
-                  }}
+                  <Pencil />
+                </IconButton>
+                <IconButton
+                  variant="secondary"
+                  label={t(($) => $.common.replace)}
+                  disabled={upload.status !== "idle"}
+                  onClick={() => void upload.replace(file.path)}
                 >
-                  {t(($) => $.common.replace)}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="bg-black/50 text-white hover:bg-red-600 hover:text-white"
+                  <Replace />
+                </IconButton>
+                <IconButton
+                  variant="secondary"
+                  className="text-destructive"
+                  label={t(($) => $.common.delete)}
                   onClick={() => askFor(setDeleteTarget, file.path)}
                 >
-                  {t(($) => $.common.delete)}
-                </Button>
-              </div>
-              <CardContent className="border-t px-3 py-2">
-                <p className="truncate text-xs font-medium text-foreground" title={file.path}>
-                  {basename(file.path)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatSize(file.size)}
-                  {used && (
-                    <>
-                      <Dot className="inline size-4" />
-                      {usageLabel(file.path)}
-                    </>
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  <Trash2 />
+                </IconButton>
+              </>
+            }
+          >
+            <p className="text-muted-foreground">
+              {formatSize(file.size)}
+              {used && (
+                <>
+                  <MiddleDot />
+                  {usageLabel(used.get(file.path))}
+                </>
+              )}
+            </p>
+          </MediaTile>
+        ))}
       </div>
 
       <TrashPanel library={library} />
 
-      {/* Hidden file input for replace */}
-      <input
-        ref={replaceInputRef}
-        type="file"
-        onChange={handleReplace}
-        className="hidden"
-        disabled={upload.mutation.isPending}
-      />
+      <OverwriteDialog {...upload.overwrite} />
 
-      {/* Delete confirmation */}
       <ConfirmDialog
         open={deleteTarget !== null}
         title={t(($) => $.media.deleteFile)}
-        message={
-          <ReferenceWarning
-            references={referencesOf(deleteTarget)}
-            pending={scanPending}
-            error={scanError}
-            consequence={t(($) => $.media.deleteReferenced)}
-            fallback={t(($) => $.media.deleteFileMessage)}
-          />
+        description={
+          <div className="grid gap-2">
+            <p>{t(($) => $.media.deleteFileMessage, { name: basename(deleteTarget ?? "") })}</p>
+            <ReferenceWarning
+              references={referencesOf(deleteTarget)}
+              pending={scanPending}
+              error={scanError}
+              consequence={t(($) => $.media.deleteReferenced)}
+            />
+          </div>
         }
         confirmLabel={t(($) => $.common.delete)}
-        variant="danger"
+        pendingLabel={t(($) => $.common.deleting)}
+        isPending={deleteMutation.isPending}
+        variant="destructive"
         disabled={!scanReady}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Rename dialog */}
-      {renameTarget !== null && (
-        <PathDialog
-          title={t(($) => $.media.renameFile)}
-          description={t(($) => $.media.current, { name: basename(renameTarget) })}
-          initial={basename(renameTarget)}
-          confirmLabel={t(($) => $.common.rename)}
-          pendingLabel={t(($) => $.media.renaming)}
-          isPending={renameMutation.isPending}
-          disabled={!scanReady}
-          requireChange
-          validate={mediaPathRefusal}
-          onSubmit={handleRename}
-          onCancel={() => setRenameTarget(null)}
-        >
-          <ReferenceWarning
-            references={referencesOf(renameTarget)}
-            pending={scanPending}
-            error={scanError}
-            consequence={t(($) => $.media.renameReferenced)}
-          />
-        </PathDialog>
-      )}
+      <PathDialog
+        open={renameTarget !== null}
+        title={t(($) => $.media.renameFile)}
+        description={t(($) => $.media.current, { name: basename(renameTarget ?? "") })}
+        initialValue={basename(renameTarget ?? "")}
+        confirmLabel={t(($) => $.common.rename)}
+        pendingLabel={t(($) => $.common.renaming)}
+        isPending={renameMutation.isPending}
+        disabled={!scanReady}
+        requireChange
+        validate={validateRename}
+        onSubmit={handleRename}
+        onCancel={() => setRenameTarget(null)}
+      >
+        <ReferenceWarning
+          references={referencesOf(renameTarget)}
+          pending={scanPending}
+          error={scanError}
+          consequence={t(($) => $.media.renameReferenced)}
+        />
+      </PathDialog>
 
-      <MediaLightbox library={library} file={lightboxFile} onClose={() => setLightboxFile(null)} />
+      <MediaLightbox library={library} file={lightboxFile} onCancel={() => setLightboxFile(null)} />
     </div>
   );
 }
@@ -438,6 +409,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
  */
 function TrashPanel({ library }: { library: MediaLibraryId }) {
   const { t } = useTranslation();
+  const run = useRunMutation();
   const { data: trashed } = useTrash(library);
   const restore = useRestoreMedia();
   const purge = usePurgeTrash();
@@ -446,75 +418,85 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
   if (!trashed?.length) return null;
 
   const target = trashed.find((file) => file.id === purgeTarget);
+  const restoringId = restore.isPending ? restore.variables.id : null;
 
   return (
     <Card className="mt-6 gap-0 py-0">
       <Collapsible>
         <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" className="w-full justify-between">
+          <Button type="button" variant="ghost" className="group/disclosure w-full justify-between">
             <span className="flex items-center gap-2">
               {t(($) => $.media.trash)}
               <Badge variant="secondary">{trashed.length}</Badge>
             </span>
-            <ChevronRight className="transition-transform group-data-[state=open]/button:rotate-90" />
+            <DisclosureChevron />
           </Button>
         </CollapsibleTrigger>
 
         <CollapsibleContent className="border-t p-3">
           <p className="mb-3 text-xs text-muted-foreground">{t(($) => $.media.trashHint)}</p>
 
-          <ul className="grid gap-2">
+          <ItemGroup>
             {trashed.map((file) => (
-              <li key={file.id} className="flex items-center gap-3 text-sm">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium" title={file.path}>
-                    {file.path}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
+              <Item key={file.id} variant="outline" size="xs" role="listitem">
+                <ItemContent className="min-w-0">
+                  <FileName path={file.path} />
+                  <ItemDescription>
                     {formatSize(file.size)}
-                    <Dot className="inline size-4" />
+                    <MiddleDot />
                     {t(($) => $.media.deletedAt, {
                       when: new Date(file.deletedAt).toLocaleString(config.locale),
                     })}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  disabled={restore.isPending}
-                  onClick={() => restore.mutate({ library, id: file.id })}
-                >
-                  {restore.isPending ? t(($) => $.media.restoring) : t(($) => $.media.restore)}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setPurgeTarget(file.id)}
-                >
-                  {t(($) => $.media.purge)}
-                </Button>
-              </li>
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    disabled={restore.isPending}
+                    onClick={() =>
+                      run(
+                        restore,
+                        { library, id: file.id },
+                        { success: t(($) => $.media.restored) },
+                      )
+                    }
+                  >
+                    {restoringId === file.id
+                      ? t(($) => $.media.restoring)
+                      : t(($) => $.media.restore)}
+                  </Button>
+                  <IconButton
+                    className="text-destructive"
+                    label={t(($) => $.media.purge)}
+                    onClick={() => setPurgeTarget(file.id)}
+                  >
+                    <Trash2 />
+                  </IconButton>
+                </ItemActions>
+              </Item>
             ))}
-          </ul>
-
-          {/* A restore refused because the name was taken again has nowhere else to go. */}
-          {restore.error && <ErrorBanner>{restore.error.message}</ErrorBanner>}
-          {purge.error && <ErrorBanner>{purge.error.message}</ErrorBanner>}
+          </ItemGroup>
         </CollapsibleContent>
       </Collapsible>
 
       <ConfirmDialog
         open={target !== undefined}
         title={t(($) => $.media.purgeTitle)}
-        message={t(($) => $.media.purgeMessage, { name: target?.path ?? "" })}
-        confirmLabel={t(($) => $.common.delete)}
-        variant="danger"
+        description={t(($) => $.media.purgeMessage, { name: target?.path ?? "" })}
+        confirmLabel={t(($) => $.media.purge)}
+        pendingLabel={t(($) => $.common.deleting)}
+        isPending={purge.isPending}
+        variant="destructive"
         onConfirm={() => {
-          if (target) purge.mutate({ library, id: target.id });
+          if (!target) return;
 
-          setPurgeTarget(null);
+          run(
+            purge,
+            { library, id: target.id },
+            { success: t(($) => $.media.purged), onSuccess: () => setPurgeTarget(null) },
+          );
         }}
         onCancel={() => setPurgeTarget(null)}
       />
@@ -523,40 +505,40 @@ function TrashPanel({ library }: { library: MediaLibraryId }) {
 }
 
 /**
- * What content would break. A textual match is reported like any other: it is
- * weaker evidence, but the point here is to stop a destructive operation, not to
- * decide what to bundle.
+ * What content would break, or nothing when no content references the file. A
+ * textual match is reported like any other: it is weaker evidence, but the
+ * point here is to stop a destructive operation, not to decide what to bundle.
  */
 function ReferenceWarning({
   references,
   pending,
   error,
   consequence,
-  fallback,
 }: {
   references: AssetReference[];
   pending: boolean;
   /** A scan that never produced an answer, which must not read as "nothing references it". */
   error?: Error | null;
   consequence: string;
-  fallback?: string;
 }) {
   const { t } = useTranslation();
 
-  if (error) return <>{t(($) => $.media.referencesUnavailable, { message: error.message })}</>;
+  if (error) return <p>{t(($) => $.media.referencesUnavailable, { message: error.message })}</p>;
 
-  if (pending) return <>{t(($) => $.media.scanningReferences)}</>;
+  if (pending) return <p>{t(($) => $.media.scanningReferences)}</p>;
 
-  if (references.length === 0) return <>{fallback ?? ""}</>;
+  if (references.length === 0) return null;
 
   return (
-    <>
-      {t(($) => $.media.usedBy)} {consequence}
+    <div>
+      <p>
+        {t(($) => $.media.usedBy)} {consequence}
+      </p>
       <ul className="mt-2 max-h-40 list-disc overflow-auto pl-5 text-xs">
         {references.map((reference, i) => (
           <li key={i}>{describeReference(reference)}</li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }

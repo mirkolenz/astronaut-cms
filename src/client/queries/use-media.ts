@@ -11,7 +11,7 @@ import { useEntryContext } from "@/client/lib/entry-context";
 /**
  * The reference scan. Derived from entries, not from the library, so it
  * deliberately sits outside the media key that every upload and delete
- * invalidates — and it reads every entry, so nothing fetches it eagerly.
+ * invalidates, and it reads every entry, so nothing fetches it eagerly.
  */
 export const referencesQuery = queryOptions({
   queryKey: cmsKeys.references,
@@ -109,19 +109,19 @@ function useSettled<T>(value: T): T {
 
 /**
  * The URL for an asset reference as content stores it, resolved against the
- * entry it is written in — the same base entry validation and the render-time
+ * entry it is written in, the same base entry validation and the render-time
  * resolver use, so the preview shows exactly what the site will.
  *
  * The reference is an editable text field, so it settles first: every keystroke
  * would otherwise start an image load for a prefix of the path being typed.
  */
 export function useAssetUrl(ref: string | undefined): string | undefined {
-  const entry = useEntryContext();
+  const entryFile = useEntryContext();
   const settled = useSettled(ref);
 
   if (!settled) return undefined;
 
-  const location = mediaPath(settled, config.media, entry?.contentFilePath);
+  const location = mediaPath(settled, config.media, entryFile);
 
   return location == null ? undefined : mediaUrl(location);
 }

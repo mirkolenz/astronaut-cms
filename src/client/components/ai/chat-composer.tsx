@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ChangeEventHandler,
   ClipboardEventHandler,
@@ -21,9 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/client/components/ui/select";
-import { Button } from "@/client/components/ui/button";
+import {
+  Attachment,
+  AttachmentActions,
+  AttachmentContent,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentTitle,
+} from "@/client/components/ui/attachment";
 import { Spinner } from "@/client/components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
+import { IconButton, LabelTooltip } from "@/client/components/icon-button";
 import { useAiSettingsStore } from "@/client/stores/ai-settings-store";
 import { aiConfig } from "@/client/lib/ai/config";
 import {
@@ -35,7 +42,7 @@ import {
 import { REASONING_EFFORTS, type ReasoningEffort } from "@/client/lib/ai/reasoning";
 import { clearChat } from "@/client/lib/ai/chat";
 import { toast } from "@/client/components/toast";
-import type { CmsChat } from "@/client/components/ai/chat-view";
+import type { CmsChat } from "@/client/hooks/use-cms-chat";
 import type { TFunction } from "i18next";
 import { errorMessage } from "@/shared/errors";
 
@@ -62,51 +69,42 @@ function AttachmentChip({
   const { t } = useTranslation();
   const { id, file, save } = attachment;
   const isImage = isImageAttachment(file);
-  const previewUrl = useMemo(() => (isImage ? URL.createObjectURL(file) : null), [file, isImage]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  useEffect(
-    () => () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    },
-    [previewUrl],
-  );
+  // Created and revoked by the same effect, so a remount never shows a revoked URL.
+  useEffect(() => {
+    if (!isImage) return;
+
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [file, isImage]);
 
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-border bg-background py-1 pl-1.5 pr-1 text-xs">
-      {previewUrl ? (
-        <img src={previewUrl} alt={file.name} className="size-7 rounded object-cover" />
-      ) : (
-        <FileText className="size-4 text-muted-foreground" />
-      )}
-      <span className="max-w-40 truncate">{file.name}</span>
-
-      {isImage && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant={save ? "default" : "ghost"}
-              aria-pressed={save}
-              onClick={() => onToggleSave(id)}
-            >
-              <Library className="size-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t(($) => $.ai.saveToLibrary)}</TooltipContent>
-        </Tooltip>
-      )}
-
-      <Button
-        type="button"
-        size="icon-sm"
-        variant="ghost"
-        aria-label={t(($) => $.common.remove)}
-        onClick={() => onRemove(id)}
-      >
-        <X className="size-3.5" />
-      </Button>
-    </div>
+    <Attachment size="sm">
+      <AttachmentMedia variant={previewUrl ? "image" : "icon"}>
+        {previewUrl ? <img src={previewUrl} alt="" /> : <FileText />}
+      </AttachmentMedia>
+      <AttachmentContent>
+        <AttachmentTitle>{file.name}</AttachmentTitle>
+      </AttachmentContent>
+      <AttachmentActions>
+        {isImage && (
+          <IconButton
+            label={t(($) => $.ai.saveToLibrary)}
+            variant={save ? "default" : "ghost"}
+            aria-pressed={save}
+            onClick={() => onToggleSave(id)}
+          >
+            <Library />
+          </IconButton>
+        )}
+        <IconButton label={t(($) => $.common.remove)} onClick={() => onRemove(id)}>
+          <X />
+        </IconButton>
+      </AttachmentActions>
+    </Attachment>
   );
 }
 
@@ -123,21 +121,17 @@ function ComposerButton({
   children: ReactNode;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <InputGroupButton size="icon-sm" aria-label={label} className={className} onClick={onClick}>
-          {children}
-        </InputGroupButton>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <LabelTooltip label={label}>
+      <InputGroupButton size="icon-sm" aria-label={label} className={className} onClick={onClick}>
+        {children}
+      </InputGroupButton>
+    </LabelTooltip>
   );
 }
 
-// The chat composer shared by the sidebar panel and the assistant view: a text
-// prompt plus attachments. Images are shown to the model and, when their
-// library toggle is on, uploaded to the media directory; documents (txt/pdf/
-// docx) are extracted to text in the browser and folded into the message.
+// The assistant's chat composer, a text prompt plus attachments.
+// Images are shown to the model and, when their library toggle is on, uploaded to the media directory.
+// Documents (txt/pdf/docx) are extracted to text in the browser and folded into the message.
 export function ChatComposer({ chat, className }: { chat: CmsChat; className?: string }) {
   const { t } = useTranslation();
   const model = useAiSettingsStore((state) => state.model);
@@ -239,15 +233,17 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     >
       <InputGroup>
         {attachments.length > 0 && (
-          <InputGroupAddon align="block-start" className="flex-wrap">
-            {attachments.map((attachment) => (
-              <AttachmentChip
-                key={attachment.id}
-                attachment={attachment}
-                onRemove={removeAttachment}
-                onToggleSave={toggleSave}
-              />
-            ))}
+          <InputGroupAddon align="block-start">
+            <AttachmentGroup>
+              {attachments.map((attachment) => (
+                <AttachmentChip
+                  key={attachment.id}
+                  attachment={attachment}
+                  onRemove={removeAttachment}
+                  onToggleSave={toggleSave}
+                />
+              ))}
+            </AttachmentGroup>
           </InputGroupAddon>
         )}
 
@@ -275,7 +271,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
             onChange={handleInputChange}
           />
 
-          {/* Stops a running turn first; `stop` is a no-op when idle. */}
+          {/* Stops a running turn first, `stop` is a no-op when idle. */}
           {messages.length > 0 && (
             <ComposerButton
               label={t(($) => $.ai.newChat)}
@@ -320,6 +316,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
               <SelectTrigger
                 size="sm"
                 className="w-auto min-w-0 gap-1 border-none text-xs shadow-none"
+                aria-label={t(($) => $.ai.model)}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -342,16 +339,18 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
               <Square />
             </ComposerButton>
           ) : (
-            <InputGroupButton
-              type="submit"
-              size="icon-sm"
-              variant="default"
-              className="ml-auto"
-              aria-label={t(($) => $.ai.send)}
-              aria-disabled={preparing}
-            >
-              {preparing ? <Spinner /> : <ArrowUp />}
-            </InputGroupButton>
+            <LabelTooltip label={t(($) => $.ai.send)}>
+              <InputGroupButton
+                type="submit"
+                size="icon-sm"
+                variant="default"
+                className="ml-auto"
+                aria-label={t(($) => $.ai.send)}
+                aria-disabled={preparing}
+              >
+                {preparing ? <Spinner /> : <ArrowUp />}
+              </InputGroupButton>
+            </LabelTooltip>
           )}
         </InputGroupAddon>
       </InputGroup>

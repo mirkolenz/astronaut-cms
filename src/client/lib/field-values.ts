@@ -1,3 +1,4 @@
+import i18n from "i18next";
 import { isRecord, isRequired, type FieldSchema } from "@/shared/field-schema";
 import { activeVariant } from "@/shared/field-to-zod";
 import { uniqueName } from "@/shared/paths";
@@ -10,12 +11,44 @@ export const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? va
 
 export const asRecord = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 
+/** Whether a field has no value, as an empty text has none. */
+export const isBlank = (value: unknown): boolean =>
+  value === undefined || value === null || value === "";
+
+const TEXT_TYPES: readonly FieldSchema["type"][] = ["string", "date", "image", "file", "reference"];
+// The fields whose input shows no value as an empty text.
+const SHOWS_EMPTY_TEXT = new Set(TEXT_TYPES);
+// The fields whose control shows that they have no value: the text inputs and a few more.
+const SHOWS_EMPTY = new Set<FieldSchema["type"]>([...TEXT_TYPES, "number", "enum", "unknown"]);
+
+/** Whether a field's control shows that it has no value, so none needs setting first. */
+export const showsEmpty = (field: FieldSchema): boolean => SHOWS_EMPTY.has(field.type);
+
+/** Whether a field may do without a value, being left out or null. */
+export const isUnsettable = (field: FieldSchema): boolean =>
+  field.optional === true || field.nullable === true;
+
+/**
+ * What a field holds once emptied or cleared: `null` where it may be null,
+ * nothing where it may be left out, falls back to a default, or has no empty text,
+ * else an empty text.
+ */
+export function emptyValue(field: FieldSchema): unknown {
+  if (field.nullable) return null;
+
+  return !isRequired(field) || !SHOWS_EMPTY_TEXT.has(field.type) ? undefined : "";
+}
+
+/** The value a field that may do without one gets once it is set, as if it had to have one. */
+export const seedValue = (field: FieldSchema): unknown =>
+  getDefaultValue({ ...field, optional: false, nullable: false });
+
 /** The value a new field starts with: its default, null when it may be left out, else an empty value. */
 export function getDefaultValue(schema?: FieldSchema): unknown {
   if (!schema) return "";
 
   if (schema.default !== undefined) return schema.default;
-  if (schema.optional || schema.nullable) return null;
+  if (isUnsettable(schema)) return null;
 
   switch (schema.type) {
     case "string":
@@ -112,10 +145,10 @@ export function valueSummary(field: FieldSchema, value: unknown): string | undef
 export function missingValues(field: FieldSchema, value: unknown): string[] {
   const object = objectOf(field, value);
   const values = asRecord(value);
-  const isEmpty = (key: string) =>
-    values[key] === undefined || values[key] === null || values[key] === "";
 
-  return object?.type === "object" ? missingFields(object.shape, isEmpty) : [];
+  return object?.type === "object"
+    ? missingFields(object.shape, (key) => isBlank(values[key]))
+    : [];
 }
 
 // Whether a field holds other fields, as opposed to a single value.
@@ -168,6 +201,29 @@ export function fromItems(field: CollectionField, items: readonly CollectionItem
   return field.type === "array" ? items.map(([, item]) => item) : Object.fromEntries(items);
 }
 
+/** What an item of a collection is called: its key in a record, else its summary, else its place. */
+export function itemLabel(field: CollectionField, [key, value]: CollectionItem): string {
+  if (typeof key === "string") return key;
+
+  return (
+    valueSummary(itemField(field), value) ??
+    i18n.t(($) => $.editors.item, { index: String(key + 1) })
+  );
+}
+
+// A row shows no more items than this, so the rest are never labelled.
+const SUMMARY_ITEMS = 5;
+
+/** The first items of a collection named on one line. */
+export const collectionSummary = (
+  field: CollectionField,
+  items: readonly CollectionItem[],
+): string =>
+  items
+    .slice(0, SUMMARY_ITEMS)
+    .map((item) => itemLabel(field, item))
+    .join(", ");
+
 /** Keys that follow the items of a list through moves: their content, numbered among equal ones. */
 export function contentKeys(items: readonly unknown[]): string[] {
   const seen = new Map<string, number>();
@@ -179,6 +235,46 @@ export function contentKeys(items: readonly unknown[]): string[] {
     seen.set(content, count + 1);
 
     return `${count}:${content}`;
+  });
+}
+
+export interface ItemKey {
+  key: string;
+  content: string;
+}
+
+/**
+ * Keys that follow the items of a list through any change, such as a move undone or an edit.
+ * An item keeps the key of an equal one, else of the one in its place, else gets a new one,
+ * and an unchanged list gives back `before` itself.
+ */
+export function followKeys(
+  before: readonly ItemKey[],
+  items: readonly unknown[],
+): readonly ItemKey[] {
+  const contents = items.map((item) => JSON.stringify(item) ?? "");
+
+  if (contents.length === before.length && contents.every((c, i) => c === before[i]?.content)) {
+    return before;
+  }
+
+  // An item still in its place keeps its key first, so an edit never hands it to an equal item.
+  const kept = contents.map((content, index) =>
+    before[index]?.content === content ? index : undefined,
+  );
+  const taken = new Set(kept);
+  const unused = Map.groupBy(
+    [...before.keys()].filter((index) => !taken.has(index)),
+    (index) => before[index]?.content ?? "",
+  );
+  const matched = contents.map((content, index) => kept[index] ?? unused.get(content)?.shift());
+
+  for (const index of matched) taken.add(index);
+
+  return contents.map((content, index) => {
+    const from = matched[index] ?? (taken.has(index) ? undefined : index);
+
+    return { content, key: (from !== undefined && before[from]?.key) || crypto.randomUUID() };
   });
 }
 
@@ -276,4 +372,29 @@ export function variantLabel(
       : undefined;
 
   return tag?.type === "literal" ? String(tag.value) : String(index);
+}
+
+/** A union's value switched to its variant at `index`, keeping the values both variants take alike. */
+export function switchVariant(
+  union: Extract<FieldSchema, { type: "union" }>,
+  value: unknown,
+  index: number,
+): unknown {
+  const variant = union.variants[index];
+  const before = activeVariant(union, value);
+
+  if (!variant) return value;
+
+  const next = getDefaultValue(variant);
+
+  if (variant.type !== "object" || before?.type !== "object" || !isRecord(next)) return next;
+
+  const kept = Object.entries(asRecord(value)).filter(
+    ([key]) =>
+      key !== union.discriminator &&
+      Object.hasOwn(variant.shape, key) &&
+      variant.shape[key]?.type === before.shape[key]?.type,
+  );
+
+  return { ...next, ...Object.fromEntries(kept) };
 }

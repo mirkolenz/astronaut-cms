@@ -1,18 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useId, useState } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { validatePath, validateSegment } from "@/shared/validation";
+import { join } from "pathe";
+import { usePathRefusal } from "@/client/hooks/use-path-refusal";
 import { localeLabel } from "@/shared/i18n";
 import { CONTENT_FORMATS, DATA_FORMATS, type EntryFormat } from "@/shared/types";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/client/components/ui/dialog";
-import { Button } from "@/client/components/ui/button";
-import { Input } from "@/client/components/ui/input";
-import { Label } from "@/client/components/ui/label";
+import { FormDialog } from "@/client/components/form-dialog";
+import { PathForm } from "@/client/components/path-dialog";
+import { Field, FieldLabel } from "@/client/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -25,6 +20,8 @@ interface NewEntryDialogProps {
   open: boolean;
   collection: string;
   collectionType: "content" | "data";
+  /** Ids already in the collection, which a new entry may not take. */
+  existingIds: readonly string[];
   /** Folder the entry is created in, below any locale; the typed id is appended to it. */
   basePath?: string;
   /** Content languages, when the collection is organized by locale. */
@@ -38,132 +35,113 @@ interface NewEntryDialogProps {
   onCancel: () => void;
 }
 
-export function NewEntryDialog({
-  open,
+export function NewEntryDialog({ open, ...props }: NewEntryDialogProps) {
+  return (
+    <FormDialog open={open} onCancel={props.onCancel}>
+      <NewEntryForm {...props} />
+    </FormDialog>
+  );
+}
+
+function NewEntryForm({
   collection,
   collectionType,
+  existingIds,
   basePath,
   locales,
   locale,
-  nested,
+  nested = false,
   allowedFormats,
   onSubmit,
   onCancel,
-}: NewEntryDialogProps) {
+}: Omit<NewEntryDialogProps, "open">) {
   const { t } = useTranslation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [id, setId] = useState("");
-  const initialLocale = locale ?? "";
-  const [entryLocale, setEntryLocale] = useState(initialLocale);
+  const refusal = usePathRefusal();
+  const taken = new Set(existingIds);
   const allFormats = collectionType === "content" ? CONTENT_FORMATS : DATA_FORMATS;
-  const formats: readonly EntryFormat[] = useMemo(
-    () => (allowedFormats ? allFormats.filter((f) => allowedFormats.includes(f)) : allFormats),
-    [allFormats, allowedFormats],
-  );
-  const defaultFormat = formats[0] ?? allFormats[0];
-  const [format, setFormat] = useState<EntryFormat>(defaultFormat);
-
-  useEffect(() => {
-    if (open) {
-      setId("");
-      setFormat(defaultFormat);
-      setEntryLocale(initialLocale);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open, defaultFormat, initialLocale]);
+  const formats: readonly EntryFormat[] = allowedFormats
+    ? allFormats.filter((f) => allowedFormats.includes(f))
+    : allFormats;
+  const [entryLocale, setEntryLocale] = useState(locale ?? "");
+  const [format, setFormat] = useState<EntryFormat>(formats[0] ?? allFormats[0]);
 
   // The stored id is `<locale>/<folder>/<name>`, so picking a language here is
   // what puts the file in the right content directory.
   const prefix = [entryLocale, basePath].filter(Boolean).join("/");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = id.trim();
-    if (!trimmed) return;
-    const fullId = [prefix, trimmed].filter(Boolean).join("/");
-    try {
-      if (nested) validatePath(fullId, "entry ID");
-      else validateSegment(fullId, "entry ID");
-    } catch {
-      return;
-    }
-    onSubmit(fullId, format);
-  };
+  const fullId = (id: string): string => join(prefix, id);
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onCancel();
-      }}
+    <PathForm
+      title={t(($) => $.newEntryDialog.title, { collection })}
+      label={t(($) => $.newEntryDialog.entryId)}
+      placeholder={t(($) => $.newEntryDialog.placeholder)}
+      hint={
+        nested ? t(($) => $.newEntryDialog.validationHint) : t(($) => $.newEntryDialog.segmentHint)
+      }
+      prefix={prefix}
+      confirmLabel={t(($) => $.common.create)}
+      validate={(id) => refusal.id(id, nested, (value) => taken.has(fullId(value)))}
+      onSubmit={(id) => onSubmit(fullId(id), format)}
+      onCancel={onCancel}
     >
-      <DialogContent showCloseButton={false} className="sm:max-w-sm">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{t(($) => $.newEntryDialog.title, { collection })}</DialogTitle>
-          </DialogHeader>
-          <div className="mt-3 space-y-3">
-            {locales && locales.length > 1 && (
-              <div>
-                <Label>{t(($) => $.i18n.language)}</Label>
-                <Select value={entryLocale} onValueChange={setEntryLocale}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locales.map((l) => (
-                      <SelectItem key={l} value={l}>
-                        {localeLabel(l)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div>
-              <Label>{t(($) => $.newEntryDialog.entryId)}</Label>
-              <div className="flex items-center gap-1">
-                {prefix && (
-                  <span className="shrink-0 text-sm text-muted-foreground">{prefix}/</span>
-                )}
-                <Input
-                  ref={inputRef}
-                  type="text"
-                  value={id}
-                  onChange={(e) => setId(e.target.value)}
-                  placeholder={t(($) => $.newEntryDialog.placeholder)}
-                  pattern={nested ? "[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*" : "[a-zA-Z0-9_-]+"}
-                  title={t(($) => $.newEntryDialog.validationHint)}
-                  required
-                />
-              </div>
-            </div>
-            {formats.length > 1 && (
-              <div>
-                <Label>{t(($) => $.newEntryDialog.format)}</Label>
-                <Select value={format} onValueChange={(value) => setFormat(value as EntryFormat)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formats.map((f) => (
-                      <SelectItem key={f} value={f}>
-                        .{f}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              {t(($) => $.common.cancel)}
-            </Button>
-            <Button type="submit">{t(($) => $.common.create)}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <SelectField
+        label={t(($) => $.i18n.language)}
+        value={entryLocale}
+        options={locales ?? []}
+        render={localeLabel}
+        onChange={setEntryLocale}
+      />
+      <SelectField
+        label={t(($) => $.newEntryDialog.format)}
+        value={format}
+        options={formats}
+        render={(f) => `.${f}`}
+        onChange={setFormat}
+      />
+    </PathForm>
+  );
+}
+
+/** A labeled choice among `options`, shown only when there is more than one. */
+function SelectField<T extends string>({
+  label,
+  value,
+  options,
+  render,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  render: (option: T) => ReactNode;
+  onChange: (value: T) => void;
+}) {
+  const id = useId();
+
+  if (options.length < 2) return null;
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          const picked = options.find((option) => option === next);
+
+          if (picked) onChange(picked);
+        }}
+      >
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {render(option)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }

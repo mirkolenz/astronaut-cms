@@ -2,33 +2,41 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, Navigate, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { basename } from "pathe";
 import { entriesQuery, fileLayoutQuery, useEntries } from "@/client/queries/use-entries";
 import { preload } from "@/client/lib/query-client";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
+import { ListSkeleton } from "@/client/components/list-skeleton";
+import { PageHeader } from "@/client/components/page-header";
 import {
   collectionDescription,
   collectionLabel,
   collectionSingleton,
 } from "@/client/lib/collections";
-import { baseName, listDirectory } from "@/client/lib/entry-tree";
-import { localeLabel, splitLocale } from "@/shared/i18n";
+import { listDirectory } from "@/client/lib/entry-tree";
+import { joinLocale, localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
-import { LocaleTabs } from "@/client/components/locale-tabs";
-import { TranslationStatus } from "@/client/components/translation-status";
+import { LocaleTabs, TranslationStatus } from "@/client/components/locale-tabs";
 import {
   compareIds,
   extractFormatsFromLoader,
-  type CollectionManifestEntry,
   type EntryFormat,
+  type EntryMeta,
 } from "@/shared/types";
 import { FileCollectionEditor } from "@/client/components/file-collection-editor";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
 import config from "@/client/lib/config";
-import { Card } from "@/client/components/ui/card";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/client/components/ui/item";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
-import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/collections/$collection/")({
   loader: ({ params: { collection } }) =>
@@ -44,65 +52,45 @@ export const Route = createFileRoute("/collections/$collection/")({
   },
 });
 
-function ListSkeleton() {
-  return (
-    <div className="space-y-2">
-      {[1, 2, 3, 4].map((i) => (
-        <Skeleton key={i} className="h-12 rounded-lg" />
-      ))}
-    </div>
-  );
-}
-
+/** Loads the entries once for every kind of collection, which each start fresh per collection. */
 function CollectionPage() {
+  const { t } = useTranslation();
   const { collection } = Route.useParams();
-  const collectionInfo = config.collections[collection];
+  const { data: entries, error } = useEntries(collection);
   const singleton = collectionSingleton(collection);
 
-  if (singleton) return <SingletonRedirect collection={collection} {...singleton} />;
-
-  if (collectionInfo?.loaderType === "file") {
-    return <FileCollectionEditor collection={collection} />;
+  if (error) {
+    return (
+      <ErrorBanner>{t(($) => $.collection.failedLoad, { message: error.message })}</ErrorBanner>
+    );
   }
 
-  return <GlobCollectionPage collection={collection} collectionInfo={collectionInfo} />;
+  if (!entries) return <ListSkeleton />;
+
+  // A singleton opens its one entry, as a draft until its file exists.
+  if (singleton) {
+    return (
+      <Navigate
+        to="/collections/$collection/$entry"
+        params={{ collection, entry: singleton.id }}
+        search={entries.some((entry) => entry.id === singleton.id) ? {} : { new: singleton.format }}
+        replace
+      />
+    );
+  }
+
+  if (config.collections[collection]?.loaderType === "file") {
+    return <FileCollectionEditor key={collection} collection={collection} entries={entries} />;
+  }
+
+  return <GlobCollectionPage key={collection} collection={collection} entries={entries} />;
 }
 
-/** A singleton opens its one entry, as a draft until its file exists. */
-function SingletonRedirect({
-  collection,
-  id,
-  format,
-}: {
-  collection: string;
-  id: string;
-  format: EntryFormat;
-}) {
-  const { data: entries } = useEntries(collection);
-
-  if (!entries) return null;
-
-  return (
-    <Navigate
-      to="/collections/$collection/$entry"
-      params={{ collection, entry: id }}
-      search={entries.some((entry) => entry.id === id) ? {} : { new: format }}
-      replace
-    />
-  );
-}
-
-function GlobCollectionPage({
-  collection,
-  collectionInfo,
-}: {
-  collection: string;
-  collectionInfo?: CollectionManifestEntry;
-}) {
+function GlobCollectionPage({ collection, entries }: { collection: string; entries: EntryMeta[] }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { dir = "" } = Route.useSearch();
-  const { data: entries, error } = useEntries(collection);
+  const collectionInfo = config.collections[collection];
   const [showNewDialog, setShowNewDialog] = useState(false);
   const allowedFormats = useMemo(
     () =>
@@ -118,14 +106,14 @@ function GlobCollectionPage({
 
   const sort = collectionInfo?.sort ?? "id";
   const { folders, files } = useMemo(
-    () => listDirectory(entries ?? [], browseDir, (entry) => entry.id, compareIds(sort)),
+    () => listDirectory(entries, browseDir, (entry) => entry.id, compareIds(sort)),
     [entries, browseDir, sort],
   );
   const isEmpty = folders.length === 0 && files.length === 0;
 
   // The header counts what the active language actually holds, so a half-translated
   // collection never reports one inflated total across all of them.
-  const localeCount = i18n && activeLocale ? countIn(i18n, activeLocale) : (entries?.length ?? 0);
+  const localeCount = i18n && activeLocale ? countIn(i18n, activeLocale) : entries.length;
 
   // Nothing is written yet: the editor holds the new entry until its first save,
   // so an abandoned one leaves no invalid file behind.
@@ -138,36 +126,26 @@ function GlobCollectionPage({
     });
   };
 
-  if (error) {
-    return (
-      <ErrorBanner>{t(($) => $.collection.failedLoad, { message: error.message })}</ErrorBanner>
-    );
-  }
-
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{collectionLabel(collection)}</h1>
-          {collectionInfo && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {collectionDescription(collection)} &middot;{" "}
-              {t(($) => $.collection.entries, { count: localeCount })}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {activeLocale && (
-            <LocaleTabs
-              collection={collection}
-              locales={locales}
-              active={activeLocale}
-              subDir={subDir}
-            />
-          )}
-          <Button onClick={() => setShowNewDialog(true)}>{t(($) => $.collection.newEntry)}</Button>
-        </div>
-      </div>
+      <PageHeader
+        title={collectionLabel(collection)}
+        description={`${collectionDescription(collection)} · ${t(($) => $.collection.entries, { count: localeCount })}`}
+        actions={
+          <>
+            {activeLocale && (
+              <LocaleTabs
+                collection={collection}
+                tabs={locales.map((locale) => ({ locale, dir: joinLocale(locale, subDir) }))}
+                active={activeLocale}
+              />
+            )}
+            <Button onClick={() => setShowNewDialog(true)}>
+              {t(($) => $.collection.newEntry)}
+            </Button>
+          </>
+        }
+      />
 
       {isEmpty ? (
         <Empty>
@@ -183,48 +161,54 @@ function GlobCollectionPage({
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card className="gap-0 divide-y py-0">
+        <ItemGroup>
           {folders.map((folder) => (
-            <Link
-              key={folder.path}
-              to="/collections/$collection"
-              params={{ collection }}
-              search={{ dir: folder.path }}
-              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
-            >
-              <div className="flex items-center gap-2">
-                <Folder className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">{folder.name}</span>
-              </div>
-              <ChevronRight className="size-4 text-muted-foreground" />
-            </Link>
+            <Item key={folder.path} asChild variant="outline" size="sm">
+              <Link
+                to="/collections/$collection"
+                params={{ collection }}
+                search={{ dir: folder.path }}
+              >
+                <ItemMedia variant="icon" className="text-muted-foreground">
+                  <Folder />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{folder.name}</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </ItemActions>
+              </Link>
+            </Item>
           ))}
           {files.map((entry) => (
-            <Link
-              key={entry.id}
-              to="/collections/$collection/$entry"
-              params={{ collection, entry: entry.id }}
-              className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted"
-            >
-              <div className="flex items-center gap-2">
-                <File className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">{baseName(entry.id)}</span>
-                <Badge variant="outline">{entry.format}</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {i18n && (
-                  <TranslationStatus i18n={i18n} slug={splitLocale(entry.id, locales).slug} />
-                )}
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </div>
-            </Link>
+            <Item key={entry.id} asChild variant="outline" size="sm">
+              <Link to="/collections/$collection/$entry" params={{ collection, entry: entry.id }}>
+                <ItemMedia variant="icon" className="text-muted-foreground">
+                  <File />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>
+                    {basename(entry.id)}
+                    <Badge variant="outline">{entry.format}</Badge>
+                  </ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  {i18n && (
+                    <TranslationStatus i18n={i18n} slug={splitLocale(entry.id, locales).slug} />
+                  )}
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </ItemActions>
+              </Link>
+            </Item>
           ))}
-        </Card>
+        </ItemGroup>
       )}
 
       <NewEntryDialog
         open={showNewDialog}
         collection={collection}
+        existingIds={entries.map((entry) => entry.id)}
         collectionType={collectionInfo?.type ?? "content"}
         basePath={subDir}
         locales={i18n?.locales}

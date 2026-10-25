@@ -58,7 +58,7 @@ export function PublishBar() {
         <div className="flex items-center gap-2">
           <ChangeActions />
           {config.storageType !== "local" && (
-            <Button variant="ghost" size="xs" onClick={handleSignOut}>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
               {t(($) => $.common.signOut)}
             </Button>
           )}

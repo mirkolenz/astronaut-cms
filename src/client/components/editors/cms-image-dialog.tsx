@@ -18,12 +18,16 @@ export function CmsImageDialog() {
   const state = useCellValue(imageDialogState$);
   const saveImage = usePublisher(saveImage$);
   const closeDialog = usePublisher(closeImageDialog$);
-  const ctx = useEntryContext();
+  const entryFile = useEntryContext();
 
   const isOpen = state.type === "new" || state.type === "editing";
 
+  // Another file for an image keeps its alt text, title and size.
   const handleSelect = (location: MediaLocation) =>
-    saveImage({ src: markdownImageUrl(location, config.media, ctx?.contentFilePath) });
+    saveImage({
+      ...(state.type === "editing" ? state.initialValues : {}),
+      src: markdownImageUrl(location, config.media, entryFile),
+    });
 
   return (
     <MediaPickerDialog open={isOpen} kind="image" onSelect={handleSelect} onCancel={closeDialog} />

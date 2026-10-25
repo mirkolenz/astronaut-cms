@@ -2,25 +2,29 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
-  ChevronRight,
   CircleCheck,
   FilePlus2,
   FilePen,
   FileX2,
   FileSymlink,
+  GitCompareArrows,
 } from "lucide-react";
 import type { ChangeKind, FileChange } from "@/shared/types";
 import { describeChange } from "@/client/lib/changes";
-import { Card } from "@/client/components/ui/card";
+import { ItemActions, ItemDescription, ItemGroup, ItemTitle } from "@/client/components/ui/item";
 import { HighlightedCode } from "@/client/components/highlighted-code";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/client/components/ui/collapsible";
+import { CollapsibleItem } from "@/client/components/collapsible-item";
+import { CollapsibleContent } from "@/client/components/ui/collapsible";
 import { Badge } from "@/client/components/ui/badge";
 import { markReviewed, useIsReviewed, useReviewedCount } from "@/client/stores/review-store";
-import { EntryLink } from "./entry-link";
+import { EntryLink } from "@/client/components/changes/entry-link";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/client/components/ui/empty";
 import type en from "@/client/i18n/locales/en";
 
 interface KindPresentation {
@@ -52,41 +56,44 @@ function ChangeRow({ change }: { change: FileChange }) {
   }, [open, change]);
 
   return (
-    <Card size="sm" className="gap-0 py-0">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex items-center gap-2 px-3 py-2">
-          <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-            <Icon className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{described.label}</span>
-            {described.previousPath && (
-              <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{described.previousPath}</span>
-              </span>
-            )}
-          </CollapsibleTrigger>
-          {reviewed && (
-            <CircleCheck
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-label={t(($) => $.changes.reviewed)}
-            />
+    <CollapsibleItem
+      open={open}
+      onOpenChange={setOpen}
+      role="listitem"
+      icon={<Icon />}
+      label={
+        <>
+          <ItemTitle>{described.label}</ItemTitle>
+          {described.previousPath && (
+            <ItemDescription className="flex items-center gap-1">
+              <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">{described.previousPath}</span>
+            </ItemDescription>
           )}
-          <Badge variant={variant}>{t(label)}</Badge>
-          {/* A deleted entry has nowhere to navigate to. */}
-          {described.collection && described.entryId && described.kind !== "deleted" && (
-            <EntryLink collection={described.collection} entryId={described.entryId} />
-          )}
-        </div>
-        <CollapsibleContent className="px-3 pb-3">
-          {described.patch ? (
-            <HighlightedCode code={described.patch} language="diff" />
-          ) : (
-            <p className="text-xs text-muted-foreground">{t(($) => $.changes.noDiff)}</p>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+        </>
+      }
+    >
+      <ItemActions>
+        {reviewed && (
+          <CircleCheck
+            className="size-4 text-muted-foreground"
+            aria-label={t(($) => $.changes.reviewed)}
+          />
+        )}
+        <Badge variant={variant}>{t(label)}</Badge>
+        {/* A deleted entry has nowhere to navigate to. */}
+        {described.collection && described.entryId && described.kind !== "deleted" && (
+          <EntryLink collection={described.collection} entryId={described.entryId} />
+        )}
+      </ItemActions>
+      <CollapsibleContent className="basis-full">
+        {described.patch ? (
+          <HighlightedCode code={described.patch} language="diff" />
+        ) : (
+          <p className="text-xs text-muted-foreground">{t(($) => $.changes.noDiff)}</p>
+        )}
+      </CollapsibleContent>
+    </CollapsibleItem>
   );
 }
 
@@ -99,7 +106,17 @@ export function ChangeList({ changes }: { changes: FileChange[] }) {
   const reviewed = useReviewedCount(changes);
 
   if (changes.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t(($) => $.changes.empty)}</p>;
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <GitCompareArrows />
+          </EmptyMedia>
+          <EmptyTitle>{t(($) => $.changes.none)}</EmptyTitle>
+          <EmptyDescription>{t(($) => $.changes.empty)}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   }
 
   return (
@@ -107,9 +124,11 @@ export function ChangeList({ changes }: { changes: FileChange[] }) {
       <p className="text-sm text-muted-foreground">
         {t(($) => $.changes.reviewProgress, { reviewed, count: changes.length })}
       </p>
-      {changes.map((change) => (
-        <ChangeRow key={`${change.kind}:${change.path}`} change={change} />
-      ))}
+      <ItemGroup>
+        {changes.map((change) => (
+          <ChangeRow key={`${change.kind}:${change.path}`} change={change} />
+        ))}
+      </ItemGroup>
     </div>
   );
 }

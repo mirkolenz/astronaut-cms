@@ -4,13 +4,15 @@ import { Library } from "lucide-react";
 import config from "@/client/lib/config";
 import { collectionDescription, collectionIcon, collectionLabel } from "@/client/lib/collections";
 import { objectShape } from "@/shared/field-schema";
+import { PageHeader } from "@/client/components/page-header";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/client/components/ui/card";
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemMedia,
+  ItemTitle,
+} from "@/client/components/ui/item";
 import {
   Empty,
   EmptyDescription,
@@ -43,33 +45,28 @@ function Dashboard() {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <h1 className="mb-4 text-xl font-semibold">{t(($) => $.layout.collections)}</h1>
+      <PageHeader title={t(($) => $.layout.collections)} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(collections).map(([name, col]) => {
           const Icon = collectionIcon(name);
 
           return (
-            <Link
-              key={name}
-              to="/collections/$collection"
-              params={{ collection: name }}
-              className="group"
-            >
-              <Card className="h-full transition-colors group-hover:bg-accent">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Icon className="size-5" />
-                    {collectionLabel(name)}
-                  </CardTitle>
-                  <CardDescription>{collectionDescription(name)}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground/70">
+            <Item key={name} asChild variant="outline">
+              <Link to="/collections/$collection" params={{ collection: name }}>
+                <ItemMedia variant="icon">
+                  <Icon />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>{collectionLabel(name)}</ItemTitle>
+                  <ItemDescription>{collectionDescription(name)}</ItemDescription>
+                </ItemContent>
+                <ItemFooter className="text-xs text-muted-foreground">
                   {t(($) => $.dashboard.fields, {
                     count: Object.keys(objectShape(col.schema) ?? {}).length,
                   })}
-                </CardContent>
-              </Card>
-            </Link>
+                </ItemFooter>
+              </Link>
+            </Item>
           );
         })}
       </div>

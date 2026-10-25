@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { cn } from "cn";
 import { useTranslation } from "react-i18next";
 import { useAiKeyStore } from "@/client/stores/ai-key-store";
 import { Button } from "@/client/components/ui/button";
 import { Input } from "@/client/components/ui/input";
-import { Label } from "@/client/components/ui/label";
+import { Field, FieldDescription, FieldLabel } from "@/client/components/ui/field";
 
 /**
  * Where an editor supplies their own gateway key, in the deployments that ask
@@ -16,29 +17,32 @@ export function AiKeyGate({ className }: { className?: string }) {
   const { t } = useTranslation();
   const setKey = useAiKeyStore((state) => state.setKey);
   const [value, setValue] = useState("");
+  const inputId = useId();
+  const descriptionId = useId();
 
   return (
     <form
-      className={`grid gap-3 ${className ?? ""}`}
+      className={cn("grid gap-3", className)}
       onSubmit={(event) => {
         event.preventDefault();
         setKey(value);
         setValue("");
       }}
     >
-      <div className="grid gap-1">
-        <Label htmlFor="astronaut-cms-ai-key">{t(($) => $.ai.keyTitle)}</Label>
-        <p className="text-sm text-muted-foreground">{t(($) => $.ai.keyDescription)}</p>
-      </div>
-      <Input
-        id="astronaut-cms-ai-key"
-        type="password"
-        autoComplete="off"
-        spellCheck={false}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        placeholder={t(($) => $.ai.keyPlaceholder)}
-      />
+      <Field>
+        <FieldLabel htmlFor={inputId}>{t(($) => $.ai.keyTitle)}</FieldLabel>
+        <FieldDescription id={descriptionId}>{t(($) => $.ai.keyDescription)}</FieldDescription>
+        <Input
+          id={inputId}
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder={t(($) => $.ai.keyPlaceholder)}
+          aria-describedby={descriptionId}
+        />
+      </Field>
       <Button type="submit" disabled={!value.trim()} className="justify-self-start">
         {t(($) => $.ai.keySubmit)}
       </Button>

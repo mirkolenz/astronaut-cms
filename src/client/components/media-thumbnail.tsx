@@ -1,3 +1,4 @@
+import type { SyntheticEvent } from "react";
 import { extname } from "pathe";
 import { mediaUrl } from "@/client/lib/media";
 import { mediaKind, type MediaLibraryId } from "@/shared/media";
@@ -23,7 +24,7 @@ export function MediaThumbnail({
   const { path } = file;
   const kind = mediaKind(path);
   const src = mediaUrl({ library, path }, file.version);
-  const hide = (e: React.SyntheticEvent<HTMLElement>) => {
+  const hide = (e: SyntheticEvent<HTMLElement>) => {
     e.currentTarget.style.display = "none";
   };
 

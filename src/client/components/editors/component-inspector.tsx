@@ -5,7 +5,7 @@
  * of a form that open here, such as a list of items. Without a selection, the
  * panel shows the outline of the body and the structured values of the forms.
  */
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import { rootEditor$ } from "@mdxeditor/editor";
@@ -29,7 +29,7 @@ import {
 } from "@/client/lib/component-tree";
 import { updateBlock, useBlockActions, useBlockElement } from "@/client/lib/block-editing";
 import type { ValuePath } from "@/client/lib/field-values";
-import { useMediaQuery } from "@/client/lib/use-media-query";
+import { textEditorAt } from "@/client/lib/text-editors";
 import { collectionIcon, collectionLabel } from "@/client/lib/collections";
 import {
   isBlockSelection,
@@ -49,17 +49,20 @@ import {
 import {
   BlockList,
   ChildListControls,
-  DOCKED,
+  EmptyHint,
   InspectorView,
 } from "@/client/components/editors/block-controls";
 import { BlockOutline } from "@/client/components/editors/block-outline";
 import { Button } from "@/client/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/client/components/ui/sheet";
+import { useSidebar } from "@/client/components/ui/sidebar";
 
 export function InspectorPanel() {
+  const { t } = useTranslation();
   const selection = useSelection();
   const field = useSelectedField();
   const bodyEditor = useBodyRealm()?.getValue(rootEditor$);
-  const docked = useMediaQuery(DOCKED);
+  const docked = !useSidebar().isMobile;
   const hasFormOutline = useHasFormOutline();
   const content = !selection ? null : isBlockSelection(selection) ? (
     <ComponentInspector
@@ -87,12 +90,26 @@ export function InspectorPanel() {
     );
   }
 
+  // A sheet over the lower part of the page, which leaves the content above it
+  // to work in. Opened from the text, it leaves the focus there.
   return (
-    content && (
-      <div className="fixed inset-x-0 bottom-0 z-40 max-h-[55dvh] overflow-y-auto border-t border-border bg-background p-4 shadow-lg">
+    <Sheet modal={false} open={content !== null} onOpenChange={(open) => !open && select(null)}>
+      <SheetContent
+        side="bottom"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="max-h-[55dvh] overflow-y-auto p-4"
+        onOpenAutoFocus={(event) => {
+          const focused = document.activeElement;
+
+          if (focused && textEditorAt(focused)) event.preventDefault();
+        }}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <SheetTitle className="sr-only">{t(($) => $.editors.inspector)}</SheetTitle>
         {content}
-      </div>
-    )
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -101,6 +118,10 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
   const root = useBlockElement(selection);
   const element = root && findAt(root, selection.path);
   const actions = useBlockActions(selection);
+  const nav = useMemo(
+    () => ({ selected: field, open: (next: ValuePath) => select(selection, { field: next }) }),
+    [selection, field],
+  );
 
   // The block was deleted, or its editor has gone.
   useEffect(() => {
@@ -140,11 +161,10 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
       (target) => updateAt(target, path, (current) => withProp(current, key, value)),
       `${selection.nodeKey}/${path.join("/")}/${key}`,
     );
-  const open = (next: ValuePath) => select(selection, { field: next });
   const values = readProps(element);
 
   return (
-    <FieldNavContext.Provider value={{ selected: field, open }}>
+    <FieldNavContext.Provider value={nav}>
       {field.length > 0 ? (
         <FieldInspector
           crumbs={crumbs}
@@ -164,9 +184,7 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
           {Object.keys(shape).length > 0 ? (
             <FieldList shape={shape} values={values} onChange={setProp} />
           ) : (
-            !childDefs && (
-              <p className="text-xs text-muted-foreground">{t(($) => $.editors.noProps)}</p>
-            )
+            !childDefs && <EmptyHint>{t(($) => $.editors.noProps)}</EmptyHint>
           )}
 
           {childDefs && <ChildList selection={selection} element={element} childDefs={childDefs} />}
@@ -232,6 +250,7 @@ function ChildList({
           inspects: true,
         };
       }}
+      empty={t(($) => $.editors.noChildren)}
     >
       <ChildListControls parent={selection} childDefs={childDefs} />
     </BlockList>

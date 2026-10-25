@@ -25,8 +25,8 @@ import {
   insertContent,
   insertImage,
   isInlineEditor,
+  pasteClipboard,
   pasteText,
-  readClipboard,
 } from "@/client/lib/editor-content";
 import { getBodyRealm } from "@/client/stores/inspector-store";
 import { Button } from "@/client/components/ui/button";
@@ -150,8 +150,7 @@ export function InsertMenu() {
     key: "paste",
     label: t(($) => $.editors.paste),
     icon: ClipboardPaste,
-    run: (realm, editor) =>
-      void readClipboard().then((text) => text !== undefined && pasteText(realm, editor, text)),
+    run: (realm, editor) => void pasteClipboard((text) => pasteText(realm, editor, text)),
   };
 
   const groups = [

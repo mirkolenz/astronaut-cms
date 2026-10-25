@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseName, dirSegments, listDirectory, parentDir } from "@/client/lib/entry-tree";
+import { dirSegments, listDirectory, parentDir } from "@/client/lib/entry-tree";
 import type { EntryMeta } from "@/shared/types";
 
 const entries: EntryMeta[] = [
@@ -37,11 +37,9 @@ describe("listDirectory", () => {
 });
 
 describe("path helpers", () => {
-  it("derives parent and base name", () => {
+  it("derives the parent directory", () => {
     expect(parentDir("guides/advanced/caching")).toBe("guides/advanced");
-    expect(baseName("guides/advanced/caching")).toBe("caching");
     expect(parentDir("top")).toBe("");
-    expect(baseName("top")).toBe("top");
   });
 
   it("builds cumulative breadcrumb segments", () => {

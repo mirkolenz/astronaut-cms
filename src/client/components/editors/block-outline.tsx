@@ -161,10 +161,7 @@ export function BlockOutline({ editor }: { editor: LexicalEditor }) {
         if (item && target) moveBlock(editor, item.key, target.key, to > from);
       }}
       row={(item) => ({ ...item, onOpen: () => open(item), inspects: item.isComponent })}
-    >
-      {items.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t(($) => $.editors.outlineEmpty)}</p>
-      )}
-    </BlockList>
+      empty={t(($) => $.editors.outlineEmpty)}
+    />
   );
 }

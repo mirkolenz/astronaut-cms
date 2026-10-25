@@ -32,6 +32,7 @@ import {
   updateAt,
   type ChildPath,
 } from "@/client/lib/component-tree";
+import { textEditorAt } from "@/client/lib/text-editors";
 import {
   getSelectedBlock,
   isNodeSelected,
@@ -42,7 +43,7 @@ import {
   type BlockSelection,
   type Crumb,
 } from "@/client/stores/inspector-store";
-import { useAssetUrl } from "@/client/queries/use-media";
+import { AssetThumbnail } from "@/client/components/editors/asset-thumbnail";
 import { ChildListControls, MissingProps } from "@/client/components/editors/block-controls";
 
 /** The components enclosing a nested editor, for the breadcrumbs of those written in it. */
@@ -66,9 +67,7 @@ function claim(event: SyntheticEvent<HTMLElement>, selection: BlockSelection): v
 
   select(selection);
 
-  if (target.closest("[contenteditable]")?.getAttribute("contenteditable") === "false") {
-    window.getSelection()?.removeAllRanges();
-  }
+  if (!textEditorAt(target)) window.getSelection()?.removeAllRanges();
 }
 
 export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
@@ -147,7 +146,6 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
   const { selected, reveal } = useIsSelected(block);
   const label = labelOf(def, element);
   const summary = summaryOf(def, element);
-  const image = useAssetUrl(imageOf(def, element));
   const Icon = def?.icon;
   const inner = [...crumbs, { label: summary ?? label, selection: { ...block, trail: outer } }];
 
@@ -168,7 +166,7 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
         {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
         <span className="shrink-0 text-xs font-medium">{label}</span>
         <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{summary}</span>
-        {image && <img src={image} alt="" className="size-7 shrink-0 rounded object-cover" />}
+        <AssetThumbnail src={imageOf(def, element)} className="size-7 rounded" />
         <MissingProps labels={missingProps(def, element)} />
       </div>
       {def?.children === "markdown" && (

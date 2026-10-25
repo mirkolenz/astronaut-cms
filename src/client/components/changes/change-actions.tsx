@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import config from "@/client/lib/config";
-import type { UseMutationResult } from "@tanstack/react-query";
 import {
   useBranchStatus,
   useChanges,
@@ -10,12 +9,12 @@ import {
   useUpdate,
   useDiscard,
 } from "@/client/queries/use-entries";
-import { isMergeConflict, isStaleWrite } from "@/client/lib/api";
+import { isStaleWrite } from "@/client/lib/api";
+import { useRunMutation } from "@/client/hooks/use-run-mutation";
 import { buildPreviewUrl } from "@/client/lib/preview-url";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import { Button } from "@/client/components/ui/button";
 import { toast } from "@/client/components/toast";
-import { errorMessage } from "@/shared/errors";
 import { changesetDigest } from "@/shared/digest";
 import { clearReviews, useReviewedCount } from "@/client/stores/review-store";
 
@@ -34,7 +33,9 @@ export function ChangeActions() {
   const publish = usePublish();
   const update = useUpdate();
   const discard = useDiscard();
+  const run = useRunMutation();
   const [confirming, setConfirming] = useState<"publish" | "discard" | null>(null);
+  const [digesting, setDigesting] = useState(false);
 
   const { publish: canPublish, update: canUpdate } = config.capabilities;
   const count = changes.data?.length ?? 0;
@@ -45,38 +46,11 @@ export function ChangeActions() {
     branch && config.previewUrl ? buildPreviewUrl(config.previewUrl, branch) : null;
   const busy = publish.isPending || update.isPending || discard.isPending || changes.isFetching;
 
-  const reportError = (err: unknown) => {
-    toast(
-      isMergeConflict(err)
-        ? t(($) => $.publish.mergeConflict)
-        : isStaleWrite(err)
-          ? t(($) => $.publish.stale)
-          : errorMessage(err),
-      "error",
-    );
-  };
-
-  const run = <T,>(
-    mutation: UseMutationResult<unknown, Error, T>,
-    variables: T,
-    message: string,
-    onSuccess?: () => void,
-  ): void => {
-    mutation.mutate(variables, {
-      onSuccess: () => {
-        onSuccess?.();
-        toast(message, "success");
-      },
-      onError: reportError,
-    });
-  };
-
   // Only what this tab has shown is published: the digest pins the changeset to
   // the reviewed snapshot, and the server refuses it once the branch moved on.
   const confirmPublish = async (): Promise<void> => {
-    setConfirming(null);
-
     if (!changes.data || reviewed < count) {
+      setConfirming(null);
       toast(
         t(($) => $.publish.stale),
         "error",
@@ -85,12 +59,19 @@ export function ChangeActions() {
       return;
     }
 
-    run(
-      publish,
-      await changesetDigest(changes.data),
-      t(($) => $.publish.published),
-      clearReviews,
-    );
+    // Pending from the first click, since hashing the changeset takes a moment before the mutation starts.
+    setDigesting(true);
+    const digest = await changesetDigest(changes.data).finally(() => setDigesting(false));
+
+    run(publish, digest, {
+      success: t(($) => $.publish.published),
+      onSuccess: () => {
+        setConfirming(null);
+        clearReviews();
+      },
+      // Stale here means the changeset moved on since it was reviewed.
+      describeError: (err) => (isStaleWrite(err) ? t(($) => $.publish.stale) : undefined),
+    });
   };
 
   return (
@@ -99,13 +80,7 @@ export function ChangeActions() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
-            run(
-              update,
-              undefined,
-              t(($) => $.publish.updated),
-            )
-          }
+          onClick={() => run(update, undefined, { success: t(($) => $.publish.updated) })}
           disabled={busy || behind === 0}
         >
           {update.isPending ? t(($) => $.publish.updating) : t(($) => $.publish.update)}
@@ -140,8 +115,10 @@ export function ChangeActions() {
       <ConfirmDialog
         open={confirming === "publish"}
         title={t(($) => $.publish.confirmTitle)}
-        message={t(($) => $.publish.confirmMessage)}
+        description={t(($) => $.publish.confirmMessage)}
         confirmLabel={t(($) => $.publish.confirm)}
+        pendingLabel={t(($) => $.publish.publishing)}
+        isPending={digesting || publish.isPending}
         onConfirm={() => void confirmPublish()}
         onCancel={() => setConfirming(null)}
       />
@@ -149,18 +126,20 @@ export function ChangeActions() {
       <ConfirmDialog
         open={confirming === "discard"}
         title={t(($) => $.changes.discardAll)}
-        message={t(($) => $.changes.discardAllMessage)}
+        description={t(($) => $.changes.discardAllMessage)}
         confirmLabel={t(($) => $.common.discard)}
-        variant="danger"
-        onConfirm={() => {
-          setConfirming(null);
-          run(
-            discard,
-            undefined,
-            t(($) => $.changes.discarded),
-            clearReviews,
-          );
-        }}
+        pendingLabel={t(($) => $.publish.discarding)}
+        isPending={discard.isPending}
+        variant="destructive"
+        onConfirm={() =>
+          run(discard, undefined, {
+            success: t(($) => $.changes.discarded),
+            onSuccess: () => {
+              setConfirming(null);
+              clearReviews();
+            },
+          })
+        }
         onCancel={() => setConfirming(null)}
       />
     </div>

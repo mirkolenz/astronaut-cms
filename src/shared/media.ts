@@ -128,28 +128,36 @@ export function isTransactionalMedia(media: ClientMediaConfig, library: MediaLib
   return mediaLibrary(media, library).directory != null;
 }
 
+/** A size in English for the server's messages, the admin formats its own with `formatSize`. */
 export const megabytes = (bytes: number): string =>
   `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
 
-/** Why a file of `size` bytes is refused by a library, or null when it fits. */
-export function sizeLimitError(size: number, limits: SizeLimits): string | null {
-  if (limits.maxFileSize != null && size > limits.maxFileSize) {
-    return `File is larger than the ${megabytes(limits.maxFileSize)} limit for this media library.`;
-  }
+/** Why a library refuses a file, as a stable code the admin translates. */
+type FileIssue = "type" | "tooLarge" | "tooSmall";
 
-  if (limits.minFileSize != null && size < limits.minFileSize) {
-    return `File is smaller than the ${megabytes(limits.minFileSize)} minimum for this media library.`;
-  }
+/** Why a file of `size` bytes is refused by a library, or null when it fits. */
+function sizeIssue(size: number, limits: SizeLimits): Exclude<FileIssue, "type"> | null {
+  if (limits.maxFileSize != null && size > limits.maxFileSize) return "tooLarge";
+  if (limits.minFileSize != null && size < limits.minFileSize) return "tooSmall";
 
   return null;
 }
 
-/** Why a library refuses a file, by its type or its size, or null when it takes it. */
-export function libraryRefusal(library: ClientLibrary, name: string, size: number): string | null {
-  if (!isLibraryFile(name, library.extensions))
-    return `"${name}" is not of a type this media library accepts.`;
+/** The server's wording of a size refusal. */
+export function sizeLimitError(size: number, limits: SizeLimits): string | null {
+  switch (sizeIssue(size, limits)) {
+    case "tooLarge":
+      return `File is larger than the ${megabytes(limits.maxFileSize ?? 0)} limit for this media library.`;
+    case "tooSmall":
+      return `File is smaller than the ${megabytes(limits.minFileSize ?? 0)} minimum for this media library.`;
+    default:
+      return null;
+  }
+}
 
-  return sizeLimitError(size, library);
+/** Why a library refuses a file, by its type or its size, or null when it takes it. */
+export function libraryIssue(library: ClientLibrary, name: string, size: number): FileIssue | null {
+  return isLibraryFile(name, library.extensions) ? sizeIssue(size, library) : "type";
 }
 
 /** Why a field astro types as an imported image refuses an object-store file. */
@@ -276,8 +284,8 @@ export function markdownImageUrl(
 
 /**
  * A library path nothing occupies yet, numbering the name until it is free. An
- * upload that cannot ask a human what to do — an AI attachment called
- * `logo.png`, say — lands beside the existing file rather than replacing it.
+ * upload that cannot ask a human what to do, an AI attachment called
+ * `logo.png`, say, lands beside the existing file rather than replacing it.
  */
 export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): string {
   const ext = extname(path);

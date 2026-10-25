@@ -4,19 +4,17 @@
  * own. It works the same for the fields of an entry and the props of a
  * component, with breadcrumbs leading back to the fields.
  */
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import i18n, { type TFunction } from "i18next";
 import type { FieldSchema } from "@/shared/field-schema";
-import { fieldSchemaToZod } from "@/shared/field-to-zod";
 import { arrayMove } from "@/client/lib/arrays";
 import { clipboardActions, movesWithin, type BlockActions } from "@/client/lib/block-editing";
-import { readClipboard } from "@/client/lib/editor-content";
+import { pasteClipboard, pastedItems } from "@/client/lib/editor-content";
 import {
-  asRecord,
   collectionItems,
   collectionMissing,
   collectionOf,
+  collectionSummary,
   contentKeys,
   fieldLabel,
   fieldsAlong,
@@ -24,19 +22,17 @@ import {
   fromItems,
   getDefaultValue,
   itemField,
+  itemLabel,
   missingValues,
   setAt,
   valueSummary,
   variantLabel,
-  type CollectionField,
   type CollectionItem,
   type FieldStep,
   type ValuePath,
 } from "@/client/lib/field-values";
 import { select, useFormField } from "@/client/stores/inspector-store";
 import { setField, useForm, useForms, type Form } from "@/client/stores/form-store";
-import { uniqueName } from "@/shared/paths";
-import { toast } from "@/client/components/toast";
 import {
   FieldList,
   FieldNavContext,
@@ -62,19 +58,17 @@ interface FormProps {
 const openField = (id: string, field: ValuePath) =>
   select(field.length > 0 ? { form: id } : null, { field });
 
-const formNav = (id: string, selected: ValuePath) => ({
-  selected,
-  open: (field: ValuePath) => openField(id, field),
-});
+const useFormNav = (id: string, selected: ValuePath) =>
+  useMemo(() => ({ selected, open: (field: ValuePath) => openField(id, field) }), [id, selected]);
 
 /** The fields of a form on the page, such as those of an entry. */
 export function EntryFields({ form: id }: { form: string }) {
   const form = useForm(id);
-  const selected = useFormField(id);
+  const nav = useFormNav(id, useFormField(id));
 
   return (
     form && (
-      <FieldNavContext.Provider value={formNav(id, selected)}>
+      <FieldNavContext.Provider value={nav}>
         <FieldList
           shape={form.shape}
           values={form.values}
@@ -103,7 +97,6 @@ export const useHasFormOutline = (): boolean =>
 
 /** The fields of the forms on the page that open in the inspector, while nothing is selected. */
 export function FormOutline() {
-  const { t } = useTranslation();
   const forms = useForms((forms) => forms);
 
   return Object.entries(forms).map(([id, form]) => {
@@ -121,7 +114,8 @@ export function FormOutline() {
 
             return {
               label: fieldLabel(key, collection),
-              summary: t(($) => $.editors.items, { count: items.length }),
+              summary: collectionSummary(collection, items),
+              count: items.length,
               missing: collectionMissing(collection, items),
               onOpen: () => openField(id, [key]),
               inspects: true,
@@ -136,10 +130,11 @@ export function FormOutline() {
 /** A value of a form on the page that its fields have opened. */
 export function FormInspector({ form: id, field }: { form: string; field: ValuePath }) {
   const form = useForm(id);
+  const nav = useFormNav(id, field);
 
   return (
     form && (
-      <FieldNavContext.Provider value={formNav(id, field)}>
+      <FieldNavContext.Provider value={nav}>
         <FieldInspector
           crumbs={[]}
           label={form.label}
@@ -152,25 +147,11 @@ export function FormInspector({ form: id, field }: { form: string; field: ValueP
   );
 }
 
-function itemLabel(
-  collection: CollectionField,
-  key: string | number,
-  value: unknown,
-  t: TFunction,
-): string {
-  if (typeof key === "string") return key;
-
-  return (
-    valueSummary(itemField(collection), value) ??
-    t(($) => $.editors.item, { index: String(key + 1) })
-  );
-}
-
-function stepLabel(step: FieldStep, t: TFunction): string {
+function stepLabel(step: FieldStep): string {
   const collection = collectionOf(step.parent);
 
   return collection
-    ? itemLabel(collection, step.key, step.value, t)
+    ? itemLabel(collection, [step.key, step.value])
     : fieldLabel(String(step.key), step.field);
 }
 
@@ -182,50 +163,6 @@ function addOptions(item: FieldSchema): AddOption[] {
   return item.type === "union" && item.discriminator
     ? item.variants.map((_, index) => ({ key: String(index), label: variantLabel(item, index) }))
     : [{ key: "", label: item.label }];
-}
-
-/** The items on the clipboard that fit a collection, as the JSON of one item or of several. */
-function pastedItems(collection: CollectionField, items: readonly CollectionItem[], text: string) {
-  let value: unknown;
-
-  try {
-    value = JSON.parse(text);
-  } catch {
-    toast(
-      i18n.t(($) => $.editors.pasteInvalid),
-      "error",
-    );
-
-    return undefined;
-  }
-
-  const item = fieldSchemaToZod(itemField(collection));
-  const fits = (candidate: unknown) => item.safeParse(candidate).success;
-  const taken = new Set(items.map(([key]) => key));
-  const pasted: CollectionItem[] =
-    collection.type === "array"
-      ? (fits(value) || !Array.isArray(value) ? [value] : value).map((entry, index) => [
-          items.length + index,
-          entry,
-        ])
-      : Object.entries(asRecord(value)).map(([name, entry]) => {
-          const key = uniqueName(name, (candidate) => taken.has(candidate));
-
-          taken.add(key);
-
-          return [key, entry];
-        });
-
-  if (pasted.length === 0 || !pasted.every(([, entry]) => fits(entry))) {
-    toast(
-      i18n.t(($) => $.editors.pasteUnfit),
-      "error",
-    );
-
-    return undefined;
-  }
-
-  return pasted;
 }
 
 /** How the item at `path` moves and goes among the items of its collection, the value `list`. */
@@ -302,7 +239,7 @@ export function FieldInspector({
       .slice(0, -1)
       .flatMap((ancestor, index) =>
         opens(ancestor)
-          ? [{ label: stepLabel(ancestor, t), onSelect: () => open(path.slice(0, index + 1)) }]
+          ? [{ label: stepLabel(ancestor), onSelect: () => open(path.slice(0, index + 1)) }]
           : [],
       ),
   ];
@@ -313,7 +250,7 @@ export function FieldInspector({
 
   if (!collection) {
     return (
-      <InspectorView key={key} crumbs={back} title={stepLabel(step, t)} actions={actions}>
+      <InspectorView key={key} crumbs={back} title={stepLabel(step)} actions={actions}>
         <FieldRenderer
           schema={step.field}
           value={step.value}
@@ -337,17 +274,14 @@ export function FieldInspector({
     set([...items, ...added]);
     open([...path, first[0]]);
   };
-  const paste = async () => {
-    const text = await readClipboard();
-
-    append((text !== undefined && pastedItems(collection, items, text)) || []);
-  };
+  const paste = async () =>
+    append((await pasteClipboard((text) => pastedItems(collection, items, text))) ?? []);
 
   return (
     <InspectorView
       key={key}
       crumbs={back}
-      title={stepLabel(step, t)}
+      title={stepLabel(step)}
       description={collection.description}
       actions={actions}
     >
@@ -358,12 +292,13 @@ export function FieldInspector({
         }
         onMove={(from, to) => set(arrayMove(items, from, to))}
         row={([itemKey, value]) => ({
-          label: itemLabel(collection, itemKey, value, t),
+          label: itemLabel(collection, [itemKey, value]),
           summary: typeof itemKey === "string" ? valueSummary(item, value) : undefined,
           missing: missingValues(item, value),
           onOpen: () => open([...path, itemKey]),
           inspects: true,
         })}
+        empty={t(($) => $.editors.noItems)}
       >
         <ListControls onPaste={() => void paste()}>
           {collection.type === "array" ? (

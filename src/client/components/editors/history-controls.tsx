@@ -1,8 +1,30 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Redo2, Undo2 } from "lucide-react";
 import { redo, undo, useCanRedo, useCanUndo } from "@/client/stores/form-store";
-import { Button } from "@/client/components/ui/button";
+import { textEditorAt } from "@/client/lib/text-editors";
+import { useShortcut } from "@/client/hooks/use-shortcut";
+import { IconButton } from "@/client/components/icon-button";
+
+const UNDO = ["mod", "Z"];
+const REDO = ["mod", "Shift", "Z"];
+const REDO_ALT = ["mod", "Y"];
+
+/**
+ * Whether the keys undo the page where the event happens. They undo text in the
+ * text editors, which take them into the page's history themselves, and in text
+ * inputs not bound to that history, such as a search. Inputs bound to it carry
+ * `data-page-history`, so the keys undo the page there.
+ */
+function undoesPage({ target }: KeyboardEvent): boolean {
+  if (!(target instanceof Element)) return true;
+
+  if (textEditorAt(target)) return false;
+
+  return (
+    !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) ||
+    target.hasAttribute("data-page-history")
+  );
+}
 
 /**
  * Undo and redo for the page, as buttons and as the usual keys. The text
@@ -13,52 +35,30 @@ export function HistoryControls() {
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      const target = event.target;
-
-      if (
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        (key !== "z" && key !== "y") ||
-        event.defaultPrevented ||
-        (target instanceof Element && target.closest('[contenteditable="true"], .cm-editor'))
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-
-      if (key === "y" || event.shiftKey) redo();
-      else undo();
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  useShortcut(UNDO, undo, undoesPage);
+  useShortcut(REDO, redo, undoesPage);
+  useShortcut(REDO_ALT, redo, undoesPage);
 
   return (
     <div className="flex">
-      <Button
-        variant="ghost"
+      <IconButton
         size="icon"
-        aria-label={t(($) => $.common.undo)}
+        label={t(($) => $.common.undo)}
+        shortcut={UNDO}
         disabled={!canUndo}
         onClick={undo}
       >
         <Undo2 />
-      </Button>
-      <Button
-        variant="ghost"
+      </IconButton>
+      <IconButton
         size="icon"
-        aria-label={t(($) => $.common.redo)}
+        label={t(($) => $.common.redo)}
+        shortcut={REDO}
         disabled={!canRedo}
         onClick={redo}
       >
         <Redo2 />
-      </Button>
+      </IconButton>
     </div>
   );
 }

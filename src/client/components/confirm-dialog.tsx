@@ -14,26 +14,34 @@ import {
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: ReactNode;
+  description: ReactNode;
   confirmLabel?: string;
-  variant?: "danger" | "default";
+  pendingLabel?: string;
+  isPending?: boolean;
+  variant?: "default" | "destructive";
   disabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
+/**
+ * Asks before an action runs.
+ * Confirming never closes the dialog by itself, the caller closes it,
+ * typically once the action succeeded, so it can show the pending state meanwhile.
+ */
 export function ConfirmDialog({
   open,
   title,
-  message,
+  description,
   confirmLabel,
+  pendingLabel,
+  isPending = false,
   variant = "default",
   disabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
-  const resolvedConfirmLabel = confirmLabel ?? t(($) => $.common.confirm);
 
   return (
     <AlertDialog
@@ -46,17 +54,22 @@ export function ConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div>{message}</div>
+            <div>{description}</div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t(($) => $.common.cancel)}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            disabled={disabled}
-            variant={variant === "danger" ? "destructive" : "default"}
+            onClick={(e) => {
+              e.preventDefault();
+              onConfirm();
+            }}
+            disabled={disabled || isPending}
+            variant={variant}
           >
-            {resolvedConfirmLabel}
+            {isPending && pendingLabel
+              ? pendingLabel
+              : (confirmLabel ?? t(($) => $.common.confirm))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

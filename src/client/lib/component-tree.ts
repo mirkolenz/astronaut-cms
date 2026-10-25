@@ -4,6 +4,7 @@
  * undo. Every change returns a new element and rewrites only what it touches,
  * so attributes the form cannot read keep their source text.
  */
+import i18n from "i18next";
 import type { RootContent } from "mdast";
 import type { MdxJsxFlowElement, MdxJsxTextElement } from "mdast-util-mdx";
 import type { ClientComponentDef } from "@/internal/user-config";
@@ -157,7 +158,7 @@ export function defaultProps(def: ClientComponentDef): Record<string, unknown> {
 
 /** What an instance is called in the admin. */
 export function labelOf(def: ClientComponentDef | undefined, element: MdxJsxElement): string {
-  return def?.label ?? element.name ?? "Fragment";
+  return def?.label ?? element.name ?? i18n.t(($) => $.editors.fragment);
 }
 
 /** The one-line name of an instance, such as its title. */

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { cn } from "cn";
 import { ChatComposer } from "@/client/components/ai/chat-composer";
-import { ChatError, ChatMessages, useCmsChat } from "@/client/components/ai/chat-view";
+import { ChatError, ChatMessages } from "@/client/components/ai/chat-view";
+import { useCmsChat } from "@/client/hooks/use-cms-chat";
 import { AiKeyGate, AiKeyReset } from "@/client/components/ai/key-gate";
 import { aiConfig } from "@/client/lib/ai/config";
 import { useAiKeyStore } from "@/client/stores/ai-key-store";
@@ -27,7 +29,7 @@ function AssistantPage() {
   if (aiConfig.byok && !key) {
     return (
       <div className="flex min-h-0 flex-1 items-center">
-        <AiKeyGate className={`${column} p-4`} />
+        <AiKeyGate className={cn(column, "p-4")} />
       </div>
     );
   }
@@ -35,10 +37,10 @@ function AssistantPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatMessages chat={chat} className={column} />
-      <ChatError chat={chat} className={`${column} mt-2`} />
-      <ChatComposer chat={chat} className={`${column} mt-2 shrink-0`} />
+      <ChatError chat={chat} className={cn(column, "mt-2")} />
+      <ChatComposer chat={chat} className={cn(column, "mt-2 shrink-0")} />
       {aiConfig.byok && (
-        <div className={`${column} flex justify-end`}>
+        <div className={cn(column, "flex justify-end")}>
           <AiKeyReset />
         </div>
       )}

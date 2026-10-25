@@ -29,7 +29,7 @@ import {
 } from "@/client/lib/component-tree";
 import { $isEmptyLine } from "@/client/lib/empty-lines";
 import { historicUpdate } from "@/client/lib/page-history";
-import { pastedChildren, readClipboard, toMdx, writeClipboard } from "@/client/lib/editor-content";
+import { pasteClipboard, pastedChildren, toMdx, writeClipboard } from "@/client/lib/editor-content";
 
 interface JsxNode extends LexicalNode {
   getMdastNode(): JsxChild;
@@ -242,9 +242,9 @@ export async function pasteChildren(
   parent: BlockSelection,
   childDefs: Record<string, ClientComponentDef>,
 ): Promise<void> {
-  const text = await readClipboard();
   const realm = getBodyRealm();
-  const children = text && realm ? pastedChildren(realm, text, childDefs) : undefined;
+  const children =
+    realm && (await pasteClipboard((text) => pastedChildren(realm, text, childDefs)));
 
   if (children) addAndSelect(parent, children);
 }

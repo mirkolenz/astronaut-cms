@@ -36,12 +36,20 @@ import {
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
 import { findComponent } from "@/shared/component-lookup";
+import { fieldSchemaToZod } from "@/shared/field-to-zod";
 import {
   asBlockContent,
   isJsxElement,
   misplacedComponents,
   type JsxChild,
 } from "@/client/lib/component-tree";
+import { uniqueName } from "@/shared/paths";
+import {
+  asRecord,
+  itemField,
+  type CollectionField,
+  type CollectionItem,
+} from "@/client/lib/field-values";
 import { $moveToEmptyLine, $selectInsertPoint } from "@/client/lib/empty-lines";
 import { claimHistory } from "@/client/lib/page-history";
 import { toast } from "@/client/components/toast";
@@ -243,6 +251,56 @@ export function pastedChildren(
   });
 }
 
+/** The items pasted into a collection, as the JSON of one item or of several, which must all fit it. */
+export function pastedItems(
+  collection: CollectionField,
+  items: readonly CollectionItem[],
+  text: string,
+): CollectionItem[] | undefined {
+  let value: unknown;
+
+  try {
+    value = JSON.parse(text);
+  } catch {
+    toast(
+      i18n.t(($) => $.editors.pasteInvalid),
+      "error",
+    );
+
+    return undefined;
+  }
+
+  const item = fieldSchemaToZod(itemField(collection));
+  const fits = (candidate: unknown) => item.safeParse(candidate).success;
+  const pasted: CollectionItem[] = [];
+
+  if (collection.type === "array") {
+    const entries = fits(value) || !Array.isArray(value) ? [value] : value;
+
+    for (const entry of entries) pasted.push([items.length + pasted.length, entry]);
+  } else {
+    const taken = new Set(items.map(([key]) => key));
+
+    for (const [name, entry] of Object.entries(asRecord(value))) {
+      const key = uniqueName(name, (candidate) => taken.has(candidate));
+
+      taken.add(key);
+      pasted.push([key, entry]);
+    }
+  }
+
+  if (pasted.length === 0 || !pasted.every(([, entry]) => fits(entry))) {
+    toast(
+      i18n.t(($) => $.editors.pasteUnfit),
+      "error",
+    );
+
+    return undefined;
+  }
+
+  return pasted;
+}
+
 /** Whether pasted text is written as a component, which then is inserted as one. */
 export function isComponentMdx(text: string): boolean {
   const name = /^\s*<([A-Za-z][\w.]*)/.exec(text)?.[1];
@@ -264,8 +322,12 @@ async function withClipboard<T>(use: (clipboard: Clipboard) => Promise<T>): Prom
   }
 }
 
-export const readClipboard = (): Promise<string | undefined> =>
-  withClipboard((clipboard) => clipboard.readText());
+/** Pastes the clipboard's text by `paste`, which an empty clipboard leaves out. */
+export async function pasteClipboard<T>(paste: (text: string) => T): Promise<T | undefined> {
+  const text = await withClipboard((clipboard) => clipboard.readText());
+
+  return text?.trim() ? paste(text) : undefined;
+}
 
 /** Writes text to the clipboard, and tells whether it did. */
 export const writeClipboard = async (text: string): Promise<boolean> =>

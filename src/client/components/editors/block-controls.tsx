@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ComponentProps, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowDown,
@@ -16,16 +16,22 @@ import {
 } from "lucide-react";
 import type { ComponentIcon } from "@/config";
 import type { ClientComponentDef } from "@/internal/user-config";
-import {
-  insertChild,
-  pasteChildren,
-  type BlockActions,
-  type Moves,
-} from "@/client/lib/block-editing";
-import { useMediaQuery } from "@/client/lib/use-media-query";
+import { insertChild, pasteChildren, type BlockActions } from "@/client/lib/block-editing";
+import { useSidebar } from "@/client/components/ui/sidebar";
 import { select, type BlockSelection } from "@/client/stores/inspector-store";
 import { SortableList } from "@/client/components/sortable-list";
+import { IconButton } from "@/client/components/icon-button";
 import { Button } from "@/client/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/client/components/ui/item";
+import { Empty, EmptyDescription } from "@/client/components/ui/empty";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -41,9 +47,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/client/components/ui/dropdown-menu";
-
-// Wide enough for the content and the docked inspector side by side.
-export const DOCKED = "(min-width: 80rem)";
 
 /** A step on the way back out of what the inspector shows. */
 export interface InspectorCrumb {
@@ -73,7 +76,7 @@ export function InspectorView({
 }) {
   const { t } = useTranslation();
   // Docked, the inspector stays. As a sheet over the content, it closes.
-  const docked = useMediaQuery(DOCKED);
+  const docked = !useSidebar().isMobile;
 
   return (
     <div className="space-y-4">
@@ -107,15 +110,9 @@ export function InspectorView({
         </div>
         {actions && <BlockActionBar actions={actions} />}
         {!docked && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t(($) => $.common.close)}
-            onClick={() => select(null)}
-          >
-            <X className="size-4" />
-          </Button>
+          <IconButton label={t(($) => $.common.close)} onClick={() => select(null)}>
+            <X />
+          </IconButton>
         )}
       </div>
 
@@ -124,50 +121,35 @@ export function InspectorView({
   );
 }
 
-/** Buttons moving something one place up and down, each greyed out where it cannot go. */
-export function MoveButtons({ moves }: { moves: Moves }) {
-  const { t } = useTranslation();
-
-  return ([-1, 1] as const).map((offset) => (
-    <Button
-      key={offset}
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label={offset < 0 ? t(($) => $.editors.moveUp) : t(($) => $.editors.moveDown)}
-      disabled={!moves[offset]}
-      onClick={moves[offset]}
-    >
-      {offset < 0 ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
-    </Button>
-  ));
-}
-
 /**
  * What can be done to a block, or an item of a list: moving it, the frequent
- * action, with a button each way, and the others behind one more.
+ * action, with a button each way greyed out where it cannot go, and the others behind one more.
  */
 function BlockActionBar({ actions }: { actions: BlockActions }) {
   const { t } = useTranslation();
 
   return (
     <>
-      <MoveButtons moves={actions.move} />
+      {([-1, 1] as const).map((offset) => (
+        <IconButton
+          key={offset}
+          label={offset < 0 ? t(($) => $.editors.moveUp) : t(($) => $.editors.moveDown)}
+          disabled={!actions.move[offset]}
+          onClick={actions.move[offset]}
+        >
+          {offset < 0 ? <ArrowUp /> : <ArrowDown />}
+        </IconButton>
+      ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t(($) => $.editors.actions)}
-          >
-            <Ellipsis className="size-4" />
-          </Button>
+          <IconButton label={t(($) => $.editors.actions)}>
+            <Ellipsis />
+          </IconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={actions.duplicate}>
             <CopyPlus />
-            {t(($) => $.entry.duplicate)}
+            {t(($) => $.editors.duplicate)}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={actions.copy}>
             <Copy />
@@ -293,10 +275,24 @@ export function MissingProps({ labels }: { labels: string[] }) {
   const message = t(($) => $.editors.missingProps, { props: labels.join(", ") });
 
   return (
-    <span title={message} className="shrink-0 text-amber-600 dark:text-amber-500">
-      <CircleAlert className="size-4" />
-      <span className="sr-only">{message}</span>
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="shrink-0 text-destructive">
+          <CircleAlert className="size-4" />
+          <span className="sr-only">{message}</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{message}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A hint where a list or form has nothing to show yet. */
+export function EmptyHint({ children }: { children: ReactNode }) {
+  return (
+    <Empty className="border border-border p-4">
+      <EmptyDescription>{children}</EmptyDescription>
+    </Empty>
   );
 }
 
@@ -304,11 +300,50 @@ interface BlockRow {
   icon?: ComponentIcon | null;
   label: string;
   summary?: string;
+  /** How many items it holds, for a list or record. */
+  count?: number;
   /** The labels of the required fields without a value. */
   missing?: string[];
   onOpen: () => void;
   /** Whether opening the row shows it in the inspector. */
   inspects?: boolean;
+}
+
+/** What opens a block, or a list of items, from a list or a form. */
+export function BlockRowButton({
+  icon: Icon,
+  label,
+  summary,
+  count,
+  missing = [],
+  onOpen,
+  inspects,
+  variant,
+}: BlockRow & Pick<ComponentProps<typeof Item>, "variant">) {
+  const { t } = useTranslation();
+
+  return (
+    <Item asChild size="xs" variant={variant} className="min-w-0 flex-1 text-left hover:bg-muted">
+      <button type="button" onClick={onOpen}>
+        {Icon && (
+          <ItemMedia variant="icon" className="text-muted-foreground">
+            <Icon />
+          </ItemMedia>
+        )}
+        <ItemContent className="min-w-0">
+          <ItemTitle>{label}</ItemTitle>
+          {summary && <ItemDescription className="line-clamp-1">{summary}</ItemDescription>}
+        </ItemContent>
+        <ItemActions className="gap-1 text-muted-foreground">
+          {count !== undefined && (
+            <span className="text-xs">{t(($) => $.editors.items, { count })}</span>
+          )}
+          <MissingProps labels={missing} />
+          {inspects && <ChevronRight className="size-4" />}
+        </ItemActions>
+      </button>
+    </Item>
+  );
 }
 
 /** A list of blocks, each opened by a click and, with `onMove`, reordered by dragging. */
@@ -318,6 +353,7 @@ export function BlockList<T>({
   getKey,
   onMove,
   row,
+  empty,
   children,
 }: {
   title?: string;
@@ -325,6 +361,8 @@ export function BlockList<T>({
   getKey: (item: T) => string;
   onMove?: (from: number, to: number) => void;
   row: (item: T) => BlockRow;
+  /** Shown while there are no items. */
+  empty?: string;
   /** Shown below the list. */
   children?: ReactNode;
 }) {
@@ -336,29 +374,14 @@ export function BlockList<T>({
         </h3>
       )}
       <SortableList items={items} getKey={getKey} onMove={onMove} className="space-y-0.5">
-        {(item, _, handle) => {
-          const { icon: Icon, label, summary, missing = [], onOpen, inspects } = row(item);
-
-          return (
-            <div className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-accent">
-              {handle}
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-                onClick={onOpen}
-              >
-                {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{label}</span>
-                {summary && <span className="truncate text-muted-foreground">{summary}</span>}
-                <span className="ml-auto flex shrink-0 items-center gap-1">
-                  <MissingProps labels={missing} />
-                  {inspects && <ChevronRight className="size-4 text-muted-foreground" />}
-                </span>
-              </button>
-            </div>
-          );
-        }}
+        {(item, _, handle) => (
+          <div className="flex items-center gap-1">
+            {handle}
+            <BlockRowButton {...row(item)} />
+          </div>
+        )}
       </SortableList>
+      {items.length === 0 && empty && <EmptyHint>{empty}</EmptyHint>}
       {children}
     </section>
   );
