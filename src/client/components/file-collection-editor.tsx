@@ -48,7 +48,7 @@ const NO_FIELDS: Record<string, FieldSchema> = {};
 
 export function FileCollectionEditor({ collection }: { collection: string }) {
   const { t } = useTranslation();
-  const { data: entries, isLoading, error } = useEntries(collection);
+  const { data: entries, error } = useEntries(collection);
   const meta = config.collections[collection];
   const schema = meta?.schema ?? undefined;
   const format =
@@ -122,16 +122,6 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
       },
     );
   };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
 
   if (error) {
     return (

@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import {
+  mediaQuery,
+  trashQuery,
   useMedia,
   useDeleteMedia,
   useRenameMedia,
@@ -11,6 +13,7 @@ import {
   usePurgeTrash,
 } from "@/client/queries/use-media";
 import config from "@/client/lib/config";
+import { preload } from "@/client/lib/query-client";
 import {
   describeReference,
   referencedPaths,
@@ -67,8 +70,21 @@ export const Route = createFileRoute("/media/$library")({
     },
     stringify: ({ library }) => ({ library }),
   },
+  loader: ({ params: { library } }) =>
+    Promise.all([preload(mediaQuery(library)), preload(trashQuery(library))]),
+  pendingComponent: MediaSkeleton,
   component: MediaRoute,
 });
+
+function MediaSkeleton() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <Skeleton key={i} className="h-40 rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
 /** Keyed by the library, so switching between them starts from a fresh view. */
 function MediaRoute() {
@@ -96,7 +112,7 @@ function formatSize(bytes: number): string {
 
 function MediaLibrary({ library }: { library: MediaLibraryId }) {
   const { t } = useTranslation();
-  const { data: files, isLoading, error } = useMedia(library);
+  const { data: files, error } = useMedia(library);
   const deleteMutation = useDeleteMedia();
   const upload = useMediaUpload(library, files);
   const renameMutation = useRenameMedia();
@@ -182,16 +198,6 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
     setReplaceTarget(null);
     e.target.value = "";
   };
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Skeleton key={i} className="h-32 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
 
   if (error) {
     return <ErrorBanner>{t(($) => $.media.failedLoad, { message: error.message })}</ErrorBanner>;

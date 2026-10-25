@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import config from "@/client/lib/config";
 import { mediaPath, type MediaLibraryId, type MediaLocation } from "@/shared/media";
 import type { AssetReference } from "@/shared/references";
@@ -13,17 +13,20 @@ import { useEntryContext } from "@/client/lib/entry-context";
  * deliberately sits outside the media key that every upload and delete
  * invalidates — and it reads every entry, so nothing fetches it eagerly.
  */
-export const REFERENCES_QUERY = {
+export const referencesQuery = queryOptions({
   queryKey: cmsKeys.references,
   queryFn: () => call("getReferences", {}),
   staleTime: 5 * 60 * 1000,
-};
+});
 
-export function useMedia(library: MediaLibraryId) {
-  return useQuery({
+export const mediaQuery = (library: MediaLibraryId) =>
+  queryOptions({
     queryKey: cmsKeys.media(library),
     queryFn: () => call("listMedia", { library }),
   });
+
+export function useMedia(library: MediaLibraryId) {
+  return useQuery(mediaQuery(library));
 }
 
 // What a library write ages is stated once per operation in `lib/query-keys.ts`
@@ -57,11 +60,14 @@ export function useRenameMedia() {
  * deletions git keeps, so the media view can ask without knowing which backend
  * it is talking to.
  */
-export function useTrash(library: MediaLibraryId) {
-  return useQuery({
+export const trashQuery = (library: MediaLibraryId) =>
+  queryOptions({
     queryKey: cmsKeys.trash(library),
     queryFn: () => call("listTrash", { library }),
   });
+
+export function useTrash(library: MediaLibraryId) {
+  return useQuery(trashQuery(library));
 }
 
 type TrashInput = { library: MediaLibraryId; id: string };
@@ -128,7 +134,7 @@ export function useAssetUrl(ref: string | undefined): string | undefined {
 export function useReferenceIndex() {
   const [requested, setRequested] = useState(false);
   const { data, isFetching, error, refetch } = useQuery({
-    ...REFERENCES_QUERY,
+    ...referencesQuery,
     enabled: requested,
   });
 

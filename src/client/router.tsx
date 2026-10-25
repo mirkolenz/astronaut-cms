@@ -5,6 +5,8 @@ export const router = createRouter({
   routeTree,
   history: createHashHistory(),
   defaultPreload: "intent",
+  // Freshness is React Query's to judge, so every preload asks the loader again.
+  defaultPreloadStaleTime: 0,
   scrollRestoration: true,
 });
 

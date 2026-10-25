@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, File, Folder } from "lucide-react";
 import { Link, Navigate, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEntries } from "@/client/queries/use-entries";
+import { entriesQuery, fileLayoutQuery, useEntries } from "@/client/queries/use-entries";
+import { preload } from "@/client/lib/query-client";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import {
@@ -30,12 +31,28 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/
 import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/collections/$collection/")({
+  loader: ({ params: { collection } }) =>
+    Promise.all([
+      preload(entriesQuery(collection)),
+      config.collections[collection]?.loaderType === "file" && preload(fileLayoutQuery(collection)),
+    ]),
+  pendingComponent: ListSkeleton,
   component: CollectionPage,
   validateSearch: (search: Record<string, unknown>): { dir?: string } => {
     const dir = typeof search.dir === "string" ? search.dir : "";
     return dir ? { dir } : {};
   },
 });
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} className="h-12 rounded-lg" />
+      ))}
+    </div>
+  );
+}
 
 function CollectionPage() {
   const { collection } = Route.useParams();
@@ -85,7 +102,7 @@ function GlobCollectionPage({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { dir = "" } = Route.useSearch();
-  const { data: entries, isLoading, error } = useEntries(collection);
+  const { data: entries, error } = useEntries(collection);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const allowedFormats = useMemo(
     () =>
@@ -120,16 +137,6 @@ function GlobCollectionPage({
       search: { new: format },
     });
   };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-12 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
 
   if (error) {
     return (

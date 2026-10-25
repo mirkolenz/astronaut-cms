@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { call } from "@/client/lib/api";
 import { cmsKeys } from "@/client/lib/query-keys";
 import type { EntryContent, SaveEntryRequest } from "@/shared/types";
@@ -8,18 +8,34 @@ import type { EntryContent, SaveEntryRequest } from "@/shared/types";
 // per operation in `lib/query-keys.ts` and applied by `call` itself, so the
 // assistant and any agent reaching the same operations get it too.
 
-export function useEntries(collection: string) {
-  return useQuery({
+// The query options are shared with the route loaders, which fetch them before
+// a page renders so it never paints a placeholder first.
+
+export const entriesQuery = (collection: string) =>
+  queryOptions({
     queryKey: cmsKeys.entries(collection),
     queryFn: () => call("listEntries", { collection }),
-    enabled: !!collection,
   });
+
+export const entryQuery = (collection: string, id: string) =>
+  queryOptions({
+    queryKey: cmsKeys.entry(collection, id),
+    queryFn: () => call("getEntry", { collection, id }),
+  });
+
+export const fileLayoutQuery = (collection: string) =>
+  queryOptions({
+    queryKey: cmsKeys.fileLayout(collection),
+    queryFn: () => call("getFileLayout", { collection }),
+  });
+
+export function useEntries(collection: string) {
+  return useQuery({ ...entriesQuery(collection), enabled: !!collection });
 }
 
 export function useEntry(collection: string, id: string, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: cmsKeys.entry(collection, id),
-    queryFn: () => call("getEntry", { collection, id }),
+    ...entryQuery(collection, id),
     enabled: (options?.enabled ?? true) && !!collection && !!id,
   });
 }
@@ -95,11 +111,7 @@ export function useDuplicateEntry(collection: string) {
  * with every write to the file, and it is what the next reorder is based on.
  */
 export function useFileLayout(collection: string) {
-  return useQuery({
-    queryKey: cmsKeys.fileLayout(collection),
-    queryFn: () => call("getFileLayout", { collection }),
-    enabled: !!collection,
-  });
+  return useQuery({ ...fileLayoutQuery(collection), enabled: !!collection });
 }
 
 export function useReorderFileEntries(collection: string) {
@@ -127,12 +139,14 @@ export function useBranchStatus() {
  * The pending changeset: everything written since the last publish, whoever
  * wrote it. Every write ages it, so it refreshes on its own while an agent runs.
  */
+export const changesQuery = queryOptions({
+  queryKey: cmsKeys.changes,
+  queryFn: () => call("getChanges", {}),
+  staleTime: CHANGESET_STALE_TIME,
+});
+
 export function useChanges() {
-  return useQuery({
-    queryKey: cmsKeys.changes,
-    queryFn: () => call("getChanges", {}),
-    staleTime: CHANGESET_STALE_TIME,
-  });
+  return useQuery(changesQuery);
 }
 
 export function usePublish() {

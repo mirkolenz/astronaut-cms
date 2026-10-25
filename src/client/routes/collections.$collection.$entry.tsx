@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+  entriesQuery,
+  entryQuery,
   useEntries,
   useEntry,
   useSaveEntry,
@@ -40,12 +42,13 @@ import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { TranslationSwitcher } from "@/client/components/translation-switcher";
 import { Button } from "@/client/components/ui/button";
 import config from "@/client/lib/config";
+import { preload } from "@/client/lib/query-client";
 import { collectionLabel, collectionSingleton } from "@/client/lib/collections";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 import { Skeleton } from "@/client/components/ui/skeleton";
 
 export const Route = createFileRoute("/collections/$collection/$entry")({
-  component: EntryEditor,
+  component: EntryRoute,
   // `new` carries the format of an entry that does not exist yet: the editor
   // holds it as a draft and the first save creates it.
   validateSearch: (search: Record<string, unknown>): { new?: EntryFormat } => {
@@ -53,7 +56,30 @@ export const Route = createFileRoute("/collections/$collection/$entry")({
 
     return format ? { new: format } : {};
   },
+  loaderDeps: ({ search }) => ({ isNew: search.new !== undefined }),
+  loader: ({ params: { collection, entry }, deps: { isNew } }) =>
+    Promise.all([
+      preload(entriesQuery(collection)),
+      !isNew && preload(entryQuery(collection, entry)),
+    ]),
+  pendingComponent: EntrySkeleton,
 });
+
+function EntrySkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-64 rounded-lg" />
+    </div>
+  );
+}
+
+/** Keyed by the entry, so its editor starts from that entry's content in the first frame. */
+function EntryRoute() {
+  const { collection, entry } = Route.useParams();
+
+  return <EntryEditor key={`${collection}/${entry}`} />;
+}
 
 function EntryEditor() {
   const { t } = useTranslation();
@@ -62,7 +88,7 @@ function EntryEditor() {
   const isNew = newFormat !== undefined;
   const navigate = useNavigate();
   const writeError = useWriteError();
-  const { data: entry, isLoading, error } = useEntry(collection, entryId, { enabled: !isNew });
+  const { data: entry, error } = useEntry(collection, entryId, { enabled: !isNew });
   const { data: entries } = useEntries(collection);
   const saveMutation = useSaveEntry(collection, entryId);
   const deleteMutation = useDeleteEntry(collection);
@@ -75,7 +101,7 @@ function EntryEditor() {
   const format = entry?.format ?? newFormat;
   const form = `${collection}/${entryId}`;
   const label = baseName(entryId);
-  const [editBody, setEditBody] = useState("");
+  const [editBody, setEditBody] = useState(entry?.body ?? "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRename, setShowRename] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
@@ -91,15 +117,16 @@ function EntryEditor() {
   const isDirty = isNew || formDirty || bodyDirty;
   const baselineVersion = useRef<string | undefined>(undefined);
 
-  // The fields and their history start over with each entry.
-  useEffect(() => () => resetForms(), [form]);
+  // Layout effects, so the fields are filled before the first paint. The reset
+  // must be one too, or the closing editor's would run after the next one opened.
+  useLayoutEffect(() => () => resetForms(), [form]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isNew)
       openForm(form, { values: schemaDefaults(shape), saved: null, shape: shape ?? {}, label });
   }, [form, isNew, shape, label]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (entry && !isDirty) {
       openForm(form, { values: entry.data, saved: entry.data, shape: shape ?? {}, label });
       setEditBody(entry.body);
@@ -251,15 +278,6 @@ function EntryEditor() {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 rounded-lg" />
-      </div>
-    );
-  }
 
   if (error) {
     return <ErrorBanner>{t(($) => $.entry.failedLoad, { message: error.message })}</ErrorBanner>;
