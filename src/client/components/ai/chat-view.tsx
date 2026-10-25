@@ -1,20 +1,26 @@
 import { useChat } from "@ai-sdk/react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, Bot } from "lucide-react";
+import { AlertTriangle, ArrowDown, Bot } from "lucide-react";
 import { isStaticToolUIPart } from "ai";
+import { cn } from "cn";
 import type { CmsUIMessage } from "@/client/lib/ai/agent";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationEmptyState,
-  ConversationScrollButton,
-} from "@/client/components/ai-elements/conversation";
-import { Message, MessageContent, MessageResponse } from "@/client/components/ai-elements/message";
+import { Markdown } from "@/client/components/ai/markdown";
 import { ReasoningTrace } from "@/client/components/ai/reasoning-trace";
 import { ToolCall } from "@/client/components/ai/tool-call";
 import { Button } from "@/client/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
-import { Spinner } from "@/client/components/ui/spinner";
+import { Bubble, BubbleContent } from "@/client/components/ui/bubble";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import { Message, MessageContent } from "@/client/components/ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/client/components/ui/message-scroller";
+import { TraceLine, TraceTitle } from "@/client/components/ui/trace";
 import { getChat } from "@/client/lib/ai/chat";
 
 /**
@@ -34,8 +40,16 @@ export type CmsChat = ReturnType<typeof useCmsChat>;
  * content), the CMS declares no data parts, and step boundaries carry no content
  * of their own. Hence the bare null.
  */
-function MessagePart({ part }: { part: CmsUIMessage["parts"][number] }) {
-  if (part.type === "text") return <MessageResponse>{part.text}</MessageResponse>;
+function MessagePart({ part, role }: { part: CmsUIMessage["parts"][number]; role: CmsUIMessage["role"] }) {
+  if (part.type === "text") {
+    return role === "user" ? (
+      <Bubble variant="muted">
+        <BubbleContent className="whitespace-pre-wrap">{part.text}</BubbleContent>
+      </Bubble>
+    ) : (
+      <Markdown streaming={part.state === "streaming"}>{part.text}</Markdown>
+    );
+  }
 
   if (part.type === "reasoning") return <ReasoningTrace part={part} />;
 
@@ -67,37 +81,55 @@ function isWorkingSilently({ status, messages }: CmsChat): boolean {
 export function ChatMessages({ chat, className }: { chat: CmsChat; className?: string }) {
   const { t } = useTranslation();
   const { messages } = chat;
+  // Only the turn the user sent last anchors, so a resumed conversation opens at its end.
+  const anchor = messages.findLastIndex((m) => m.role === "user");
 
   return (
-    <Conversation className="min-h-0 flex-1">
-      <ConversationContent className={className}>
-        {messages.length === 0 && (
-          <ConversationEmptyState
-            icon={<Bot className="size-6" />}
-            title={t(($) => $.ai.emptyTitle)}
-            description={t(($) => $.ai.emptyDescription)}
-          />
-        )}
+    <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
+      <MessageScroller className="min-h-0 flex-1">
+        <MessageScrollerViewport>
+          <MessageScrollerContent className={cn("py-4", className)}>
+            {messages.length === 0 && (
+              <MessageScrollerItem className="flex flex-1">
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Bot />
+                    </EmptyMedia>
+                    <EmptyTitle>{t(($) => $.ai.emptyTitle)}</EmptyTitle>
+                    <EmptyDescription>{t(($) => $.ai.emptyDescription)}</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              </MessageScrollerItem>
+            )}
 
-        {messages.map((m) => (
-          <Message from={m.role} key={m.id}>
-            <MessageContent>
-              {m.parts.map((part, i) => (
-                <MessagePart key={i} part={part} />
-              ))}
-            </MessageContent>
-          </Message>
-        ))}
+            {messages.map((m, index) => (
+              <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={index === anchor}>
+                <Message align={m.role === "user" ? "end" : "start"}>
+                  <MessageContent>
+                    {m.parts.map((part, i) => (
+                      <MessagePart key={i} part={part} role={m.role} />
+                    ))}
+                  </MessageContent>
+                </Message>
+              </MessageScrollerItem>
+            ))}
 
-        {isWorkingSilently(chat) && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Spinner />
-            {t(($) => $.ai.working)}
-          </div>
-        )}
-      </ConversationContent>
-      <ConversationScrollButton />
-    </Conversation>
+            {isWorkingSilently(chat) && (
+              <MessageScrollerItem>
+                <TraceLine status="running">
+                  <TraceTitle>{t(($) => $.ai.working)}</TraceTitle>
+                </TraceLine>
+              </MessageScrollerItem>
+            )}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton>
+          <ArrowDown />
+          <span className="sr-only">{t(($) => $.ai.scrollToEnd)}</span>
+        </MessageScrollerButton>
+      </MessageScroller>
+    </MessageScrollerProvider>
   );
 }
 

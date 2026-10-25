@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEventHandler, ClipboardEventHandler } from "react";
+import type { ChangeEventHandler, ClipboardEventHandler, KeyboardEventHandler, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Brain, FileText, Library, Paperclip, SquarePen, X } from "lucide-react";
+import { ArrowUp, Brain, FileText, Library, Paperclip, Square, SquarePen, X } from "lucide-react";
 import { nanoid } from "nanoid";
 import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputButton,
-  PromptInputFooter,
-  PromptInputHeader,
-  PromptInputProvider,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  type PromptInputMessage,
-} from "@/client/components/ai-elements/prompt-input";
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from "@/client/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -22,6 +17,7 @@ import {
   SelectValue,
 } from "@/client/components/ui/select";
 import { Button } from "@/client/components/ui/button";
+import { Spinner } from "@/client/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
 import { useAiSettingsStore } from "@/client/stores/ai-settings-store";
 import { aiConfig } from "@/client/lib/ai/config";
@@ -113,6 +109,30 @@ function AttachmentChip({
   );
 }
 
+/** An icon button in the composer's toolbar, named by its tooltip. */
+function ComposerButton({
+  label,
+  className,
+  onClick,
+  children,
+}: {
+  label: string;
+  className?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <InputGroupButton size="icon-sm" aria-label={label} className={className} onClick={onClick}>
+          {children}
+        </InputGroupButton>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // The chat composer shared by the sidebar panel and the assistant view: a text
 // prompt plus attachments. Images are shown to the model and, when their
 // library toggle is on, uploaded to the media directory; documents (txt/pdf/
@@ -125,11 +145,13 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
   const setEffort = useAiSettingsStore((state) => state.setEffort);
 
   const { sendMessage, status, stop, messages } = chat;
+  const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatRevision = useRef(0);
   const submitting = useRef(false);
+  const busy = status === "submitted" || status === "streaming";
 
   const addFiles = (list: FileList | File[]) => {
     const incoming = [...list].map((file) => ({ id: nanoid(), file, save: false }));
@@ -159,28 +181,31 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     }
   };
 
-  const handleSubmit = async (message: PromptInputMessage) => {
-    const text = message.text?.trim() ?? "";
+  // Enter sends, Shift+Enter breaks the line, and an IME composition keeps its Enter.
+  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
+  // The input keeps its text until the message is sent, so a refused or failed send loses nothing.
+  const submit = async () => {
+    const prompt = text.trim();
     const revision = chatRevision.current;
 
-    // The input keeps its text whenever this throws, so a refused or failed send loses nothing.
-    if (submitting.current || status === "submitted" || status === "streaming") {
-      throw new Error("A message is already being sent.");
-    }
-
-    if (!text && attachments.length === 0) return;
+    if (submitting.current || busy || (!prompt && attachments.length === 0)) return;
 
     submitting.current = true;
     setPreparing(true);
 
     let prepared;
     try {
-      prepared = await prepareMessage(text, attachments);
+      prepared = await prepareMessage(prompt, attachments);
     } catch (error) {
-      if (revision !== chatRevision.current) return;
+      if (revision === chatRevision.current) toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
 
-      toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
-      throw error;
+      return;
     } finally {
       submitting.current = false;
       setPreparing(false);
@@ -188,15 +213,25 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
 
     if (revision !== chatRevision.current) return;
 
+    setText("");
     setAttachments([]);
     void sendMessage({ text: prepared.text, files: prepared.files });
   };
 
+  // Nothing in the group is ever disabled, since the group mutes its entire
+  // contents whenever any descendant is: what has nothing to do is unmounted
+  // instead, and a send while one is prepared is ignored.
   return (
-    <PromptInputProvider>
-      <PromptInput onSubmit={handleSubmit} className={className} accept={ATTACHMENT_ACCEPT} multiple>
+    <form
+      className={className}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <InputGroup>
         {attachments.length > 0 && (
-          <PromptInputHeader>
+          <InputGroupAddon align="block-start" className="flex-wrap">
             {attachments.map((attachment) => (
               <AttachmentChip
                 key={attachment.id}
@@ -205,21 +240,21 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
                 onToggleSave={toggleSave}
               />
             ))}
-          </PromptInputHeader>
+          </InputGroupAddon>
         )}
 
-        <PromptInputBody>
-          <PromptInputTextarea placeholder={t(($) => $.ai.placeholder)} onPaste={handlePaste} />
-        </PromptInputBody>
+        <InputGroupTextarea
+          value={text}
+          placeholder={t(($) => $.ai.placeholder)}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+        />
 
-        <PromptInputFooter>
-          <PromptInputButton
-            tooltip={t(($) => $.ai.attach)}
-            aria-label={t(($) => $.ai.attach)}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="size-4" />
-          </PromptInputButton>
+        <InputGroupAddon align="block-end">
+          <ComposerButton label={t(($) => $.ai.attach)} onClick={() => fileInputRef.current?.click()}>
+            <Paperclip />
+          </ComposerButton>
           <input
             ref={fileInputRef}
             type="file"
@@ -229,14 +264,10 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
             onChange={handleInputChange}
           />
 
-          {/* Unmounted rather than disabled while there is nothing to clear: the
-              surrounding input group mutes its entire contents whenever any
-              descendant is disabled. Stops a running turn first; `stop` is a no-op
-              when idle. */}
+          {/* Stops a running turn first; `stop` is a no-op when idle. */}
           {messages.length > 0 && (
-            <PromptInputButton
-              tooltip={t(($) => $.ai.newChat)}
-              aria-label={t(($) => $.ai.newChat)}
+            <ComposerButton
+              label={t(($) => $.ai.newChat)}
               onClick={() => {
                 chatRevision.current++;
                 setAttachments([]);
@@ -244,13 +275,21 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
                 clearChat();
               }}
             >
-              <SquarePen className="size-4" />
-            </PromptInputButton>
+              <SquarePen />
+            </ComposerButton>
           )}
 
-          <Select value={effort} onValueChange={(value) => setEffort(value as ReasoningEffort)}>
+          <Select
+            value={effort}
+            onValueChange={(value) => {
+              const level = REASONING_EFFORTS.find((option) => option === value);
+
+              if (level) setEffort(level);
+            }}
+          >
             <SelectTrigger
-              className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none"
+              size="sm"
+              className="w-auto min-w-0 gap-1 border-none text-xs shadow-none"
               aria-label={t(($) => $.ai.reasoning)}
             >
               <Brain className="size-3.5 shrink-0 text-muted-foreground" />
@@ -267,7 +306,7 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
 
           {aiConfig && aiConfig.models.length > 1 && (
             <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="h-7 w-auto min-w-0 gap-1 border-none text-xs shadow-none">
+              <SelectTrigger size="sm" className="w-auto min-w-0 gap-1 border-none text-xs shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -280,14 +319,24 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
             </Select>
           )}
 
-          <PromptInputSubmit
-            className="ml-auto"
-            status={preparing ? "submitted" : status}
-            onStop={stop}
-            disabled={preparing}
-          />
-        </PromptInputFooter>
-      </PromptInput>
-    </PromptInputProvider>
+          {busy ? (
+            <ComposerButton label={t(($) => $.ai.stop)} className="ml-auto" onClick={() => void stop()}>
+              <Square />
+            </ComposerButton>
+          ) : (
+            <InputGroupButton
+              type="submit"
+              size="icon-sm"
+              variant="default"
+              className="ml-auto"
+              aria-label={t(($) => $.ai.send)}
+              aria-disabled={preparing}
+            >
+              {preparing ? <Spinner /> : <ArrowUp />}
+            </InputGroupButton>
+          )}
+        </InputGroupAddon>
+      </InputGroup>
+    </form>
   );
 }

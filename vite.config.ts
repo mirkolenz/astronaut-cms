@@ -25,7 +25,6 @@ export default defineConfig({
       // the ES one micromark imports, the same parser twice.
       acorn: fileURLToPath(import.meta.resolve("acorn")),
       // Slimmer stand-ins for what the admin's dependencies import.
-      shiki: src("client/bundle/shiki.ts"),
       "@codemirror/language-data": src("client/bundle/codemirror-languages.ts"),
       "rehype-raw": src("client/bundle/disabled-plugin.ts"),
     }),

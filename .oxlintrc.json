@@ -1,8 +1,9 @@
 {
   "ignorePatterns": [
     "src/**/*.gen.ts",
-    "src/client/components/ai-elements/**",
-    "src/client/components/ui/**"
+    "src/client/components/ui/**",
+    "src/client/hooks/**",
+    "src/client/lib/highlighter.tsx"
   ],
   "overrides": [
     {

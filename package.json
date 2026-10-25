@@ -48,7 +48,8 @@
     "build": "vite build",
     "typecheck": "tsc",
     "test": "vitest run",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "shadcnup": "shadcn add --yes --overwrite $(basename -s .tsx src/client/components/ui/*.tsx)"
   },
   "dependencies": {
     "@types/mdast": "^4",
@@ -81,8 +82,7 @@
     "@fontsource-variable/geist": "^5",
     "@lexical/history": "^0.52",
     "@mdxeditor/editor": "^4",
-    "@streamdown/cjk": "^1",
-    "@streamdown/code": "^2",
+    "@shadcn/react": "^0.3",
     "@tailwindcss/typography": "^0.5",
     "@tailwindcss/vite": "^4",
     "@tanstack/react-query": "^5",
@@ -119,7 +119,6 @@
     "tw-animate-css": "^1",
     "typescript": "^6",
     "unpdf": "^1",
-    "use-stick-to-bottom": "^1",
     "vite": "^8",
     "vitest": "^5",
     "zod": "^4",

@@ -1,3 +1,4 @@
+import { getToolName } from "ai";
 import type { TFunction } from "i18next";
 import type { CmsToolUIPart } from "@/client/lib/ai/agent";
 import { isRefusal } from "@/shared/tools/types";
@@ -33,7 +34,7 @@ const ENTRY_WRITES: Array<[prefix: string, message: Message]> = [
 export function describeToolCall(part: CmsToolUIPart, t: TFunction): ToolSummary | null {
   if (part.state !== "output-available" || isRefusal(part.output)) return null;
 
-  const name = part.type.slice("tool-".length);
+  const name = getToolName(part);
   const input = (part.input ?? {}) as Record<string, unknown>;
   const id = text(input.id);
   const collection = text(input.collection);

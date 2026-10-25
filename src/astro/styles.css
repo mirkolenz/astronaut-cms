@@ -15,8 +15,9 @@
    comes from the user's own files, and every file Tailwind scans is one it also
    watches, which turns unrelated content edits into dev-server reloads.
    The package build compiles it beside the admin bundle, so an installed site
-   gets plain CSS. */
+   gets plain CSS. Streamdown renders the chat's markdown with classes of its own. */
 @source "../";
+@source "../../node_modules/streamdown/dist/*.js";
 
 @theme inline {
   --font-heading: var(--font-sans);

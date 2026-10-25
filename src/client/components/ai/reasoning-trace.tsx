@@ -1,14 +1,16 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReasoningUIPart } from "ai";
-import { Brain, ChevronDown } from "lucide-react";
+import { Brain } from "lucide-react";
+import { Markdown } from "@/client/components/ai/markdown";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/client/components/ui/collapsible";
-import { MessageResponse } from "@/client/components/ai-elements/message";
-import { cn } from "cn";
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceIcon,
+  TraceLine,
+  TraceTitle,
+} from "@/client/components/ui/trace";
 import type { TFunction } from "i18next";
 
 // Long enough to notice the thought finished, short enough not to shove the
@@ -46,10 +48,7 @@ function useThinkingDuration(isStreaming: boolean): number | undefined {
 
 /**
  * The model's own reasoning: expanded while it streams, collapsed once it is
- * done, and left closed for a trace already in the transcript. Built from the
- * project's own primitives rather than the registry's `reasoning` element, whose
- * generated source does not typecheck (it spreads the collapsible's props into
- * the markdown renderer) and which pulls in an animation library for one label.
+ * done, and left closed for a trace already in the transcript.
  */
 function ReasoningTraceView({ part }: { part: ReasoningUIPart }) {
   const { t } = useTranslation();
@@ -72,19 +71,20 @@ function ReasoningTraceView({ part }: { part: ReasoningUIPart }) {
   }, [isStreaming]);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="not-prose">
-      <CollapsibleTrigger className="flex w-full items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-        <Brain className="size-4 shrink-0" />
-        <span className={cn(isStreaming && "animate-pulse")}>
-          {thinkingLabel(t, isStreaming, duration)}
-        </span>
-        <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-      </CollapsibleTrigger>
+    <TraceCollapsible open={open} onOpenChange={setOpen}>
+      <TraceCollapsibleTrigger>
+        <TraceLine status={isStreaming ? "running" : undefined}>
+          <TraceIcon>
+            <Brain />
+          </TraceIcon>
+          <TraceTitle>{thinkingLabel(t, isStreaming, duration)}</TraceTitle>
+        </TraceLine>
+      </TraceCollapsibleTrigger>
 
-      <CollapsibleContent className="mt-2 border-l-2 border-border pl-3 text-sm text-muted-foreground">
-        <MessageResponse>{part.text}</MessageResponse>
-      </CollapsibleContent>
-    </Collapsible>
+      <TraceCollapsibleContent>
+        <Markdown streaming={isStreaming}>{part.text}</Markdown>
+      </TraceCollapsibleContent>
+    </TraceCollapsible>
   );
 }
 

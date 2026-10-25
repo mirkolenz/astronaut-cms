@@ -17,6 +17,7 @@ import { activeVariant } from "@/shared/field-to-zod";
 import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
 import { arrayMove } from "@/client/lib/arrays";
+import { formatJson } from "@/client/lib/format-json";
 import {
   asArray,
   asRecord,
@@ -889,9 +890,7 @@ function NullableWrapper({
 
 function FallbackField({ value, onChange, ...shell }: FieldProps<unknown>) {
   const { t } = useTranslation();
-  const [text, setText] = useState(() =>
-    typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? ""),
-  );
+  const [text, setText] = useState(() => formatJson(value));
 
   return (
     <FieldShell {...shell} hint={{ icon: Braces, text: t(($) => $.editors.raw) }}>

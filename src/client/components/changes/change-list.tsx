@@ -12,7 +12,7 @@ import {
 import type { ChangeKind, FileChange } from "@/shared/types";
 import { describeChange } from "@/client/lib/changes";
 import { Card } from "@/client/components/ui/card";
-import { CodeBlock } from "@/client/components/ai-elements/code-block";
+import { HighlightedCode } from "@/client/components/highlighted-code";
 import {
   Collapsible,
   CollapsibleContent,
@@ -80,7 +80,7 @@ function ChangeRow({ change }: { change: FileChange }) {
       </div>
       <CollapsibleContent className="px-3 pb-3">
         {described.patch ? (
-          <CodeBlock code={described.patch} language="diff" />
+          <HighlightedCode code={described.patch} language="diff" />
         ) : (
           <p className="text-xs text-muted-foreground">{t(($) => $.changes.noDiff)}</p>
         )}
