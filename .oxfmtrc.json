@@ -1,6 +1,7 @@
 {
   "ignorePatterns": [
     "src/**/*.gen.ts",
+    "src/astro/shadcn.css",
     "src/client/components/ui/**",
     "src/client/hooks/**",
     "src/client/lib/highlighter.tsx"

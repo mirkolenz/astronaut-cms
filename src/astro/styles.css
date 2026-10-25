@@ -1,14 +1,13 @@
+/*! shadcn/tailwind.css | MIT License | https://github.com/shadcn-ui/ui */
 @import "@mdxeditor/editor/style.css";
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./shadcn.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
 @plugin "@tailwindcss/typography";
-
-@plugin "tailwind-scrollbar-hide";
 
 /* The admin's classes all live in this package, so scanning stops at `src/`
    instead of walking up into the site that embeds it: nothing the CMS renders
