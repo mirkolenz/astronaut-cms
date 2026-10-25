@@ -1,3 +1,5 @@
+// Must stay the first import.
+import "@/client/jitless";
 import { createRoot } from "react-dom/client";
 import { AdminApp } from "@/client/app";
 
