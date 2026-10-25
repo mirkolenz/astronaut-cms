@@ -372,7 +372,13 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             // Every entry ships bundled already, and a site's editors import the
             // admin's primitives, which have to be its own module instances.
             // Pre-bundled, an entry would be a copy of what it shares.
-            optimizeDeps: { exclude: ["astronaut-cms"] },
+            // The admin imports the CMS config, which Astro's client scan skips
+            // as a `.ts` file. Its dependencies would then be optimized late,
+            // and the reload that follows 504s modules already served.
+            optimizeDeps: {
+              exclude: ["astronaut-cms"],
+              ...(userConfigPath && { entries: [userConfigPath] }),
+            },
           },
         });
 
