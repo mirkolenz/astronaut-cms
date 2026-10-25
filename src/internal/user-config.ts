@@ -6,7 +6,7 @@
  * instance. This module is intentionally free of any `astro:*` / `astro/*`
  * import, so nothing Node-only leaks into the client.
  */
-import type { ComponentDefinition, ComponentIcon, JsxEditor } from "../config.ts";
+import type { CollectionOptions, ComponentDefinition, ComponentIcon, JsxEditor } from "../config.ts";
 import type { ComponentSchema } from "../shared/field-schema.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { schemaHelpers } from "../shared/cms-markers.ts";
@@ -62,4 +62,13 @@ export function processUserConfig(
   }
 
   return result;
+}
+
+/** The collections' icons by name, the one option the manifest cannot carry, being live components. */
+export function processCollectionIcons(
+  collections: Record<string, CollectionOptions> | undefined,
+): Record<string, ComponentIcon> {
+  return Object.fromEntries(
+    Object.entries(collections ?? {}).flatMap(([name, { icon }]) => (icon ? [[name, icon]] : [])),
+  );
 }

@@ -7,6 +7,7 @@
  */
 import { extractFormatsFromLoader, singletonEntry } from "../types.ts";
 import { describeMediaRef } from "../media.ts";
+import { collectionLabel } from "../labels.ts";
 import { componentOverview, type ComponentOverview } from "./components.ts";
 import type { ToolConfig } from "./types.ts";
 
@@ -19,6 +20,8 @@ export interface ContentModel {
   collections: Record<
     string,
     {
+      label: string;
+      description: string | null;
       type: string;
       formats: string[] | null;
       reorderable: boolean;
@@ -39,6 +42,8 @@ export function contentModel(config: ToolConfig): ContentModel {
       Object.entries(config.collections).map(([name, col]) => [
         name,
         {
+          label: collectionLabel(col),
+          description: col.description ?? null,
           type: col.type,
           formats: extractFormatsFromLoader(col.loaderPattern, col.loaderFileName),
           reorderable: col.sort === "file",

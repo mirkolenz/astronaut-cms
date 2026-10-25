@@ -37,6 +37,7 @@ import { useCollectionI18n } from "@/client/lib/content-i18n";
 import { TranslationSwitcher } from "@/client/components/translation-switcher";
 import { Button } from "@/client/components/ui/button";
 import config from "@/client/lib/config";
+import { collectionLabel, collectionSingleton } from "@/client/lib/collections";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 import { Skeleton } from "@/client/components/ui/skeleton";
 
@@ -66,6 +67,7 @@ function EntryEditor() {
   const duplicateMutation = useDuplicateEntry(collection);
 
   const meta = config.collections[collection];
+  const singleton = collectionSingleton(collection) !== null;
   const shape = objectShape(meta?.schema);
   const format = entry?.format ?? newFormat;
   const form = `${collection}/${entryId}`;
@@ -263,7 +265,8 @@ function EntryEditor() {
 
   const isContentFormat = !(DATA_FORMATS as readonly string[]).includes(format);
 
-  const contentFilePath = meta && entryFilePath(meta, entryId, format);
+  // A new entry is written where the id puts it, an existing one stays in its file.
+  const contentFilePath = entry?.path ?? (meta && entryFilePath(meta, entryId, format));
 
   return (
     <EntryContextProvider value={contentFilePath ? { contentFilePath } : null}>
@@ -271,9 +274,12 @@ function EntryEditor() {
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold">
-              {baseName(entryId)}
+              {singleton ? collectionLabel(collection) : baseName(entryId)}
               <span className="ml-2 text-sm font-normal text-muted-foreground">.{format}</span>
             </h1>
+            {singleton && meta?.description && (
+              <p className="mt-0.5 text-sm text-muted-foreground">{meta.description}</p>
+            )}
             {i18n && entryLocale && (
               <div className="mt-1.5">
                 <TranslationSwitcher
@@ -300,7 +306,7 @@ function EntryEditor() {
             <Button onClick={handleSave} disabled={saveMutation.isPending || !isDirty}>
               {saveMutation.isPending ? t(($) => $.common.saving) : t(($) => $.common.save)}
             </Button>
-            {!isNew && (
+            {!isNew && !singleton && (
               <>
                 <Button
                   variant="outline"

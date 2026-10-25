@@ -34,7 +34,7 @@ import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { EntryContextProvider } from "@/client/lib/entry-context";
 import { toast } from "@/client/components/toast";
-import { toLabel } from "@/client/lib/to-label";
+import { collectionDescription, collectionLabel } from "@/client/lib/collections";
 import { getFileExtension } from "@/shared/content-parser";
 import { Button } from "@/client/components/ui/button";
 import { Badge } from "@/client/components/ui/badge";
@@ -142,9 +142,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
         <div className="min-h-0 min-w-0 flex-1 overflow-auto">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
+              <h1 className="text-xl font-semibold">{collectionLabel(collection)}</h1>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {t(($) => $.collection.fileCollection)} &middot;{" "}
+                {collectionDescription(collection)} &middot;{" "}
                 {t(($) => $.collection.entries, { count: sortedEntries?.length ?? 0 })}
               </p>
             </div>

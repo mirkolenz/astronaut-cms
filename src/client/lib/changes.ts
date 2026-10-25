@@ -1,7 +1,8 @@
 import config from "@/client/lib/config";
 import { libraryDirectories } from "@/shared/media";
-import { stripExtension, stripMediaPrefix } from "@/shared/paths";
-import { collectionBase, type FileChange } from "@/shared/types";
+import { stripMediaPrefix } from "@/shared/paths";
+import { globEntry, singletonEntry, type FileChange } from "@/shared/types";
+import { collectionLabel } from "@/client/lib/collections";
 
 /** A changed file mapped back onto the content model the user recognizes. */
 export interface DescribedChange extends FileChange {
@@ -23,17 +24,18 @@ export function describeChange(change: FileChange): DescribedChange {
   const { path } = change;
 
   for (const [name, col] of Object.entries(config.collections)) {
+    const label = collectionLabel(name);
+
     if (col.loaderFileName) {
-      if (path === col.loaderFileName) return { ...change, collection: name, label: name };
+      if (path === col.loaderFileName) return { ...change, collection: name, label };
       continue;
     }
 
-    const base = `${collectionBase(name, col)}/`;
+    // Bases may nest, a singleton's often holding other collections, so only a loaded file counts.
+    const entry = globEntry(col, path);
 
-    if (path.startsWith(base)) {
-      const entryId = stripExtension(path.slice(base.length));
-
-      return { ...change, collection: name, entryId, label: `${name} / ${entryId}` };
+    if (entry) {
+      return { ...change, collection: name, entryId: entry.id, label: singletonEntry(col) ? label : `${label} / ${entry.id}` };
     }
   }
 

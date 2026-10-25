@@ -1,7 +1,7 @@
 import { isRecord, isRequired, type FieldSchema } from "@/shared/field-schema";
 import { activeVariant } from "@/shared/field-to-zod";
 import { uniqueName } from "@/shared/paths";
-import { toLabel } from "@/client/lib/to-label";
+import { toLabel } from "@/shared/labels";
 
 /** A value inside the values of a form, by field names, list indices and record keys. */
 export type ValuePath = readonly (string | number)[];

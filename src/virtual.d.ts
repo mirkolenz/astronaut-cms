@@ -37,9 +37,14 @@ declare module "virtual:astronaut-cms/order" {
   export const fileOrder: Record<string, string[]>;
 }
 
-/** The site's components, lowered in the admin, where `icon` and `editor` are live. */
+/**
+ * The site's components, lowered in the admin, where `icon` and `editor` are
+ * live, and its collections' icons, which are live too.
+ */
 declare module "virtual:astronaut-cms/user-config" {
   import type { ComponentManifest } from "@/internal/user-config";
+  import type { ComponentIcon } from "@/config";
 
   export const components: ComponentManifest;
+  export const collectionIcons: Record<string, ComponentIcon>;
 }

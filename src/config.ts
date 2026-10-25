@@ -66,6 +66,11 @@ export interface CollectionOptions {
    * editors can then change.
    */
   sort?: CollectionSort;
+  /** What the admin calls the collection (default: its name, title-cased). */
+  label?: string;
+  /** What the collection is for, shown in the admin and told to agents. */
+  description?: string;
+  icon?: ComponentIcon;
 }
 
 /**

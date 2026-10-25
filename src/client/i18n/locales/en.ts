@@ -33,8 +33,6 @@ const en = {
   dashboard: {
     noCollections: "No collections found",
     defineCollections: "Define collections in your content.config.ts",
-    contentCollection: "Content collection",
-    dataCollection: "Data collection",
     fields: "Fields: {{count}}",
   },
   collection: {

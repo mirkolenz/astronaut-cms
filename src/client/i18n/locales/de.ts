@@ -36,8 +36,6 @@ const de: TranslationShape<typeof en> = {
   dashboard: {
     noCollections: "Keine Sammlungen gefunden",
     defineCollections: "Definieren Sie Sammlungen in Ihrer content.config.ts",
-    contentCollection: "Inhaltssammlung",
-    dataCollection: "Datensammlung",
     fields: "Felder: {{count}}",
   },
   collection: {

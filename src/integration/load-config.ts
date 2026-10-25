@@ -175,7 +175,7 @@ function withOptions(
 ): CollectionManifest {
   const resolved = { ...manifest };
 
-  for (const [name, { sort }] of Object.entries(options)) {
+  for (const [name, { sort, label, description }] of Object.entries(options)) {
     const collection = resolved[name];
 
     if (!collection) {
@@ -190,7 +190,8 @@ function withOptions(
       );
     }
 
-    if (sort) resolved[name] = { ...collection, sort };
+    // The icon is a live component, which the admin reads off `cms.config` itself.
+    resolved[name] = { ...collection, sort: sort ?? collection.sort, label, description };
   }
 
   return resolved;

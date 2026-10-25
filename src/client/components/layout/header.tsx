@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { toLabel } from "@/client/lib/to-label";
+import { collectionLabel, collectionSingleton } from "@/client/lib/collections";
 import { baseName, dirSegments, parentDir } from "@/client/lib/entry-tree";
 import { joinLocale, splitLocale } from "@/shared/i18n";
 import { useEntries } from "@/client/queries/use-entries";
@@ -35,7 +35,10 @@ export function Header() {
   const i18n = useCollectionI18n(useEntries(collection ?? "").data);
 
   const segments: BreadcrumbSegment[] = [{ label: t(($) => $.layout.breadcrumbRoot), to: "/" }];
-  if (collection) {
+  // A singleton's one entry is the collection, so there is no listing to link to.
+  if (collection && collectionSingleton(collection)) {
+    segments.push({ label: collectionLabel(collection) });
+  } else if (collection) {
     // Folder trail: the entry's parent folders when editing an entry, otherwise
     // the directory currently being browsed on the collection index. Its leading
     // segment is the language, which the collection page shows as tabs rather
@@ -49,7 +52,7 @@ export function Header() {
       search: { dir: locale ? joinLocale(locale, path) : path },
     });
 
-    segments.push({ label: toLabel(collection), ...dirLink("") });
+    segments.push({ label: collectionLabel(collection), ...dirLink("") });
 
     for (const folder of dirSegments(slug)) {
       segments.push({ label: folder.name, ...dirLink(folder.path) });

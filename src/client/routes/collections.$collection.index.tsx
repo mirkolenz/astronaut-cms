@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, File, Folder } from "lucide-react";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, Navigate, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEntries } from "@/client/queries/use-entries";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
-import { toLabel } from "@/client/lib/to-label";
+import { collectionDescription, collectionLabel, collectionSingleton } from "@/client/lib/collections";
 import { baseName, listDirectory } from "@/client/lib/entry-tree";
 import { localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
@@ -36,12 +36,31 @@ export const Route = createFileRoute("/collections/$collection/")({
 function CollectionPage() {
   const { collection } = Route.useParams();
   const collectionInfo = config.collections[collection];
+  const singleton = collectionSingleton(collection);
+
+  if (singleton) return <SingletonRedirect collection={collection} {...singleton} />;
 
   if (collectionInfo?.loaderType === "file") {
     return <FileCollectionEditor collection={collection} />;
   }
 
   return <GlobCollectionPage collection={collection} collectionInfo={collectionInfo} />;
+}
+
+/** A singleton opens its one entry, as a draft until its file exists. */
+function SingletonRedirect({ collection, id, format }: { collection: string; id: string; format: EntryFormat }) {
+  const { data: entries } = useEntries(collection);
+
+  if (!entries) return null;
+
+  return (
+    <Navigate
+      to="/collections/$collection/$entry"
+      params={{ collection, entry: id }}
+      search={entries.some((entry) => entry.id === id) ? {} : { new: format }}
+      replace
+    />
+  );
 }
 
 function GlobCollectionPage({
@@ -64,25 +83,21 @@ function GlobCollectionPage({
       ),
     [collectionInfo?.loaderPattern, collectionInfo?.loaderFileName],
   );
-  const filteredEntries = useMemo(() => {
-    if (!entries || !allowedFormats) return entries;
-    return entries.filter((e) => allowedFormats.includes(e.format));
-  }, [entries, allowedFormats]);
-  const i18n = useCollectionI18n(filteredEntries);
+  const i18n = useCollectionI18n(entries);
   const locales = i18n?.locales ?? [];
   const { activeLocale, subDir, browseDir } = browseLocation(i18n, dir);
 
   const sort = collectionInfo?.sort ?? "id";
   const { folders, files } = useMemo(
-    () => listDirectory(filteredEntries ?? [], browseDir, (entry) => entry.id, compareIds(sort)),
-    [filteredEntries, browseDir, sort],
+    () => listDirectory(entries ?? [], browseDir, (entry) => entry.id, compareIds(sort)),
+    [entries, browseDir, sort],
   );
   const isEmpty = folders.length === 0 && files.length === 0;
 
   // The header counts what the active language actually holds, so a half-translated
   // collection never reports one inflated total across all of them.
   const localeCount =
-    i18n && activeLocale ? countIn(i18n, activeLocale) : (filteredEntries?.length ?? 0);
+    i18n && activeLocale ? countIn(i18n, activeLocale) : (entries?.length ?? 0);
 
   // Nothing is written yet: the editor holds the new entry until its first save,
   // so an abandoned one leaves no invalid file behind.
@@ -115,12 +130,10 @@ function GlobCollectionPage({
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{toLabel(collection)}</h1>
+          <h1 className="text-xl font-semibold">{collectionLabel(collection)}</h1>
           {collectionInfo && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {collectionInfo.type === "content"
-                ? t(($) => $.collection.contentCollection)
-                : t(($) => $.collection.dataCollection)}{" "}
+              {collectionDescription(collection)}{" "}
               &middot; {t(($) => $.collection.entries, { count: localeCount })}
             </p>
           )}

@@ -43,6 +43,7 @@ import { Textarea } from "@/client/components/ui/textarea";
 import { Switch } from "@/client/components/ui/switch";
 import { Label } from "@/client/components/ui/label";
 import { Button } from "@/client/components/ui/button";
+import { collectionLabel } from "@/client/lib/collections";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
 import {
   Select,
@@ -496,7 +497,7 @@ function ReferenceField({
   };
 
   return (
-    <FieldShell {...shell} hint={{ icon: LinkIcon, text: collection }}>
+    <FieldShell {...shell} hint={{ icon: LinkIcon, text: collectionLabel(collection) }}>
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Input

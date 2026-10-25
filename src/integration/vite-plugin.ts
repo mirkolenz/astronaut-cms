@@ -138,9 +138,10 @@ export const fileOrder = ${JSON.stringify(fileOrder)};`;
 }
 
 function generateUserConfigModule(configPath: string | null): string {
-  if (!configPath) return "export const components = {};";
+  if (!configPath) return "export const components = {};\nexport const collectionIcons = {};";
   return `\
 import * as config from ${JSON.stringify(configPath)};
-import { processUserConfig } from "astronaut-cms/internal";
-export const components = processUserConfig(config.components);`;
+import { processCollectionIcons, processUserConfig } from "astronaut-cms/internal";
+export const components = processUserConfig(config.components);
+export const collectionIcons = processCollectionIcons(config.collections);`;
 }
