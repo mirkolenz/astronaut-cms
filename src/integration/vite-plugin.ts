@@ -87,6 +87,13 @@ export const components = ${JSON.stringify(options.components)};`,
         watch: (path) => this.addWatchFile(path),
       });
     },
+
+    // The asset maps import every library file lazily, only so a render loads no
+    // more than it shows. A file the site also imports statically stays in its
+    // chunk, which is fine, so the warning that it does says nothing to act on.
+    onLog(_level, log) {
+      return !(log.code === "INEFFECTIVE_DYNAMIC_IMPORT" && log.ids?.includes("\0virtual:astronaut-cms/assets"));
+    },
   };
 
   return [editorStubPlugin(), virtualModulesPlugin];
