@@ -96,7 +96,7 @@
     "astro": "^7",
     "class-variance-authority": "^0.7",
     "cmdk": "^1",
-    "cn": "^0.4",
+    "cn": "^0.5",
     "i18next": "^26",
     "lexical": "^0.52",
     "lucide-react": "^1",
