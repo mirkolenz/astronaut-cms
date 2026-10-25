@@ -25,9 +25,6 @@
     "dist",
     "src/astro/*.astro"
   ],
-  "engines": {
-    "node": ">=26"
-  },
   "type": "module",
   "exports": {
     ".": "./dist/server/integration.js",
@@ -72,7 +69,7 @@
   "devDependencies": {
     "@ai-sdk/openai-compatible": "^3",
     "@ai-sdk/react": "^4",
-    "@astrojs/react": "^6",
+    "@astrojs/react": "^7",
     "@codemirror/lang-css": "^6",
     "@codemirror/lang-html": "^6",
     "@codemirror/lang-javascript": "^6",
@@ -82,10 +79,10 @@
     "@codemirror/language": "^6",
     "@codemirror/legacy-modes": "^6",
     "@fontsource-variable/geist": "^5",
-    "@lexical/history": "^0.48",
+    "@lexical/history": "^0.52",
     "@mdxeditor/editor": "^4",
     "@streamdown/cjk": "^1",
-    "@streamdown/code": "^1",
+    "@streamdown/code": "^2",
     "@tailwindcss/typography": "^0.5",
     "@tailwindcss/vite": "^4",
     "@tanstack/react-query": "^5",
@@ -99,9 +96,9 @@
     "astro": "^7",
     "class-variance-authority": "^0.7",
     "cmdk": "^1",
-    "cn": "^0.3",
+    "cn": "^0.4",
     "i18next": "^26",
-    "lexical": "^0.48",
+    "lexical": "^0.52",
     "lucide-react": "^1",
     "mammoth": "^1",
     "mdast-util-to-markdown": "^2",
@@ -129,7 +126,7 @@
     "zustand": "^5"
   },
   "peerDependencies": {
-    "@astrojs/react": "^6",
+    "@astrojs/react": "^7",
     "astro": "^7",
     "react": "^19",
     "react-dom": "^19",
@@ -140,5 +137,8 @@
     "@streamdown/code": {
       "shiki": "^4"
     }
+  },
+  "engines": {
+    "node": ">=26"
   }
 }
