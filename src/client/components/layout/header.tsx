@@ -6,7 +6,11 @@ import { baseName, dirSegments, parentDir } from "@/client/lib/entry-tree";
 import { joinLocale, splitLocale } from "@/shared/i18n";
 import { useEntries } from "@/client/queries/use-entries";
 import { useCollectionI18n } from "@/client/lib/content-i18n";
+import { Scale } from "lucide-react";
+import { fileUrl } from "@/client/lib/routes";
+import { LICENSES_PATH } from "@/shared/auth";
 import { UiLocaleMenu } from "@/client/components/layout/ui-locale-menu";
+import { Button } from "@/client/components/ui/button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -78,7 +82,12 @@ export function Header() {
           ))}
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center">
+        <Button variant="ghost" size="icon-sm" asChild>
+          <a href={fileUrl(LICENSES_PATH)} target="_blank" rel="noopener" aria-label={t(($) => $.layout.licenses)}>
+            <Scale />
+          </a>
+        </Button>
         <UiLocaleMenu />
       </div>
     </header>

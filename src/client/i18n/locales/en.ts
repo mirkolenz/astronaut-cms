@@ -25,6 +25,7 @@ const en = {
     collections: "Collections",
     workspace: "Workspace",
     breadcrumbRoot: "CMS",
+    licenses: "Third-party licenses",
   },
   auth: {
     signIn: "Sign in",

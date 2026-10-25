@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "pathe";
 import type { CmsConfig } from "./types.ts";
-import { API_BASE, API_CALLBACK, API_PATTERN } from "../shared/auth.ts";
+import { API_BASE, API_CALLBACK, API_PATTERN, LICENSES_PATH } from "../shared/auth.ts";
 import { gatewayAddress } from "../shared/ai.ts";
 import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
 import { megabytes } from "../shared/media.ts";
@@ -413,6 +413,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           pattern: API_PATTERN,
           entrypoint: "astronaut-cms/endpoint",
           prerender: false,
+        });
+        // A deployed admin distributes the packages its bundles inline, so their notices travel with it.
+        injectRoute({
+          pattern: LICENSES_PATH,
+          entrypoint: "astronaut-cms/licenses",
+          prerender: true,
         });
 
         logger.info(`Admin panel will be available at ${mountPoint}`);

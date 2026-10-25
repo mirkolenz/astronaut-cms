@@ -23,7 +23,8 @@
   ],
   "files": [
     "dist",
-    "src/astro/*.astro"
+    "src/astro/*.astro",
+    "src/astro/licenses.ts"
   ],
   "type": "module",
   "exports": {
@@ -37,7 +38,8 @@
     "./bootstrap": "./dist/admin/bootstrap.js",
     "./internal": "./dist/server/internal.js",
     "./endpoint": "./dist/server/endpoint.js",
-    "./server-local": "./dist/server/server-local.js"
+    "./server-local": "./dist/server/server-local.js",
+    "./licenses": "./src/astro/licenses.ts"
   },
   "publishConfig": {
     "access": "public",

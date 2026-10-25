@@ -15,8 +15,11 @@ export type Provider = (typeof PROVIDERS)[number];
 /** The element the shell renders and the admin mounts into, carrying the site's routing. */
 export const ADMIN_ROOT_ID = "astronaut-cms-root";
 
-/** Root-relative base of the CMS API. Astro prepends the site `base`. */
-export const API_BASE = "/_astronaut-cms/api";
+/** Root-relative prefix of everything the CMS serves. Astro prepends the site `base`. */
+const CMS_BASE = "/_astronaut-cms";
+
+/** Root-relative base of the CMS API. */
+export const API_BASE = `${CMS_BASE}/api`;
 
 /** Injected-route pattern covering every CMS API path (see `server/endpoint.ts`). */
 export const API_PATTERN = `${API_BASE}/[...path]`;
@@ -32,6 +35,9 @@ export const API_LOGIN = `${API_BASE}/login`;
 export const API_CALLBACK = `${API_BASE}/callback`;
 export const API_LOGOUT = `${API_BASE}/logout`;
 export const API_RPC = `${API_BASE}/rpc`;
+
+/** Root-relative path of the notices of the packages the admin bundles. */
+export const LICENSES_PATH = `${CMS_BASE}/THIRD_PARTY_LICENSES.txt`;
 
 /**
  * Operations one {@link API_RPC} request may carry. Part of the protocol rather

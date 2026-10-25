@@ -28,6 +28,7 @@ const de: TranslationShape<typeof en> = {
     collections: "Sammlungen",
     workspace: "Arbeitsbereich",
     breadcrumbRoot: "CMS",
+    licenses: "Lizenzen Dritter",
   },
   auth: {
     signIn: "Anmelden",
