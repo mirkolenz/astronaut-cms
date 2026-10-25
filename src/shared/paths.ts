@@ -2,12 +2,13 @@
  * Path shapes both sides of the CMS have to agree on: the storage backends build
  * them, the admin reads them back off a changeset.
  */
-import { relative } from "pathe";
+import { join, relative } from "pathe";
 
-export function stripExtension(filename: string): string {
-  const dot = filename.lastIndexOf(".");
+/** The project-relative path joining `parts`, the project root spelled `""` rather than `"."`. */
+export function projectPath(...parts: string[]): string {
+  const path = join(...parts);
 
-  return dot === -1 ? filename : filename.slice(0, dot);
+  return path === "." ? "" : path;
 }
 
 /** The library-relative form of a repository path, or null when it is outside the library. */

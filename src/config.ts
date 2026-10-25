@@ -18,6 +18,7 @@ export type ComponentIcon = (props: { className?: string }) => ReactNode;
  * there is no spelling that resolves in one place and not the other.
  */
 export {
+  anchorMarker as anchor,
   fileMarker as file,
   libraryImage,
   linkMarker as link,

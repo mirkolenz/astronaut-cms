@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "@/server/errors";
 import { ContentValidationError } from "@/shared/diagnostics";
 import {
   StaleWriteError,
@@ -37,10 +36,6 @@ class MemoryStorage extends StubStorage {
       : Promise.reject(Object.assign(new Error(`No such file: ${path}`), { code: "ENOENT" }));
   }
 
-  protected override fetchRawEntry(collection: string, id: string, ext: string): Promise<VersionedContent> {
-    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
-  }
-
   protected override commitFile(
     path: string,
     content: string,
@@ -72,44 +67,14 @@ class MemoryStorage extends StubStorage {
     return this.files.get(path)?.content;
   }
 
-  override listEntries() {
-    return Promise.resolve([{ id: "hello", collection: "posts", format: "md" as const }]);
+  protected override globPaths() {
+    return Promise.resolve(this.files.keys());
   }
 }
 
 class FileStorage extends StubStorage {
-  override listEntries(collection: string) {
-    return this.listFileCollectionEntries(collection);
-  }
-
   protected override fetchFileContent(): Promise<VersionedContent> {
     return Promise.resolve({ content: "{" });
-  }
-}
-
-class EntryFailureStorage extends StubStorage {
-  calls = 0;
-  private readonly failure: "provider" | "parse" | "missing";
-
-  constructor(collections: CollectionManifest, failure: "provider" | "parse" | "missing") {
-    super(storageOptions(collections));
-    this.failure = failure;
-  }
-
-  protected override fetchRawEntry(
-    _collection: string,
-    _id: string,
-    format: string,
-  ): Promise<VersionedContent> {
-    this.calls += 1;
-
-    if (this.failure === "provider") return Promise.reject(new ApiError(503, "Unavailable"));
-    if (this.failure === "parse") return Promise.resolve({ content: "{" });
-    if (format === "json") {
-      return Promise.reject(Object.assign(new Error("Missing"), { code: "ENOENT" }));
-    }
-
-    return Promise.resolve({ content: "name: Found\n" });
   }
 }
 
@@ -120,10 +85,6 @@ class ContainerStorage extends StubStorage {
     version: "v1",
   };
   private writes = 1;
-
-  override listEntries(collection: string) {
-    return this.listFileCollectionEntries(collection);
-  }
 
   protected override fetchFileContent(): Promise<VersionedContent> {
     return Promise.resolve(this.file);
@@ -155,19 +116,6 @@ const collections: CollectionManifest = {
     loaderFileName: null,
     sort: "id",
     schema: { type: "object", shape: { title: { type: "string" } } },
-  },
-};
-
-const dataCollections: CollectionManifest = {
-  data: {
-    name: "data",
-    type: "data",
-    loaderType: "glob",
-    loaderPattern: "**/*.json",
-    loaderBase: "src/data",
-    loaderFileName: null,
-    sort: "id",
-    schema: null,
   },
 };
 
@@ -309,7 +257,7 @@ describe("entry versions", () => {
     await expect(
       store.saveEntry("posts", "hello", { ...entry(), createOnly: true }),
     ).rejects.toBeInstanceOf(StaleWriteError);
-    await expect(store.getEntry("posts", "hello", "md")).resolves.toMatchObject({
+    await expect(store.getEntry("posts", "hello")).resolves.toMatchObject({
       body: "\nBody\n",
     });
   });
@@ -323,25 +271,6 @@ describe("entry versions", () => {
     await expect(
       store.saveEntry("posts", "hello", { ...entry(), createOnly: true, expectedVersion: "v1" }),
     ).resolves.toBe("v2");
-  });
-});
-
-describe("entry format fallback", () => {
-  it.each(["provider", "parse"] as const)("surfaces a %s failure immediately", async (failure) => {
-    const store = new EntryFailureStorage(dataCollections, failure);
-
-    await expect(store.getEntry("data", "item", "json")).rejects.not.toThrow(/Entry not found/);
-    expect(store.calls).toBe(1);
-  });
-
-  it("tries the next format when a file is genuinely absent", async () => {
-    const store = new EntryFailureStorage(dataCollections, "missing");
-
-    await expect(store.getEntry("data", "item", "json")).resolves.toMatchObject({
-      data: { name: "Found" },
-      format: "yaml",
-    });
-    expect(store.calls).toBe(2);
   });
 });
 
@@ -393,7 +322,7 @@ it("keeps untyped TOML dates and quoted date-looking text distinct", async () =>
     'published = 2026-01-01\nupdated = 2026-01-01T10:00:00+02:00\nnote = "2026-01-01"\n',
   );
 
-  const read = await store.getEntry("events", "launch", "toml");
+  const read = await store.getEntry("events", "launch");
   const data = overJson(read.data);
 
   await store.saveEntry("events", "launch", { data, body: "", format: "toml" });

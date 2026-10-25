@@ -166,8 +166,9 @@ export type MediaContent = {
  */
 export interface StorageBackend {
   listEntries(collection: string): Promise<EntryMeta[]>;
-  /** `format` is a hint from a listing, saving the fallback search over extensions. */
-  getEntry(collection: string, id: string, format?: string): Promise<EntryContent>;
+  getEntry(collection: string, id: string): Promise<EntryContent>;
+  /** The entry a listing reported, read without looking it up in the listing again. */
+  readEntry(meta: EntryMeta): Promise<EntryContent>;
   /**
    * Answers with the version the entry now has, so the editor that saved can
    * keep editing without its next write looking stale. Absent for a backend that

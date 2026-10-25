@@ -128,6 +128,7 @@ describe("GitHub requests", () => {
   it("reads large file contents from the blob API", async () => {
     stubFetch([
       { status: 404, body: {} },
+      { body: { tree: [{ type: "blob", path: "src/content/blog/large.md", sha: "large" }] } },
       { body: { type: "file", sha: "large", content: "", encoding: "none" } },
       {
         body: {
@@ -137,11 +138,11 @@ describe("GitHub requests", () => {
       },
     ]);
 
-    const entry = await storage().getEntry("posts", "large", "md");
+    const entry = await storage().getEntry("posts", "large");
 
     expect(entry.data).toEqual({ title: "Large" });
     expect(entry.body).toBe("\nBody\n");
-    expect(calls[2]?.url).toBe("https://api.github.com/repos/acme/site/git/blobs/large");
+    expect(calls[3]?.url).toBe("https://api.github.com/repos/acme/site/git/blobs/large");
   });
 
   it("does not turn a failed repository listing into an empty repository", async () => {

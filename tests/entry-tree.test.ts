@@ -8,7 +8,7 @@ const entries: EntryMeta[] = [
   "guides/deployment",
   "guides/advanced/caching",
   "reference/api",
-].map((id) => ({ id, collection: "docs", format: "md" }));
+].map((id) => ({ id, collection: "docs", format: "md", path: `src/content/docs/${id}.md` }));
 
 describe("listDirectory", () => {
   it("groups the root into immediate folders and files", () => {

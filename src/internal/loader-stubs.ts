@@ -35,16 +35,19 @@ export interface LoaderMarker {
   __cmsBase?: string | URL | null;
   __cmsFileName?: string | null;
   __cmsCustomParser?: true;
+  __cmsCustomId?: true;
 }
 
 export function defineCollection<T>(config: T): T {
   return config;
 }
 
-export function glob(options: Pick<AstroGlobOptions, "pattern" | "base">): LoaderMarker {
+export function glob(options: Pick<AstroGlobOptions, "pattern" | "base" | "generateId">): LoaderMarker {
   return {
-    __cmsPattern: options.pattern ?? null,
-    __cmsBase: options.base ?? null,
+    __cmsPattern: options.pattern,
+    // Astro reads from the project root when no base is given.
+    __cmsBase: options.base ?? ".",
+    ...(options.generateId && { __cmsCustomId: true }),
   };
 }
 

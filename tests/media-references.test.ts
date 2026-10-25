@@ -30,6 +30,7 @@ function index(): ReferenceIndex {
 
   indexEntry(result, posts, {
     id: "hello",
+    path: "src/content/blog/hello.md",
     format: "md",
     data: { cover: "/src/assets/cover.png" },
     body: "Prose with ![alt](../../assets/inline.png) and a note on ../../assets/brief.pdf.",

@@ -198,10 +198,7 @@ export const operations = {
     ctx.storage.listEntries(input.collection),
   ),
 
-  getEntry: op(
-    entryRef.extend({ format: z.string().optional() }),
-    (ctx, { collection, id, format }) => ctx.storage.getEntry(collection, id, format),
-  ),
+  getEntry: op(entryRef, (ctx, { collection, id }) => ctx.storage.getEntry(collection, id)),
 
   /**
    * Answers with the entry's new version rather than a bare acknowledgement, so

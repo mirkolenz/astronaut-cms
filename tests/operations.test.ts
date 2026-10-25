@@ -7,7 +7,7 @@ import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
 import { ContentValidationError } from "@/shared/diagnostics";
 import { changesetDigest } from "@/shared/digest";
 import { referencesFor } from "@/shared/references";
-import type { FileChange } from "@/shared/types";
+import type { EntryMeta, FileChange } from "@/shared/types";
 
 // The operation registry is the security boundary: a compromised admin can call
 // anything here and nothing else. These pin the two properties that makes true —
@@ -146,10 +146,11 @@ describe("media reference acknowledgements", () => {
       const actions: string[] = [];
       const storage = {
         listEntries: async (collection: string) =>
-          ids.map((id) => ({ collection, id, format: "md" as const })),
-        getEntry: async (_collection: string, id: string) => ({
+          ids.map((id) => ({ collection, id, format: "md" as const, path: `src/content/blog/${id}.md` })),
+        readEntry: async ({ id, path, format }: EntryMeta) => ({
           id,
-          format: "md" as const,
+          path,
+          format,
           data: {},
           body: "![cover](../../assets/cover.png)",
         }),

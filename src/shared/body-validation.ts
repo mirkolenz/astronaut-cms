@@ -14,6 +14,7 @@
  */
 import type { Root } from "mdast";
 import type { Program } from "estree";
+import GithubSlugger from "github-slugger";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { mdxjs } from "micromark-extension-mdxjs";
 import {
@@ -45,6 +46,7 @@ interface BodyNode {
   type: string;
   name?: string | null;
   url?: string;
+  value?: string;
   attributes?: Array<MdxJsxAttribute | MdxJsxExpressionAttribute>;
   children?: BodyNode[];
   data?: { estree?: Program | null };
@@ -53,12 +55,13 @@ interface BodyNode {
 // The nearest CMS-component ancestor of a node, or null at the document root.
 type Parent = { name: string; def: ComponentSchema } | null;
 
-// Everything the walk carries: the registry it validates against, plus the two
-// output lists it appends to.
+// Everything the walk carries: the registry it validates against, the slugger that
+// derives heading ids as astro does, plus the two output lists it appends to.
 interface WalkContext {
   components: ComponentSchemaMap;
   topLevel: ReadonlySet<string>;
   sources: ReadonlySet<string>;
+  slugger: GithubSlugger;
   diagnostics: Diagnostic[];
   leaves: ResolvableLeaf[];
 }
@@ -71,6 +74,32 @@ function isComponentName(name: string): boolean {
 // Every `source` a registered component is imported from, nested ones included.
 function componentSources(components: ComponentSchemaMap): Set<string> {
   return new Set(componentEntries(components).flatMap(([, def]) => (def.source ? [def.source] : [])));
+}
+
+// The text a node renders, which astro derives a heading's id from.
+function textOf(node: BodyNode): string {
+  if (node.type === "text" || node.type === "inlineCode") return node.value ?? "";
+
+  return (node.children ?? []).map(textOf).join("");
+}
+
+// A heading is an anchor and a Markdown link may target one, so both are checked
+// along with the anchors and links among the props.
+function markdownLeaf(ctx: WalkContext, node: BodyNode): ResolvableLeaf | null {
+  switch (node.type) {
+    case "heading": {
+      const text = textOf(node);
+
+      return { kind: "anchor", value: ctx.slugger.slug(text), path: `heading "${text}"` };
+    }
+
+    case "link":
+    case "definition":
+      return node.url ? { kind: "link", value: node.url, path: "Markdown link" } : null;
+
+    default:
+      return null;
+  }
 }
 
 // Why a node that is not a JSX element breaks the subset, or null when it does
@@ -225,6 +254,10 @@ function walk(ctx: WalkContext, nodes: BodyNode[], parent: Parent): void {
 
     if (violation) ctx.diagnostics.push(diagnostic(violation));
 
+    const leaf = markdownLeaf(ctx, node);
+
+    if (leaf) ctx.leaves.push(leaf);
+
     const isElement = node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement";
     // A fragment has no name and passes its component context through.
     const name = isElement ? node.name : null;
@@ -261,7 +294,10 @@ function walk(ctx: WalkContext, nodes: BodyNode[], parent: Parent): void {
 
 export interface BodyValidation {
   diagnostics: Diagnostic[];
-  /** Asset and reference props found on components, for the caller to resolve. */
+  /**
+   * Asset, reference, link and anchor props found on components, plus the links
+   * and headings of the Markdown, for the caller to resolve.
+   */
   leaves: ResolvableLeaf[];
   /** URLs the body embeds as markdown images. */
   images: string[];
@@ -311,6 +347,7 @@ export function validateBody(
     components,
     topLevel: new Set(Object.keys(components)),
     sources: componentSources(components),
+    slugger: new GithubSlugger(),
     diagnostics: [],
     leaves: [],
   };

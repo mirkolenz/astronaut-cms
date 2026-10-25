@@ -72,6 +72,7 @@ const complete = { title: "T", publishDate: "2026-01-01", cover: "/src/assets/he
 const write = (data: Record<string, unknown>) => ({
   col: posts,
   id: "x",
+  path: "src/content/blog/x.md",
   data,
   body: "",
   format: "md",

@@ -30,12 +30,7 @@ import type {
   FileChange,
   TrashedFile,
 } from "../../shared/types.ts";
-import {
-  CONTENT_FORMATS,
-  DATA_FORMATS,
-  asEntryFormat,
-  collectionBase,
-} from "../../shared/types.ts";
+import { asEntryFormat, entryFilePath, globEntry } from "../../shared/types.ts";
 import {
   parseContent,
   parseMultiEntryFile,
@@ -46,11 +41,11 @@ import {
   type MultiEntryFile,
 } from "../../shared/content-parser.ts";
 import {
-  validateSegment,
-  validatePath,
-  validateFormat,
-} from "../../shared/validation.ts";
-import { assertEntryWritable, type ContentSource, type MediaSource } from "../validation.ts";
+  assertEntryDeletable,
+  assertEntryWritable,
+  type ContentSource,
+  type MediaSource,
+} from "../validation.ts";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
@@ -61,7 +56,7 @@ import {
 } from "../../shared/media.ts";
 import { isRecord, type ComponentSchemaMap, type FieldSchema } from "../../shared/field-schema.ts";
 import { activeVariant } from "../../shared/field-to-zod.ts";
-import { stripExtension, stripMediaPrefix } from "../../shared/paths.ts";
+import { stripMediaPrefix } from "../../shared/paths.ts";
 import { HttpError, checked } from "../errors.ts";
 import { ContentValidationError, diagnostic } from "../../shared/diagnostics.ts";
 import { assertLibraryPath } from "@/server/library-path";
@@ -132,6 +127,27 @@ function restoreTomlDates<T>(
 /** Both providers hand file contents back this way, whitespace and all. */
 export const fromBase64 = (content: string): string => new TextDecoder().decode(Uint8Array.fromBase64(content));
 
+/**
+ * What `load` answers for `key`, loaded at most once into `cache` and shared by
+ * every caller. A failure is dropped rather than kept, so the next caller
+ * retries instead of reading it.
+ */
+export function memoized<K, V>(cache: Map<K, Promise<V>>, key: K, load: () => Promise<V>): Promise<V> {
+  const cached = cache.get(key);
+
+  if (cached) return cached;
+
+  const pending = load().catch((error: unknown): never => {
+    if (cache.get(key) === pending) cache.delete(key);
+
+    throw error;
+  });
+
+  cache.set(key, pending);
+
+  return pending;
+}
+
 /** A file collection's container, parsed. */
 interface FileCollection extends MultiEntryFile {
   path: string;
@@ -177,6 +193,12 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * N-entry collection would otherwise fetch and re-parse it N times.
    */
   private readonly containers = new Map<string, Promise<FileCollection>>();
+  /**
+   * Each collection's listing, made at most once between writes. Every entry
+   * read and write looks its entry up in it, so a rename would otherwise list
+   * the collection three times.
+   */
+  private readonly listings = new Map<string, Promise<EntryMeta[]>>();
 
   constructor(options: StorageOptions) {
     this.options = options;
@@ -189,7 +211,27 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     this.libraryOf = libraryOf;
   }
 
-  abstract listEntries(collection: string): Promise<EntryMeta[]>;
+  listEntries(collection: string): Promise<EntryMeta[]> {
+    return memoized(this.listings, collection, async () => {
+      const col = this.schemas[collection];
+
+      if (!col) return [];
+
+      if (this.isFileCollection(collection)) return this.listFileCollectionEntries(collection);
+
+      return Iterator.from(await this.globPaths(col))
+        .map((path) => globEntry(col, path))
+        .filter((entry) => entry !== null)
+        .map((entry) => ({ ...entry, collection }))
+        .toArray();
+    });
+  }
+
+  /**
+   * Repository paths at or below a glob collection's `globRoots`, of which the
+   * listing keeps the files its loader loads.
+   */
+  protected abstract globPaths(col: CollectionManifestEntry): Promise<Iterable<string>>;
   abstract listMedia(): Promise<MediaFile[]>;
   /**
    * All three take repository paths, lowered by the funnels below, and persist a
@@ -202,23 +244,28 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   ): Promise<void>;
   protected abstract moveMedia(from: string, to: string): Promise<void>;
   protected abstract removeMedia(repoPath: string): Promise<void>;
-  /** A content write, after which the container this request read is stale. */
+  /** A content write, after which what this request read is stale. */
   private async persist(
     path: string,
     content: string,
     message: string,
     precondition?: Precondition,
   ): Promise<string | undefined> {
-    const version = await this.commitFile(path, content, message, precondition);
+    try {
+      return await this.commitFile(path, content, message, precondition);
+    } finally {
+      this.invalidate();
+    }
+  }
 
+  /** Drops the listings and containers this request read, which a write has made stale. */
+  protected invalidate(): void {
     this.containers.clear();
-
-    return version;
+    this.listings.clear();
   }
 
   private async tomlEntryData(
-    collection: string,
-    id: string,
+    path: string,
     data: Record<string, unknown>,
     schema: FieldSchema | null,
     createOnly: boolean,
@@ -226,7 +273,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     let previous: Record<string, unknown> | undefined;
 
     try {
-      if (!createOnly) previous = parseContent((await this.fetchRawEntry(collection, id, "toml")).content, "toml").data;
+      if (!createOnly) previous = parseContent((await this.fetchFileContent(path)).content, "toml").data;
     } catch (err) {
       if (!isNotFound(err)) throw err;
     }
@@ -273,8 +320,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     data: SaveEntryRequest,
   ): Promise<string | undefined> {
     const col = this.schema(collection);
+    // An existing entry keeps its file, whose name astro may have slugged into
+    // the id, so a new one also has to be absent from the listing.
+    const stored = this.isFileCollection(collection) ? undefined : await this.storedEntry(collection, id);
+    const path =
+      !data.createOnly && stored?.format === data.format ? stored.path : entryFilePath(col, id, data.format);
 
-    await assertEntryWritable(this.contentSource, { col, id, ...data });
+    await assertEntryWritable(this.contentSource, { col, id, path, ...data });
+
+    if (data.createOnly && stored && stored.path !== path) throw staleWrite(`${collection}/${id}`);
 
     const edited = this.isFileCollection(collection)
       ? await this.editFileCollection(collection, (entries, format) => {
@@ -288,10 +342,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
           );
         })
       : {
-          path: this.getEntryPath(collection, id, data.format),
+          path,
           content: serializeContent(
             data.format === "toml"
-              ? await this.tomlEntryData(collection, id, data.data, col.schema, data.createOnly ?? false)
+              ? await this.tomlEntryData(path, data.data, col.schema, data.createOnly ?? false)
               : data.data,
             data.body,
             data.format,
@@ -319,6 +373,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   async deleteEntry(collection: string, id: string, expectedVersion?: string): Promise<void> {
     const message = `Delete ${collection}/${id}`;
 
+    assertEntryDeletable(this.schema(collection));
+
     if (this.isFileCollection(collection)) {
       const { path, content } = await this.editFileCollection(collection, (entries) => {
         entries.delete(id);
@@ -329,11 +385,15 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       return;
     }
 
-    const format = await this.storedFormat(collection, id);
+    const stored = await this.storedEntry(collection, id);
 
-    if (!format) throw new Error(`Entry not found: ${collection}/${id}`);
+    if (!stored) throw new Error(`Entry not found: ${collection}/${id}`);
 
-    return this.removeFile(this.getEntryPath(collection, id, format), message, expectedVersion);
+    try {
+      await this.removeFile(stored.path, message, expectedVersion);
+    } finally {
+      this.invalidate();
+    }
   }
 
   /**
@@ -361,41 +421,28 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     await this.persist(path, content, `Reorder ${collection}`, versioned(expectedVersion));
   }
 
-  async getEntry(collection: string, id: string, format?: string): Promise<EntryContent> {
-    const col = this.schema(collection);
+  async getEntry(collection: string, id: string): Promise<EntryContent> {
+    const stored = await this.storedEntry(collection, id);
 
+    if (!stored) throw new Error(`Entry not found: ${collection}/${id}`);
+
+    return this.readEntry(stored);
+  }
+
+  async readEntry({ collection, id, path, format }: EntryMeta): Promise<EntryContent> {
     if (this.isFileCollection(collection)) {
-      const { format, entries, version } = await this.readFileCollection(collection);
+      const { entries, version } = await this.readFileCollection(collection);
       const data = entries.get(id);
 
       if (!data) throw new Error(`Entry not found: ${collection}/${id}`);
 
-      return { id, data, body: "", format, ...(version && { version }) };
+      return { id, path, data, body: "", format, ...(version && { version }) };
     }
 
-    const known: readonly EntryFormat[] = col.type === "content" ? CONTENT_FORMATS : DATA_FORMATS;
+    const { content, version } = await this.fetchFileContent(path);
+    const { data, body } = parseContent(content, format);
 
-    // Which extension an entry is stored under is in the listing, and a listing
-    // is one request that every backend already caches for the life of this one.
-    // Without it this loop probes each format in turn, so an `.mdoc` entry costs
-    // three round trips and a miss costs four.
-    const hint = (format && asEntryFormat(format)) || (await this.storedFormat(collection, id));
-    const extensions = hint ? [hint, ...known.filter((ext) => ext !== hint)] : known;
-
-    for (const ext of extensions) {
-      try {
-        const { content, version } = await this.fetchRawEntry(collection, id, ext);
-        const { data, body } = parseContent(content, ext);
-
-        return { id, data, body, format: ext, ...(version && { version }) };
-      } catch (error) {
-        if (!isNotFound(error)) throw error;
-
-        continue;
-      }
-    }
-
-    throw new Error(`Entry not found: ${collection}/${id}`);
+    return { id, path, data, body, format, ...(version && { version }) };
   }
 
   /** A copy under a new id, which works uniformly because saveEntry branches on layout. */
@@ -435,15 +482,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       return;
     }
 
-    const { data, format } = await this.getEntry(collection, oldId);
+    const entry = await this.getEntry(collection, oldId);
 
-    await assertEntryWritable(this.contentSource, {
-      col: this.schema(collection),
-      id: newId,
-      data,
-      body: "",
-      format,
-    });
+    await assertEntryWritable(this.contentSource, { ...entry, col: this.schema(collection), id: newId });
 
     const { path, content } = await this.editFileCollection(collection, (entries) => {
       if (entries.has(newId)) throw staleWrite(`${collection}/${newId}`);
@@ -459,19 +500,9 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     );
   }
 
-  /** The format the listing reports for an entry, or null when it holds no such entry. */
-  private async storedFormat(collection: string, id: string): Promise<EntryFormat | null> {
-    const entries = await this.listEntries(collection);
-
-    return entries.find((entry) => entry.id === id)?.format ?? null;
-  }
-
-  protected async fetchRawEntry(
-    collection: string,
-    id: string,
-    ext: string,
-  ): Promise<VersionedContent> {
-    return this.fetchFileContent(this.getEntryPath(collection, id, ext));
+  /** The entry as the memoized listing reports it, or undefined when there is none. */
+  private async storedEntry(collection: string, id: string): Promise<EntryMeta | undefined> {
+    return (await this.listEntries(collection)).find((entry) => entry.id === id);
   }
 
   /** The raw content of a repository file, by project-relative path. */
@@ -628,15 +659,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * so the listing, the layout and a write all see the same parse.
    */
   private readFileCollection(collection: string): Promise<FileCollection> {
-    const cached = this.containers.get(collection);
-
-    if (cached) return cached;
-
-    const pending = this.loadFileCollection(collection);
-
-    this.containers.set(collection, pending);
-
-    return pending;
+    return memoized(this.containers, collection, () => this.loadFileCollection(collection));
   }
 
   private async loadFileCollection(collection: string): Promise<FileCollection> {
@@ -667,10 +690,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     return { layout, ...(version && { version }) };
   }
 
-  protected async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
-    const { entries, format } = await this.readFileCollection(collection);
+  private async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
+    const { entries, format, path } = await this.readFileCollection(collection);
 
-    return entries.keys().map((id) => ({ id, collection, format })).toArray();
+    return entries.keys().map((id) => ({ id, collection, format, path })).toArray();
   }
 
   /**
@@ -690,36 +713,6 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
       content: serializeMultiEntryFile({ ...file, entries: mutate(edited, format) ?? edited }, format),
       version,
     };
-  }
-
-  // --- Glob collection helpers ---
-
-  protected getCollectionPath(collection: string): string {
-    return collectionBase(collection, this.schemas[collection]);
-  }
-
-  protected getEntryPath(collection: string, entryId: string, format: string): string {
-    validateSegment(collection, "collection");
-    validatePath(entryId, "entryId");
-    validateFormat(format);
-
-    return `${this.getCollectionPath(collection)}/${entryId}.${format}`;
-  }
-
-  /**
-   * Filters and maps repository tree paths into entry metadata. Subclasses
-   * fetch the recursive tree from their SDK and pass the paths through.
-   */
-  protected entriesFromTreePaths(collection: string, paths: Iterable<string>): EntryMeta[] {
-    const prefix = `${this.getCollectionPath(collection)}/`;
-
-    return Iterator.from(paths)
-      .flatMap((path) => {
-        const format = path.startsWith(prefix) ? asEntryFormat(getFileExtension(path)) : undefined;
-
-        return format ? [{ id: stripExtension(path.slice(prefix.length)), collection, format }] : [];
-      })
-      .toArray();
   }
 }
 
@@ -806,7 +799,10 @@ export abstract class BranchedStorage extends StorageBase {
   }
 
   async update(): Promise<void> {
-    if (await this.branchExists()) await this.doUpdate(this.branch);
+    if (!(await this.branchExists())) return;
+
+    await this.doUpdate(this.branch);
+    this.invalidate();
   }
 
   async discard(): Promise<void> {
@@ -837,6 +833,7 @@ export abstract class BranchedStorage extends StorageBase {
     }
 
     this.markBranchExists(false);
+    this.invalidate();
   }
 
   // The draft branch is the changeset: everything on it is pending, and publish

@@ -58,6 +58,7 @@
     "acorn": "^8",
     "aws4fetch": "^1",
     "fast-xml-parser": "^5",
+    "github-slugger": "^2",
     "jose": "^6",
     "mdast-util-from-markdown": "^2",
     "mdast-util-frontmatter": "^2",
@@ -66,6 +67,7 @@
     "micromark-extension-mdxjs": "^3",
     "mime": "^4",
     "pathe": "^2",
+    "picomatch": "^4",
     "smol-toml": "^1",
     "yaml": "^2"
   },
@@ -92,6 +94,7 @@
     "@tanstack/router-plugin": "^1",
     "@types/estree": "^1",
     "@types/node": "^26",
+    "@types/picomatch": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "ai": "^7",

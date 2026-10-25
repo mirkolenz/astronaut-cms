@@ -34,6 +34,17 @@ export const collections = { blog };
 
 The admin panel will display a form with fields for `title`, `description`, `date`, and an image picker for `cover`.
 
+The CMS reads the pattern exactly as Astro's loader does.
+The admin lists, and the build checks, only the files under `base` that the pattern matches.
+Without a `base`, that is the project root, as in Astro.
+Dotfiles never match, and a pattern starting with `!` excludes what the others match, such as `["**/*.md", "!drafts/**"]`.
+Creating or renaming an entry to a path the pattern does not match is refused, since the site would never load it.
+
+Entries have the ids Astro gives them, so `Über Uns.md` is the entry `über-uns`.
+A new entry is written to its id with the format's extension, so the CMS refuses an id Astro would spell differently and suggests Astro's spelling.
+A `slug` field that gives an entry another id than its file fails the build, since the CMS names entries by their files.
+A `generateId` passed to `glob()` cannot be mirrored, and the CMS warns about it at startup.
+
 ## File Collections
 
 File collections store multiple entries in a single file.
@@ -57,6 +68,22 @@ export const collections = { authors };
 ```
 
 File collections support both array and object layouts, which the admin panel detects automatically.
+
+## Singletons
+
+A glob collection whose pattern names one literal file is a singleton, such as the master data of a company.
+
+```ts title="src/content.config.ts"
+const company = defineCollection({
+  loader: glob({ pattern: "company.yml", base: "src/content" }),
+  schema: z.object({ name: z.string(), phone: z.string() }),
+});
+```
+
+Read it with `getEntry("company", "company")`.
+The admin opens its entry form directly from the navigation and offers no way to create, duplicate, rename or delete an entry.
+The server refuses those operations too, for editors and agents alike.
+A build fails while the file is missing.
 
 ## Entry order
 

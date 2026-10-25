@@ -15,6 +15,7 @@ import {
   CMS_FILE,
   CMS_REFERENCE,
   CMS_LINK,
+  CMS_ANCHOR,
   type FieldMeta,
   type FieldMods,
   type FieldSchema,
@@ -143,6 +144,8 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
     if (typeof js.maxLength === "number") field.maxLength = js.maxLength;
     // A formatted string implies its own pattern; only keep an explicit regex.
     if (!field.format && typeof js.pattern === "string") field.pattern = js.pattern;
+    // An anchor is plain text the CMS also reads as the target of a link.
+    if (meta?.[CMS_ANCHOR]) field.format = "anchor";
     return field;
   }
 

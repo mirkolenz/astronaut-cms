@@ -1,4 +1,3 @@
-import { validateAgainstSchema } from "@/shared/collection-schema";
 import { validatePath } from "@/shared/validation";
 import {
   describeMediaRef,
@@ -7,9 +6,10 @@ import {
   type ClientMediaConfig,
   type MediaLibraryId,
 } from "@/shared/media";
-import { entryFilePath, type CollectionManifestEntry } from "@/shared/types";
-import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
+import { singletonEntry, type CollectionManifestEntry } from "@/shared/types";
+import { isAsset, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { validateBody } from "@/shared/body-validation";
+import { checkEntry } from "@/shared/entry-checks";
 import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 import type { ComponentSchemaMap } from "@/shared/field-schema";
 import { errorMessage } from "../shared/errors.ts";
@@ -165,11 +165,7 @@ async function checkResolvableLeaves(
       source,
       leaves.filter((l) => l.kind === "reference"),
     ),
-    checkAssets(
-      source,
-      leaves.filter((l) => l.kind !== "reference"),
-      base,
-    ),
+    checkAssets(source, leaves.filter(isAsset), base),
   ]);
 
   return [...references, ...assets];
@@ -180,6 +176,8 @@ async function checkResolvableLeaves(
 export interface EntryWrite {
   col: CollectionManifestEntry;
   id: string;
+  /** Project-relative path of the file the entry is written to. */
+  path: string;
   data: Record<string, unknown>;
   body: string;
   format: string;
@@ -187,28 +185,21 @@ export interface EntryWrite {
 
 /**
  * Everything that has to hold before an entry may be written: a slug-safe id,
- * data matching the collection's schema, a body within the allowed subset, and every
- * asset and reference — from the frontmatter and from the component props alike
- * — resolving to something that exists. The two leaf sources are resolved
- * together so the media library and each referenced collection are listed once
- * per write.
+ * the rules of {@link checkEntry}, and every asset and reference, from the
+ * frontmatter and from the component props alike, resolving to something that
+ * exists. The two leaf sources are resolved together so the media library and
+ * each referenced collection are listed once per write.
  */
-async function validateEntryWrite(
-  source: ContentSource,
-  { col, id, data, body, format }: EntryWrite,
-): Promise<Diagnostic[]> {
-  const parsed = validateBody(body, format, source.components);
+async function validateEntryWrite(source: ContentSource, write: EntryWrite): Promise<Diagnostic[]> {
+  const { col, id, path, data, body, format } = write;
+  const { diagnostics, leaves } = checkEntry(col, {
+    id,
+    path,
+    data,
+    body: validateBody(body, format, source.components),
+  });
 
-  return [
-    ...validateEntryId(id),
-    ...validateAgainstSchema(col, data),
-    ...parsed.diagnostics,
-    ...(await checkResolvableLeaves(
-      source,
-      [...dataLeaves(col.schema, data), ...parsed.leaves],
-      entryFilePath(col, id, format),
-    )),
-  ];
+  return [...validateEntryId(id), ...diagnostics, ...(await checkResolvableLeaves(source, leaves, path))];
 }
 
 /** Throws {@link ContentValidationError} unless the entry is safe to write. */
@@ -216,4 +207,13 @@ export async function assertEntryWritable(source: ContentSource, write: EntryWri
   const diagnostics = await validateEntryWrite(source, write);
 
   if (diagnostics.length > 0) throw new ContentValidationError(diagnostics);
+}
+
+/** Throws {@link ContentValidationError} for a singleton's entry, which the site cannot do without. */
+export function assertEntryDeletable(col: CollectionManifestEntry): void {
+  if (singletonEntry(col)) {
+    throw new ContentValidationError([
+      diagnostic(`"${col.name}" is a singleton collection, whose only entry cannot be deleted.`),
+    ]);
+  }
 }

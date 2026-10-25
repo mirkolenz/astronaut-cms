@@ -13,7 +13,7 @@ import { promisify } from "node:util";
 import { rm } from "node:fs/promises";
 import { join, relative } from "pathe";
 import {
-  collectionBase,
+  globRoots,
   type ChangeKind,
   type CollectionManifest,
   type FileChange,
@@ -175,11 +175,13 @@ export function managedPaths(options: {
   collections: CollectionManifest;
 }): string[] {
   const { rootDir, mediaDirs, collections } = options;
-  const paths = new Set(mediaDirs.map((dir) => relative(rootDir, dir)));
+  const paths = new Set([
+    ...mediaDirs.map((dir) => relative(rootDir, dir)),
+    ...Object.values(collections).flatMap((collection) =>
+      collection.loaderFileName ? [collection.loaderFileName] : globRoots(collection).map((root) => root.path),
+    ),
+  ]);
 
-  for (const [name, collection] of Object.entries(collections)) {
-    paths.add(collection.loaderFileName ?? collectionBase(name, collection));
-  }
-
-  return [...paths].filter(Boolean);
+  // The project root would hand the developer's every file to the CMS, a discard among them.
+  return [...paths].filter((path) => path !== "");
 }

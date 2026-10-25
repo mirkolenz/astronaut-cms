@@ -1,13 +1,14 @@
 import { statSync } from "node:fs";
 import { join } from "pathe";
-import { validateAgainstSchema } from "../shared/collection-schema.ts";
-import { formatDiagnostic } from "../shared/diagnostics.ts";
+import { diagnostic, formatDiagnostic, type Diagnostic } from "../shared/diagnostics.ts";
 import { getFileExtension } from "../shared/content-parser.ts";
 import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
 import { libraryPathError } from "../shared/validation.ts";
-import { dataLeaves } from "../shared/resolvable-leaves.ts";
+import { isAsset, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
+import { checkEntry } from "../shared/entry-checks.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import type { ContentEntry } from "./content-files.ts";
+import { singletonEntry, type CollectionManifest } from "../shared/types.ts";
 
 /**
  * The entries on disk that the admin would refuse to save, their data or their
@@ -20,13 +21,15 @@ export function checkContent(
   rootDir: string,
   media: ClientMediaConfig,
 ): string[] {
-  return entries.flatMap((entry) => [
-    ...validateAgainstSchema(entry.collection, entry.data).map(
-      (d) => `${entry.file} (${entry.scope}): ${formatDiagnostic(d)}`,
-    ),
-    ...(entry.body?.diagnostics ?? []).map((d) => `${entry.file}: ${formatDiagnostic(d)}`),
-    ...assetProblems(entry, rootDir, media),
-  ]);
+  return entries.flatMap(({ collection, file, scope, data, body }) => {
+    const { diagnostics, leaves } = checkEntry(collection, { path: file, data, body });
+    // A file collection holds many entries in one file, so its findings name the entry.
+    const where = body ? file : `${file} (${scope})`;
+
+    return [...diagnostics, ...assetProblems(leaves, file, rootDir, media)].map(
+      (d) => `${where}: ${formatDiagnostic(d)}`,
+    );
+  });
 }
 
 function isRegularFile(path: string): boolean {
@@ -43,21 +46,15 @@ function isRegularFile(path: string): boolean {
  * renders it would otherwise fail on a path nothing can resolve.
  */
 function assetProblems(
-  { collection, file, scope, data, body }: ContentEntry,
+  leaves: ResolvableLeaf[],
+  file: string,
   rootDir: string,
   media: ClientMediaConfig,
-): string[] {
-  const leaves = [
-    ...dataLeaves(collection.schema, data).map((leaf) => ({ leaf, where: `${scope} ${leaf.path}` })),
-    ...(body?.leaves ?? []).map((leaf) => ({ leaf, where: leaf.path })),
-  ];
-
-  return leaves.flatMap(({ leaf: { kind, value, repoOnly }, where }) => {
-    if (kind === "reference") return [];
-
+): Diagnostic[] {
+  return leaves.filter(isAsset).flatMap(({ kind, value, repoOnly, path }) => {
     const location = mediaPath(value, media, file);
 
-    if (location?.library === "s3") return repoOnly ? [`${file} (${where}): ${repoOnlyRefusal(value)}`] : [];
+    if (location?.library === "s3") return repoOnly ? [diagnostic(repoOnlyRefusal(value), path)] : [];
 
     const key = location?.path;
     const resolvable =
@@ -68,6 +65,20 @@ function assetProblems(
 
     return resolvable
       ? []
-      : [`${file} (${where}): "${value}" cannot be resolved as a ${kind} in the media directory ("${media.repo.directory}").`];
+      : [diagnostic(`"${value}" cannot be resolved as a ${kind} in the media directory ("${media.repo.directory}").`, path)];
+  });
+}
+
+/**
+ * Every singleton whose one file is missing. The site reads that entry by its
+ * id, so a build without it would fail there instead, less legibly.
+ */
+export function missingSingletons(collections: CollectionManifest, entries: ContentEntry[]): string[] {
+  return Object.values(collections).flatMap((collection) => {
+    const singleton = singletonEntry(collection);
+
+    if (!singleton || entries.some((entry) => entry.collection.name === collection.name)) return [];
+
+    return [`${singleton.path}: the singleton collection "${collection.name}" needs this file, its only entry.`];
   });
 }

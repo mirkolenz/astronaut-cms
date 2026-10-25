@@ -13,7 +13,12 @@
 import { openAsBlob, type Stats } from "node:fs";
 import { link, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "pathe";
-import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
+import {
+  globRoots,
+  type CollectionManifestEntry,
+  type FileChange,
+  type MediaFile,
+} from "../../shared/types.ts";
 import { StorageBase, type StorageOptions } from "./base.ts";
 import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
 import { getErrorCode, isNotFound, staleWrite, type Precondition } from "./types.ts";
@@ -92,28 +97,27 @@ export class LocalStorage extends StorageBase {
     return fullPath;
   }
 
-  /** Every file below a managed directory, project-relative, with its size. */
-  private async listDirectory(dir: string): Promise<MediaFile[]> {
-    let entries;
-
+  /** Every file below a managed directory, or the managed file itself, project-relative. */
+  private async filesAt(path: string, file = false): Promise<string[]> {
     try {
-      entries = await readdir(await this.resolve(dir), { withFileTypes: true, recursive: true });
+      if (file) return (await stat(await this.resolve(path))).isFile() ? [path] : [];
+
+      const entries = await readdir(await this.resolve(path), { withFileTypes: true, recursive: true });
+
+      return entries
+        .filter((entry) => !entry.isDirectory())
+        .map((entry) => relative(this.rootDir, join(entry.parentPath, entry.name)));
     } catch (error) {
       if (isNotFound(error)) return [];
 
       throw error;
     }
+  }
 
-    return Promise.all(
-      entries
-        .filter((entry) => !entry.isDirectory())
-        .map(async (entry) => {
-          const path = relative(this.rootDir, join(entry.parentPath, entry.name));
-          const stats = await stat(await this.resolve(path));
+  private async fileAt(path: string): Promise<MediaFile> {
+    const stats = await stat(await this.resolve(path));
 
-          return { path, size: stats.size, version: statVersion(stats) };
-        }),
-    );
+    return { path, size: stats.size, version: statVersion(stats) };
   }
 
   private async writeFileAt(
@@ -134,15 +138,8 @@ export class LocalStorage extends StorageBase {
     }
   }
 
-  async listEntries(collection: string): Promise<EntryMeta[]> {
-    if (this.isFileCollection(collection)) return this.listFileCollectionEntries(collection);
-
-    const files = await this.listDirectory(this.getCollectionPath(collection));
-
-    return this.entriesFromTreePaths(
-      collection,
-      files.map((file) => file.path),
-    );
+  protected async globPaths(col: CollectionManifestEntry): Promise<string[]> {
+    return (await Promise.all(globRoots(col).map(({ path, file }) => this.filesAt(path, file)))).flat();
   }
 
   protected override async fetchFileContent(path: string): Promise<VersionedContent> {
@@ -192,7 +189,9 @@ export class LocalStorage extends StorageBase {
   }
 
   async listMedia(): Promise<MediaFile[]> {
-    return this.mediaFiles(await this.listDirectory(this.mediaDirectory));
+    const paths = await this.filesAt(this.mediaDirectory);
+
+    return this.mediaFiles(await Promise.all(paths.map((path) => this.fileAt(path))));
   }
 
   protected async writeMedia(
@@ -247,6 +246,7 @@ export class LocalStorage extends StorageBase {
 
   async discard(): Promise<void> {
     await discardChanges(this.rootDir, this.managed);
+    this.invalidate();
   }
 
   async getStatus(): Promise<BranchStatus> {

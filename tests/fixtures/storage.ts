@@ -1,7 +1,7 @@
 import { StorageBase } from "@/server/storage/base";
 import type { BranchStatus, Precondition } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
-import type { CollectionManifest, EntryMeta, FileChange, MediaFile } from "@/shared/types";
+import type { CollectionManifest, FileChange, MediaFile } from "@/shared/types";
 import { repoMedia } from "./media";
 
 /** The rest of the storage contract, for a test that only cares about its collections. */
@@ -24,7 +24,7 @@ export const storageOptions = (collections: CollectionManifest): StorageOptions 
  * happened to subclass the real thing.
  */
 export class StubStorage extends StorageBase {
-  listEntries(_collection: string): Promise<EntryMeta[]> {
+  protected globPaths(): Promise<Iterable<string>> {
     return Promise.resolve([]);
   }
   listMedia(): Promise<MediaFile[]> {
@@ -67,5 +67,21 @@ export class StubStorage extends StorageBase {
   }
   getChanges(): Promise<FileChange[]> {
     return Promise.resolve([]);
+  }
+}
+
+/** A backend whose repository holds the paths in `tree`, recording the files it writes. */
+export class TreeStorage extends StubStorage {
+  tree: string[] = [];
+  written: string[] = [];
+
+  protected override globPaths(): Promise<string[]> {
+    return Promise.resolve(this.tree);
+  }
+
+  protected override commitFile(path: string): Promise<undefined> {
+    this.written.push(path);
+
+    return Promise.resolve(undefined);
   }
 }

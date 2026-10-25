@@ -4,7 +4,8 @@ import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/c
 import { validateBody, type BodyValidation } from "../shared/body-validation.ts";
 import type { ComponentSchemaMap } from "../shared/field-schema.ts";
 import {
-  collectionBase,
+  globEntry,
+  globRoots,
   type CollectionManifest,
   type CollectionManifestEntry,
 } from "../shared/types.ts";
@@ -35,6 +36,22 @@ export function globFiles(cwd: string, patterns: string | string[]): string[] {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
+/**
+ * Project-relative paths of the files a glob collection's loader loads in a
+ * format the CMS reads, exactly the ones the storage listing reports. Only the
+ * static prefix of each pattern is walked, and no dot directory, whose files
+ * astro never loads.
+ */
+function loadedFiles(rootDir: string, collection: CollectionManifestEntry): string[] {
+  return globRoots(collection)
+    .flatMap(({ path, file }) =>
+      file
+        ? [path].filter((literal) => existsSync(join(rootDir, literal)))
+        : globFiles(join(rootDir, path), "**/*").map((found) => relative(rootDir, found)),
+    )
+    .filter((path) => globEntry(collection, path) !== null);
+}
+
 /** Every entry of every collection, each file read and each body walked once. */
 export function contentEntries(
   rootDir: string,
@@ -47,15 +64,11 @@ export function contentEntries(
     // A file collection names a literal path, which may contain glob characters.
     const isFile = collection.loaderType === "file";
     const files = isFile
-      ? (collection.loaderFileName ? [join(rootDir, collection.loaderFileName)] : []).filter((path) => existsSync(path))
-      : globFiles(
-          join(rootDir, collectionBase(collection.name, collection)),
-          collection.loaderPattern ?? "**/*",
-        );
+      ? [collection.loaderFileName ?? []].flat().filter((file) => existsSync(join(rootDir, file)))
+      : loadedFiles(rootDir, collection);
 
-    for (const path of files) {
-      const file = relative(rootDir, path);
-      const raw = readFileSync(path, "utf-8");
+    for (const file of files) {
+      const raw = readFileSync(join(rootDir, file), "utf-8");
       const format = getFileExtension(file);
 
       // A file collection holds many entries in one file and has no body, so each

@@ -1,7 +1,7 @@
-import { ALL_FORMATS } from "./types";
 import { isLibraryFile } from "./media";
 
-const ALLOWED_SEGMENT_CHARS = /^[a-zA-Z0-9_-]+$/;
+// Any letter, as astro's slugged ids keep them, with its marks.
+const ALLOWED_SEGMENT_CHARS = /^[\p{L}\p{M}\p{N}_-]+$/u;
 
 /**
  * Validates that a single path segment contains only safe characters.
@@ -39,15 +39,6 @@ export function validateSegment(value: string, name: string): void {
     throw new Error(
       `Invalid ${name} "${value}": must contain only letters, digits, hyphens, and underscores`,
     );
-  }
-}
-
-/**
- * Validates that a format string is one of the allowed content/data formats.
- */
-export function validateFormat(format: string, name = "format"): void {
-  if (!(ALL_FORMATS as readonly string[]).includes(format)) {
-    throw new Error(`Invalid ${name} "${format}": must be one of ${ALL_FORMATS.join(", ")}`);
   }
 }
 

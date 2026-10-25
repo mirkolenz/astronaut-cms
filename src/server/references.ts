@@ -14,8 +14,8 @@
 import { client as config, components } from "virtual:astronaut-cms/server";
 import { isLibraryFile, mediaLibrary, mediaPath } from "../shared/media.ts";
 import { validateBody } from "../shared/body-validation.ts";
-import { dataLeaves } from "../shared/resolvable-leaves.ts";
-import { entryFilePath, type CollectionManifestEntry, type EntryContent } from "../shared/types.ts";
+import { dataLeaves, isAsset } from "../shared/resolvable-leaves.ts";
+import type { CollectionManifestEntry, EntryContent } from "../shared/types.ts";
 import { fileKey, type IndexedFile, type ReferenceIndex } from "../shared/references.ts";
 import type { StorageBackend } from "./storage/types.ts";
 
@@ -49,7 +49,7 @@ export function indexEntry(
   col: CollectionManifestEntry,
   entry: EntryContent,
 ): void {
-  const base = entryFilePath(col, entry.id, entry.format);
+  const base = entry.path;
   // Keyed by the library file a value resolves to, so a file an entry declares
   // is not counted again when its body also mentions it, however it is spelled.
   const declared = new Set<string>();
@@ -79,7 +79,7 @@ export function indexEntry(
   const body = validateBody(entry.body, entry.format, components);
 
   for (const leaf of [...dataLeaves(col.schema, entry.data), ...body.leaves]) {
-    if (leaf.kind !== "reference") add(leaf.value, leaf.path, true);
+    if (isAsset(leaf)) add(leaf.value, leaf.path, true);
   }
 
   // A markdown image names its file as plainly as a schema field does.
@@ -109,7 +109,7 @@ export async function buildReferenceIndex(storage: StorageBackend): Promise<Refe
   );
 
   await inParallel(listings.flat(), async ({ col, meta }) => {
-    indexEntry(index, col, await storage.getEntry(col.name, meta.id, meta.format));
+    indexEntry(index, col, await storage.readEntry(meta));
   });
 
   return [...index.values()];

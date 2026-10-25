@@ -1,5 +1,10 @@
-import { extname, join } from "pathe";
+import { extname, join, relative } from "pathe";
+// The `.js` extension, since picomatch has no exports map for node to resolve the subpath with.
+import picomatch from "picomatch/posix.js";
+import { slug } from "github-slugger";
+import { getFileExtension } from "./content-parser.ts";
 import type { FieldSchema } from "./field-schema.ts";
+import { projectPath } from "./paths.ts";
 
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
 export const DATA_FORMATS = ["json", "yaml", "yml", "toml"] as const;
@@ -63,30 +68,180 @@ export interface CollectionManifestEntry {
   schema: FieldSchema | null;
   loaderType: LoaderType;
   loaderPattern: string | string[] | null;
+  /** Where a `glob()` loader reads from, `""` for the project root, null for any other loader. */
   loaderBase: string | null;
   loaderFileName: string | null;
   sort: CollectionSort;
+  label?: string;
+  description?: string;
 }
 
 export type CollectionManifest = Record<string, CollectionManifestEntry>;
 
-/**
- * Project-relative directory holding a glob collection's entries: the loader's
- * configured `base`, falling back to the conventional folder for a collection
- * that captured none. The single source of this rule — the storage backends, the
- * dev middleware and the changeset all map paths with it.
- */
-export function collectionBase(
-  name: string,
-  collection?: { loaderBase?: string | null } | null,
-): string {
-  return collection?.loaderBase ?? `src/content/${name}`;
+/** A file a glob collection's loader loads, under the id astro gives it. */
+export interface GlobEntry {
+  id: string;
+  format: EntryFormat;
+  /** Project-relative path of the file. */
+  path: string;
+}
+
+/** The one entry of a singleton collection, see {@link singletonEntry}. */
+export type SingletonEntry = GlobEntry;
+
+/** Where a walk for a glob collection's files has to look, see {@link globRoots}. */
+export interface GlobRoot {
+  /** Project-relative, `""` for the project root. */
+  path: string;
+  /** Whether this is the one file a literal pattern names rather than a directory. */
+  file: boolean;
+}
+
+/** `derive` cached per manifest entry, which never changes once loaded. */
+function perCollection<C extends object, R extends object | null>(derive: (col: C) => R): (col: C) => R {
+  const cache = new WeakMap<C, R>();
+
+  return (col) => {
+    const cached = cache.get(col);
+
+    if (cached !== undefined) return cached;
+
+    const value = derive(col);
+
+    cache.set(col, value);
+
+    return value;
+  };
 }
 
 /**
- * Project-relative path of the file an entry's content lives in: its own file in
- * a glob collection, the shared container in a file collection. It is what a
- * relative asset reference written inside that entry resolves against.
+ * The one entry of a singleton, a collection whose `glob()` names a single
+ * literal file, or null for any other collection. Such a loader can only ever
+ * load that file, so the admin edits it directly and nothing may add, rename or
+ * remove an entry, which would only write a file the site never reads.
+ */
+export const singletonEntry = perCollection(
+  (col: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase">): SingletonEntry | null => {
+    const [root] = globRoots(col);
+
+    return col.loaderType === "glob" && loaderPatterns(col).length === 1 && root?.file
+      ? globEntry(col, root.path)
+      : null;
+  },
+);
+
+// Astro's glob loader skips its legacy content config wherever a pattern matches it.
+const ASTRO_CONFIG_FILES = new Set(["js", "ts", "mjs"].map((ext) => `src/content/config.${ext}`));
+
+/** A glob collection's patterns, none for a loader that is neither `glob()` nor `file()`. */
+export function loaderPatterns(col: Pick<CollectionManifestEntry, "loaderPattern">): string[] {
+  return [col.loaderPattern ?? []].flat();
+}
+
+/**
+ * Whether astro's `glob()` loader of `col` loads a project-relative `path`,
+ * decided as astro decides it: `!` patterns ignore what the others match, and
+ * dotfiles and paths outside the base never match.
+ */
+export const globMatcher = perCollection(
+  (col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">): ((path: string) => boolean) => {
+    const patterns = loaderPatterns(col);
+    const ignore = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
+    const isMatch = picomatch(
+      patterns.filter((p) => !p.startsWith("!")),
+      ignore.length > 0 ? { ignore } : undefined,
+    );
+    const base = collectionBase(col);
+
+    return (path) => {
+      const entry = relative(base, path);
+
+      return !entry.startsWith("../") && !ASTRO_CONFIG_FILES.has(path) && isMatch(entry);
+    };
+  },
+);
+
+/**
+ * Where a walk for a glob collection's files has to look: the static prefix of
+ * each pattern, a directory to descend into or, for a literal pattern, the one
+ * file it names. None lies inside another.
+ */
+export function globRoots(col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">): GlobRoot[] {
+  const roots = loaderPatterns(col)
+    .filter((p) => !p.startsWith("!"))
+    .map((p) => {
+      const { base, isGlob } = picomatch.scan(p, { unescape: true });
+
+      return { path: projectPath(collectionBase(col), base), file: !isGlob };
+    });
+
+  return roots.filter(
+    (root, index) =>
+      roots.findIndex((other) => other.path === root.path) === index &&
+      !roots.some((dir) => dir.path !== root.path && inGlobRoot(root.path, dir)),
+  );
+}
+
+/** Whether a walk from `root` reaches the project-relative `path`. */
+export function inGlobRoot(path: string, root: GlobRoot): boolean {
+  return root.file ? path === root.path : root.path === "" || path.startsWith(`${root.path}/`);
+}
+
+/**
+ * The id astro's default `generateId` gives the file at the base-relative
+ * `entry`: the `slug` its data sets, or else its path without the extension,
+ * each segment slugged and a trailing `/index` dropped.
+ */
+function astroEntryId(entry: string, data?: Record<string, unknown>): string {
+  // Astro stringifies whatever the slug holds.
+  // oxlint-disable-next-line no-base-to-string
+  if (data?.slug) return String(data.slug);
+
+  return entry
+    .slice(0, entry.length - extname(entry).length)
+    .split("/")
+    .map((segment) => slug(segment))
+    .join("/")
+    .replace(/\/index$/, "");
+}
+
+/** The id astro gives the entry in a glob collection's project-relative `path`, holding `data`. */
+export function globEntryId(
+  col: Pick<CollectionManifestEntry, "loaderBase">,
+  path: string,
+  data?: Record<string, unknown>,
+): string {
+  return astroEntryId(relative(collectionBase(col), path), data);
+}
+
+/**
+ * The entry a glob collection's loader makes of the file at the project-relative
+ * `path`, or null for a file it does not load or the CMS cannot read. The one
+ * rule the storage listing, the changeset and the build map files with.
+ */
+export function globEntry(
+  col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">,
+  path: string,
+): GlobEntry | null {
+  const format = asEntryFormat(getFileExtension(path));
+
+  return format && globMatcher(col)(path) ? { id: globEntryId(col, path), format, path } : null;
+}
+
+/**
+ * Project-relative directory a glob collection's loader reads from, the
+ * project root (`""`) as astro defaults it.
+ */
+export function collectionBase(col: Pick<CollectionManifestEntry, "loaderBase">): string {
+  return col.loaderBase ?? "";
+}
+
+/**
+ * Project-relative path of the file an entry's content goes to: the shared
+ * container in a file collection, and in a glob collection the file a literal
+ * pattern names for its id or else the id with the format's extension, whose
+ * astro id is the id itself whenever the id is slugged already. An existing
+ * entry's file is the one the listing reports, which astro may name differently.
  */
 export function entryFilePath(
   collection: CollectionManifestEntry,
@@ -97,13 +252,19 @@ export function entryFilePath(
     return collection.loaderFileName;
   }
 
-  return join(collectionBase(collection.name, collection), `${id}.${format}`);
+  const literal = globRoots(collection).find(
+    (root) => root.file && getFileExtension(root.path) === format && globEntryId(collection, root.path) === id,
+  );
+
+  return literal?.path ?? join(collectionBase(collection), `${id}.${format}`);
 }
 
 export interface EntryMeta {
   id: string;
   collection: string;
   format: EntryFormat;
+  /** Project-relative path of the file holding the entry. */
+  path: string;
 }
 
 /** A file collection's container, as the admin needs to know it. */
@@ -118,6 +279,8 @@ export interface FileCollectionInfo {
 
 export interface EntryContent {
   id: string;
+  /** Project-relative path of the file holding the entry. */
+  path: string;
   data: Record<string, unknown>;
   body: string;
   format: EntryFormat;
@@ -199,25 +362,22 @@ export function extractFormatsFromLoader(
   fileName: string | null,
 ): string[] | null {
   if (fileName != null) {
-    const ext = extname(fileName).slice(1);
+    const ext = getFileExtension(fileName);
 
     return ext ? [ext] : null;
   }
 
-  if (pattern == null) return null;
+  const formats = new Set(
+    loaderPatterns({ loaderPattern: pattern })
+      .flatMap((p) => {
+        const ext = getFileExtension(p.trim());
 
-  const patterns = Array.isArray(pattern) ? pattern : [pattern];
-  const formats = new Set<string>();
-
-  for (const p of patterns) {
-    const ext = extname(p.trim()).slice(1);
-    // A brace list such as `*.{md,mdx}` names several.
-    const list = ext.startsWith("{") && ext.endsWith("}") ? ext.slice(1, -1).split(",") : [ext];
-
-    for (const format of list) {
-      if (format.trim()) formats.add(format.trim());
-    }
-  }
+        // A brace list such as `*.{md,mdx}` names several.
+        return ext.startsWith("{") && ext.endsWith("}") ? ext.slice(1, -1).split(",") : [ext];
+      })
+      .map((format) => format.trim())
+      .filter(Boolean),
+  );
 
   return formats.size > 0 ? [...formats] : null;
 }

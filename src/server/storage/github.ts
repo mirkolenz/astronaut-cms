@@ -1,4 +1,11 @@
-import type { ChangeKind, EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
+import {
+  globRoots,
+  inGlobRoot,
+  type ChangeKind,
+  type CollectionManifestEntry,
+  type FileChange,
+  type MediaFile,
+} from "../../shared/types.ts";
 import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
 import type {
   ChangeRequestSummary,
@@ -146,14 +153,12 @@ export class GitHubStorage extends BranchedStorage {
     return cache.entries;
   }
 
-  async listEntries(collection: string): Promise<EntryMeta[]> {
-    if (!this.schemas[collection]) return [];
-    if (this.isFileCollection(collection)) return this.listFileCollectionEntries(collection);
+  protected async globPaths(col: CollectionManifestEntry): Promise<Iterable<string>> {
+    const roots = globRoots(col);
 
-    return this.entriesFromTreePaths(
-      collection,
-      (await this.tree()).map((item) => item.path),
-    );
+    return (await this.tree()).values()
+      .map((item) => item.path)
+      .filter((path) => roots.some((root) => inGlobRoot(path, root)));
   }
 
   /**

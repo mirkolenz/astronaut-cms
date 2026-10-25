@@ -1,7 +1,13 @@
-import { join } from "pathe";
+import { dirname, join } from "pathe";
 import { z } from "zod";
-import type { EntryMeta, FileChange, MediaFile } from "../../shared/types.ts";
-import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
+import {
+  globRoots,
+  type CollectionManifestEntry,
+  type FileChange,
+  type MediaFile,
+} from "../../shared/types.ts";
+import { projectPath } from "../../shared/paths.ts";
+import { BranchedStorage, fromBase64, memoized, type StorageOptions } from "./base.ts";
 import type {
   ChangeRequestSummary,
   MediaContent,
@@ -139,32 +145,24 @@ export class GitLabStorage extends BranchedStorage {
   }
 
   /**
-   * Every blob below `path`. GitLab pages this endpoint and reports the next page
-   * in a header, so a repository larger than one page would otherwise be listed
-   * down to its first hundred files.
+   * Every blob below `path`, or only those directly in it. GitLab pages this
+   * endpoint and reports the next page in a header, so a repository larger than
+   * one page would otherwise be listed down to its first hundred files.
    */
-  private async listTree(path: string): Promise<TreeFile[]> {
+  private async listTree(path: string, recursive = true): Promise<TreeFile[]> {
     const ref = await this.readRef();
-    const key = `${ref}:${path}`;
-    const cached = this.trees.get(key);
 
-    if (cached) return cached;
-
-    const pending = this.walkTree(path, ref);
-
-    this.trees.set(key, pending);
-
-    return pending;
+    return memoized(this.trees, `${ref}:${recursive}:${path}`, () => this.walkTree(path, ref, recursive));
   }
 
-  private async walkTree(path: string, ref: string): Promise<TreeFile[]> {
+  private async walkTree(path: string, ref: string, recursive: boolean): Promise<TreeFile[]> {
     const found: TreeFile[] = [];
     let page = "1";
 
     while (page) {
       const response = await this.api.send({
         path: `${this.project}/repository/tree`,
-        query: { path, ref, recursive: true, per_page: 100, page },
+        query: { path, ref, recursive, per_page: 100, page },
       });
       const items = treeSchema.parse(await response.json());
 
@@ -179,16 +177,15 @@ export class GitLabStorage extends BranchedStorage {
     return found;
   }
 
-  async listEntries(collection: string): Promise<EntryMeta[]> {
-    if (!this.schemas[collection]) return [];
-    if (this.isFileCollection(collection)) return this.listFileCollectionEntries(collection);
-
-    const items = await this.listTree(this.getCollectionPath(collection));
-
-    return this.entriesFromTreePaths(
-      collection,
-      items.map((item) => item.path),
+  protected async globPaths(col: CollectionManifestEntry): Promise<string[]> {
+    // A literal pattern's root is its file, found among its directory's own blobs.
+    const trees = await Promise.all(
+      globRoots(col).map(({ path, file }) =>
+        file ? this.listTree(projectPath(dirname(path)), false) : this.listTree(path),
+      ),
     );
+
+    return trees.flat().map((item) => item.path);
   }
 
   /** A repository file's own bytes. GitLab encodes the whole path as one segment. */

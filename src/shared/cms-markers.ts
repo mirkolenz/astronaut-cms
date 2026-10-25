@@ -3,7 +3,7 @@
  * Zod string tagged with one of the `CMS_*` meta keys from `field-schema.ts`,
  * which `zodToFieldSchema` reads back to produce an image/file/reference field.
  *
- * Used by the public `astronaut-cms/config` helpers (`image`/`file`), the
+ * Used by the public `astronaut-cms/config` helpers (`file`/`link`/`anchor`), the
  * `astro:content` stub (`reference`), and the content-config schema helper bag.
  *
  * In a `content.config.ts` `repoImageMarker` stands in for astro's own schema
@@ -13,8 +13,9 @@
  * since astro has no say over an MDX component's props.
  */
 import { z } from "zod";
-import { CMS_IMAGE, CMS_FILE, CMS_REFERENCE, CMS_LINK } from "./field-schema.ts";
+import { CMS_IMAGE, CMS_FILE, CMS_REFERENCE, CMS_LINK, CMS_ANCHOR } from "./field-schema.ts";
 import { allowedLinks } from "./links.ts";
+import { anchorIds } from "./anchors.ts";
 
 /** A Zod string naming an image in either media library. */
 export const imageMarker = () => z.string().meta({ [CMS_IMAGE]: true });
@@ -50,6 +51,13 @@ export const fileMarker = () => z.string().meta({ [CMS_FILE]: true });
  */
 export const linkMarker = () => allowedLinks(z.string()).meta({ [CMS_LINK]: true });
 
+/**
+ * A Zod string holding an element id that the component or layout renders, such
+ * as a section's `id`. Declaring it is what lets a `#id` link in the same entry
+ * be checked, since the CMS cannot tell which prop ends up as an id otherwise.
+ */
+export const anchorMarker = () => anchorIds(z.string()).meta({ [CMS_ANCHOR]: true });
+
 /** A Zod string that references an entry id in another collection. */
 export const referenceMarker = (collection: string) =>
   z.string().meta({ [CMS_REFERENCE]: collection });
@@ -64,5 +72,6 @@ export const schemaHelpers = {
   image: imageMarker,
   file: fileMarker,
   link: linkMarker,
+  anchor: anchorMarker,
   reference: referenceMarker,
 };

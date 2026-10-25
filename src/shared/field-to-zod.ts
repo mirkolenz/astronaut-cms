@@ -7,6 +7,7 @@ import {
   LINK_DESCRIPTION,
   PLAIN_TEXT_MESSAGE,
 } from "./links.ts";
+import { ANCHOR_DESCRIPTION, anchorIds } from "./anchors.ts";
 
 // Hoisted out of the refinement below so the check reuses one validator instead
 // of building a fresh one per value.
@@ -50,7 +51,9 @@ function base(field: FieldSchema): z.ZodType {
       if (field.format === "url") return allowedLinks(s);
       if (field.format === "link") return allowedLinks(s).describe(LINK_DESCRIPTION);
 
-      return s.refine((value) => !isLinkLike(value), PLAIN_TEXT_MESSAGE);
+      const text = s.refine((value) => !isLinkLike(value), PLAIN_TEXT_MESSAGE);
+
+      return field.format === "anchor" ? anchorIds(text).describe(ANCHOR_DESCRIPTION) : text;
     }
 
     case "number": {

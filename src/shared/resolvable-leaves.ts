@@ -2,12 +2,13 @@ import { isRecord, type FieldSchema } from "@/shared/field-schema";
 import { activeVariant } from "@/shared/field-to-zod";
 
 // Walks a (FieldSchema, value) pair in tandem and collects every leaf that holds
-// a path to another resource: a cross-collection `reference` or an `image`/`file`
-// asset. These are the fields the lowered schema can only type as `string`, so
-// their targets need a separate existence check.
+// a path to another resource, a cross-collection `reference`, an `image`/`file`
+// asset or a `link`, and every `anchor` a link may target. These are the fields
+// the lowered schema can only type as `string`, so their targets need a separate
+// existence check.
 
 export interface ResolvableLeaf {
-  kind: "reference" | "image" | "file";
+  kind: "reference" | "image" | "file" | "link" | "anchor";
   /** Target collection, present only for references. */
   collection?: string;
   /** An image field astro types as imported, which only a repository file satisfies. */
@@ -15,6 +16,9 @@ export interface ResolvableLeaf {
   value: string;
   path: string;
 }
+
+/** Whether a leaf names a file of a media library. */
+export const isAsset = (leaf: ResolvableLeaf): boolean => leaf.kind === "image" || leaf.kind === "file";
 
 function child(path: string, key: string | number): string {
   if (typeof key === "number") return `${path}[${key}]`;
@@ -42,6 +46,13 @@ export function collectResolvableLeaves(
 
     case "file":
       return typeof value === "string" && value !== "" ? [{ kind: "file", value, path }] : [];
+
+    case "string":
+      return (schema.format === "link" || schema.format === "anchor") &&
+        typeof value === "string" &&
+        value !== ""
+        ? [{ kind: schema.format, value, path }]
+        : [];
 
     case "object":
       return isRecord(value)
