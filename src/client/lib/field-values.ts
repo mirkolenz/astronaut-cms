@@ -154,6 +154,16 @@ export function collectionItems(field: CollectionField, value: unknown): Collect
     : Object.entries(asRecord(value));
 }
 
+/** The labels of the required fields that any of a collection's items has no value for. */
+export function collectionMissing(
+  field: CollectionField,
+  items: readonly CollectionItem[],
+): string[] {
+  const item = itemField(field);
+
+  return [...new Set(items.flatMap(([, value]) => missingValues(item, value)))];
+}
+
 export function fromItems(field: CollectionField, items: readonly CollectionItem[]): unknown {
   return field.type === "array" ? items.map(([, item]) => item) : Object.fromEntries(items);
 }

@@ -164,6 +164,11 @@ export function useForm(id: string): Form | undefined {
   return useFormStore((state) => state.forms[id]);
 }
 
+/** What `select` reads from the forms of the page, which rerenders only once that changes. */
+export function useForms<T>(select: (forms: Record<string, Form>) => T): T {
+  return useFormStore((state) => select(state.forms));
+}
+
 // An undo back to the stored values gives the very object back, so the form is clean again.
 const isDirty = (form: Form | undefined) => form !== undefined && form.values !== form.saved;
 

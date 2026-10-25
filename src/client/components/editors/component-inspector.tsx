@@ -3,7 +3,7 @@
  * as a sheet over it otherwise. Its structured children are listed to reorder
  * and to drill into, with breadcrumbs leading back out, and so are the values
  * of a form that open here, such as a list of items. Without a selection, the
- * panel shows the outline of the body.
+ * panel shows the outline of the body and the structured values of the forms.
  */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -40,7 +40,12 @@ import {
   type BlockSelection,
 } from "@/client/stores/inspector-store";
 import { FieldList, FieldNavContext } from "@/client/components/editors/field-renderer";
-import { FieldInspector, FormInspector } from "@/client/components/editors/field-inspector";
+import {
+  FieldInspector,
+  FormInspector,
+  FormOutline,
+  useHasFormOutline,
+} from "@/client/components/editors/field-inspector";
 import {
   BlockList,
   ChildListControls,
@@ -55,6 +60,7 @@ export function InspectorPanel() {
   const field = useSelectedField();
   const bodyEditor = useBodyRealm()?.getValue(rootEditor$);
   const docked = useMediaQuery(DOCKED);
+  const hasFormOutline = useHasFormOutline();
   const content = !selection ? null : isBlockSelection(selection) ? (
     <ComponentInspector
       key={`${selection.nodeKey}/${selection.path.join("/")}`}
@@ -66,7 +72,13 @@ export function InspectorPanel() {
   );
 
   if (docked) {
-    const shown = content || (bodyEditor && <BlockOutline editor={bodyEditor} />);
+    const outline = (bodyEditor || hasFormOutline) && (
+      <div className="space-y-6">
+        {bodyEditor && <BlockOutline editor={bodyEditor} />}
+        {hasFormOutline && <FormOutline />}
+      </div>
+    );
+    const shown = content || outline;
 
     return (
       shown && (

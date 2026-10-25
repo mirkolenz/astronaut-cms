@@ -22,11 +22,11 @@ import {
   asArray,
   asRecord,
   collectionItems,
+  collectionMissing,
   collectionOf,
   fieldLabel,
   getDefaultValue,
   itemField,
-  missingValues,
   valueSummary,
   variantLabel,
   type CollectionField,
@@ -718,7 +718,6 @@ function CollectionRow({
     .map(([key, value]) => valueSummary(item, value) ?? (typeof key === "string" ? key : undefined))
     .filter(Boolean)
     .join(", ");
-  const missing = new Set(items.flatMap(([, value]) => missingValues(item, value)));
 
   return (
     <FieldShell {...shell}>
@@ -733,7 +732,7 @@ function CollectionRow({
         <span className="shrink-0 text-xs text-muted-foreground">
           {t(($) => $.editors.items, { count: items.length })}
         </span>
-        <MissingProps labels={[...missing]} />
+        <MissingProps labels={collectionMissing(schema, items)} />
         <ChevronRight className="text-muted-foreground" />
       </Button>
     </FieldShell>

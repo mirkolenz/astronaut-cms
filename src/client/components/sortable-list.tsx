@@ -6,7 +6,8 @@ import { cn } from "cn";
 interface SortableListProps<T> {
   items: readonly T[];
   getKey: (item: T, index: number) => string;
-  onMove: (from: number, to: number) => void;
+  /** Left out for a list in a fixed order, whose items have no handle. */
+  onMove?: (from: number, to: number) => void;
   /** Renders an item, with its drag `handle` placed wherever it belongs. */
   children: (item: T, index: number, handle: ReactNode) => ReactNode;
   className?: string;
@@ -39,7 +40,7 @@ export function SortableList<T>({
     <ul ref={listRef} className={className}>
       {items.map((item, index) => {
         const key = getKey(item, index);
-        const handle = (
+        const handle = onMove && (
           <button
             type="button"
             draggable
@@ -97,7 +98,7 @@ export function SortableList<T>({
 
               event.preventDefault();
 
-              if (drag.from !== index) onMove(drag.from, index);
+              if (drag.from !== index) onMove?.(drag.from, index);
 
               setDrag(null);
             }}

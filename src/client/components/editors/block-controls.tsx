@@ -311,7 +311,7 @@ interface BlockRow {
   inspects?: boolean;
 }
 
-/** A list of blocks, each opened by a click and reordered by dragging. */
+/** A list of blocks, each opened by a click and, with `onMove`, reordered by dragging. */
 export function BlockList<T>({
   title,
   items,
@@ -323,7 +323,7 @@ export function BlockList<T>({
   title?: string;
   items: readonly T[];
   getKey: (item: T) => string;
-  onMove: (from: number, to: number) => void;
+  onMove?: (from: number, to: number) => void;
   row: (item: T) => BlockRow;
   /** Shown below the list. */
   children?: ReactNode;

@@ -15,6 +15,7 @@ import { readClipboard } from "@/client/lib/editor-content";
 import {
   asRecord,
   collectionItems,
+  collectionMissing,
   collectionOf,
   contentKeys,
   fieldLabel,
@@ -33,7 +34,7 @@ import {
   type ValuePath,
 } from "@/client/lib/field-values";
 import { select, useFormField } from "@/client/stores/inspector-store";
-import { setField, useForm } from "@/client/stores/form-store";
+import { setField, useForm, useForms, type Form } from "@/client/stores/form-store";
 import { uniqueName } from "@/shared/paths";
 import { toast } from "@/client/components/toast";
 import {
@@ -58,9 +59,12 @@ interface FormProps {
 }
 
 // How the values of a form on the page open in the inspector.
+const openField = (id: string, field: ValuePath) =>
+  select(field.length > 0 ? { form: id } : null, { field });
+
 const formNav = (id: string, selected: ValuePath) => ({
   selected,
-  open: (field: ValuePath) => select(field.length > 0 ? { form: id } : null, { field }),
+  open: (field: ValuePath) => openField(id, field),
 });
 
 /** The fields of a form on the page, such as those of an entry. */
@@ -79,6 +83,54 @@ export function EntryFields({ form: id }: { form: string }) {
       </FieldNavContext.Provider>
     )
   );
+}
+
+// The fields of a form that open in the inspector, lists or records of structured items.
+const formCollections = ({ shape }: Form) =>
+  Object.entries(shape).flatMap(([key, field]) => {
+    const collection = collectionOf(field);
+
+    return collection ? [{ key, collection }] : [];
+  });
+
+/** Whether a form on the page has fields that open in the inspector, which changes with its schema only. */
+export const useHasFormOutline = (): boolean =>
+  useForms((forms) =>
+    Object.values(forms).some(({ shape }) =>
+      Object.values(shape).some((field) => collectionOf(field)),
+    ),
+  );
+
+/** The fields of the forms on the page that open in the inspector, while nothing is selected. */
+export function FormOutline() {
+  const { t } = useTranslation();
+  const forms = useForms((forms) => forms);
+
+  return Object.entries(forms).map(([id, form]) => {
+    const collections = formCollections(form);
+
+    return (
+      collections.length > 0 && (
+        <BlockList
+          key={id}
+          title={form.label}
+          items={collections}
+          getKey={({ key }) => key}
+          row={({ key, collection }) => {
+            const items = collectionItems(collection, form.values[key]);
+
+            return {
+              label: fieldLabel(key, collection),
+              summary: t(($) => $.editors.items, { count: items.length }),
+              missing: collectionMissing(collection, items),
+              onOpen: () => openField(id, [key]),
+              inspects: true,
+            };
+          }}
+        />
+      )
+    );
+  });
 }
 
 /** A value of a form on the page that its fields have opened. */
