@@ -13,7 +13,7 @@ Everything below follows from that.
 
 ## The two boundaries
 
-**The session cookie decides who is asking.** It is an encrypted JWT (a JWE, `dir` + A256GCM), marked `HttpOnly`, `SameSite=Lax` and `Secure`, and scoped to the CMS API path, so it is never attached to a request for your site's own pages. The provider token lives inside it and is only ever decrypted inside a server route.
+**The session cookie decides who is asking.** It is an encrypted JWT (a JWE, `dir` + A256GCM), marked `HttpOnly`, `SameSite=Lax` and `Secure` on every host but loopback, whatever scheme a proxy forwards, and scoped to the CMS API path, so it is never attached to a request for your site's own pages. The provider token lives inside it and is only ever decrypted inside a server route.
 
 **The operation registry decides what asking can accomplish.** Every operation names a CMS capability — an entry in a collection, a file in the library — and none of them takes a repository path, a ref, a commit or a provider parameter. So a browser that has been fully compromised can still only do the things an editor could have done through the interface.
 

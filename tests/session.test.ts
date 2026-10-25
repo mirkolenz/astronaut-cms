@@ -91,10 +91,11 @@ describe("cookie scope", () => {
     expect(basePath("/docs/_astronaut-cms/api/rpc", "/_astronaut-cms/api")).toBe("/docs");
   });
 
-  it("is HttpOnly and Lax, and Secure only where that is not self-defeating", () => {
+  it("is HttpOnly and Lax, and Secure everywhere but loopback", () => {
+    // Plain http, as a TLS-terminating proxy may forward it.
     const attributes = cmsCookie({
       name: "s",
-      url: new URL("https://x.test/_astronaut-cms/api/rpc"),
+      url: new URL("http://x.test/_astronaut-cms/api/rpc"),
       path: "/_astronaut-cms/api",
       value: "v",
     });
@@ -103,7 +104,7 @@ describe("cookie scope", () => {
     expect(attributes).toContain("HttpOnly");
     expect(attributes).toContain("SameSite=Lax");
     expect(attributes).toContain("Secure");
-    // A plain-http dev server would drop a Secure cookie outright.
+    // Some browsers drop a Secure cookie on a plain-http dev server.
     expect(
       cmsCookie({
         name: "s",

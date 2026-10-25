@@ -32,6 +32,9 @@ export const SESSION_TTL = 30 * 24 * 60 * 60;
 /** Renewed this long before the provider token lapses, so a request never races it. */
 const REFRESH_MARGIN_MS = 60_000;
 
+/** Hostnames as `URL` spells them, IPv6 in brackets. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 /** Who issued the token, so one verifier can refuse a well-formed foreign one. */
 const ISSUER = "astronaut-cms";
 
@@ -202,8 +205,11 @@ export function cmsCookie({ name, url, path, value, maxAge }: CookieOptions): st
     `Max-Age=${value ? (maxAge ?? SESSION_TTL) : 0}`,
   ];
 
-  // A plain-http dev server would drop a Secure cookie outright.
-  if (url.protocol === "https:") attributes.push("Secure");
+  // Decided by the host rather than the scheme, which a TLS-terminating proxy
+  // may rewrite to http. Only loopback is exempt, since some browsers drop a
+  // Secure cookie on a plain-http dev server, so a deployment without TLS fails
+  // to sign in rather than sending the cookie in the clear.
+  if (!LOOPBACK_HOSTS.has(url.hostname)) attributes.push("Secure");
 
   return attributes.join("; ");
 }
