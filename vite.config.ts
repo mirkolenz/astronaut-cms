@@ -5,11 +5,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite";
 import { dts } from "rolldown-plugin-dts";
 import pkg from "./package.json" with { type: "json" };
-import { dependencyPolicy, environmentAliases, licenseExtras } from "./vite.plugins.ts";
+import { thirdPartyLicenses } from "./vite.licenses.ts";
+import { dependencyPolicy, environmentAliases } from "./vite.plugins.ts";
 
 const src = (path: string) => resolve(import.meta.dirname, "src", path);
-
-const licenses = licenseExtras(pkg.name, "THIRD_PARTY_LICENSES.md");
 
 // The server compiles in no third-party code and may import only the declared
 // dependencies. The admin is one bundle with everything compiled in but React,
@@ -29,6 +28,8 @@ export default defineConfig({
       "rehype-raw": src("client/bundle/disabled-plugin.ts"),
     }),
     tailwindcss(),
+    // The licenses of the packages compiled in, which their terms require to travel with them.
+    thirdPartyLicenses("THIRD_PARTY_LICENSES.md"),
     tanstackRouter({
       target: "react",
       autoCodeSplitting: true,
@@ -85,10 +86,8 @@ export default defineConfig({
       build: {
         outDir: "dist/styles",
         copyPublicDir: false,
-        license: licenses.option,
         rolldownOptions: {
           input: { styles: src("astro/styles.css") },
-          plugins: [licenses.plugin],
           output: {
             assetFileNames: ({ names }) =>
               names.includes("styles.css") ? "[name][extname]" : "assets/[name]-[hash][extname]",
@@ -102,8 +101,6 @@ export default defineConfig({
       build: {
         outDir: "dist/admin",
         copyPublicDir: false,
-        // The licenses of the packages compiled in, which their terms require to travel with them.
-        license: licenses.option,
         lib: {
           entry: {
             bootstrap: src("client/bootstrap.ts"),
@@ -114,14 +111,13 @@ export default defineConfig({
         rolldownOptions: {
           // React's `"use client"` only matters to server components, which the admin has none of.
           checks: { moduleLevelDirective: false },
-          // Worker builds take these too, where the license plugin lists their packages.
+          // Worker builds take these too.
           plugins: [
             // React is the site's, and the editor's declarations use the mdast types
             // the server's already depend on.
             dependencyPolicy({ self: pkg.name, external: ["react", "react-dom", "@types/mdast"] }),
             // Only what a site imports is declared, not every module the admin reaches.
             dts({ entry: ["src/client/editor.ts", "src/client/bootstrap.ts"] }),
-            licenses.plugin,
           ],
           output: {
             // Vite keeps a library's whitespace, which a bundle nobody reads only pays for.
