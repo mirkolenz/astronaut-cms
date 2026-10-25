@@ -65,7 +65,11 @@ const blobSizesSchema = z.object({
           repository: z.object({
             blobs: z.object({
               nodes: z.array(
-                z.object({ path: z.string(), size: z.coerce.number(), rawSize: z.coerce.number().nullish() }),
+                z.object({
+                  path: z.string(),
+                  size: z.coerce.number(),
+                  rawSize: z.coerce.number().nullish(),
+                }),
               ),
             }),
           }),
@@ -152,7 +156,9 @@ export class GitLabStorage extends BranchedStorage {
   private async listTree(path: string, recursive = true): Promise<TreeFile[]> {
     const ref = await this.readRef();
 
-    return memoized(this.trees, `${ref}:${recursive}:${path}`, () => this.walkTree(path, ref, recursive));
+    return memoized(this.trees, `${ref}:${recursive}:${path}`, () =>
+      this.walkTree(path, ref, recursive),
+    );
   }
 
   private async walkTree(path: string, ref: string, recursive: boolean): Promise<TreeFile[]> {

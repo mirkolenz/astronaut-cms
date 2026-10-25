@@ -29,7 +29,10 @@ import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
 import { asEntryFormat, sortByIds, type EntryFormat } from "@/shared/types";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesBlocker,
+} from "@/client/components/unsaved-changes-dialog";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { EntryContextProvider } from "@/client/lib/entry-context";
@@ -179,7 +182,9 @@ export function FileCollectionEditor({ collection }: { collection: string }) {
                 onDelete={(expectedVersion) => setDeleteTarget({ id: entry.id, expectedVersion })}
                 orderable={isOrderable}
                 onMoveUp={index > 0 ? () => handleMove(index, -1) : undefined}
-                onMoveDown={index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined}
+                onMoveDown={
+                  index < sortedEntries.length - 1 ? () => handleMove(index, 1) : undefined
+                }
               />
             ))}
             {draftId && (
@@ -272,7 +277,8 @@ function FileEntryCard({
 
   // A draft opens with the defaults, saved as nothing yet.
   useEffect(() => {
-    if (draft) openForm(form, { values: schemaDefaults(shape), saved: null, shape, label: entryId });
+    if (draft)
+      openForm(form, { values: schemaDefaults(shape), saved: null, shape, label: entryId });
 
     return () => closeForm(form);
   }, [form, draft, shape, entryId]);

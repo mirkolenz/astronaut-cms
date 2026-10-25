@@ -77,7 +77,9 @@ export function textSummary(
     .filter(([, field]) => field.type === "string" && !field.format)
     .map(([key, field]) => ({ key, required: isRequired(field) }));
 
-  return [...keys.filter(({ required }) => required), ...keys].map(({ key }) => text(key)).find(Boolean);
+  return [...keys.filter(({ required }) => required), ...keys]
+    .map(({ key }) => text(key))
+    .find(Boolean);
 }
 
 /** What a field is called in the form: its `title`, else its key in words. */
@@ -86,14 +88,18 @@ export function fieldLabel(key: string, field: FieldSchema): string {
 }
 
 /** The labels of the required fields of `shape` that have no value by `isEmpty`. */
-export function missingFields(shape: Record<string, FieldSchema>, isEmpty: (key: string) => boolean): string[] {
+export function missingFields(
+  shape: Record<string, FieldSchema>,
+  isEmpty: (key: string) => boolean,
+): string[] {
   return Object.entries(shape)
     .filter(([key, field]) => isRequired(field) && isEmpty(key))
     .map(([key, field]) => fieldLabel(key, field));
 }
 
 // The object schema a value follows, the active variant for a union.
-const objectOf = (field: FieldSchema, value: unknown) => (field.type === "union" ? activeVariant(field, value) : field);
+const objectOf = (field: FieldSchema, value: unknown) =>
+  field.type === "union" ? activeVariant(field, value) : field;
 
 /** The text that names a structured value, such as an item of a list. */
 export function valueSummary(field: FieldSchema, value: unknown): string | undefined {
@@ -106,7 +112,8 @@ export function valueSummary(field: FieldSchema, value: unknown): string | undef
 export function missingValues(field: FieldSchema, value: unknown): string[] {
   const object = objectOf(field, value);
   const values = asRecord(value);
-  const isEmpty = (key: string) => values[key] === undefined || values[key] === null || values[key] === "";
+  const isEmpty = (key: string) =>
+    values[key] === undefined || values[key] === null || values[key] === "";
 
   return object?.type === "object" ? missingFields(object.shape, isEmpty) : [];
 }
@@ -130,16 +137,21 @@ export type CollectionField = Extract<FieldSchema, { type: "array" | "record" }>
 
 /** The field as a list or record of structured items, which the inspector edits one at a time. */
 export function collectionOf(field: FieldSchema): CollectionField | undefined {
-  return (field.type === "array" || field.type === "record") && isStructured(itemField(field)) ? field : undefined;
+  return (field.type === "array" || field.type === "record") && isStructured(itemField(field))
+    ? field
+    : undefined;
 }
 
-export const itemField = (field: CollectionField): FieldSchema => (field.type === "array" ? field.element : field.value);
+export const itemField = (field: CollectionField): FieldSchema =>
+  field.type === "array" ? field.element : field.value;
 
 export type CollectionItem = readonly [key: string | number, value: unknown];
 
 /** The items of a list by index, or of a record by key. */
 export function collectionItems(field: CollectionField, value: unknown): CollectionItem[] {
-  return field.type === "array" ? asArray(value).map((item, index) => [index, item]) : Object.entries(asRecord(value));
+  return field.type === "array"
+    ? asArray(value).map((item, index) => [index, item])
+    : Object.entries(asRecord(value));
 }
 
 export function fromItems(field: CollectionField, items: readonly CollectionItem[]): unknown {
@@ -172,12 +184,20 @@ export interface FieldStep {
   parent: FieldSchema;
 }
 
-function childField(parent: FieldSchema, value: unknown, key: string | number): FieldSchema | undefined {
+function childField(
+  parent: FieldSchema,
+  value: unknown,
+  key: string | number,
+): FieldSchema | undefined {
   switch (parent.type) {
     case "object":
-      return typeof key === "string" && Object.hasOwn(parent.shape, key) ? parent.shape[key] : undefined;
+      return typeof key === "string" && Object.hasOwn(parent.shape, key)
+        ? parent.shape[key]
+        : undefined;
     case "record":
-      return typeof key === "string" && Object.hasOwn(asRecord(value), key) ? parent.value : undefined;
+      return typeof key === "string" && Object.hasOwn(asRecord(value), key)
+        ? parent.value
+        : undefined;
     case "array":
       return typeof key === "number" && key < asArray(value).length ? parent.element : undefined;
     case "tuple":
@@ -235,9 +255,15 @@ export function setAt(root: unknown, path: ValuePath, value: unknown): unknown {
 }
 
 /** What a variant of a union is called: the value of its discriminator, else its position. */
-export function variantLabel(union: Extract<FieldSchema, { type: "union" }>, index: number): string {
+export function variantLabel(
+  union: Extract<FieldSchema, { type: "union" }>,
+  index: number,
+): string {
   const variant = union.variants[index];
-  const tag = union.discriminator && variant?.type === "object" ? variant.shape[union.discriminator] : undefined;
+  const tag =
+    union.discriminator && variant?.type === "object"
+      ? variant.shape[union.discriminator]
+      : undefined;
 
   return tag?.type === "literal" ? String(tag.value) : String(index);
 }

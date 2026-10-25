@@ -68,6 +68,9 @@ export function describeReference(reference: AssetReference): string {
 }
 
 /** What reaches one file, from an index the caller already has. */
-export function referencesFor(index: ReferenceIndex, { library, path }: MediaLocation): AssetReference[] {
+export function referencesFor(
+  index: ReferenceIndex,
+  { library, path }: MediaLocation,
+): AssetReference[] {
   return index.find((file) => file.library === library && file.path === path)?.references ?? [];
 }

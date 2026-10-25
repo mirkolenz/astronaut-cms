@@ -6,7 +6,13 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ListChecks, Puzzle, Square } from "lucide-react";
-import { $getNodeByKey, $getRoot, $isElementNode, type LexicalEditor, type LexicalNode } from "lexical";
+import {
+  $getNodeByKey,
+  $getRoot,
+  $isElementNode,
+  type LexicalEditor,
+  type LexicalNode,
+} from "lexical";
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ComponentIcon } from "@/config";
 import { findComponent } from "@/shared/component-lookup";
@@ -55,24 +61,48 @@ function $describe(node: LexicalNode, t: TFunction): OutlineItem {
 
   switch (json.type) {
     case "paragraph":
-      return block(BLOCK_ICONS.paragraph, t(($) => $.editors.blocks.paragraph));
+      return block(
+        BLOCK_ICONS.paragraph,
+        t(($) => $.editors.blocks.paragraph),
+      );
     case "heading": {
       const level = Number(json.tag?.slice(1) ?? 1);
 
-      return block(HEADING_ICONS[level - 1] ?? Square, t(($) => $.editors.blocks.heading, { level }));
+      return block(
+        HEADING_ICONS[level - 1] ?? Square,
+        t(($) => $.editors.blocks.heading, { level }),
+      );
     }
     case "list":
       return json.listType === "number"
-        ? block(BLOCK_ICONS.numberedList, t(($) => $.editors.blocks.numberedList))
-        : block(json.listType === "check" ? ListChecks : BLOCK_ICONS.bulletList, t(($) => $.editors.blocks.bulletList));
+        ? block(
+            BLOCK_ICONS.numberedList,
+            t(($) => $.editors.blocks.numberedList),
+          )
+        : block(
+            json.listType === "check" ? ListChecks : BLOCK_ICONS.bulletList,
+            t(($) => $.editors.blocks.bulletList),
+          );
     case "quote":
-      return block(BLOCK_ICONS.quote, t(($) => $.editors.blocks.quote));
+      return block(
+        BLOCK_ICONS.quote,
+        t(($) => $.editors.blocks.quote),
+      );
     case "codeblock":
-      return block(BLOCK_ICONS.code, t(($) => $.editors.blocks.code));
+      return block(
+        BLOCK_ICONS.code,
+        t(($) => $.editors.blocks.code),
+      );
     case "table":
-      return block(BLOCK_ICONS.table, t(($) => $.editors.blocks.table));
+      return block(
+        BLOCK_ICONS.table,
+        t(($) => $.editors.blocks.table),
+      );
     case "horizontalrule":
-      return block(BLOCK_ICONS.divider, t(($) => $.editors.blocks.divider));
+      return block(
+        BLOCK_ICONS.divider,
+        t(($) => $.editors.blocks.divider),
+      );
     default:
       return block(Square, node.getType());
   }
@@ -132,7 +162,9 @@ export function BlockOutline({ editor }: { editor: LexicalEditor }) {
       }}
       row={(item) => ({ ...item, onOpen: () => open(item), inspects: item.isComponent })}
     >
-      {items.length === 0 && <p className="text-sm text-muted-foreground">{t(($) => $.editors.outlineEmpty)}</p>}
+      {items.length === 0 && (
+        <p className="text-sm text-muted-foreground">{t(($) => $.editors.outlineEmpty)}</p>
+      )}
     </BlockList>
   );
 }

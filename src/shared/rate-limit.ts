@@ -54,7 +54,11 @@ export class RateLimiter {
   ): ({ ok: true; release: () => void } | { ok: false; reason: RateLimitDenial }) & Disposable {
     const now = Date.now();
     const state = this.caller(caller, now);
-    const denial = (reason: RateLimitDenial) => ({ ok: false as const, reason, [Symbol.dispose]: () => {} });
+    const denial = (reason: RateLimitDenial) => ({
+      ok: false as const,
+      reason,
+      [Symbol.dispose]: () => {},
+    });
 
     if (state.inFlight >= this.config.concurrency) return denial("concurrency");
     if (state.count + cost > this.config.requests) return denial("rate");

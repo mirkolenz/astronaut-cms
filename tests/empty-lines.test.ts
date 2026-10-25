@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { $createNodeSelection, $createParagraphNode, $createTextNode, $getRoot, $setSelection, type LexicalEditor } from "lexical";
+import {
+  $createNodeSelection,
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  $setSelection,
+  type LexicalEditor,
+} from "lexical";
 import { $moveToEmptyLine, pruneEmptyLines } from "@/client/lib/empty-lines";
 import { newEditor } from "./fixtures/editor";
 
 const lines = (editor: LexicalEditor) =>
-  editor.read(() => $getRoot().getChildren().map((node) => node.getTextContent()));
+  editor.read(() =>
+    $getRoot()
+      .getChildren()
+      .map((node) => node.getTextContent()),
+  );
 
 describe("empty lines", () => {
   it("removes the empty lines the caret has left", () => {

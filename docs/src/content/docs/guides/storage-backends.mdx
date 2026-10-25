@@ -28,9 +28,10 @@ cms({
   whoever can reach the dev server, which is the same trust boundary the dev server itself has. For
   production deployments, use the GitHub or GitLab backend.
 
-  The dev server answers the CMS API itself, in Node, whatever runtime your adapter renders in, since
-  only Node can see the working tree. It therefore reads variables from `.env` rather than from an
-  adapter's own file such as Cloudflare's `.dev.vars`.
+The dev server answers the CMS API itself, in Node, whatever runtime your adapter renders in, since
+only Node can see the working tree. It therefore reads variables from `.env` rather than from an
+adapter's own file such as Cloudflare's `.dev.vars`.
+
 </Aside>
 
 ## GitHub Storage

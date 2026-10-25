@@ -11,7 +11,8 @@ Install the CMS package along with its peer dependencies.
 
 <Aside type="caution">
   npm only warns about the Node.js version, so an older one installs cleanly and fails later.
-  Whatever builds your site needs Node.js 26 as well, so pin it where your host reads it, for example in a `.node-version` file for Cloudflare Workers Builds.
+  Whatever builds your site needs Node.js 26 as well, so pin it where your host reads it, for
+  example in a `.node-version` file for Cloudflare Workers Builds.
 </Aside>
 
 <Tabs>
@@ -45,8 +46,8 @@ npm install @astrojs/mdx
 
 ## Optional Dependencies
 
-| Package        | Version | Purpose                          |
-| -------------- | ------- | -------------------------------- |
+| Package        | Version      | Purpose                          |
+| -------------- | ------------ | -------------------------------- |
 | `@astrojs/mdx` | `^7 \|\| ^8` | MDX support for block components |
 
 The admin ships compiled with its dependencies, stylesheet included, so the CMS adds no Tailwind plugin to your build and nothing but the peers above to your lockfile.

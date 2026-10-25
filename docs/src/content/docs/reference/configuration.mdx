@@ -23,19 +23,19 @@ interface CmsConfig {
 }
 ```
 
-| Property            | Type                   | Default                 | Description                                                                                                         |
-| ------------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                            |
-| `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
+| Property            | Type                   | Default                 | Description                                                                                                           |
+| ------------------- | ---------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                              |
+| `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                          |
 | `admin`             | `boolean`              | `true` for Git storage  | Ship the admin and its API in `astro build`, `false` builds a purely static site. `astro dev` always serves the admin |
-| `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
-| `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
-| `media`             | `MediaConfig`          | `{}`                    | Media libraries configuration                                                                                       |
-| `locale`            | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                                                                                     |
-| `i18n`              | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                                                                                   |
-| `previewUrl`        | `string`               | —                       | URL pattern for branch previews from your host                                                                      |
-| `ai`                | `AiConfig`             | disabled                | Built-in assistant, see [AI Assistant](/astronaut-cms/guides/ai-agent/)                                             |
-| `webmcp`            | `WebmcpConfig`         | disabled                | Expose the CMS tools to agents in the editor's browser, see [Browser Agents](/astronaut-cms/guides/browser-agents/) |
+| `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                         |
+| `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                            |
+| `media`             | `MediaConfig`          | `{}`                    | Media libraries configuration                                                                                         |
+| `locale`            | `"en" \| "de"`         | `"en"`                  | Default admin panel UI language                                                                                       |
+| `i18n`              | `ContentI18n \| false` | the site's `astro` i18n | Content languages                                                                                                     |
+| `previewUrl`        | `string`               | —                       | URL pattern for branch previews from your host                                                                        |
+| `ai`                | `AiConfig`             | disabled                | Built-in assistant, see [AI Assistant](/astronaut-cms/guides/ai-agent/)                                               |
+| `webmcp`            | `WebmcpConfig`         | disabled                | Expose the CMS tools to agents in the editor's browser, see [Browser Agents](/astronaut-cms/guides/browser-agents/)   |
 
 ### `i18n`
 
@@ -124,13 +124,13 @@ interface MediaConfig {
 
 Every library takes these options:
 
-| Property            | Type                               | Default    | Description                                                                                                  |
-| ------------------- | ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `label`             | `string`                           | translated | The library's name in the admin                                                                              |
-| `allowedExtensions` | `string[]`                         | any file   | Restricts the library to these extensions (with leading dot)                                                 |
-| `minFileSize`       | `number`                           | none       | Smallest upload in bytes, checked in the admin and again on the server                                       |
+| Property            | Type                               | Default    | Description                                                                                                   |
+| ------------------- | ---------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------- |
+| `label`             | `string`                           | translated | The library's name in the admin                                                                               |
+| `allowedExtensions` | `string[]`                         | any file   | Restricts the library to these extensions (with leading dot)                                                  |
+| `minFileSize`       | `number`                           | none       | Smallest upload in bytes, checked in the admin and again on the server                                        |
 | `maxFileSize`       | `number`                           | unlimited  | Largest upload in bytes, checked in the admin, signed into an object-store upload URL, and checked on arrival |
-| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How the browser reshapes an image before uploading it here, or `false` to upload originals untouched         |
+| `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How the browser reshapes an image before uploading it here, or `false` to upload originals untouched          |
 
 The sizes are checked against the file as it is uploaded, after optimization where that is enabled.
 The bounds of the two libraries may overlap.
@@ -139,10 +139,10 @@ The bounds of the two libraries may overlap.
 
 The library in the repository. Its uploads are commits on the draft branch, published with content.
 
-| Property    | Type      | Default        | Description                                                        |
-| ----------- | --------- | -------------- | ------------------------------------------------------------------ |
-| `directory` | `string`  | `"src/assets"` | Media directory relative to the project root                       |
-| `prune`     | `boolean` | automatic      | Whether a build deletes the library files nothing delivered links  |
+| Property    | Type      | Default        | Description                                                       |
+| ----------- | --------- | -------------- | ----------------------------------------------------------------- |
+| `directory` | `string`  | `"src/assets"` | Media directory relative to the project root                      |
+| `prune`     | `boolean` | automatic      | Whether a build deletes the library files nothing delivered links |
 
 Its uploads pass through the CMS route, which holds each one in memory, so `maxFileSize` is also that route's body limit.
 
@@ -182,17 +182,17 @@ type S3MediaConfig =
     };
 ```
 
-| Property         | Provider   | Description                                                                                                  |
-| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `provider`       | both       | `"s3"` (default) for any S3-compatible store, `"r2"` for Cloudflare R2                                        |
-| `bucket`         | both       | Bucket holding the library                                                                                   |
-| `endpoint`       | `s3`       | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                                                   |
-| `publicUrl`      | both       | Public base URL the library is served under. Content stores each file's URL under it. Required               |
-| `region`         | `s3`       | Signing region (default: inferred from `endpoint` on AWS, R2 and Backblaze B2, otherwise `"us-east-1"`)      |
-| `prefix`         | both       | Key prefix the library is rooted at (default: the bucket root)                                               |
-| `forcePathStyle` | `s3`       | Address objects as `<endpoint>/<bucket>/<key>`                                                               |
-| `accountId`      | `r2`       | Cloudflare account id, for the S3 API endpoint                                                               |
-| `devDirectory`   | both       | Where `astro dev` keeps the library instead of the bucket (default: `".astronaut-cms/s3"`), `false` for the bucket |
+| Property         | Provider | Description                                                                                                        |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `provider`       | both     | `"s3"` (default) for any S3-compatible store, `"r2"` for Cloudflare R2                                             |
+| `bucket`         | both     | Bucket holding the library                                                                                         |
+| `endpoint`       | `s3`     | API endpoint, e.g. `https://s3.eu-central-1.amazonaws.com`                                                         |
+| `publicUrl`      | both     | Public base URL the library is served under. Content stores each file's URL under it. Required                     |
+| `region`         | `s3`     | Signing region (default: inferred from `endpoint` on AWS, R2 and Backblaze B2, otherwise `"us-east-1"`)            |
+| `prefix`         | both     | Key prefix the library is rooted at (default: the bucket root)                                                     |
+| `forcePathStyle` | `s3`     | Address objects as `<endpoint>/<bucket>/<key>`                                                                     |
+| `accountId`      | `r2`     | Cloudflare account id, for the S3 API endpoint                                                                     |
+| `devDirectory`   | both     | Where `astro dev` keeps the library instead of the bucket (default: `".astronaut-cms/s3"`), `false` for the bucket |
 
 See the [Media Library](../../guides/media-library/#where-files-are-stored) guide for the setup an object store needs.
 

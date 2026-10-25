@@ -41,7 +41,12 @@ import {
 } from "@/client/stores/inspector-store";
 import { FieldList, FieldNavContext } from "@/client/components/editors/field-renderer";
 import { FieldInspector, FormInspector } from "@/client/components/editors/field-inspector";
-import { BlockList, ChildListControls, DOCKED, InspectorView } from "@/client/components/editors/block-controls";
+import {
+  BlockList,
+  ChildListControls,
+  DOCKED,
+  InspectorView,
+} from "@/client/components/editors/block-controls";
 import { BlockOutline } from "@/client/components/editors/block-outline";
 import { Button } from "@/client/components/ui/button";
 
@@ -51,7 +56,11 @@ export function InspectorPanel() {
   const bodyEditor = useBodyRealm()?.getValue(rootEditor$);
   const docked = useMediaQuery(DOCKED);
   const content = !selection ? null : isBlockSelection(selection) ? (
-    <ComponentInspector key={`${selection.nodeKey}/${selection.path.join("/")}`} selection={selection} field={field} />
+    <ComponentInspector
+      key={`${selection.nodeKey}/${selection.path.join("/")}`}
+      selection={selection}
+      field={field}
+    />
   ) : (
     <FormInspector key={selection.form} form={selection.form} field={field} />
   );
@@ -61,18 +70,14 @@ export function InspectorPanel() {
 
     return (
       shown && (
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border pl-6">
-          {shown}
-        </aside>
+        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border pl-6">{shown}</aside>
       )
     );
   }
 
   return (
     content && (
-      <div
-        className="fixed inset-x-0 bottom-0 z-40 max-h-[55dvh] overflow-y-auto border-t border-border bg-background p-4 shadow-lg"
-      >
+      <div className="fixed inset-x-0 bottom-0 z-40 max-h-[55dvh] overflow-y-auto border-t border-border bg-background p-4 shadow-lg">
         {content}
       </div>
     )
@@ -112,7 +117,10 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
         selection: { ...selection, path: ancestorPath },
       };
     }),
-  ].map((crumb) => ({ label: crumb.label, onSelect: () => select(crumb.selection, { reveal: true }) }));
+  ].map((crumb) => ({
+    label: crumb.label,
+    onSelect: () => select(crumb.selection, { reveal: true }),
+  }));
 
   const setProp = (key: string, value: unknown) =>
     updateBlock(
@@ -126,7 +134,13 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
   return (
     <FieldNavContext.Provider value={{ selected: field, open }}>
       {field.length > 0 ? (
-        <FieldInspector crumbs={crumbs} label={label} shape={shape} values={values} onChange={setProp} />
+        <FieldInspector
+          crumbs={crumbs}
+          label={label}
+          shape={shape}
+          values={values}
+          onChange={setProp}
+        />
       ) : (
         <InspectorView
           crumbs={crumbs}
@@ -138,12 +152,16 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
           {Object.keys(shape).length > 0 ? (
             <FieldList shape={shape} values={values} onChange={setProp} />
           ) : (
-            !childDefs && <p className="text-xs text-muted-foreground">{t(($) => $.editors.noProps)}</p>
+            !childDefs && (
+              <p className="text-xs text-muted-foreground">{t(($) => $.editors.noProps)}</p>
+            )
           )}
 
           {childDefs && <ChildList selection={selection} element={element} childDefs={childDefs} />}
 
-          {def?.collections.map((name) => <CollectionLink key={name} name={name} />)}
+          {def?.collections.map((name) => (
+            <CollectionLink key={name} name={name} />
+          ))}
         </InspectorView>
       )}
     </FieldNavContext.Provider>
@@ -197,7 +215,8 @@ function ChildList({
           label: labelOf(def, child),
           summary: summaryOf(def, child),
           missing: missingProps(def, child),
-          onOpen: () => select({ ...selection, path: [...path, childKey(child)] }, { reveal: true }),
+          onOpen: () =>
+            select({ ...selection, path: [...path, childKey(child)] }, { reveal: true }),
           inspects: true,
         };
       }}

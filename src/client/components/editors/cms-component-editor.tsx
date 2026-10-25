@@ -4,7 +4,15 @@
  * inspector once it is selected. Structured children are blocks of their own
  * inside it, and markdown children stay editable in place.
  */
-import { createContext, useContext, useEffect, useEffectEvent, useMemo, useRef, type SyntheticEvent } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  type SyntheticEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { CLICK_COMMAND, COMMAND_PRIORITY_LOW, mergeRegister } from "lexical";
 import { NestedEditorsContext } from "@mdxeditor/editor";
@@ -67,7 +75,10 @@ export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
   const { parentEditor, lexicalNode, focusEmitter } = useContext(NestedEditorsContext)!;
   const trail = useContext(TrailContext);
   const nodeKey = lexicalNode.getKey();
-  const node = useMemo<BlockNode>(() => ({ editor: parentEditor, nodeKey }), [parentEditor, nodeKey]);
+  const node = useMemo<BlockNode>(
+    () => ({ editor: parentEditor, nodeKey }),
+    [parentEditor, nodeKey],
+  );
   const def = mdastNode.name ? findComponent(mdastNode.name, components) : undefined;
   const hasSlot = def?.children === "markdown";
   const selectSelf = useEffectEvent(() => select({ ...node, path: [], trail }));
@@ -180,7 +191,15 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
 }
 
 /** The markdown children of the element at `path`, edited in place. */
-function Slot({ path, element, trail }: { path: ChildPath; element: MdxJsxElement; trail: readonly Crumb[] }) {
+function Slot({
+  path,
+  element,
+  trail,
+}: {
+  path: ChildPath;
+  element: MdxJsxElement;
+  trail: readonly Crumb[];
+}) {
   return (
     <TrailContext.Provider value={trail}>
       <NestedLexicalEditor
@@ -226,7 +245,11 @@ function ChildBlocks({
           />
         );
       })}
-      {other && <p className="not-prose px-1 text-xs text-muted-foreground">{t(($) => $.editors.sourceOnly)}</p>}
+      {other && (
+        <p className="not-prose px-1 text-xs text-muted-foreground">
+          {t(($) => $.editors.sourceOnly)}
+        </p>
+      )}
       <ChildListControls parent={{ ...node, path, trail: outer }} childDefs={childDefs} />
     </div>
   );

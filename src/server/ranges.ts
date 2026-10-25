@@ -6,7 +6,12 @@
  * so the forges cannot drift apart.
  */
 import { HttpError } from "./errors.ts";
-import { partialContent, rangeHeader, type ByteRange, type PartialContent } from "../shared/http.ts";
+import {
+  partialContent,
+  rangeHeader,
+  type ByteRange,
+  type PartialContent,
+} from "../shared/http.ts";
 
 /** Upstream bytes as the media route relays them, whole or as one range. */
 export interface RelayedBytes {
@@ -74,10 +79,7 @@ function sliceStream(
  * the whole file is cut here while streaming, so memory stays at one chunk
  * whether or not the source supports ranges.
  */
-function relayRange(
-  response: Response,
-  range: ByteRange | null,
-): RelayedBytes {
+function relayRange(response: Response, range: ByteRange | null): RelayedBytes {
   const { body, status } = response;
   const contentRange = response.headers.get("content-range");
 

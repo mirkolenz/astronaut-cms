@@ -31,7 +31,9 @@ export {
 export interface CollectionRegistry {}
 
 /** A collection of the content config, or any string before `astro sync` names them. */
-export type CollectionName = CollectionRegistry extends { name: infer N extends string } ? N : string;
+export type CollectionName = CollectionRegistry extends { name: infer N extends string }
+  ? N
+  : string;
 
 /** The asset, link, anchor and reference helpers a component's props function receives. */
 export type SchemaHelpers = Omit<typeof schemaHelpers, "reference"> & {

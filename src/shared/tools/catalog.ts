@@ -103,7 +103,9 @@ function applyBodyEdit(body: string, edit: BodyEdit | undefined): { body: string
     const end = Math.min(edit.endLine, lines.length);
 
     return {
-      body: lines.toSpliced(edit.startLine - 1, end - edit.startLine + 1, ...edit.text.split("\n")).join("\n"),
+      body: lines
+        .toSpliced(edit.startLine - 1, end - edit.startLine + 1, ...edit.text.split("\n"))
+        .join("\n"),
     };
   }
 
@@ -152,13 +154,17 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     "Name of a content or data collection.",
   );
   const libraries = mediaLibraries(config.media);
-  const librarySchema = z.enum(libraries).describe("Media library holding the file, as listMedia reports it.");
+  const librarySchema = z
+    .enum(libraries)
+    .describe("Media library holding the file, as listMedia reports it.");
 
   // The one id a singleton's tools take, so an agent cannot even ask for another.
   const entryIdOf = (col: CollectionManifestEntry) => {
     const singleton = singletonEntry(col);
 
-    return singleton ? z.literal(singleton.id).describe("Id of the collection's only entry.") : entryId;
+    return singleton
+      ? z.literal(singleton.id).describe("Id of the collection's only entry.")
+      : entryId;
   };
 
   /**

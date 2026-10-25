@@ -5,12 +5,13 @@ import { mediaGraph, type MediaGraph } from "@/integration/media-graph";
 import { repoMedia } from "./fixtures/media";
 import { project } from "./fixtures/project";
 
-const graphFor = (root: string, ignore: string[] = []): MediaGraph => mediaGraph({
-  rootDir: root,
-  srcDir: `${join(root, "src")}/`,
-  media: repoMedia(),
-  ignore,
-});
+const graphFor = (root: string, ignore: string[] = []): MediaGraph =>
+  mediaGraph({
+    rootDir: root,
+    srcDir: `${join(root, "src")}/`,
+    media: repoMedia(),
+    ignore,
+  });
 
 it("keeps the library when on-demand code reaches media", async () => {
   const root = project({
@@ -23,7 +24,12 @@ it("keeps the library when on-demand code reaches media", async () => {
   const graph = graphFor(root, ["/admin"]);
 
   graph.setRoutes([
-    { entrypoint: "src/pages/contact.ts", isPrerendered: false, origin: "project", pattern: "/contact" },
+    {
+      entrypoint: "src/pages/contact.ts",
+      isPrerendered: false,
+      origin: "project",
+      pattern: "/contact",
+    },
     { entrypoint: "src/admin.ts", isPrerendered: false, origin: "external", pattern: "/admin" },
   ]);
 
@@ -52,10 +58,20 @@ it("prunes by default when on-demand routes cannot reach media or content", asyn
 
   graph.setRoutes([
     { entrypoint: "src/pages/home.ts", isPrerendered: true, origin: "project", pattern: "/" },
-    { entrypoint: "src/pages/contact.ts", isPrerendered: false, origin: "project", pattern: "/contact" },
+    {
+      entrypoint: "src/pages/contact.ts",
+      isPrerendered: false,
+      origin: "project",
+      pattern: "/contact",
+    },
   ]);
 
-  await build({ root, logLevel: "silent", plugins: graph.plugins, build: { ssr: "server.ts", write: false } });
+  await build({
+    root,
+    logLevel: "silent",
+    plugins: graph.plugins,
+    build: { ssr: "server.ts", write: false },
+  });
 
   expect(graph.onDemand).toEqual(["/contact"]);
   expect(graph.prune(join(root, "dist"), false)).toEqual(new Map());
@@ -79,8 +95,8 @@ it("keeps the library when an on-demand route reads content", async () => {
       ...graph.plugins,
       {
         name: "content-fixture",
-        resolveId: (id) => id === "astro:content" ? "\0astro:content" : null,
-        load: (id) => id === "\0astro:content" ? "export const getCollection = () => [];" : null,
+        resolveId: (id) => (id === "astro:content" ? "\0astro:content" : null),
+        load: (id) => (id === "\0astro:content" ? "export const getCollection = () => [];" : null),
       },
     ],
     build: { ssr: "server.ts", write: false },

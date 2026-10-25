@@ -157,7 +157,12 @@ describe("GitHub requests", () => {
   it("refuses a truncated repository tree instead of hiding its remaining files", async () => {
     stubFetch([
       { status: 404, body: {} },
-      { body: { tree: [{ type: "blob", path: "src/content/blog/a.md", sha: "a" }], truncated: true } },
+      {
+        body: {
+          tree: [{ type: "blob", path: "src/content/blog/a.md", sha: "a" }],
+          truncated: true,
+        },
+      },
     ]);
 
     await expect(storage().listEntries("posts")).rejects.toThrow(/incomplete repository tree/);
@@ -223,7 +228,10 @@ describe("GitLab requests", () => {
   it("follows the tree listing across pages", async () => {
     stubFetch([
       { status: 404, body: {} },
-      { body: [{ type: "blob", path: "src/content/blog/a.md", id: "a" }], headers: { "x-next-page": "2" } },
+      {
+        body: [{ type: "blob", path: "src/content/blog/a.md", id: "a" }],
+        headers: { "x-next-page": "2" },
+      },
       { body: [{ type: "blob", path: "src/content/blog/b.md", id: "b" }] },
     ]);
 
@@ -253,7 +261,9 @@ describe("GitLab requests", () => {
       },
     ]);
 
-    await expect(storage().listMedia()).resolves.toEqual([{ path: "logo.png", size: 4096, version: "l" }]);
+    await expect(storage().listMedia()).resolves.toEqual([
+      { path: "logo.png", size: 4096, version: "l" },
+    ]);
     expect(calls[2]).toMatchObject({ url: "https://gitlab.com/api/graphql", method: "POST" });
   });
 

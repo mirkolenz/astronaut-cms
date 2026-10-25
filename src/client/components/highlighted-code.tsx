@@ -14,7 +14,10 @@ import { useHighlightedCode } from "@/client/hooks/use-highlighted-code";
 // Languages the generated highlighter leaves out, read with the closest one it has.
 const FALLBACKS: Record<string, string> = { mdx: "markdown" };
 
-interface HighlightedCodeProps extends Pick<ComponentProps<typeof CodeBlock>, "variant" | "className"> {
+interface HighlightedCodeProps extends Pick<
+  ComponentProps<typeof CodeBlock>,
+  "variant" | "className"
+> {
   code: string;
   language: string;
   title?: ReactNode;
@@ -22,7 +25,14 @@ interface HighlightedCodeProps extends Pick<ComponentProps<typeof CodeBlock>, "v
 }
 
 /** Code highlighted by the shared Shiki core, under a header with its title and a copy button. */
-export function HighlightedCode({ code, language, title, copyable = false, variant, className }: HighlightedCodeProps) {
+export function HighlightedCode({
+  code,
+  language,
+  title,
+  copyable = false,
+  variant,
+  className,
+}: HighlightedCodeProps) {
   const { t } = useTranslation();
   const lines = useHighlightedCode(code, FALLBACKS[language.toLowerCase()] ?? language);
 

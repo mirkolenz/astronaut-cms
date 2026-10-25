@@ -81,7 +81,9 @@ export class LocalStorage extends StorageBase {
     assertWithinBase(fullPath, this.rootDir);
 
     const { root, managed } = await this.roots();
-    const actualManagedRoot = managed.entries().find(([absolute]) => isWithin(fullPath, absolute))?.[1];
+    const actualManagedRoot = managed
+      .entries()
+      .find(([absolute]) => isWithin(fullPath, absolute))?.[1];
 
     if (actualManagedRoot === undefined) {
       throw new Error(`Path is not managed by the CMS: ${path}`);
@@ -102,7 +104,10 @@ export class LocalStorage extends StorageBase {
     try {
       if (file) return (await stat(await this.resolve(path))).isFile() ? [path] : [];
 
-      const entries = await readdir(await this.resolve(path), { withFileTypes: true, recursive: true });
+      const entries = await readdir(await this.resolve(path), {
+        withFileTypes: true,
+        recursive: true,
+      });
 
       return entries
         .filter((entry) => !entry.isDirectory())
@@ -139,7 +144,9 @@ export class LocalStorage extends StorageBase {
   }
 
   protected async globPaths(col: CollectionManifestEntry): Promise<string[]> {
-    return (await Promise.all(globRoots(col).map(({ path, file }) => this.filesAt(path, file)))).flat();
+    return (
+      await Promise.all(globRoots(col).map(({ path, file }) => this.filesAt(path, file)))
+    ).flat();
   }
 
   protected override async fetchFileContent(path: string): Promise<VersionedContent> {
@@ -236,7 +243,10 @@ export class LocalStorage extends StorageBase {
     // reads only its own bytes.
     const blob = await openAsBlob(fullPath);
 
-    return { ...base, body: partial?.span ? blob.slice(partial.span.start, partial.span.end + 1) : blob };
+    return {
+      ...base,
+      body: partial?.span ? blob.slice(partial.span.start, partial.span.end + 1) : blob,
+    };
   }
 
   // Nothing to publish into: the working tree is the published state. Discard is

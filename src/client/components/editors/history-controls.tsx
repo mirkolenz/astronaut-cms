@@ -41,10 +41,22 @@ export function HistoryControls() {
 
   return (
     <div className="flex">
-      <Button variant="ghost" size="icon" aria-label={t(($) => $.common.undo)} disabled={!canUndo} onClick={undo}>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={t(($) => $.common.undo)}
+        disabled={!canUndo}
+        onClick={undo}
+      >
         <Undo2 />
       </Button>
-      <Button variant="ghost" size="icon" aria-label={t(($) => $.common.redo)} disabled={!canRedo} onClick={redo}>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={t(($) => $.common.redo)}
+        disabled={!canRedo}
+        onClick={redo}
+      >
         <Redo2 />
       </Button>
     </div>

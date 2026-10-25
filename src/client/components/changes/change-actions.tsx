@@ -77,12 +77,20 @@ export function ChangeActions() {
     setConfirming(null);
 
     if (!changes.data || reviewed < count) {
-      toast(t(($) => $.publish.stale), "error");
+      toast(
+        t(($) => $.publish.stale),
+        "error",
+      );
 
       return;
     }
 
-    run(publish, await changesetDigest(changes.data), t(($) => $.publish.published), clearReviews);
+    run(
+      publish,
+      await changesetDigest(changes.data),
+      t(($) => $.publish.published),
+      clearReviews,
+    );
   };
 
   return (
@@ -124,11 +132,7 @@ export function ChangeActions() {
             <Link to="/changes">{t(($) => $.publish.review)}</Link>
           </Button>
         ) : (
-          <Button
-            size="sm"
-            onClick={() => setConfirming("publish")}
-            disabled={busy || count === 0}
-          >
+          <Button size="sm" onClick={() => setConfirming("publish")} disabled={busy || count === 0}>
             {publish.isPending ? t(($) => $.publish.publishing) : t(($) => $.publish.publish)}
           </Button>
         ))}
@@ -150,7 +154,12 @@ export function ChangeActions() {
         variant="danger"
         onConfirm={() => {
           setConfirming(null);
-          run(discard, undefined, t(($) => $.changes.discarded), clearReviews);
+          run(
+            discard,
+            undefined,
+            t(($) => $.changes.discarded),
+            clearReviews,
+          );
         }}
         onCancel={() => setConfirming(null)}
       />

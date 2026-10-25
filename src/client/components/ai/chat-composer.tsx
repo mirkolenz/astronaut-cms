@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEventHandler, ClipboardEventHandler, KeyboardEventHandler, ReactNode } from "react";
+import type {
+  ChangeEventHandler,
+  ClipboardEventHandler,
+  KeyboardEventHandler,
+  ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUp, Brain, FileText, Library, Paperclip, Square, SquarePen, X } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -199,7 +204,14 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
     try {
       prepared = await prepareMessage(prompt, attachments);
     } catch (error) {
-      if (revision === chatRevision.current) toast(errorMessage(error, t(($) => $.ai.attachError)), "error");
+      if (revision === chatRevision.current)
+        toast(
+          errorMessage(
+            error,
+            t(($) => $.ai.attachError),
+          ),
+          "error",
+        );
 
       return;
     } finally {
@@ -248,7 +260,10 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
         />
 
         <InputGroupAddon align="block-end">
-          <ComposerButton label={t(($) => $.ai.attach)} onClick={() => fileInputRef.current?.click()}>
+          <ComposerButton
+            label={t(($) => $.ai.attach)}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <Paperclip />
           </ComposerButton>
           <input
@@ -302,7 +317,10 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
 
           {aiConfig && aiConfig.models.length > 1 && (
             <Select value={model} onValueChange={setModel}>
-              <SelectTrigger size="sm" className="w-auto min-w-0 gap-1 border-none text-xs shadow-none">
+              <SelectTrigger
+                size="sm"
+                className="w-auto min-w-0 gap-1 border-none text-xs shadow-none"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -316,7 +334,11 @@ export function ChatComposer({ chat, className }: { chat: CmsChat; className?: s
           )}
 
           {busy ? (
-            <ComposerButton label={t(($) => $.ai.stop)} className="ml-auto" onClick={() => void stop()}>
+            <ComposerButton
+              label={t(($) => $.ai.stop)}
+              className="ml-auto"
+              onClick={() => void stop()}
+            >
               <Square />
             </ComposerButton>
           ) : (

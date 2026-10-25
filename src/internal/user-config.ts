@@ -6,7 +6,12 @@
  * instance. This module is intentionally free of any `astro:*` / `astro/*`
  * import, so nothing Node-only leaks into the client.
  */
-import type { CollectionOptions, ComponentDefinition, ComponentIcon, JsxEditor } from "../config.ts";
+import type {
+  CollectionOptions,
+  ComponentDefinition,
+  ComponentIcon,
+  JsxEditor,
+} from "../config.ts";
 import type { DescribedComponent } from "../shared/field-schema.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { componentSchema } from "../shared/component-props.ts";
@@ -32,7 +37,9 @@ export function processUserConfig(
     const previous = seen.get(name);
 
     if (previous && previous !== def) {
-      throw new Error(`Component name "${name}" is defined twice in cms.config: names must be unique.`);
+      throw new Error(
+        `Component name "${name}" is defined twice in cms.config: names must be unique.`,
+      );
     }
 
     seen.set(name, def);

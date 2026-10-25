@@ -12,7 +12,8 @@ import { conformTrailingSlash, joinUrl } from "@/shared/url";
 
 const rootData = (): DOMStringMap => document.getElementById(ADMIN_ROOT_ID)?.dataset ?? {};
 
-const absoluteUrl = (base = "/", path: string): string => new URL(joinUrl(base, path), window.location.origin).href;
+const absoluteUrl = (base = "/", path: string): string =>
+  new URL(joinUrl(base, path), window.location.origin).href;
 
 /** Absolute URL for a CMS file route, whose extension exempts it from `trailingSlash`. */
 export function fileUrl(path: string): string {

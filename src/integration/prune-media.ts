@@ -25,7 +25,9 @@ export function pruneMedia(
 
   if (copies.size === 0) return copies;
 
-  const names = new Map(copies.keys().map((path) => [path, [basename(path), encodeURIComponent(basename(path))]]));
+  const names = new Map(
+    copies.keys().map((path) => [path, [basename(path), encodeURIComponent(basename(path))]]),
+  );
 
   for (const file of globFiles(clientDir, "**/*.{html,css,js,mjs,json,xml,txt,webmanifest}")) {
     const text = readFileSync(file, "utf-8");

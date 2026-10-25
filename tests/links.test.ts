@@ -18,11 +18,25 @@ describe("link policy", () => {
   });
 
   it("refuses plain text that would act as a link", () => {
-    for (const text of ["https://a.b", "//evil.example", "\\\\evil.example", "mailto:a@b.c", "javascript: alert(1)", " DATA:text/html,x"]) {
+    for (const text of [
+      "https://a.b",
+      "//evil.example",
+      "\\\\evil.example",
+      "mailto:a@b.c",
+      "javascript: alert(1)",
+      " DATA:text/html,x",
+    ]) {
       expect(isLinkLike(text)).toBe(true);
     }
 
-    for (const text of ["Hello", "Case study: Acme", "ISBN:978-3-16", "Re:Invent", "/contact", "10:30"]) {
+    for (const text of [
+      "Hello",
+      "Case study: Acme",
+      "ISBN:978-3-16",
+      "Re:Invent",
+      "/contact",
+      "10:30",
+    ]) {
       expect(isLinkLike(text)).toBe(false);
     }
   });

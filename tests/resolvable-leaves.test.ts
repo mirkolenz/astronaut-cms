@@ -61,7 +61,10 @@ describe("collectResolvableLeaves", () => {
       variants: [
         {
           type: "object",
-          shape: { kind: { type: "enum", options: ["photo", "drawing"] }, asset: { type: "image" } },
+          shape: {
+            kind: { type: "enum", options: ["photo", "drawing"] },
+            asset: { type: "image" },
+          },
         },
         {
           type: "object",
@@ -70,8 +73,8 @@ describe("collectResolvableLeaves", () => {
       ],
     };
 
-    expect(collectResolvableLeaves(variant, { kind: "drawing", asset: "/img/sketch.png" })).toEqual([
-      { kind: "image", value: "/img/sketch.png", path: "asset" },
-    ]);
+    expect(collectResolvableLeaves(variant, { kind: "drawing", asset: "/img/sketch.png" })).toEqual(
+      [{ kind: "image", value: "/img/sketch.png", path: "asset" }],
+    );
   });
 });

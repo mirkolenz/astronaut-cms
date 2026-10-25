@@ -135,7 +135,8 @@ export function serializeContent(
 export type FileEntries = Map<string, Record<string, unknown>>;
 
 /** Astro names an array entry by `id` and falls back to `slug`. */
-const idKey = (item: Record<string, unknown>): "id" | "slug" => (item.id == null && item.slug != null ? "slug" : "id");
+const idKey = (item: Record<string, unknown>): "id" | "slug" =>
+  item.id == null && item.slug != null ? "slug" : "id";
 
 // A Map keeps the array's order even for integer-like ids, which an object
 // would move to the front.
@@ -196,7 +197,10 @@ export function parseMultiEntryFile(rawContent: string, format: string): MultiEn
   const { $schema, ...rest } = record;
   // Only a string `$schema` is a schema reference; astro reads any other as an entry.
   const isReference = typeof $schema === "string";
-  const entries = Object.entries(isReference ? rest : record) as [string, Record<string, unknown>][];
+  const entries = Object.entries(isReference ? rest : record) as [
+    string,
+    Record<string, unknown>,
+  ][];
 
   return {
     entries: new Map(entries),
@@ -225,12 +229,13 @@ export function serializeMultiEntryFile(
       return { ...data, [key]: idOf(current) === id ? current : id };
     });
 
-    return isYaml(format)
-      ? serializeYaml(arr, yaml)
-      : JSON.stringify(arr, null, 2) + "\n";
+    return isYaml(format) ? serializeYaml(arr, yaml) : JSON.stringify(arr, null, 2) + "\n";
   }
 
-  const record = { ...(jsonSchema !== undefined && { $schema: jsonSchema }), ...Object.fromEntries(entries) };
+  const record = {
+    ...(jsonSchema !== undefined && { $schema: jsonSchema }),
+    ...Object.fromEntries(entries),
+  };
 
   switch (format) {
     case "yaml":
@@ -263,7 +268,9 @@ function mergeYaml(doc: Document, node: unknown, value: unknown): unknown {
   if (sameValue(node, value)) return node;
 
   if (isMap(node) && isRecord(value)) {
-    const pairs = new Map(node.items.map((pair) => [isScalar(pair.key) ? idOf(pair.key.value) : undefined, pair]));
+    const pairs = new Map(
+      node.items.map((pair) => [isScalar(pair.key) ? idOf(pair.key.value) : undefined, pair]),
+    );
 
     node.items = Object.entries(value).map(([key, item]) => {
       const pair = pairs.get(key);
@@ -280,7 +287,9 @@ function mergeYaml(doc: Document, node: unknown, value: unknown): unknown {
 
   if (isSeq(node) && Array.isArray(value)) {
     const items = node.items;
-    const byId = new Map(items.filter(isMap).map((item) => [idOf(item.get("id") ?? item.get("slug")), item]));
+    const byId = new Map(
+      items.filter(isMap).map((item) => [idOf(item.get("id") ?? item.get("slug")), item]),
+    );
 
     node.items = value.map((item, index) => {
       const id = isRecord(item) ? idOf(item[idKey(item)]) : undefined;

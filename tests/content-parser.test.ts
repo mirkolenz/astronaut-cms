@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseContent, parseMultiEntryFile, serializeContent, serializeMultiEntryFile } from "@/shared/content-parser";
+import {
+  parseContent,
+  parseMultiEntryFile,
+  serializeContent,
+  serializeMultiEntryFile,
+} from "@/shared/content-parser";
 
 describe("multi-entry files", () => {
   // An array-backed file() collection keys its entries by an `id` field embedded in
@@ -19,7 +24,10 @@ describe("multi-entry files", () => {
   });
 
   it("keeps slug-only array entries visible and updates their slug on duplication", () => {
-    const file = parseMultiEntryFile(JSON.stringify([{ slug: "first", title: "First" }, { slug: false }]), "json");
+    const file = parseMultiEntryFile(
+      JSON.stringify([{ slug: "first", title: "First" }, { slug: false }]),
+      "json",
+    );
 
     file.entries.set("second", { ...file.entries.get("first") });
 
@@ -49,7 +57,8 @@ describe("multi-entry files", () => {
   // A save rewrites the whole file, which must not cost the comments and blank
   // lines it left alone, inside an edited entry or around it.
   it("keeps YAML comments and blank lines", () => {
-    const raw = "# Team\n\n- id: 1 # first\n  name: A\n\n- id: 2\n  # shown\n  name: B\n  role: x\n";
+    const raw =
+      "# Team\n\n- id: 1 # first\n  name: A\n\n- id: 2\n  # shown\n  name: B\n  role: x\n";
     const file = parseMultiEntryFile(raw, "yaml");
 
     expect(serializeMultiEntryFile(file, "yaml")).toBe(raw);

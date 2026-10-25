@@ -16,12 +16,13 @@ import { formatJson } from "@/client/lib/format-json";
 import { describeToolCall } from "@/client/lib/ai/tool-summary";
 import type { CmsToolUIPart } from "@/client/lib/ai/agent";
 
-const STATUS: Partial<Record<CmsToolUIPart["state"], ComponentProps<typeof TraceLine>["status"]>> = {
-  "input-streaming": "running",
-  "input-available": "running",
-  "output-error": "error",
-  "output-denied": "error",
-};
+const STATUS: Partial<Record<CmsToolUIPart["state"], ComponentProps<typeof TraceLine>["status"]>> =
+  {
+    "input-streaming": "running",
+    "input-available": "running",
+    "output-error": "error",
+    "output-denied": "error",
+  };
 
 // Mounted only while the trace is open, so a collapsed call formats nothing as the chat streams.
 function ToolPayloads({ part }: { part: CmsToolUIPart }) {
@@ -29,12 +30,25 @@ function ToolPayloads({ part }: { part: CmsToolUIPart }) {
 
   return (
     <>
-      <HighlightedCode title={t(($) => $.ai.toolInput)} code={formatJson(part.input ?? {})} language="json" />
+      <HighlightedCode
+        title={t(($) => $.ai.toolInput)}
+        code={formatJson(part.input ?? {})}
+        language="json"
+      />
       {part.state === "output-available" && (
-        <HighlightedCode title={t(($) => $.ai.toolOutput)} code={formatJson(part.output)} language="json" />
+        <HighlightedCode
+          title={t(($) => $.ai.toolOutput)}
+          code={formatJson(part.output)}
+          language="json"
+        />
       )}
       {part.state === "output-error" && (
-        <HighlightedCode variant="destructive" title={t(($) => $.ai.toolError)} code={part.errorText} language="text" />
+        <HighlightedCode
+          variant="destructive"
+          title={t(($) => $.ai.toolError)}
+          code={part.errorText}
+          language="text"
+        />
       )}
     </>
   );

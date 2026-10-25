@@ -5,7 +5,11 @@ import { Link, Navigate, createFileRoute, useNavigate } from "@tanstack/react-ro
 import { useEntries } from "@/client/queries/use-entries";
 import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
-import { collectionDescription, collectionLabel, collectionSingleton } from "@/client/lib/collections";
+import {
+  collectionDescription,
+  collectionLabel,
+  collectionSingleton,
+} from "@/client/lib/collections";
 import { baseName, listDirectory } from "@/client/lib/entry-tree";
 import { localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";
@@ -48,7 +52,15 @@ function CollectionPage() {
 }
 
 /** A singleton opens its one entry, as a draft until its file exists. */
-function SingletonRedirect({ collection, id, format }: { collection: string; id: string; format: EntryFormat }) {
+function SingletonRedirect({
+  collection,
+  id,
+  format,
+}: {
+  collection: string;
+  id: string;
+  format: EntryFormat;
+}) {
   const { data: entries } = useEntries(collection);
 
   if (!entries) return null;
@@ -96,8 +108,7 @@ function GlobCollectionPage({
 
   // The header counts what the active language actually holds, so a half-translated
   // collection never reports one inflated total across all of them.
-  const localeCount =
-    i18n && activeLocale ? countIn(i18n, activeLocale) : (entries?.length ?? 0);
+  const localeCount = i18n && activeLocale ? countIn(i18n, activeLocale) : (entries?.length ?? 0);
 
   // Nothing is written yet: the editor holds the new entry until its first save,
   // so an abandoned one leaves no invalid file behind.
@@ -133,8 +144,8 @@ function GlobCollectionPage({
           <h1 className="text-xl font-semibold">{collectionLabel(collection)}</h1>
           {collectionInfo && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {collectionDescription(collection)}{" "}
-              &middot; {t(($) => $.collection.entries, { count: localeCount })}
+              {collectionDescription(collection)} &middot;{" "}
+              {t(($) => $.collection.entries, { count: localeCount })}
             </p>
           )}
         </div>

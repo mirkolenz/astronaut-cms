@@ -49,7 +49,9 @@ const useFormStore = create<{
 
 const formsState = createState("cms-forms", {
   parse: (value): Record<string, FormValues> =>
-    isRecord(value) ? Object.fromEntries(Object.entries(value).map(([id, values]) => [id, asRecord(values)])) : {},
+    isRecord(value)
+      ? Object.fromEntries(Object.entries(value).map(([id, values]) => [id, asRecord(values)]))
+      : {},
 });
 
 // Headless, it holds the values of the page's forms for as long as the admin runs.
@@ -73,7 +75,10 @@ export function syncHistory(): void {
 }
 
 // Lexical restores no state whose root is empty.
-formsEditor.update(() => $getRoot().append($createParagraphNode()), { discrete: true, tag: HISTORIC_TAG });
+formsEditor.update(() => $getRoot().append($createParagraphNode()), {
+  discrete: true,
+  tag: HISTORIC_TAG,
+});
 registerHistory(formsEditor, pageHistory, 300);
 registerSkipUnchanged(formsEditor);
 formsEditor.registerUpdateListener(({ editorState }) => {
@@ -86,7 +91,8 @@ formsEditor.registerUpdateListener(({ editorState }) => {
     return next && next !== form.values ? [[id, { ...form, values: next }] as const] : [];
   });
 
-  if (restored.length > 0) useFormStore.setState({ forms: { ...forms, ...Object.fromEntries(restored) } });
+  if (restored.length > 0)
+    useFormStore.setState({ forms: { ...forms, ...Object.fromEntries(restored) } });
 
   syncHistory();
 });
@@ -110,8 +116,11 @@ function deselect(closes: (form: string) => boolean): void {
 export function openForm(id: string, form: Form): void {
   const current = useFormStore.getState().forms[id];
   // Loaded as they are, the values stay the same object, and so keep their place in the history.
-  const same = current !== undefined && JSON.stringify(current.values) === JSON.stringify(form.values);
-  const next = same ? { ...form, values: current.values, saved: form.saved && current.values } : form;
+  const same =
+    current !== undefined && JSON.stringify(current.values) === JSON.stringify(form.values);
+  const next = same
+    ? { ...form, values: current.values, saved: form.saved && current.values }
+    : form;
 
   useFormStore.setState(({ forms }) => ({ forms: { ...forms, [id]: next } }));
 

@@ -33,4 +33,3 @@ export const server: CmsServerConfig = {
 };
 
 export { components } from "./user-config";
-

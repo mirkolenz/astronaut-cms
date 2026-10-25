@@ -45,7 +45,8 @@ function grid(...titles: string[]): JsxChild {
   };
 }
 
-const titles = (element: MdxJsxElement) => jsxChildren(element).map((child) => readProps(child).title);
+const titles = (element: MdxJsxElement) =>
+  jsxChildren(element).map((child) => readProps(child).title);
 
 // Structured children are addressed by keys rather than positions, so an edit
 // through a key has to find the same child after the tree is cloned (as every
@@ -90,7 +91,11 @@ describe("props", () => {
       name: "Feature",
       attributes: [
         { type: "mdxJsxAttribute", name: "title", value: "A" },
-        { type: "mdxJsxAttribute", name: "items", value: { type: "mdxJsxAttributeValueExpression", value: "list" } },
+        {
+          type: "mdxJsxAttribute",
+          name: "items",
+          value: { type: "mdxJsxAttributeValueExpression", value: "list" },
+        },
         { type: "mdxJsxExpressionAttribute", value: "...rest" },
       ],
       children: [],
@@ -104,12 +109,20 @@ describe("props", () => {
   });
 
   it("reports required props without a value, unless a spread may supply them", () => {
-    const empty: MdxJsxElement = { type: "mdxJsxFlowElement", name: "Feature", attributes: [], children: [] };
+    const empty: MdxJsxElement = {
+      type: "mdxJsxFlowElement",
+      name: "Feature",
+      attributes: [],
+      children: [],
+    };
 
     expect(missingProps(feature, empty)).toEqual(["Title"]);
     expect(missingProps(feature, withProp(empty, "title", "A"))).toEqual([]);
     expect(
-      missingProps(feature, { ...empty, attributes: [{ type: "mdxJsxExpressionAttribute", value: "...rest" }] }),
+      missingProps(feature, {
+        ...empty,
+        attributes: [{ type: "mdxJsxExpressionAttribute", value: "...rest" }],
+      }),
     ).toEqual([]);
   });
 });

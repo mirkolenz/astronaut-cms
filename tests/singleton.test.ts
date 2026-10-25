@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ContentValidationError } from "@/shared/diagnostics";
-import { singletonEntry, type CollectionManifest, type CollectionManifestEntry } from "@/shared/types";
+import {
+  singletonEntry,
+  type CollectionManifest,
+  type CollectionManifestEntry,
+} from "@/shared/types";
 import { createCmsTools } from "@/shared/tools/catalog";
 import { contentModel } from "@/shared/tools/content-model";
 import { missingSingletons } from "@/integration/check-content";
@@ -25,13 +29,21 @@ const collections: CollectionManifest = { firma };
 
 describe("singleton collections", () => {
   it("are the glob collections naming one literal file", () => {
-    expect(singletonEntry(firma)).toEqual({ id: "firma", format: "yml", path: "src/content/firma.yml" });
-    expect(singletonEntry({ loaderType: "glob", loaderPattern: ["./site/About Us.md"], loaderBase: "" })).toEqual({
+    expect(singletonEntry(firma)).toEqual({
+      id: "firma",
+      format: "yml",
+      path: "src/content/firma.yml",
+    });
+    expect(
+      singletonEntry({ loaderType: "glob", loaderPattern: ["./site/About Us.md"], loaderBase: "" }),
+    ).toEqual({
       id: "site/about-us",
       format: "md",
       path: "site/About Us.md",
     });
-    expect(singletonEntry({ loaderType: "glob", loaderPattern: "team\\[2026\\].json", loaderBase: "" })).toEqual({
+    expect(
+      singletonEntry({ loaderType: "glob", loaderPattern: "team\\[2026\\].json", loaderBase: "" }),
+    ).toEqual({
       id: "team2026",
       format: "json",
       path: "team[2026].json",
@@ -41,7 +53,9 @@ describe("singleton collections", () => {
       expect(singletonEntry({ loaderType: "glob", loaderPattern, loaderBase: "" })).toBeNull();
     }
 
-    expect(singletonEntry({ loaderType: "file", loaderPattern: null, loaderBase: null })).toBeNull();
+    expect(
+      singletonEntry({ loaderType: "file", loaderPattern: null, loaderBase: null }),
+    ).toBeNull();
   });
 
   it("list, write and delete only their one entry", async () => {

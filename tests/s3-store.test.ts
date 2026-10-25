@@ -13,11 +13,13 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("S3Store", () => {
   it("preserves the endpoint path and reads XML keys", async () => {
-    const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        `<ListBucketResult xmlns="urn:s3"><Contents><Key><![CDATA[image<one>.png]]></Key><Size>7</Size><ETag>"abc"</ETag></Contents><IsTruncated>false</IsTruncated></ListBucketResult>`,
-      ),
-    );
+    const fetcher = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          `<ListBucketResult xmlns="urn:s3"><Contents><Key><![CDATA[image<one>.png]]></Key><Size>7</Size><ETag>"abc"</ETag></Contents><IsTruncated>false</IsTruncated></ListBucketResult>`,
+        ),
+      );
 
     const objects = await new S3Store(target, credentials).list("");
     const request = fetcher.mock.calls[0]?.[0];
@@ -67,7 +69,10 @@ describe("S3Store", () => {
 
   it("infers the signing region from the endpoint when none is set", async () => {
     const { region: _, ...regionless } = target;
-    const store = new S3Store({ ...regionless, endpoint: "https://s3.eu-central-1.amazonaws.com" }, credentials);
+    const store = new S3Store(
+      { ...regionless, endpoint: "https://s3.eu-central-1.amazonaws.com" },
+      credentials,
+    );
     const { url } = await store.presignUpload("photo.png", {
       length: 7,
       contentType: "image/png",
@@ -75,6 +80,8 @@ describe("S3Store", () => {
       ifAbsent: false,
     });
 
-    expect(new URL(url).searchParams.get("X-Amz-Credential")).toMatch(/\/eu-central-1\/s3\/aws4_request$/);
+    expect(new URL(url).searchParams.get("X-Amz-Credential")).toMatch(
+      /\/eu-central-1\/s3\/aws4_request$/,
+    );
   });
 });

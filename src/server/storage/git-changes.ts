@@ -178,7 +178,9 @@ export function managedPaths(options: {
   const paths = new Set([
     ...mediaDirs.map((dir) => relative(rootDir, dir)),
     ...Object.values(collections).flatMap((collection) =>
-      collection.loaderFileName ? [collection.loaderFileName] : globRoots(collection).map((root) => root.path),
+      collection.loaderFileName
+        ? [collection.loaderFileName]
+        : globRoots(collection).map((root) => root.path),
     ),
   ]);
 

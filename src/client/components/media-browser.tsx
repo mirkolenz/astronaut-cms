@@ -104,7 +104,13 @@ export function FolderCard({
  * store holds an empty directory, so the folder is only a place to upload into
  * and exists once the first file lands in it.
  */
-export function NewFolderButton({ dir, onCreate }: { dir: string; onCreate: (dir: string) => void }) {
+export function NewFolderButton({
+  dir,
+  onCreate,
+}: {
+  dir: string;
+  onCreate: (dir: string) => void;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 

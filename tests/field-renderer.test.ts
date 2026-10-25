@@ -28,11 +28,19 @@ describe("FieldRenderer dispatch", () => {
     ["date", { type: "date" }, "DateField"],
     ["enum", { type: "enum", options: ["a", "b"] }, "EnumField"],
     ["array", { type: "array", element: { type: "string" } }, "ArrayField"],
-    ["array (structured)", { type: "array", element: { type: "object", shape: {} } }, "CollectionRow"],
+    [
+      "array (structured)",
+      { type: "array", element: { type: "object", shape: {} } },
+      "CollectionRow",
+    ],
     ["tuple", { type: "tuple", items: [{ type: "string" }, { type: "number" }] }, "TupleField"],
     ["object", { type: "object", shape: { a: { type: "string" } } }, "ObjectField"],
     ["record", { type: "record", value: { type: "string" } }, "RecordField"],
-    ["record (structured)", { type: "record", value: { type: "object", shape: {} } }, "CollectionRow"],
+    [
+      "record (structured)",
+      { type: "record", value: { type: "object", shape: {} } },
+      "CollectionRow",
+    ],
     [
       "discriminated union",
       {
@@ -71,7 +79,9 @@ it("keeps enum options with identical labels distinct and preserves their value 
     label: "Choice",
   };
   const editor = FieldRenderer(props) as ReactElement<typeof props>;
-  const render = editor.type as (value: typeof editor.props) => ReactElement<{ children: ReactNode }>;
+  const render = editor.type as (
+    value: typeof editor.props,
+  ) => ReactElement<{ children: ReactNode }>;
   const selectOf = (value: unknown) => {
     const element = FieldRenderer({ ...props, value }) as ReactElement<typeof props>;
     const field = render(element.props);
@@ -84,7 +94,9 @@ it("keeps enum options with identical labels distinct and preserves their value 
   };
 
   const select = selectOf(1);
-  const content = Children.toArray(select.props.children)[1] as ReactElement<{ children: ReactNode }>;
+  const content = Children.toArray(select.props.children)[1] as ReactElement<{
+    children: ReactNode;
+  }>;
   const items = Children.toArray(content.props.children) as ReactElement<{ value: string }>[];
 
   expect(select.props.value).toBe("1");
@@ -149,12 +161,9 @@ describe("value paths", () => {
   const values = { links: [{ tags: { a: "x" } }] };
 
   it("follows a path through lists and records, and nowhere past them", () => {
-    expect(fieldsAlong(shape, values, ["links", 0, "tags", "a"])?.map((step) => step.value)).toEqual([
-      values.links,
-      values.links[0],
-      { a: "x" },
-      "x",
-    ]);
+    expect(
+      fieldsAlong(shape, values, ["links", 0, "tags", "a"])?.map((step) => step.value),
+    ).toEqual([values.links, values.links[0], { a: "x" }, "x"]);
     expect(fieldsAlong(shape, values, ["links", 1])).toBeUndefined();
   });
 

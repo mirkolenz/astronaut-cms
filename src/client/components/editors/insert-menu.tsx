@@ -38,7 +38,13 @@ import {
   CommandItem,
   CommandList,
 } from "@/client/components/ui/command";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/client/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/client/components/ui/dialog";
 import { BLOCK_ICONS, HEADING_ICONS } from "@/client/components/editors/block-icons";
 
 /** The editor the open insert menu inserts into at its caret, or `null` while it is closed. */
@@ -133,7 +139,9 @@ export function InsertMenu() {
         const element = newComponent(name, def);
 
         // An inline component goes where the caret is, within its text.
-        insertContent(realm, editor, [asBlockContent(element)], { atCaret: element.type === "mdxJsxTextElement" });
+        insertContent(realm, editor, [asBlockContent(element)], {
+          atCaret: element.type === "mdxJsxTextElement",
+        });
       },
     }),
   );
@@ -199,7 +207,9 @@ export function InsertMenu() {
                           <div className="min-w-0">
                             <div>{item.label}</div>
                             {item.description && (
-                              <div className="truncate text-xs text-muted-foreground">{item.description}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {item.description}
+                              </div>
                             )}
                           </div>
                         </CommandItem>

@@ -52,14 +52,22 @@ export function checkAnchors(leaves: ResolvableLeaf[]): Diagnostic[] {
 
   const duplicates = anchors
     .filter((anchor, index) => anchors.findIndex((other) => other.value === anchor.value) !== index)
-    .map((anchor) => diagnostic(`defines the anchor "${anchor.value}" again, which has to be unique on the page.`, anchor.path));
+    .map((anchor) =>
+      diagnostic(
+        `defines the anchor "${anchor.value}" again, which has to be unique on the page.`,
+        anchor.path,
+      ),
+    );
 
   const dead = leaves.flatMap((leaf) => {
     const id = leaf.kind === "link" ? fragment(leaf.value) : null;
 
     if (id === null || IMPLICIT_FRAGMENTS.has(id.toLowerCase()) || ids.has(id)) return [];
 
-    return diagnostic(`links to "#${id}", which no anchor of this entry defines. ${known}`, leaf.path);
+    return diagnostic(
+      `links to "#${id}", which no anchor of this entry defines. ${known}`,
+      leaf.path,
+    );
   });
 
   return [...duplicates, ...dead];

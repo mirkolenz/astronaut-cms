@@ -17,14 +17,17 @@ export function componentSchema<T extends z.ZodType<object>>({
  * generated wrappers run this before rendering it. Every schema is built once.
  */
 export function propsResolver(components: Record<string, ComponentDefinition>) {
-  const schemas = new Map(componentEntries(components).map(([name, def]) => [name, componentSchema(def)]));
+  const schemas = new Map(
+    componentEntries(components).map(([name, def]) => [name, componentSchema(def)]),
+  );
 
   return (name: string, props: Record<string, unknown>): Record<string, unknown> => {
     const result = schemas.get(name)?.safeParse(props);
 
     if (!result) throw new Error(`No component "${name}" in cms.config.`);
 
-    if (!result.success) throw new Error(`Invalid props for ${name}:\n${z.prettifyError(result.error)}`);
+    if (!result.success)
+      throw new Error(`Invalid props for ${name}:\n${z.prettifyError(result.error)}`);
 
     return { ...props, ...result.data };
   };
@@ -65,4 +68,6 @@ export type InferComponentProps<
       ? z.input<T>
       : z.output<T>
     : never;
-} & UnionToIntersection<{ [Name in keyof Components]: ChildProps<Components[Name], Side> }[keyof Components]>;
+} & UnionToIntersection<
+  { [Name in keyof Components]: ChildProps<Components[Name], Side> }[keyof Components]
+>;

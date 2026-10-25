@@ -87,7 +87,12 @@ export function Header() {
       </Breadcrumb>
       <div className="ml-auto flex items-center">
         <Button variant="ghost" size="icon-sm" asChild>
-          <a href={fileUrl(LICENSES_PATH)} target="_blank" rel="noopener" aria-label={t(($) => $.layout.licenses)}>
+          <a
+            href={fileUrl(LICENSES_PATH)}
+            target="_blank"
+            rel="noopener"
+            aria-label={t(($) => $.layout.licenses)}
+          >
             <Scale />
           </a>
         </Button>

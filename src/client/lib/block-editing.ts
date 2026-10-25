@@ -42,7 +42,11 @@ export function isJsxNode(node: LexicalNode | null): node is JsxNode {
 }
 
 // Every edit is an undo step of its own, or merges into the last one by `mergeKey`.
-function editNode({ editor, nodeKey }: BlockNode, edit: (node: JsxNode) => void, mergeKey?: string): void {
+function editNode(
+  { editor, nodeKey }: BlockNode,
+  edit: (node: JsxNode) => void,
+  mergeKey?: string,
+): void {
   historicUpdate(
     editor,
     () => {
@@ -67,7 +71,10 @@ export function updateBlock(
 }
 
 // Reads from a block's node, or nothing once it or its editor is gone.
-function readNode<T>({ editor, nodeKey }: BlockNode, read: (node: LexicalNode) => T): T | undefined {
+function readNode<T>(
+  { editor, nodeKey }: BlockNode,
+  read: (node: LexicalNode) => T,
+): T | undefined {
   return editor.getRootElement() === null
     ? undefined
     : editor.getEditorState().read(() => {
@@ -84,7 +91,10 @@ function readElement(block: BlockNode): JsxChild | undefined {
 
 /** A value read from an editor, and read again after each of its updates. */
 export function useEditorValue<T>(editor: LexicalEditor, read: () => T): T {
-  const subscribe = useCallback((onChange: () => void) => editor.registerUpdateListener(onChange), [editor]);
+  const subscribe = useCallback(
+    (onChange: () => void) => editor.registerUpdateListener(onChange),
+    [editor],
+  );
 
   return useSyncExternalStore(subscribe, read);
 }
@@ -111,7 +121,9 @@ const OFFSETS = [-1, 1] as const;
 export function movesWithin(length: number, index: number, move: (to: number) => void): Moves {
   const fits = (offset: number) => index >= 0 && index + offset >= 0 && index + offset < length;
 
-  return Object.fromEntries(OFFSETS.filter(fits).map((offset) => [offset, () => move(index + offset)]));
+  return Object.fromEntries(
+    OFFSETS.filter(fits).map((offset) => [offset, () => move(index + offset)]),
+  );
 }
 
 export interface BlockActions {
@@ -126,7 +138,8 @@ export interface BlockActions {
 function $sibling(node: LexicalNode, offset: -1 | 1): LexicalNode | null {
   let sibling = offset < 0 ? node.getPreviousSibling() : node.getNextSibling();
 
-  while ($isEmptyLine(sibling)) sibling = offset < 0 ? sibling.getPreviousSibling() : sibling.getNextSibling();
+  while ($isEmptyLine(sibling))
+    sibling = offset < 0 ? sibling.getPreviousSibling() : sibling.getNextSibling();
 
   return sibling;
 }

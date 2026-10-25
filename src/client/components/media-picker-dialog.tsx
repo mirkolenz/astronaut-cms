@@ -125,10 +125,7 @@ export function MediaPickerDialog({
         {upload.mutation.error && <ErrorBanner>{upload.mutation.error.message}</ErrorBanner>}
 
         <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-          {isLoading &&
-            [1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
+          {isLoading && [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
           {folders.map(({ name, path }) => (
             <FolderCard key={path} name={name} onOpen={() => setDir(path)} className="h-full" />
           ))}
@@ -140,7 +137,11 @@ export function MediaPickerDialog({
               className="group flex flex-col overflow-hidden rounded-md border border-border transition-colors hover:border-ring"
             >
               <div className="flex h-20 items-center justify-center bg-muted">
-                <MediaThumbnail library={library} file={file} className="h-full w-full object-contain" />
+                <MediaThumbnail
+                  library={library}
+                  file={file}
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div className="border-t border-border px-2 py-1">
                 <p className="truncate text-xs text-muted-foreground" title={file.path}>

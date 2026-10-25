@@ -18,7 +18,8 @@ export interface ResolvableLeaf {
 }
 
 /** Whether a leaf names a file of a media library. */
-export const isAsset = (leaf: ResolvableLeaf): boolean => leaf.kind === "image" || leaf.kind === "file";
+export const isAsset = (leaf: ResolvableLeaf): boolean =>
+  leaf.kind === "image" || leaf.kind === "file";
 
 function child(path: string, key: string | number): string {
   if (typeof key === "number") return `${path}[${key}]`;

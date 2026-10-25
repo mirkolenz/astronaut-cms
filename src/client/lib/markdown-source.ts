@@ -17,7 +17,9 @@ interface Block {
 }
 
 const contentKey = (node: RootContent): string =>
-  JSON.stringify(node, (key, value: unknown) => (key === "position" || key === "data" ? undefined : value));
+  JSON.stringify(node, (key, value: unknown) =>
+    key === "position" || key === "data" ? undefined : value,
+  );
 
 function blocksOf(markdown: string, parse: ParseMarkdown): Block[] | undefined {
   try {
@@ -33,7 +35,9 @@ function blocksOf(markdown: string, parse: ParseMarkdown): Block[] | undefined {
 }
 
 /** Writes canonical markdown with the source text of its unedited blocks, parsing each source once. */
-export function createSourcePreserver(parse: ParseMarkdown): (source: string, canonical: string) => string {
+export function createSourcePreserver(
+  parse: ParseMarkdown,
+): (source: string, canonical: string) => string {
   let parsed: { source: string; blocks: Block[] | undefined } | undefined;
 
   return (source, canonical) => {
@@ -58,14 +62,17 @@ export function createSourcePreserver(parse: ParseMarkdown): (source: string, ca
       const [before, block] = [next[index - 1]!, next[index]!];
       const [previous, match] = [matches[index - 1], matches[index]];
       const kept = previous && match && match.index === previous.index + 1;
-      const gap = kept ? source.slice(previous.end, match.start) : canonical.slice(before.end, block.start);
+      const gap = kept
+        ? source.slice(previous.end, match.start)
+        : canonical.slice(before.end, block.start);
       const text = texts[index]!;
 
       // New neighbors in source form can read as one, such as two lists with the same marker.
       if (!kept && (previous || match)) {
         const pair = blocksOf(texts[index - 1] + gap + text, parse);
 
-        if (pair?.length !== 2 || pair[0]!.key !== before.key || pair[1]!.key !== block.key) return canonical;
+        if (pair?.length !== 2 || pair[0]!.key !== before.key || pair[1]!.key !== block.key)
+          return canonical;
       }
 
       result += gap + text;

@@ -78,7 +78,9 @@ export async function optimizeImage(
     const blob = await canvas.convertToBlob({ type: target, quality });
 
     // A browser that cannot encode the type (e.g. AVIF) falls back to PNG.
-    return blob.type === target ? new File([blob], name, { type: target, lastModified: file.lastModified }) : null;
+    return blob.type === target
+      ? new File([blob], name, { type: target, lastModified: file.lastModified })
+      : null;
   };
 
   // Canvas ignores `quality` for PNG, so the ladder would encode the same bytes

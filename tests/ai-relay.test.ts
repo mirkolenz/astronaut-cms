@@ -32,11 +32,10 @@ it("rejects a JSON null body and releases its slot without the body being read",
 });
 
 it("releases a streaming slot when the response body is cancelled", async () => {
-  vi.stubGlobal(
-    "fetch",
-    () => Promise.resolve(new Response(new ReadableStream({ start() {} }))),
+  vi.stubGlobal("fetch", () => Promise.resolve(new Response(new ReadableStream({ start() {} }))));
+  const responses = await Promise.all(
+    Array.from({ length: 4 }, () => send("cancelled-stream-test")),
   );
-  const responses = await Promise.all(Array.from({ length: 4 }, () => send("cancelled-stream-test")));
 
   await responses[0]?.body?.cancel();
 

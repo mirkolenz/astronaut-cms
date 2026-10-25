@@ -79,7 +79,8 @@ export function resolveContentI18n(
   if (!locales?.length) return null;
 
   const inherited = astroI18n?.defaultLocale && localePath(astroI18n.defaultLocale, astroI18n);
-  const defaultLocale = config.i18n?.defaultLocale ??
+  const defaultLocale =
+    config.i18n?.defaultLocale ??
     (inherited && locales.includes(inherited) ? inherited : locales[0]);
 
   if (!defaultLocale) return null;

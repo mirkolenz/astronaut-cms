@@ -13,7 +13,13 @@ interface SortableListProps<T> {
 }
 
 /** A list reordered by dragging an item's handle, or with the arrow keys while it has focus. */
-export function SortableList<T>({ items, getKey, onMove, children, className }: SortableListProps<T>) {
+export function SortableList<T>({
+  items,
+  getKey,
+  onMove,
+  children,
+  className,
+}: SortableListProps<T>) {
   const { t } = useTranslation();
   const listRef = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
@@ -54,7 +60,11 @@ export function SortableList<T>({ items, getKey, onMove, children, className }: 
             onDragEnd={() => setDrag(null)}
             onKeyDown={(event) => {
               const to =
-                event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : undefined;
+                event.key === "ArrowUp"
+                  ? index - 1
+                  : event.key === "ArrowDown"
+                    ? index + 1
+                    : undefined;
 
               if (to === undefined || to < 0 || to >= items.length) return;
 

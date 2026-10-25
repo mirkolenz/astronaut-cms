@@ -63,7 +63,8 @@ export const refusalOf = (library: MediaLibraryId, file: File): string | null =>
 /** Why a library refuses a file, naming the other library where that one would take it. */
 function uploadRefusal(library: MediaLibraryId, file: File): string | null {
   const error = refusalOf(library, file);
-  const other = error && mediaLibraries(config.media).find((id) => id !== library && !refusalOf(id, file));
+  const other =
+    error && mediaLibraries(config.media).find((id) => id !== library && !refusalOf(id, file));
 
   if (!error || !other) return error;
 
@@ -80,7 +81,11 @@ function uploadRefusal(library: MediaLibraryId, file: File): string | null {
  * with the signature, so the store applies them to the write itself rather than
  * this server having to check afterwards what arrived.
  */
-export async function uploadMedia(location: MediaLocation, file: File, overwrite = false): Promise<void> {
+export async function uploadMedia(
+  location: MediaLocation,
+  file: File,
+  overwrite = false,
+): Promise<void> {
   // Refused here too, so a file outside the library's bounds is not sent before being rejected.
   const refusal = uploadRefusal(location.library, file);
 

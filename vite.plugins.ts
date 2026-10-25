@@ -19,7 +19,10 @@ function owningPackage(file: string): Package | undefined {
   for (let dir = dirname(file); dir !== dirname(dir); dir = dirname(dir)) {
     if (!packages.has(dir)) {
       try {
-        const manifest = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as Omit<Package, "dir">;
+        const manifest = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as Omit<
+          Package,
+          "dir"
+        >;
         packages.set(dir, manifest.name ? { ...manifest, dir } : null);
       } catch {
         packages.set(dir, null);
@@ -80,7 +83,8 @@ export function dependencyPolicy({
 
         if (externals.has(owner)) return { id, external: true };
 
-        if (strict) this.error(`${importer} imports "${id}" of ${owner}, which is not a dependency.`);
+        if (strict)
+          this.error(`${importer} imports "${id}" of ${owner}, which is not a dependency.`);
 
         return resolved;
       },

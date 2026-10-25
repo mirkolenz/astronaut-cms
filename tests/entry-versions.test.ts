@@ -49,7 +49,11 @@ class MemoryStorage extends StubStorage {
     return Promise.resolve(this.seed(path, content));
   }
 
-  protected override removeFile(path: string, _message: string, expectedVersion?: string): Promise<void> {
+  protected override removeFile(
+    path: string,
+    _message: string,
+    expectedVersion?: string,
+  ): Promise<void> {
     if (expectedVersion !== undefined && this.files.get(path)?.version !== expectedVersion) {
       return Promise.reject(staleWrite(path));
     }
@@ -81,7 +85,11 @@ class FileStorage extends StubStorage {
 /** A file collection's container held in memory, versioned by write count. */
 class ContainerStorage extends StubStorage {
   file: VersionedContent = {
-    content: JSON.stringify({ first: { name: "First" }, old: { name: "Old" }, last: { name: "Last" } }),
+    content: JSON.stringify({
+      first: { name: "First" },
+      old: { name: "Old" },
+      last: { name: "Last" },
+    }),
     version: "v1",
   };
   private writes = 1;

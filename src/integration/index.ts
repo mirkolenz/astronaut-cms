@@ -132,7 +132,8 @@ function validateS3(config: CmsConfig, site: string | undefined): void {
   validateMediaOrigin(s3.publicUrl, site);
 
   if (s3.provider === "r2") {
-    if (!s3.accountId) throw new Error("media.s3: 'accountId' is required for R2, for the S3 API endpoint.");
+    if (!s3.accountId)
+      throw new Error("media.s3: 'accountId' is required for R2, for the S3 API endpoint.");
   } else if (!s3.endpoint) {
     throw new Error(
       "media.s3: 'endpoint' is required (e.g. 'https://s3.eu-central-1.amazonaws.com').",
@@ -292,7 +293,10 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // otherwise hand it as written, and `astronaut-cms:components` maps them all.
         const codegenDir = fileURLToPath(createCodegenDir());
 
-        writeModules(join(codegenDir, "components"), componentModules(userConfigPath, componentFiles));
+        writeModules(
+          join(codegenDir, "components"),
+          componentModules(userConfigPath, componentFiles),
+        );
 
         // The integration reads both at startup, so an edit restarts the dev server.
         // So does a rebuild of the integration itself, which only a linked checkout
@@ -324,7 +328,10 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         // Content the admin would refuse to save fails a build, where whoever
         // committed it sees it, rather than surfacing later at an editor's save.
         const problems = readsContent
-          ? [...checkContent(entries, rootDir, clientConfig.media), ...missingSingletons(collections, entries)]
+          ? [
+              ...checkContent(entries, rootDir, clientConfig.media),
+              ...missingSingletons(collections, entries),
+            ]
           : [];
 
         if (problems.length > 0) {
@@ -366,7 +373,10 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const { s3: s3Library } = clientConfig.media;
 
         injectedTypes = [
-          { filename: "types.d.ts", content: registryTypes(s3Library != null, Object.keys(collections)) },
+          {
+            filename: "types.d.ts",
+            content: registryTypes(s3Library != null, Object.keys(collections)),
+          },
           {
             filename: "components.d.ts",
             content: componentTypes(codegenDir, userConfigPath, Object.keys(componentFiles)),
@@ -510,7 +520,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         const size = [...removed.values()].reduce((sum, bytes) => sum + bytes, 0);
 
-        logger.info(`Removed ${removed.size} media library files no delivered file links (${megabytes(size)}).`);
+        logger.info(
+          `Removed ${removed.size} media library files no delivered file links (${megabytes(size)}).`,
+        );
       },
     },
   };

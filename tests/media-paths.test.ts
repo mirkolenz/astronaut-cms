@@ -43,7 +43,9 @@ describe("media paths", () => {
 
     expect(url).toBe("https://cdn.example.com/photos/a%20b.png");
     expect(mediaPath(url, both)).toEqual({ library: "s3", path: "photos/a b.png" });
-    expect(markdownImageUrl({ library: "s3", path: "photos/a b.png" }, both, "src/content/blog/post.md")).toBe(url);
+    expect(
+      markdownImageUrl({ library: "s3", path: "photos/a b.png" }, both, "src/content/blog/post.md"),
+    ).toBe(url);
   });
 
   // `astro dev` may hold the object store in the working tree, which moves the
@@ -56,7 +58,11 @@ describe("media paths", () => {
 
   it("writes a repository markdown image relative to the entry", () => {
     expect(
-      markdownImageUrl({ library: "repo", path: "photos/hero.png" }, both, "src/content/blog/post.md"),
+      markdownImageUrl(
+        { library: "repo", path: "photos/hero.png" },
+        both,
+        "src/content/blog/post.md",
+      ),
     ).toBe("../../assets/photos/hero.png");
   });
 
@@ -206,8 +212,12 @@ describe("the trash", () => {
 
     await expect(library.restoreMedia("photos/hero.png")).rejects.toThrow(/not a deleted file/);
     await expect(library.purgeTrash("../elsewhere")).rejects.toThrow(/not a deleted file/);
-    await expect(library.purgeTrash(".trash/1-../photos/hero.png")).rejects.toThrow(/not a deleted file/);
-    await expect(library.purgeTrash(".trash/01-photos/hero.png")).rejects.toThrow(/not a deleted file/);
+    await expect(library.purgeTrash(".trash/1-../photos/hero.png")).rejects.toThrow(
+      /not a deleted file/,
+    );
+    await expect(library.purgeTrash(".trash/01-photos/hero.png")).rejects.toThrow(
+      /not a deleted file/,
+    );
   });
 
   it("refuses a restore onto a name taken since", async () => {

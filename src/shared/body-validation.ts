@@ -116,7 +116,9 @@ function nodeViolation(node: BodyNode): string | null {
     case "link":
     case "image":
     case "definition":
-      return isAllowedLink(node.url ?? "") ? null : `The URL "${node.url}" is not allowed. ${LINK_MESSAGE}`;
+      return isAllowedLink(node.url ?? "")
+        ? null
+        : `The URL "${node.url}" is not allowed. ${LINK_MESSAGE}`;
 
     default:
       return null;
@@ -165,7 +167,9 @@ function validateHtml(ctx: WalkContext, name: string, values: Map<string, Static
 
   for (const attr of new Set(values.keys()).difference(HTML_ATTRIBUTES)) {
     ctx.diagnostics.push(
-      diagnostic(`<${name}> attribute "${attr}" is not allowed, only ${[...HTML_ATTRIBUTES].join(", ")}.`),
+      diagnostic(
+        `<${name}> attribute "${attr}" is not allowed, only ${[...HTML_ATTRIBUTES].join(", ")}.`,
+      ),
     );
   }
 }
@@ -210,7 +214,9 @@ function validateProps(
       const reason = result.error.issues[0]?.message ?? "type mismatch";
 
       ctx.diagnostics.push(
-        diagnostic(`<${name}> prop "${prop}" is invalid: ${reason.endsWith(".") ? reason : `${reason}.`}`),
+        diagnostic(
+          `<${name}> prop "${prop}" is invalid: ${reason.endsWith(".") ? reason : `${reason}.`}`,
+        ),
       );
     }
   }

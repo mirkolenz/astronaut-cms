@@ -9,7 +9,9 @@ type ExtractionResult = { text: string } | { error: string };
 const TIMEOUT_MS = 60_000;
 
 /** Answers the one message a worker receives with the text `extract` reads from it. */
-export function serveExtraction(extract: (bytes: Uint8Array<ArrayBuffer>) => Promise<string>): void {
+export function serveExtraction(
+  extract: (bytes: Uint8Array<ArrayBuffer>) => Promise<string>,
+): void {
   globalThis.onmessage = async ({ data }: MessageEvent<Uint8Array<ArrayBuffer>>) => {
     const result: ExtractionResult = await extract(data).then(
       (text) => ({ text }),
@@ -31,7 +33,10 @@ export async function extractInWorker(workerUrl: string, file: File): Promise<st
   const blobUrl = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
   const worker = new Worker(blobUrl, { type: "module", name: file.name });
   const { promise, resolve, reject } = Promise.withResolvers<string>();
-  const timeout = setTimeout(() => reject(new Error(`Reading ${file.name} timed out.`)), TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => reject(new Error(`Reading ${file.name} timed out.`)),
+    TIMEOUT_MS,
+  );
 
   worker.onmessage = ({ data }: MessageEvent<ExtractionResult>) => {
     if ("text" in data) resolve(data.text);

@@ -10,7 +10,10 @@ import { globEntryId, globMatcher, globRoots, type CollectionManifestEntry } fro
 import { project } from "./fixtures/project";
 import { TreeStorage, storageOptions } from "./fixtures/storage";
 
-const posts = (loaderPattern: string | string[], loaderBase = "src/content/posts"): CollectionManifestEntry => ({
+const posts = (
+  loaderPattern: string | string[],
+  loaderBase = "src/content/posts",
+): CollectionManifestEntry => ({
   name: "posts",
   type: "content",
   schema: null,
@@ -40,8 +43,14 @@ async function astroIds(root: string): Promise<string[]> {
   const ids: string[] = [];
   const context: Partial<LoaderContext> & { entryTypes: Map<string, unknown> } = {
     collection: "posts",
-    config: { root: pathToFileURL(`${root}/`), srcDir: pathToFileURL(`${root}/src/`) } as AstroConfig,
-    logger: { warn: () => {}, error: () => {} } as Partial<AstroIntegrationLogger> as AstroIntegrationLogger,
+    config: {
+      root: pathToFileURL(`${root}/`),
+      srcDir: pathToFileURL(`${root}/src/`),
+    } as AstroConfig,
+    logger: {
+      warn: () => {},
+      error: () => {},
+    } as Partial<AstroIntegrationLogger> as AstroIntegrationLogger,
     store: {
       keys: () => [],
       get: () => undefined,
@@ -49,7 +58,12 @@ async function astroIds(root: string): Promise<string[]> {
     } as Partial<DataStore> as DataStore,
     parseData: ({ data }) => Promise.resolve(data),
     generateDigest: () => "",
-    entryTypes: new Map([[".md", { getEntryInfo: ({ contents }: { contents: string }) => parseContent(contents, "md") }]]),
+    entryTypes: new Map([
+      [
+        ".md",
+        { getEntryInfo: ({ contents }: { contents: string }) => parseContent(contents, "md") },
+      ],
+    ]),
   };
 
   await glob({ pattern: "**/*.md", base: "src/content/posts" }).load(context as LoaderContext);
@@ -67,11 +81,15 @@ describe("glob collections", () => {
 
   it("read from the project root without a base, and flag their own ids", () => {
     expect(globStub({ pattern: "**/*.md" })).toEqual({ __cmsPattern: "**/*.md", __cmsBase: "." });
-    expect(globStub({ pattern: "**/*.md", generateId: ({ entry }) => entry })).toMatchObject({ __cmsCustomId: true });
+    expect(globStub({ pattern: "**/*.md", generateId: ({ entry }) => entry })).toMatchObject({
+      __cmsCustomId: true,
+    });
   });
 
   it("walk only the static prefix of each pattern", () => {
-    expect(globRoots(posts(["docs/**/*.md", "docs/api/*.md", "firma.yml", "!docs/drafts/**"], ""))).toEqual([
+    expect(
+      globRoots(posts(["docs/**/*.md", "docs/api/*.md", "firma.yml", "!docs/drafts/**"], "")),
+    ).toEqual([
       { path: "docs", file: false },
       { path: "firma.yml", file: true },
     ]);
@@ -90,7 +108,9 @@ describe("glob collections", () => {
     };
     const root = project(files);
     const col = posts("**/*.md");
-    const ours = contentEntries(root, { posts: col }, {}).map(({ file, data }) => globEntryId(col, file, data));
+    const ours = contentEntries(root, { posts: col }, {}).map(({ file, data }) =>
+      globEntryId(col, file, data),
+    );
 
     expect(ours.toSorted()).toEqual(await astroIds(root));
   });
@@ -124,12 +144,18 @@ describe("glob collections", () => {
     await store.saveEntry("posts", "_draft", entry);
     expect(store.written).toEqual(["src/content/posts/_draft.md"]);
 
-    await expect(store.saveEntry("posts", "drafts/b", entry)).rejects.toThrow(ContentValidationError);
+    await expect(store.saveEntry("posts", "drafts/b", entry)).rejects.toThrow(
+      ContentValidationError,
+    );
     await expect(store.saveEntry("posts", "c", { ...entry, format: "mdx" })).rejects.toThrow(
       /loads only files matching "\*\*\/\*\.md, !drafts\/\*\*"/,
     );
-    await expect(store.saveEntry("posts", "Über Uns", entry)).rejects.toThrow(/Use "über-uns" as the id/);
-    await expect(store.saveEntry("posts", "x", { ...entry, data: { slug: "y" } })).rejects.toThrow(/"slug" field/);
+    await expect(store.saveEntry("posts", "Über Uns", entry)).rejects.toThrow(
+      /Use "über-uns" as the id/,
+    );
+    await expect(store.saveEntry("posts", "x", { ...entry, data: { slug: "y" } })).rejects.toThrow(
+      /"slug" field/,
+    );
   });
 
   it("keep an existing entry in the file astro names it by", async () => {
@@ -139,7 +165,9 @@ describe("glob collections", () => {
     store.tree = ["src/content/posts/Über Uns.md"];
 
     await store.saveEntry("posts", "über-uns", entry);
-    await expect(store.saveEntry("posts", "über-uns", { ...entry, createOnly: true })).rejects.toThrow();
+    await expect(
+      store.saveEntry("posts", "über-uns", { ...entry, createOnly: true }),
+    ).rejects.toThrow();
     expect(store.written).toEqual(["src/content/posts/Über Uns.md"]);
   });
 });

@@ -247,7 +247,9 @@
 }
 
 /* An empty line of blocks says what it is for. It is never written to the file. */
-.mdxeditor [data-lexical-editor]:not(.cms-inline-slot *, td *, th *) > p:has(> br:only-child)::before {
+.mdxeditor
+  [data-lexical-editor]:not(.cms-inline-slot *, td *, th *)
+  > p:has(> br:only-child)::before {
   content: var(--cms-empty-line);
   float: left;
   height: 0;

@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import type { ComponentIcon } from "@/config";
 import type { ClientComponentDef } from "@/internal/user-config";
-import { insertChild, pasteChildren, type BlockActions, type Moves } from "@/client/lib/block-editing";
+import {
+  insertChild,
+  pasteChildren,
+  type BlockActions,
+  type Moves,
+} from "@/client/lib/block-editing";
 import { useMediaQuery } from "@/client/lib/use-media-query";
 import { select, type BlockSelection } from "@/client/stores/inspector-store";
 import { SortableList } from "@/client/components/sortable-list";
@@ -150,7 +155,12 @@ function BlockActionBar({ actions }: { actions: BlockActions }) {
       <MoveButtons moves={actions.move} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={t(($) => $.editors.actions)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t(($) => $.editors.actions)}
+          >
             <Ellipsis className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -204,7 +214,11 @@ export function ChildListControls({
   return (
     <ListControls onPaste={() => void pasteChildren(parent, childDefs)}>
       <AddMenu
-        options={Object.entries(childDefs).map(([name, def]) => ({ key: name, label: def.label, icon: def.icon }))}
+        options={Object.entries(childDefs).map(([name, def]) => ({
+          key: name,
+          label: def.label,
+          icon: def.icon,
+        }))}
         onAdd={(name) => {
           const def = childDefs[name];
 
@@ -224,7 +238,13 @@ export interface AddOption {
 }
 
 /** Adds an item to a list, of the one kind it takes or of one chosen from a menu. */
-export function AddMenu({ options, onAdd }: { options: readonly AddOption[]; onAdd: (key: string) => void }) {
+export function AddMenu({
+  options,
+  onAdd,
+}: {
+  options: readonly AddOption[];
+  onAdd: (key: string) => void;
+}) {
   const { t } = useTranslation();
   const [first] = options;
 
@@ -236,7 +256,9 @@ export function AddMenu({ options, onAdd }: { options: readonly AddOption[]; onA
     return (
       <Button type="button" variant="outline" size="xs" onClick={() => onAdd(key)}>
         <Plus />
-        {label === undefined ? t(($) => $.editors.addItem) : t(($) => $.editors.addNamed, { label })}
+        {label === undefined
+          ? t(($) => $.editors.addItem)
+          : t(($) => $.editors.addNamed, { label })}
       </Button>
     );
   }
@@ -308,7 +330,11 @@ export function BlockList<T>({
 }) {
   return (
     <section className="space-y-2">
-      {title && <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>}
+      {title && (
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h3>
+      )}
       <SortableList items={items} getKey={getKey} onMove={onMove} className="space-y-0.5">
         {(item, _, handle) => {
           const { icon: Icon, label, summary, missing = [], onOpen, inspects } = row(item);

@@ -109,7 +109,13 @@ describe("assertEntryWritable", () => {
   it("takes an object-store image only where the field accepts either library", async () => {
     const both: ContentSource = { ...source, media: s3Media() };
     const cover = "https://cdn.example.com/hero.svg";
-    const repoOnly = { ...posts, schema: { type: "object" as const, shape: { cover: { type: "image" as const, repoOnly: true as const } } } };
+    const repoOnly = {
+      ...posts,
+      schema: {
+        type: "object" as const,
+        shape: { cover: { type: "image" as const, repoOnly: true as const } },
+      },
+    };
 
     await expect(assertEntryWritable(both, { ...write({ cover }), col: repoOnly })).rejects.toThrow(
       /only takes repository files/,

@@ -20,7 +20,10 @@ export const REFERENCES_QUERY = {
 };
 
 export function useMedia(library: MediaLibraryId) {
-  return useQuery({ queryKey: cmsKeys.media(library), queryFn: () => call("listMedia", { library }) });
+  return useQuery({
+    queryKey: cmsKeys.media(library),
+    queryFn: () => call("listMedia", { library }),
+  });
 }
 
 // What a library write ages is stated once per operation in `lib/query-keys.ts`
@@ -45,8 +48,7 @@ export function useRenameMedia() {
       from: string;
       to: string;
       acknowledgedReferences: AssetReference[];
-    }) =>
-      call("renameMedia", input),
+    }) => call("renameMedia", input),
   });
 }
 
@@ -56,7 +58,10 @@ export function useRenameMedia() {
  * it is talking to.
  */
 export function useTrash(library: MediaLibraryId) {
-  return useQuery({ queryKey: cmsKeys.trash(library), queryFn: () => call("listTrash", { library }) });
+  return useQuery({
+    queryKey: cmsKeys.trash(library),
+    queryFn: () => call("listTrash", { library }),
+  });
 }
 
 type TrashInput = { library: MediaLibraryId; id: string };
@@ -72,7 +77,11 @@ export function usePurgeTrash() {
 /** Uploads a file. `overwrite` is what allows it to replace one already at its path. */
 export function useUploadMedia() {
   return useMutation({
-    mutationFn: ({ file, overwrite, ...location }: MediaLocation & { file: File; overwrite?: boolean }) =>
+    mutationFn: ({
+      file,
+      overwrite,
+      ...location
+    }: MediaLocation & { file: File; overwrite?: boolean }) =>
       uploadMedia(location, file, overwrite),
   });
 }
@@ -118,7 +127,10 @@ export function useAssetUrl(ref: string | undefined): string | undefined {
  */
 export function useReferenceIndex() {
   const [requested, setRequested] = useState(false);
-  const { data, isFetching, error, refetch } = useQuery({ ...REFERENCES_QUERY, enabled: requested });
+  const { data, isFetching, error, refetch } = useQuery({
+    ...REFERENCES_QUERY,
+    enabled: requested,
+  });
 
   return {
     index: data,

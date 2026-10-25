@@ -50,7 +50,10 @@ export function compareIds(sort: CollectionSort): (a: string, b: string) => numb
 }
 
 /** Entries by id under `sort`, or as given for file order, which the listing already is. */
-export function sortByIds<E extends { id: string }>(entries: readonly E[], sort: CollectionSort): E[] {
+export function sortByIds<E extends { id: string }>(
+  entries: readonly E[],
+  sort: CollectionSort,
+): E[] {
   if (sort === "file") return [...entries];
 
   const compare = compareIds(sort);
@@ -98,7 +101,9 @@ export interface GlobRoot {
 }
 
 /** `derive` cached per manifest entry, which never changes once loaded. */
-function perCollection<C extends object, R extends object | null>(derive: (col: C) => R): (col: C) => R {
+function perCollection<C extends object, R extends object | null>(
+  derive: (col: C) => R,
+): (col: C) => R {
   const cache = new WeakMap<C, R>();
 
   return (col) => {
@@ -121,7 +126,9 @@ function perCollection<C extends object, R extends object | null>(derive: (col: 
  * remove an entry, which would only write a file the site never reads.
  */
 export const singletonEntry = perCollection(
-  (col: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase">): SingletonEntry | null => {
+  (
+    col: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase">,
+  ): SingletonEntry | null => {
     const [root] = globRoots(col);
 
     return col.loaderType === "glob" && loaderPatterns(col).length === 1 && root?.file
@@ -144,7 +151,9 @@ export function loaderPatterns(col: Pick<CollectionManifestEntry, "loaderPattern
  * dotfiles and paths outside the base never match.
  */
 export const globMatcher = perCollection(
-  (col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">): ((path: string) => boolean) => {
+  (
+    col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">,
+  ): ((path: string) => boolean) => {
     const patterns = loaderPatterns(col);
     const ignore = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
     const isMatch = picomatch(
@@ -166,7 +175,9 @@ export const globMatcher = perCollection(
  * each pattern, a directory to descend into or, for a literal pattern, the one
  * file it names. None lies inside another.
  */
-export function globRoots(col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">): GlobRoot[] {
+export function globRoots(
+  col: Pick<CollectionManifestEntry, "loaderPattern" | "loaderBase">,
+): GlobRoot[] {
   const roots = loaderPatterns(col)
     .filter((p) => !p.startsWith("!"))
     .map((p) => {
@@ -253,7 +264,10 @@ export function entryFilePath(
   }
 
   const literal = globRoots(collection).find(
-    (root) => root.file && getFileExtension(root.path) === format && globEntryId(collection, root.path) === id,
+    (root) =>
+      root.file &&
+      getFileExtension(root.path) === format &&
+      globEntryId(collection, root.path) === id,
   );
 
   return literal?.path ?? join(collectionBase(collection), `${id}.${format}`);

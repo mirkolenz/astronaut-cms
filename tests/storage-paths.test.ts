@@ -71,7 +71,9 @@ describe("LocalStorage paths", () => {
       const storage = new LocalStorage({ rootDir: parent }, localOptions);
 
       await expect(storage.readMedia(".hidden.png")).rejects.toThrow(/hidden/);
-      await expect(storage.renameMedia("source.png", "target.jpg")).rejects.toThrow(/allowed media type/);
+      await expect(storage.renameMedia("source.png", "target.jpg")).rejects.toThrow(
+        /allowed media type/,
+      );
       await expect(readFile(source, "utf8")).resolves.toBe("source");
     });
   });

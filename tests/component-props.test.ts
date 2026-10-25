@@ -25,7 +25,11 @@ describe("propsResolver", () => {
   const resolveProps = propsResolver(components);
 
   it("applies defaults, children included, and keeps attributes the schema does not declare", () => {
-    expect(resolveProps("Section", { title: "Hi", class: "wide" })).toEqual({ tone: "base", title: "Hi", class: "wide" });
+    expect(resolveProps("Section", { title: "Hi", class: "wide" })).toEqual({
+      tone: "base",
+      title: "Hi",
+      class: "wide",
+    });
     expect(resolveProps("Step", {})).toEqual({ href: "/" });
   });
 
@@ -39,6 +43,9 @@ describe("propsResolver", () => {
 
     expectTypeOf<Output["Section"]>().toEqualTypeOf<{ tone: "base" | "raised"; title: string }>();
     expectTypeOf<Output["Step"]>().toEqualTypeOf<{ href: string }>();
-    expectTypeOf<Input["Section"]>().toEqualTypeOf<{ tone?: "base" | "raised" | undefined; title: string }>();
+    expectTypeOf<Input["Section"]>().toEqualTypeOf<{
+      tone?: "base" | "raised" | undefined;
+      title: string;
+    }>();
   });
 });

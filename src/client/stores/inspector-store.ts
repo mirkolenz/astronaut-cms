@@ -45,7 +45,8 @@ export type Selection = BlockSelection | FormSelection;
 
 const NO_FIELD: ValuePath = [];
 
-export const isBlockSelection = (selection: Selection): selection is BlockSelection => "editor" in selection;
+export const isBlockSelection = (selection: Selection): selection is BlockSelection =>
+  "editor" in selection;
 
 /**
  * The body editor's realm, for what works on its content from outside it, and
@@ -128,7 +129,8 @@ export function select(
 
   if (!next) return;
 
-  if (!isNodeSelected(next.editor.getEditorState(), next.nodeKey)) selectNode(next.editor, next.nodeKey);
+  if (!isNodeSelected(next.editor.getEditorState(), next.nodeKey))
+    selectNode(next.editor, next.nodeKey);
 
   for (const { selection: crumb } of next.trail) {
     if (crumb.editor.getEditorState().read($getSelection) !== null) selectNode(crumb.editor, null);
@@ -173,7 +175,8 @@ function sameBlock(a: BlockRef, b: BlockRef): boolean {
 /** Whether the block is selected, and whether the body is to scroll to it. */
 export function useIsSelected(block: BlockRef): { selected: boolean; reveal: boolean } {
   const selected = useInspectorStore(
-    ({ selection }) => selection !== null && isBlockSelection(selection) && sameBlock(selection, block),
+    ({ selection }) =>
+      selection !== null && isBlockSelection(selection) && sameBlock(selection, block),
   );
   const reveal = useInspectorStore((state) => state.reveal);
 

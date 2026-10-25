@@ -35,4 +35,3 @@ export const useMdastNodeUpdater: EditorExports["useMdastNodeUpdater"] = () => {
 };
 
 export const useLexicalNodeRemove: EditorExports["useLexicalNodeRemove"] = useMdxLexicalNodeRemove;
-

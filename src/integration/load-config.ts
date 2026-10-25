@@ -31,9 +31,10 @@ import { editorStubPlugin } from "./vite-plugin.ts";
 // else (third-party loaders and schemas) runs for real, except the admin's
 // editor primitives (see `editorStubPlugin`). Matched exactly, since an alias
 // otherwise also claims every subpath of its key.
-const ALIASES: Alias[] = [/^astro:content$/, /^astro\/loaders$/].map(
-  (find) => ({ find, replacement: "astronaut-cms/internal" }),
-);
+const ALIASES: Alias[] = [/^astro:content$/, /^astro\/loaders$/].map((find) => ({
+  find,
+  replacement: "astronaut-cms/internal",
+}));
 
 /** Imports a config module, typed as the exports the caller reads. */
 type ConfigImport = <T>(path: string) => Promise<T>;
@@ -87,7 +88,9 @@ async function withConfigImport<T>(
       try {
         return await environment.runner.import<M>(path);
       } catch (error) {
-        throw new Error(`astronaut-cms: failed to load ${path}: ${errorMessage(error)}`, { cause: error });
+        throw new Error(`astronaut-cms: failed to load ${path}: ${errorMessage(error)}`, {
+          cause: error,
+        });
       }
     },
     async (id, importer) => (await environment.pluginContainer.resolveId(id, importer))?.id ?? null,
@@ -271,7 +274,9 @@ async function resolveComponents(
       const unknown = targets.find((collection) => !Object.hasOwn(collections, collection));
 
       if (unknown !== undefined) {
-        throw new Error(`cms.config components: ${name} lists "${unknown}", which is not a collection of the content config.`);
+        throw new Error(
+          `cms.config components: ${name} lists "${unknown}", which is not a collection of the content config.`,
+        );
       }
 
       const file = component ? await resolve(component, configPath) : null;

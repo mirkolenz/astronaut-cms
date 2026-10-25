@@ -80,7 +80,12 @@ import {
 import { isComponentMdx, parseMdx, pasteText } from "@/client/lib/editor-content";
 import { createSourcePreserver } from "@/client/lib/markdown-source";
 import { blockActions, isJsxNode } from "@/client/lib/block-editing";
-import { $isNodeSelected, getSelectedBlock, select, setBodyRealm } from "@/client/stores/inspector-store";
+import {
+  $isNodeSelected,
+  getSelectedBlock,
+  select,
+  setBodyRealm,
+} from "@/client/stores/inspector-store";
 import { syncHistory } from "@/client/stores/form-store";
 import { pageHistory, registerSkipUnchanged } from "@/client/lib/page-history";
 import { CmsImageDialog } from "@/client/components/editors/cms-image-dialog";
@@ -142,7 +147,9 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
     ref,
     () => ({
       flush: () => {
-        realmRef.current?.getValue(activeEditor$)?.dispatchCommand(NESTED_EDITOR_UPDATED_COMMAND, undefined);
+        realmRef.current
+          ?.getValue(activeEditor$)
+          ?.dispatchCommand(NESTED_EDITOR_UPDATED_COMMAND, undefined);
 
         return editorRef.current?.getMarkdown() ?? prevMarkdownRef.current;
       },
@@ -200,8 +207,11 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
       const text = event.clipboardData.getData("text/plain");
       const target = event.target;
       // Code blocks and dialogs take the text as it is.
-      const editable = target instanceof Element ? target.closest('[contenteditable="true"]') : null;
-      const editor = editable?.hasAttribute("data-lexical-editor") ? getNearestEditorFromDOMNode(editable) : null;
+      const editable =
+        target instanceof Element ? target.closest('[contenteditable="true"]') : null;
+      const editor = editable?.hasAttribute("data-lexical-editor")
+        ? getNearestEditorFromDOMNode(editable)
+        : null;
 
       if (!isMdx || !realm || !editor || !isComponentMdx(text)) return;
 
@@ -266,7 +276,11 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
             previousEditor = editor;
           });
           realm.pub(addComposerChild$, InsertMenu);
-          realm.pub(addExportVisitor$, { testLexicalNode: $isSkippedLine, visitLexicalNode: () => {}, priority: 1 });
+          realm.pub(addExportVisitor$, {
+            testLexicalNode: $isSkippedLine,
+            visitLexicalNode: () => {},
+            priority: 1,
+          });
           realm.pub(addToMarkdownExtension$, {
             handlers: {
               root: (node: Root, parent, state, info) =>
@@ -285,7 +299,10 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
             // The root editor reports its edits through `onChange` right away.
             (editor: LexicalEditor) =>
               editor.registerUpdateListener(({ dirtyElements, dirtyLeaves }) => {
-                if (editor !== realm.getValue(rootEditor$) && (dirtyElements.size > 0 || dirtyLeaves.size > 0)) {
+                if (
+                  editor !== realm.getValue(rootEditor$) &&
+                  (dirtyElements.size > 0 || dirtyLeaves.size > 0)
+                ) {
                   onDirtyRef.current();
                 }
               }),
@@ -309,7 +326,10 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
               editor.registerCommand(
                 KEY_BACKSPACE_COMMAND,
                 (event) => {
-                  if (editor === realm.getValue(rootEditor$) || editor.getRootElement()?.innerText !== "\n") {
+                  if (
+                    editor === realm.getValue(rootEditor$) ||
+                    editor.getRootElement()?.innerText !== "\n"
+                  ) {
                     return false;
                   }
 
@@ -322,16 +342,23 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
             // The selected component takes the clipboard and delete keys of its
             // editor, as its menu does, while those of an editor inside it pass.
             (editor: LexicalEditor) => {
-              const act = (action: "copy" | "cut" | "remove") => (event: Event | null, origin: LexicalEditor) => {
-                const block = getSelectedBlock();
+              const act =
+                (action: "copy" | "cut" | "remove") =>
+                (event: Event | null, origin: LexicalEditor) => {
+                  const block = getSelectedBlock();
 
-                if (origin !== editor || block?.editor !== editor || !$isNodeSelected(block.nodeKey)) return false;
+                  if (
+                    origin !== editor ||
+                    block?.editor !== editor ||
+                    !$isNodeSelected(block.nodeKey)
+                  )
+                    return false;
 
-                event?.preventDefault();
-                blockActions(block)[action]();
+                  event?.preventDefault();
+                  blockActions(block)[action]();
 
-                return true;
-              };
+                  return true;
+                };
 
               return mergeRegister(
                 editor.registerCommand(COPY_COMMAND, act("copy"), COMMAND_PRIORITY_HIGH),
@@ -357,7 +384,9 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
                     return $isNodeSelection(selection)
                       ? selection
                           .getNodes()
-                          .flatMap((node) => (isJsxNode(node) ? [] : (editor.getElementByKey(node.getKey()) ?? [])))
+                          .flatMap((node) =>
+                            isJsxNode(node) ? [] : (editor.getElementByKey(node.getKey()) ?? []),
+                          )
                       : [];
                   }),
                 ),
@@ -373,7 +402,8 @@ export function MdxEditor({ markdown, onChange, onDirty, format, ref }: MdxEdito
               editor.registerCommand(
                 KEY_DOWN_COMMAND,
                 (event) => {
-                  if (event.key !== "/" || !($isEmptyLine($caretBlock()) || $caretBetweenBlocks())) return false;
+                  if (event.key !== "/" || !($isEmptyLine($caretBlock()) || $caretBetweenBlocks()))
+                    return false;
 
                   event.preventDefault();
                   realm.pub(insertEditor$, editor);

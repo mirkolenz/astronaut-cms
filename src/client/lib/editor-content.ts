@@ -36,7 +36,12 @@ import {
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
 import { findComponent } from "@/shared/component-lookup";
-import { asBlockContent, isJsxElement, misplacedComponents, type JsxChild } from "@/client/lib/component-tree";
+import {
+  asBlockContent,
+  isJsxElement,
+  misplacedComponents,
+  type JsxChild,
+} from "@/client/lib/component-tree";
 import { $moveToEmptyLine, $selectInsertPoint } from "@/client/lib/empty-lines";
 import { claimHistory } from "@/client/lib/page-history";
 import { toast } from "@/client/components/toast";
@@ -73,7 +78,9 @@ export const inlineComponents = Object.fromEntries(
 );
 
 // MDXEditor focuses a component, code block or table through the editor it renders.
-function isSelectable(node: DecoratorNode<unknown>): node is DecoratorNode<unknown> & { select: () => void } {
+function isSelectable(
+  node: DecoratorNode<unknown>,
+): node is DecoratorNode<unknown> & { select: () => void } {
   return "select" in node && typeof node.select === "function";
 }
 
@@ -164,7 +171,10 @@ function pastedContent<T>(
     // A body imports nothing, since the site maps every component by name.
     nodes = parseMdx(realm, text).children.filter((node) => node.type !== "mdxjsEsm");
   } catch {
-    toast(i18n.t(($) => $.editors.pasteInvalid), "error");
+    toast(
+      i18n.t(($) => $.editors.pasteInvalid),
+      "error",
+    );
 
     return undefined;
   }
@@ -172,16 +182,25 @@ function pastedContent<T>(
   const misplaced = misplacedComponents(nodes, allowed, components);
 
   if (misplaced.length > 0) {
-    const names = [...new Set(misplaced.map((name) => findComponent(name, components)?.label ?? name))];
+    const names = [
+      ...new Set(misplaced.map((name) => findComponent(name, components)?.label ?? name)),
+    ];
 
-    toast(i18n.t(($) => $.editors.pasteMisplaced, { names: names.join(", ") }), "error");
+    toast(
+      i18n.t(($) => $.editors.pasteMisplaced, { names: names.join(", ") }),
+      "error",
+    );
 
     return undefined;
   }
 
   const content = fit(nodes);
 
-  if (!content) toast(i18n.t(($) => $.editors.pasteUnfit), "error");
+  if (!content)
+    toast(
+      i18n.t(($) => $.editors.pasteUnfit),
+      "error",
+    );
 
   return content;
 }
@@ -190,7 +209,9 @@ function pastedContent<T>(
 function inlined(node: RootContent): RootContent {
   if (node.type !== "mdxJsxFlowElement" || !node.name || !inlineComponents[node.name]) return node;
 
-  const children = node.children.flatMap((child) => (child.type === "paragraph" ? child.children : []));
+  const children = node.children.flatMap((child) =>
+    child.type === "paragraph" ? child.children : [],
+  );
 
   return asBlockContent({ ...node, type: "mdxJsxTextElement", children });
 }
@@ -201,7 +222,9 @@ export function pasteText(realm: Realm, editor: LexicalEditor, text: string): vo
   const nodes = pastedContent(realm, text, inline ? inlineComponents : components, (parsed) => {
     const content = parsed.map(inlined);
 
-    return !inline || (content.length === 1 && content[0]?.type === "paragraph") ? content : undefined;
+    return !inline || (content.length === 1 && content[0]?.type === "paragraph")
+      ? content
+      : undefined;
   });
 
   if (nodes && nodes.length > 0) insertContent(realm, editor, nodes, { atCaret: true });
@@ -232,13 +255,17 @@ async function withClipboard<T>(use: (clipboard: Clipboard) => Promise<T>): Prom
   try {
     return await use(navigator.clipboard);
   } catch {
-    toast(i18n.t(($) => $.editors.clipboardDenied), "error");
+    toast(
+      i18n.t(($) => $.editors.clipboardDenied),
+      "error",
+    );
 
     return undefined;
   }
 }
 
-export const readClipboard = (): Promise<string | undefined> => withClipboard((clipboard) => clipboard.readText());
+export const readClipboard = (): Promise<string | undefined> =>
+  withClipboard((clipboard) => clipboard.readText());
 
 /** Writes text to the clipboard, and tells whether it did. */
 export const writeClipboard = async (text: string): Promise<boolean> =>

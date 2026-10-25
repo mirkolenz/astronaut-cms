@@ -156,7 +156,8 @@ export class GitHubStorage extends BranchedStorage {
   protected async globPaths(col: CollectionManifestEntry): Promise<Iterable<string>> {
     const roots = globRoots(col);
 
-    return (await this.tree()).values()
+    return (await this.tree())
+      .values()
       .map((item) => item.path)
       .filter((path) => roots.some((root) => inGlobRoot(path, root)));
   }

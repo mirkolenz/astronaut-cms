@@ -90,11 +90,11 @@ A build fails while the file is missing.
 Astro's `getCollection()` returns entries sorted by id, whatever order a file holds them in.
 Set `sort` per collection in the `collections` export of `src/cms.config.ts` to choose another order:
 
-| `sort`            | Order                                                              |
-| ----------------- | ------------------------------------------------------------------ |
-| `"id"` (default)  | By id, as astro returns them                                       |
-| `"natural"`       | By id, with numbers compared as numbers (`2` before `10`)          |
-| `"file"`          | The order of the file, for `file()` collections only               |
+| `sort`           | Order                                                     |
+| ---------------- | --------------------------------------------------------- |
+| `"id"` (default) | By id, as astro returns them                              |
+| `"natural"`      | By id, with numbers compared as numbers (`2` before `10`) |
+| `"file"`         | The order of the file, for `file()` collections only      |
 
 ```ts title="src/cms.config.ts"
 import { defineCollection } from "astronaut-cms/config";

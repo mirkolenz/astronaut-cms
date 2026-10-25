@@ -240,10 +240,7 @@ export async function refreshSession(
  * someone who asked to sign out is not the person to tell that the provider did
  * not answer.
  */
-export async function revokeSession(
-  config: ProviderConfig,
-  session: Session,
-): Promise<void> {
+export async function revokeSession(config: ProviderConfig, session: Session): Promise<void> {
   try {
     const secret = clientSecret(config);
 

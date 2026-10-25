@@ -73,14 +73,17 @@ describe("resolveContentI18n", () => {
   });
 
   it("rejects an explicit default locale outside the configured languages", () => {
-    expect(() => resolveContentI18n({ i18n: { locales: ["en"], defaultLocale: "de" } }, undefined))
-      .toThrow('Content default locale "de" is not in the configured locales.');
+    expect(() =>
+      resolveContentI18n({ i18n: { locales: ["en"], defaultLocale: "de" } }, undefined),
+    ).toThrow('Content default locale "de" is not in the configured locales.');
   });
 
   it("uses a CMS default locale literally when the site maps codes to paths", () => {
-    expect(resolveContentI18n(
-      { i18n: { locales: ["en"], defaultLocale: "en" } },
-      { defaultLocale: "en", locales: [{ path: "english", codes: ["en"] }] },
-    )).toEqual({ locales: ["en"], defaultLocale: "en" });
+    expect(
+      resolveContentI18n(
+        { i18n: { locales: ["en"], defaultLocale: "en" } },
+        { defaultLocale: "en", locales: [{ path: "english", codes: ["en"] }] },
+      ),
+    ).toEqual({ locales: ["en"], defaultLocale: "en" });
   });
 });

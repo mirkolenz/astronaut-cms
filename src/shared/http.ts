@@ -48,7 +48,10 @@ export class BodyTooLargeError extends Error {
  * Yields the chunks rather than a body, so the two readers below each build the
  * shape they want without either paying for the other's.
  */
-async function* chunks(request: Request, maxBytes: number): AsyncGenerator<Uint8Array<ArrayBuffer>> {
+async function* chunks(
+  request: Request,
+  maxBytes: number,
+): AsyncGenerator<Uint8Array<ArrayBuffer>> {
   const declared = Number(request.headers.get("content-length"));
 
   if (Number.isFinite(declared) && declared > maxBytes) throw new BodyTooLargeError(maxBytes);
@@ -118,7 +121,8 @@ export function parseByteRange(header: string | null): ByteRange | null {
 }
 
 /** The header a range is forwarded upstream with. Inverse of {@link parseByteRange}. */
-export const rangeHeader = ({ start, end }: ByteRange): string => `bytes=${start ?? ""}-${end ?? ""}`;
+export const rangeHeader = ({ start, end }: ByteRange): string =>
+  `bytes=${start ?? ""}-${end ?? ""}`;
 
 /** Settles a range against the size of the file it addresses. */
 export function partialContent({ start, end }: ByteRange, size: number): PartialContent {

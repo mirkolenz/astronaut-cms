@@ -44,7 +44,9 @@ export function $caretBlock(): LexicalNode | null {
 export function $caretBetweenBlocks(): RangeSelection | null {
   const selection = $getSelection();
 
-  return $isRangeSelection(selection) && selection.isCollapsed() && $isRootOrShadowRoot(selection.anchor.getNode())
+  return $isRangeSelection(selection) &&
+    selection.isCollapsed() &&
+    $isRootOrShadowRoot(selection.anchor.getNode())
     ? selection
     : null;
 }
@@ -105,9 +107,14 @@ export function $moveToEmptyLine(): void {
 export function $gapAt(y: number): number | undefined {
   const editor = $getEditor();
   const blocks = $getRoot().getChildren();
-  const rects = blocks.map((block) => editor.getElementByKey(block.getKey())?.getBoundingClientRect());
+  const rects = blocks.map((block) =>
+    editor.getElementByKey(block.getKey())?.getBoundingClientRect(),
+  );
 
-  if (blocks.length === 0 || rects.some((rect) => rect !== undefined && rect.top <= y && y <= rect.bottom)) {
+  if (
+    blocks.length === 0 ||
+    rects.some((rect) => rect !== undefined && rect.top <= y && y <= rect.bottom)
+  ) {
     return undefined;
   }
 
@@ -115,7 +122,8 @@ export function $gapAt(y: number): number | undefined {
   const index = next === -1 ? blocks.length : next;
   const before = blocks[index - 1];
   const after = blocks[index];
-  const textless = (block: LexicalNode | undefined) => block === undefined || $needsBlockCursorBeside(block);
+  const textless = (block: LexicalNode | undefined) =>
+    block === undefined || $needsBlockCursorBeside(block);
 
   return textless(before) && textless(after) ? index : undefined;
 }

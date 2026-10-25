@@ -56,12 +56,16 @@ export function mediaGraph({ rootDir, srcDir, media, ignore }: MediaGraphOptions
         this.resolve("virtual:astronaut-cms/assets"),
         ...onDemand.map(({ entrypoint }) => this.resolve(resolve(rootDir, entrypoint))),
       ]);
-      const renders = (id: string): boolean => inLibrary(id) || id === content?.id || id === assets?.id;
+      const renders = (id: string): boolean =>
+        inLibrary(id) || id === content?.id || id === assets?.id;
       // Route entries and server islands, the site's own code that renders on demand.
       const stack = [
-        ...routes.flatMap((route) => route ? [route.id] : []),
+        ...routes.flatMap((route) => (route ? [route.id] : [])),
         ...[...this.getModuleIds()].filter(
-          (id) => this.getModuleInfo(id)?.isEntry && id.startsWith(srcDir) && !routeEntries.has(withoutQuery(id)),
+          (id) =>
+            this.getModuleInfo(id)?.isEntry &&
+            id.startsWith(srcDir) &&
+            !routeEntries.has(withoutQuery(id)),
         ),
       ];
       const reaches = (): boolean => {
@@ -115,8 +119,12 @@ export function mediaGraph({ rootDir, srcDir, media, ignore }: MediaGraphOptions
 
     setRoutes(routes) {
       routeEntries = new Set(routes.map(({ entrypoint }) => resolve(rootDir, entrypoint)));
-      onDemand = routes
-        .filter((route) => !route.isPrerendered && route.origin !== "internal" && !ignored.has(trimSlashes(route.pattern)));
+      onDemand = routes.filter(
+        (route) =>
+          !route.isPrerendered &&
+          route.origin !== "internal" &&
+          !ignored.has(trimSlashes(route.pattern)),
+      );
     },
 
     prune(clientDir, force) {

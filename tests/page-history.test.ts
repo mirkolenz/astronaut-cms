@@ -18,9 +18,12 @@ import {
 import { newEditor } from "./fixtures/editor";
 
 const setText = (value: string) => () =>
-  $getRoot().clear().append($createParagraphNode().append($createTextNode(value)));
+  $getRoot()
+    .clear()
+    .append($createParagraphNode().append($createTextNode(value)));
 
-const texts = (...editors: LexicalEditor[]) => editors.map((editor) => editor.read(() => $getRoot().getTextContent()));
+const texts = (...editors: LexicalEditor[]) =>
+  editors.map((editor) => editor.read(() => $getRoot().getTextContent()));
 
 // Two editors sharing the page's history, as MDXEditor's body and a nested editor do.
 function sharingEditors(): [LexicalEditor, LexicalEditor] {

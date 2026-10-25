@@ -99,7 +99,9 @@ export interface S3Credentials {
 
 const ListBucketResult = z.object({
   ListBucketResult: z.object({
-    Contents: xmlList(z.object({ Key: z.string(), Size: z.coerce.number(), ETag: z.string().optional() })),
+    Contents: xmlList(
+      z.object({ Key: z.string(), Size: z.coerce.number(), ETag: z.string().optional() }),
+    ),
     IsTruncated: z.string().optional(),
     NextContinuationToken: z.string().optional(),
   }),
@@ -125,7 +127,12 @@ export class S3Store implements MediaStore {
     this.bucket = target.bucket;
     this.base = s3BaseUrl(target).href;
     // Three attempts rather than aws4fetch's eleven.
-    this.client = new AwsClient({ ...credentials, service: "s3", region: target.region, retries: 2 });
+    this.client = new AwsClient({
+      ...credentials,
+      service: "s3",
+      region: target.region,
+      retries: 2,
+    });
   }
 
   /** The store a library names, with the credential from the server's environment. */
@@ -164,7 +171,9 @@ export class S3Store implements MediaStore {
       const url = new URL(this.base);
       // Encoded by hand, since `URLSearchParams` writes a space as `+`, which stores read inconsistently.
       url.search = Object.entries(query)
-        .flatMap(([name, value]) => (value === undefined ? [] : [`${name}=${encodeURIComponent(value)}`]))
+        .flatMap(([name, value]) =>
+          value === undefined ? [] : [`${name}=${encodeURIComponent(value)}`],
+        )
         .join("&");
 
       const response = await ensureOk(await this.client.fetch(url), `list of "${prefix}"`);

@@ -54,7 +54,8 @@ function assetProblems(
   return leaves.filter(isAsset).flatMap(({ kind, value, repoOnly, path }) => {
     const location = mediaPath(value, media, file);
 
-    if (location?.library === "s3") return repoOnly ? [diagnostic(repoOnlyRefusal(value), path)] : [];
+    if (location?.library === "s3")
+      return repoOnly ? [diagnostic(repoOnlyRefusal(value), path)] : [];
 
     const key = location?.path;
     const resolvable =
@@ -65,7 +66,12 @@ function assetProblems(
 
     return resolvable
       ? []
-      : [diagnostic(`"${value}" cannot be resolved as a ${kind} in the media directory ("${media.repo.directory}").`, path)];
+      : [
+          diagnostic(
+            `"${value}" cannot be resolved as a ${kind} in the media directory ("${media.repo.directory}").`,
+            path,
+          ),
+        ];
   });
 }
 
@@ -73,12 +79,17 @@ function assetProblems(
  * Every singleton whose one file is missing. The site reads that entry by its
  * id, so a build without it would fail there instead, less legibly.
  */
-export function missingSingletons(collections: CollectionManifest, entries: ContentEntry[]): string[] {
+export function missingSingletons(
+  collections: CollectionManifest,
+  entries: ContentEntry[],
+): string[] {
   return Object.values(collections).flatMap((collection) => {
     const singleton = singletonEntry(collection);
 
     if (!singleton || entries.some((entry) => entry.collection.name === collection.name)) return [];
 
-    return [`${singleton.path}: the singleton collection "${collection.name}" needs this file, its only entry.`];
+    return [
+      `${singleton.path}: the singleton collection "${collection.name}" needs this file, its only entry.`,
+    ];
   });
 }

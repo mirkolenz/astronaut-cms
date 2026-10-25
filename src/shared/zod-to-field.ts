@@ -92,7 +92,12 @@ function readMeta(schema: z.ZodType, meta: FieldMeta): void {
 
 // Coerces a Zod literal value into the JSON-safe subset `FieldSchema` allows.
 function literalValue(value: unknown): string | number | boolean | null {
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return value;
   }
 
@@ -170,7 +175,8 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
 
   if (schema instanceof z.ZodDate) return { type: "date" };
 
-  if (schema instanceof z.ZodEnum) return { type: "enum", options: schema.options.map(literalValue) };
+  if (schema instanceof z.ZodEnum)
+    return { type: "enum", options: schema.options.map(literalValue) };
 
   if (schema instanceof z.ZodLiteral) {
     // A multi-value literal is just a union of single literals; lower it that

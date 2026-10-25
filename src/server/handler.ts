@@ -684,12 +684,7 @@ async function completeLogin(request: Request, url: URL): Promise<Response> {
     return failed("The sign-in link expired. Try again.");
   }
 
-  const session = await exchangeCode(
-    provider,
-    code,
-    siteUrl(url, API_CALLBACK),
-    login.verifier,
-  );
+  const session = await exchangeCode(provider, code, siteUrl(url, API_CALLBACK), login.verifier);
 
   return redirect(admin, sessionCookie(url, await issueSession(session, secret)));
 }

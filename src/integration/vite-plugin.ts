@@ -6,7 +6,11 @@ import type { CollectionManifest, CollectionSort } from "../shared/types.ts";
 import type { ComponentManifest } from "../internal/user-config.ts";
 import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
-import { libraryDirectories, type ClientMediaConfig, type MediaRefConfig } from "../shared/media.ts";
+import {
+  libraryDirectories,
+  type ClientMediaConfig,
+  type MediaRefConfig,
+} from "../shared/media.ts";
 import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
 import { COMPONENTS_MODULE } from "./component-codegen.ts";
 
@@ -58,7 +62,8 @@ export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin[] {
 export const client = ${JSON.stringify(clientConfig)};
 export const server = ${JSON.stringify(serverConfig)};
 export const components = ${JSON.stringify(options.components)};`,
-    "virtual:astronaut-cms/local-storage": ({ devApi }) => generateLocalStorageModule(options, devApi),
+    "virtual:astronaut-cms/local-storage": ({ devApi }) =>
+      generateLocalStorageModule(options, devApi),
     "virtual:astronaut-cms/order": ({ watch }) =>
       generateOrderModule(clientConfig.collections, options.rootDir, watch),
     "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
@@ -92,7 +97,10 @@ export const components = ${JSON.stringify(options.components)};`,
     // more than it shows. A file the site also imports statically stays in its
     // chunk, which is fine, so the warning that it does says nothing to act on.
     onLog(_level, log) {
-      return !(log.code === "INEFFECTIVE_DYNAMIC_IMPORT" && log.ids?.includes("\0virtual:astronaut-cms/assets"));
+      return !(
+        log.code === "INEFFECTIVE_DYNAMIC_IMPORT" &&
+        log.ids?.includes("\0virtual:astronaut-cms/assets")
+      );
     },
   };
 

@@ -65,10 +65,14 @@ const untrashable =
 
 const BRANCH_PREFIX = "cms/";
 
-const occupied = (path: string): HttpError => new HttpError(`A file already exists at "${path}".`, 409);
+const occupied = (path: string): HttpError =>
+  new HttpError(`A file already exists at "${path}".`, 409);
 
 /** The schema of the value at `key` inside a container that `field` describes. */
-function childSchema(field: FieldSchema | undefined, key: string | number): FieldSchema | undefined {
+function childSchema(
+  field: FieldSchema | undefined,
+  key: string | number,
+): FieldSchema | undefined {
   switch (field?.type) {
     case "array":
       return typeof key === "number" ? field.element : undefined;
@@ -117,21 +121,28 @@ function restoreTomlDates<T>(
   if (isRecord(value)) {
     const old = isRecord(previous) ? previous : {};
 
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, restore(item, old[key], key)])) as T;
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, restore(item, old[key], key)]),
+    ) as T;
   }
 
   return value;
 }
 
 /** Both providers hand file contents back this way, whitespace and all. */
-export const fromBase64 = (content: string): string => new TextDecoder().decode(Uint8Array.fromBase64(content));
+export const fromBase64 = (content: string): string =>
+  new TextDecoder().decode(Uint8Array.fromBase64(content));
 
 /**
  * What `load` answers for `key`, loaded at most once into `cache` and shared by
  * every caller. A failure is dropped rather than kept, so the next caller
  * retries instead of reading it.
  */
-export function memoized<K, V>(cache: Map<K, Promise<V>>, key: K, load: () => Promise<V>): Promise<V> {
+export function memoized<K, V>(
+  cache: Map<K, Promise<V>>,
+  key: K,
+  load: () => Promise<V>,
+): Promise<V> {
   const cached = cache.get(key);
 
   if (cached) return cached;
@@ -272,7 +283,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     let previous: Record<string, unknown> | undefined;
 
     try {
-      if (!createOnly) previous = parseContent((await this.fetchFileContent(path)).content, "toml").data;
+      if (!createOnly)
+        previous = parseContent((await this.fetchFileContent(path)).content, "toml").data;
     } catch (err) {
       if (!isNotFound(err)) throw err;
     }
@@ -321,9 +333,13 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
     const col = this.schema(collection);
     // An existing entry keeps its file, whose name astro may have slugged into
     // the id, so a new one also has to be absent from the listing.
-    const stored = this.isFileCollection(collection) ? undefined : await this.storedEntry(collection, id);
+    const stored = this.isFileCollection(collection)
+      ? undefined
+      : await this.storedEntry(collection, id);
     const path =
-      !data.createOnly && stored?.format === data.format ? stored.path : entryFilePath(col, id, data.format);
+      !data.createOnly && stored?.format === data.format
+        ? stored.path
+        : entryFilePath(col, id, data.format);
 
     await assertEntryWritable(this.contentSource, { col, id, path, ...data });
 
@@ -445,11 +461,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   }
 
   /** A copy under a new id, which works uniformly because saveEntry branches on layout. */
-  async duplicateEntry(
-    collection: string,
-    sourceId: string,
-    targetId: string,
-  ): Promise<void> {
+  async duplicateEntry(collection: string, sourceId: string, targetId: string): Promise<void> {
     const source = await this.getEntry(collection, sourceId);
 
     await this.saveEntry(collection, targetId, {
@@ -483,7 +495,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     const entry = await this.getEntry(collection, oldId);
 
-    await assertEntryWritable(this.contentSource, { ...entry, col: this.schema(collection), id: newId });
+    await assertEntryWritable(this.contentSource, {
+      ...entry,
+      col: this.schema(collection),
+      id: newId,
+    });
 
     const { path, content } = await this.editFileCollection(collection, (entries) => {
       if (entries.has(newId)) throw staleWrite(`${collection}/${newId}`);
@@ -538,7 +554,8 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     // Replacing a file is a different act from adding one: an upload that did
     // not ask to replace does not get to.
-    if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path)) throw occupied(path);
+    if (!overwrite && (await this.listPaths()).some((entry) => entry.path === path))
+      throw occupied(path);
 
     return { direct: false };
   }
@@ -553,7 +570,11 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * Where a repository library's own writes are checked before bytes reach a backend.
    * Every backend claims a new path atomically, so no listing is needed here.
    */
-  async uploadMedia(path: string, bytes: Uint8Array<ArrayBuffer>, overwrite: boolean): Promise<void> {
+  async uploadMedia(
+    path: string,
+    bytes: Uint8Array<ArrayBuffer>,
+    overwrite: boolean,
+  ): Promise<void> {
     try {
       await this.writeMedia(this.assertUploadable(path, bytes.byteLength), bytes, overwrite);
     } catch (error) {
@@ -659,7 +680,12 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   private async loadFileCollection(collection: string): Promise<FileCollection> {
     const path = this.getFileLoaderPath(collection);
     const format = path ? this.containerFormat(path) : "json";
-    const empty: FileCollection = { path: path ?? "", format, entries: new Map(), layout: "object" };
+    const empty: FileCollection = {
+      path: path ?? "",
+      format,
+      entries: new Map(),
+      layout: "object",
+    };
 
     if (!path) return empty;
 
@@ -687,7 +713,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   private async listFileCollectionEntries(collection: string): Promise<EntryMeta[]> {
     const { entries, format, path } = await this.readFileCollection(collection);
 
-    return entries.keys().map((id) => ({ id, collection, format, path })).toArray();
+    return entries
+      .keys()
+      .map((id) => ({ id, collection, format, path }))
+      .toArray();
   }
 
   /**
@@ -704,7 +733,10 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
     return {
       path,
-      content: serializeMultiEntryFile({ ...file, entries: mutate(edited, format) ?? edited }, format),
+      content: serializeMultiEntryFile(
+        { ...file, entries: mutate(edited, format) ?? edited },
+        format,
+      ),
       version,
     };
   }

@@ -91,7 +91,9 @@ function resolveGateway(gateway: AiGateway, request: Request): Gateway {
   }
 
   const key = address.keys
-    .map((source) => ("env" in source ? getSecret(source.env) : (request.headers.get(source.header) ?? undefined)))
+    .map((source) =>
+      "env" in source ? getSecret(source.env) : (request.headers.get(source.header) ?? undefined),
+    )
     .find(Boolean);
 
   return {

@@ -18,7 +18,8 @@ const plugin = (root: string, userConfigPath: string | null = null) =>
 it("loads a CMS config that exports collections without components", async () => {
   const root = project({
     "src/cms.config.ts": "export const collections = {};",
-    "src/entry.ts": 'import { components } from "virtual:astronaut-cms/user-config"; export default components;',
+    "src/entry.ts":
+      'import { components } from "virtual:astronaut-cms/user-config"; export default components;',
   });
   const result = await build({
     root,

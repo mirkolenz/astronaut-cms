@@ -7,7 +7,11 @@
 import type { RootContent } from "mdast";
 import type { MdxJsxFlowElement, MdxJsxTextElement } from "mdast-util-mdx";
 import type { ClientComponentDef } from "@/internal/user-config";
-import type { MdxJsxAttribute, MdxJsxElement, MdxJsxExpressionAttribute } from "@/shared/jsx-editor";
+import type {
+  MdxJsxAttribute,
+  MdxJsxElement,
+  MdxJsxExpressionAttribute,
+} from "@/shared/jsx-editor";
 import { childComponents } from "@/shared/component-lookup";
 import { objectShape } from "@/shared/field-schema";
 import { attributeValue, valueToAttribute } from "@/shared/mdx-attributes";
@@ -45,10 +49,14 @@ export function jsxChildren(element: MdxJsxElement): JsxChild[] {
   return element.children.filter(isJsxElement);
 }
 
-export function findAt<T extends MdxJsxElement>(element: T, path: ChildPath): T | JsxChild | undefined {
+export function findAt<T extends MdxJsxElement>(
+  element: T,
+  path: ChildPath,
+): T | JsxChild | undefined {
   let current: T | JsxChild | undefined = element;
 
-  for (const key of path) current = current && jsxChildren(current).find((c) => childKey(c) === key);
+  for (const key of path)
+    current = current && jsxChildren(current).find((c) => childKey(c) === key);
 
   return current;
 }
@@ -85,7 +93,9 @@ export function defAt(
   for (const key of path) {
     element = element && jsxChildren(element).find((c) => childKey(c) === key);
     current =
-      element?.name && typeof current?.children === "object" ? current.children[element.name] : undefined;
+      element?.name && typeof current?.children === "object"
+        ? current.children[element.name]
+        : undefined;
   }
 
   return current;
@@ -96,7 +106,8 @@ export function defAt(
 const isAttribute = (
   attr: MdxJsxAttribute | MdxJsxExpressionAttribute,
   key?: string,
-): attr is MdxJsxAttribute => attr.type === "mdxJsxAttribute" && (key === undefined || attr.name === key);
+): attr is MdxJsxAttribute =>
+  attr.type === "mdxJsxAttribute" && (key === undefined || attr.name === key);
 
 /**
  * The statically-known props of an element. An expression only a runtime can
@@ -150,25 +161,36 @@ export function labelOf(def: ClientComponentDef | undefined, element: MdxJsxElem
 }
 
 /** The one-line name of an instance, such as its title. */
-export function summaryOf(def: ClientComponentDef | undefined, element: MdxJsxElement): string | undefined {
+export function summaryOf(
+  def: ClientComponentDef | undefined,
+  element: MdxJsxElement,
+): string | undefined {
   return textSummary(objectShape(def?.props) ?? {}, readProps(element), def?.summary);
 }
 
 /** The labels of the required props an instance has no value for. */
-export function missingProps(def: ClientComponentDef | undefined, element: MdxJsxElement): string[] {
+export function missingProps(
+  def: ClientComponentDef | undefined,
+  element: MdxJsxElement,
+): string[] {
   const shape = objectShape(def?.props);
 
   // A spread may supply any prop, so none can be said to be missing.
   if (!shape || element.attributes.some((attr) => !isAttribute(attr))) return [];
 
   const props = readProps(element);
-  const written = new Set(element.attributes.filter((attr) => isAttribute(attr)).map((attr) => attr.name));
+  const written = new Set(
+    element.attributes.filter((attr) => isAttribute(attr)).map((attr) => attr.name),
+  );
 
   return missingFields(shape, (key) => !written.has(key) || props[key] === "");
 }
 
 /** The first image an instance shows, for its thumbnail. */
-export function imageOf(def: ClientComponentDef | undefined, element: MdxJsxElement): string | undefined {
+export function imageOf(
+  def: ClientComponentDef | undefined,
+  element: MdxJsxElement,
+): string | undefined {
   const props = readProps(element);
 
   return Object.entries(objectShape(def?.props) ?? {})
@@ -179,14 +201,18 @@ export function imageOf(def: ClientComponentDef | undefined, element: MdxJsxElem
 
 /** An element as content of a markdown body, where an inline one sits in a paragraph. */
 export function asBlockContent(element: JsxChild): RootContent {
-  return element.type === "mdxJsxTextElement" ? { type: "paragraph", children: [element] } : element;
+  return element.type === "mdxJsxTextElement"
+    ? { type: "paragraph", children: [element] }
+    : element;
 }
 
 // ── Structured children ─────────────────────────────────────────────
 
 /** A new instance with its default props, keyed already so it can be selected right away. */
 export function newComponent(name: string, def: ClientComponentDef): JsxChild {
-  const attributes = Object.entries(defaultProps(def)).map(([key, value]) => valueToAttribute(key, value));
+  const attributes = Object.entries(defaultProps(def)).map(([key, value]) =>
+    valueToAttribute(key, value),
+  );
   const data = { cmsKey: crypto.randomUUID() };
 
   return def.kind === "text"
@@ -217,16 +243,29 @@ function editChildren(
   return updateAt(root, parentPath, (parent) => withJsxChildren(parent, edit(jsxChildren(parent))));
 }
 
-export function addChildren(root: MdxJsxElement, parentPath: ChildPath, added: JsxChild[]): MdxJsxElement {
+export function addChildren(
+  root: MdxJsxElement,
+  parentPath: ChildPath,
+  added: JsxChild[],
+): MdxJsxElement {
   return editChildren(root, parentPath, (children) => [...children, ...added]);
 }
 
-export function removeChild(root: MdxJsxElement, parentPath: ChildPath, key: string): MdxJsxElement {
+export function removeChild(
+  root: MdxJsxElement,
+  parentPath: ChildPath,
+  key: string,
+): MdxJsxElement {
   return editChildren(root, parentPath, (children) => children.filter((c) => childKey(c) !== key));
 }
 
 /** Moves a child to the place `to` among its siblings. */
-export function moveChild(root: MdxJsxElement, parentPath: ChildPath, key: string, to: number): MdxJsxElement {
+export function moveChild(
+  root: MdxJsxElement,
+  parentPath: ChildPath,
+  key: string,
+  to: number,
+): MdxJsxElement {
   return editChildren(root, parentPath, (children) => {
     const from = children.findIndex((c) => childKey(c) === key);
 
@@ -235,7 +274,11 @@ export function moveChild(root: MdxJsxElement, parentPath: ChildPath, key: strin
 }
 
 /** Inserts a copy of a child right after it, with keys of its own. */
-export function duplicateChild(root: MdxJsxElement, parentPath: ChildPath, key: string): MdxJsxElement {
+export function duplicateChild(
+  root: MdxJsxElement,
+  parentPath: ChildPath,
+  key: string,
+): MdxJsxElement {
   return editChildren(root, parentPath, (children) =>
     children.flatMap((child) => (childKey(child) === key ? [child, freshCopy(child)] : [child])),
   );
@@ -264,9 +307,13 @@ export function misplacedComponents(
   allowed: Record<string, ClientComponentDef>,
   topLevel: Record<string, ClientComponentDef>,
 ): string[] {
-  const check = (content: readonly RootContent[], defs: Record<string, ClientComponentDef>): string[] =>
+  const check = (
+    content: readonly RootContent[],
+    defs: Record<string, ClientComponentDef>,
+  ): string[] =>
     content.flatMap((node) => {
-      if (!isJsxElement(node) || node.name === null) return "children" in node ? check(node.children, defs) : [];
+      if (!isJsxElement(node) || node.name === null)
+        return "children" in node ? check(node.children, defs) : [];
 
       const def = defs[node.name];
 

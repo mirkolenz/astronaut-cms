@@ -189,7 +189,13 @@ export async function call<K extends OperationName>(
 ): Promise<OperationOutput<K>> {
   const { promise, resolve, reject } = Promise.withResolvers<OperationOutput<K>>();
 
-  queue.push({ op, input, keys: keysFor(op, input), resolve: resolve as (data: unknown) => void, reject });
+  queue.push({
+    op,
+    input,
+    keys: keysFor(op, input),
+    resolve: resolve as (data: unknown) => void,
+    reject,
+  });
   schedule();
 
   return promise;

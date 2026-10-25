@@ -36,7 +36,12 @@ import { select, useFormField } from "@/client/stores/inspector-store";
 import { setField, useForm } from "@/client/stores/form-store";
 import { uniqueName } from "@/shared/paths";
 import { toast } from "@/client/components/toast";
-import { FieldList, FieldNavContext, FieldRenderer, NewKeyInput } from "@/client/components/editors/field-renderer";
+import {
+  FieldList,
+  FieldNavContext,
+  FieldRenderer,
+  NewKeyInput,
+} from "@/client/components/editors/field-renderer";
 import {
   AddMenu,
   BlockList,
@@ -66,7 +71,11 @@ export function EntryFields({ form: id }: { form: string }) {
   return (
     form && (
       <FieldNavContext.Provider value={formNav(id, selected)}>
-        <FieldList shape={form.shape} values={form.values} onChange={(key, value) => setField(id, key, value)} />
+        <FieldList
+          shape={form.shape}
+          values={form.values}
+          onChange={(key, value) => setField(id, key, value)}
+        />
       </FieldNavContext.Provider>
     )
   );
@@ -91,16 +100,26 @@ export function FormInspector({ form: id, field }: { form: string; field: ValueP
   );
 }
 
-function itemLabel(collection: CollectionField, key: string | number, value: unknown, t: TFunction): string {
+function itemLabel(
+  collection: CollectionField,
+  key: string | number,
+  value: unknown,
+  t: TFunction,
+): string {
   if (typeof key === "string") return key;
 
-  return valueSummary(itemField(collection), value) ?? t(($) => $.editors.item, { index: String(key + 1) });
+  return (
+    valueSummary(itemField(collection), value) ??
+    t(($) => $.editors.item, { index: String(key + 1) })
+  );
 }
 
 function stepLabel(step: FieldStep, t: TFunction): string {
   const collection = collectionOf(step.parent);
 
-  return collection ? itemLabel(collection, step.key, step.value, t) : fieldLabel(String(step.key), step.field);
+  return collection
+    ? itemLabel(collection, step.key, step.value, t)
+    : fieldLabel(String(step.key), step.field);
 }
 
 // What the inspector opens: a collection, or one of its items.
@@ -120,7 +139,10 @@ function pastedItems(collection: CollectionField, items: readonly CollectionItem
   try {
     value = JSON.parse(text);
   } catch {
-    toast(i18n.t(($) => $.editors.pasteInvalid), "error");
+    toast(
+      i18n.t(($) => $.editors.pasteInvalid),
+      "error",
+    );
 
     return undefined;
   }
@@ -130,7 +152,10 @@ function pastedItems(collection: CollectionField, items: readonly CollectionItem
   const taken = new Set(items.map(([key]) => key));
   const pasted: CollectionItem[] =
     collection.type === "array"
-      ? (fits(value) || !Array.isArray(value) ? [value] : value).map((entry, index) => [items.length + index, entry])
+      ? (fits(value) || !Array.isArray(value) ? [value] : value).map((entry, index) => [
+          items.length + index,
+          entry,
+        ])
       : Object.entries(asRecord(value)).map(([name, entry]) => {
           const key = uniqueName(name, (candidate) => taken.has(candidate));
 
@@ -140,7 +165,10 @@ function pastedItems(collection: CollectionField, items: readonly CollectionItem
         });
 
   if (pasted.length === 0 || !pasted.every(([, entry]) => fits(entry))) {
-    toast(i18n.t(($) => $.editors.pasteUnfit), "error");
+    toast(
+      i18n.t(($) => $.editors.pasteUnfit),
+      "error",
+    );
 
     return undefined;
   }
@@ -218,9 +246,13 @@ export function FieldInspector({
   const back = [
     ...crumbs,
     { label, onSelect: () => open([]) },
-    ...steps.slice(0, -1).flatMap((ancestor, index) =>
-      opens(ancestor) ? [{ label: stepLabel(ancestor, t), onSelect: () => open(path.slice(0, index + 1)) }] : [],
-    ),
+    ...steps
+      .slice(0, -1)
+      .flatMap((ancestor, index) =>
+        opens(ancestor)
+          ? [{ label: stepLabel(ancestor, t), onSelect: () => open(path.slice(0, index + 1)) }]
+          : [],
+      ),
   ];
   const actions = itemActions(step, steps.at(-2)?.value, path, setAtPath, open);
   const collection = collectionOf(step.field);
@@ -230,7 +262,12 @@ export function FieldInspector({
   if (!collection) {
     return (
       <InspectorView key={key} crumbs={back} title={stepLabel(step, t)} actions={actions}>
-        <FieldRenderer schema={step.field} value={step.value} onChange={(value) => setAtPath(path, value)} path={path} />
+        <FieldRenderer
+          schema={step.field}
+          value={step.value}
+          onChange={(value) => setAtPath(path, value)}
+          path={path}
+        />
       </InspectorView>
     );
   }
@@ -264,7 +301,9 @@ export function FieldInspector({
     >
       <BlockList
         items={items}
-        getKey={([itemKey]) => (typeof itemKey === "number" ? (keys[itemKey] ?? String(itemKey)) : itemKey)}
+        getKey={([itemKey]) =>
+          typeof itemKey === "number" ? (keys[itemKey] ?? String(itemKey)) : itemKey
+        }
         onMove={(from, to) => set(arrayMove(items, from, to))}
         row={([itemKey, value]) => ({
           label: itemLabel(collection, itemKey, value, t),
@@ -280,12 +319,17 @@ export function FieldInspector({
               options={addOptions(item)}
               onAdd={(option) =>
                 append([
-                  [items.length, getDefaultValue(item.type === "union" ? item.variants[Number(option)] : item)],
+                  [
+                    items.length,
+                    getDefaultValue(item.type === "union" ? item.variants[Number(option)] : item),
+                  ],
                 ])
               }
             />
           ) : (
-            <NewKeyInput onAdd={(name) => append([[freeKey(items, name), getDefaultValue(item)]])} />
+            <NewKeyInput
+              onAdd={(name) => append([[freeKey(items, name), getDefaultValue(item)]])}
+            />
           )}
         </ListControls>
       </BlockList>

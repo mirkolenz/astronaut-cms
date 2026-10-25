@@ -60,7 +60,12 @@ export function Sidebar() {
           const Icon = LIBRARY_ICONS[library];
 
           return (
-            <Link key={library} to="/media/$library" params={{ library }} className={navLinkClasses}>
+            <Link
+              key={library}
+              to="/media/$library"
+              params={{ library }}
+              className={navLinkClasses}
+            >
               <Icon className="size-4 text-muted-foreground" />
               {libraryLabel(library)}
             </Link>

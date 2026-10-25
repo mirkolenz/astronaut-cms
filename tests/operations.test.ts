@@ -146,7 +146,12 @@ describe("media reference acknowledgements", () => {
       const actions: string[] = [];
       const storage = {
         listEntries: async (collection: string) =>
-          ids.map((id) => ({ collection, id, format: "md" as const, path: `src/content/blog/${id}.md` })),
+          ids.map((id) => ({
+            collection,
+            id,
+            format: "md" as const,
+            path: `src/content/blog/${id}.md`,
+          })),
         readEntry: async ({ id, path, format }: EntryMeta) => ({
           id,
           path,
@@ -166,7 +171,8 @@ describe("media reference acknowledgements", () => {
         media: () => media,
       });
       const file = { library: "repo" as const, path: "cover.png" };
-      const input = name === "deleteMedia" ? file : { library: "repo", from: file.path, to: "moved.png" };
+      const input =
+        name === "deleteMedia" ? file : { library: "repo", from: file.path, to: "moved.png" };
 
       await expect(dispatch(ctx, name, input)).rejects.toBeInstanceOf(ContentValidationError);
 

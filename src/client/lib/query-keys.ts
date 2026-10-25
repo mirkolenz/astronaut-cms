@@ -112,4 +112,5 @@ export function invalidate(keys: readonly QueryKey[]): void {
 }
 
 /** What an upload ages, once the bytes have actually landed. */
-export const invalidateMedia = (library: MediaLibraryId): void => invalidate(mediaWrite({ library }));
+export const invalidateMedia = (library: MediaLibraryId): void =>
+  invalidate(mediaWrite({ library }));

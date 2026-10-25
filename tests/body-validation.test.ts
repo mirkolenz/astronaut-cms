@@ -93,7 +93,11 @@ describe("validateBody", () => {
   });
 
   it("still reports schema violations in props", () => {
-    const { diagnostics } = validateBody('<Figure src="/src/assets/hero.png" />', "mdx", components);
+    const { diagnostics } = validateBody(
+      '<Figure src="/src/assets/hero.png" />',
+      "mdx",
+      components,
+    );
 
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]?.message).toContain('missing required prop "alt"');
@@ -105,6 +109,8 @@ describe("validateBody on markdown", () => {
   it("refuses raw HTML and unsafe URLs", () => {
     expect(validateBody("[x](https://example.com)", "md", components).diagnostics).toEqual([]);
     expect(validateBody("<script>alert(1)</script>", "md", components).diagnostics).toHaveLength(1);
-    expect(validateBody("[x]: javascript:alert(1)\n\n[y][x]", "md", components).diagnostics).toHaveLength(1);
+    expect(
+      validateBody("[x]: javascript:alert(1)\n\n[y][x]", "md", components).diagnostics,
+    ).toHaveLength(1);
   });
 });

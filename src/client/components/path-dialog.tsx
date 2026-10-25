@@ -60,7 +60,8 @@ export function PathDialog({
   const [value, setValue] = useState(initial);
   const trimmed = value.trim();
   const error = trimmed ? validate(trimmed) : null;
-  const canSubmit = !!trimmed && !error && !isPending && !disabled && !(requireChange && trimmed === initial);
+  const canSubmit =
+    !!trimmed && !error && !isPending && !disabled && !(requireChange && trimmed === initial);
 
   return (
     <Dialog

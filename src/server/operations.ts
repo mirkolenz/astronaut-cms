@@ -143,7 +143,10 @@ function refuse(message: string): never {
  * act on it destructively, and "no such key" from a store reads as a failure
  * rather than as the correctable mistake it usually is.
  */
-async function assertInLibrary(ctx: RequestContext, { library, path }: MediaLocation): Promise<void> {
+async function assertInLibrary(
+  ctx: RequestContext,
+  { library, path }: MediaLocation,
+): Promise<void> {
   const files = await ctx.media(library).listPaths();
 
   if (files.some((file) => file.path === path)) return;

@@ -164,7 +164,8 @@ function withMeta(schema: z.ZodType, { label, description }: FieldSchema): z.Zod
   const meta: { title?: string; description?: string } = {};
 
   if (label !== undefined) meta.title = label;
-  if (description !== undefined) meta.description = [description, schema.description].filter(Boolean).join("\n");
+  if (description !== undefined)
+    meta.description = [description, schema.description].filter(Boolean).join("\n");
 
   return Object.keys(meta).length ? schema.meta(meta) : schema;
 }

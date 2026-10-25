@@ -29,4 +29,11 @@ export const BLOCK_ICONS = {
 } satisfies Record<string, ComponentIcon>;
 
 /** The icon of a heading, by its depth less one. */
-export const HEADING_ICONS: readonly ComponentIcon[] = [Heading1, Heading2, Heading3, Heading4, Heading5, Heading6];
+export const HEADING_ICONS: readonly ComponentIcon[] = [
+  Heading1,
+  Heading2,
+  Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
+];

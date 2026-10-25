@@ -24,10 +24,9 @@ it("prunes owned copies and leaves unrelated files with identical bytes", () => 
     { fileName: "_astro/foreign.E4a.png", originalFileNames: [] },
   ]);
 
-  expect([...removed.keys()].sort()).toEqual([
-    join(dist, "_astro/report.D3z.pdf"),
-    join(dist, "_astro/hero.B1x.png"),
-  ].sort());
+  expect([...removed.keys()].sort()).toEqual(
+    [join(dist, "_astro/report.D3z.pdf"), join(dist, "_astro/hero.B1x.png")].sort(),
+  );
   expect(existsSync(join(dist, "_astro/used.C2y.png"))).toBe(true);
   expect(existsSync(join(dist, "_astro/foreign.E4a.png"))).toBe(true);
   expect(existsSync(join(dist, "_astro/hero.B1x_w400.webp"))).toBe(true);

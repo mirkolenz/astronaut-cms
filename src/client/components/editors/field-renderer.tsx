@@ -44,7 +44,11 @@ import { Switch } from "@/client/components/ui/switch";
 import { Label } from "@/client/components/ui/label";
 import { Button } from "@/client/components/ui/button";
 import { collectionLabel } from "@/client/lib/collections";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/client/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -64,7 +68,10 @@ function asBoolean(value: unknown): boolean {
 }
 
 /** How a form opens one of its values in the inspector, and which one the inspector shows. */
-export const FieldNavContext = createContext<{ selected: ValuePath; open: (path: ValuePath) => void }>({
+export const FieldNavContext = createContext<{
+  selected: ValuePath;
+  open: (path: ValuePath) => void;
+}>({
   selected: [],
   open: () => {},
 });
@@ -89,14 +96,27 @@ interface FieldRendererProps {
   path?: ValuePath;
 }
 
-export function FieldRenderer({ schema, value, onChange, label, required, path = [] }: FieldRendererProps) {
+export function FieldRenderer({
+  schema,
+  value,
+  onChange,
+  label,
+  required,
+  path = [],
+}: FieldRendererProps) {
   const common = { onChange, label, required, description: schema.description };
 
   if (schema.nullable) {
     const inner: FieldSchema = { ...schema, nullable: false };
 
     if (value === null || value === undefined) {
-      return <NullableToggle {...common} value={null} onChange={() => onChange(getDefaultValue(inner))} />;
+      return (
+        <NullableToggle
+          {...common}
+          value={null}
+          onChange={() => onChange(getDefaultValue(inner))}
+        />
+      );
     }
 
     return (
@@ -116,7 +136,9 @@ export function FieldRenderer({ schema, value, onChange, label, required, path =
       return <FileField {...common} value={asString(resolved)} />;
 
     case "reference":
-      return <ReferenceField {...common} value={asString(resolved)} collection={schema.collection} />;
+      return (
+        <ReferenceField {...common} value={asString(resolved)} collection={schema.collection} />
+      );
 
     case "string":
       if (schema.format === "email" || schema.format === "url") {
@@ -139,13 +161,16 @@ export function FieldRenderer({ schema, value, onChange, label, required, path =
       return <DateField {...common} value={asString(resolved)} />;
 
     case "enum":
-      return <EnumField {...common} options={schema.options} value={value === null ? null : resolved} />;
+      return (
+        <EnumField {...common} options={schema.options} value={value === null ? null : resolved} />
+      );
 
     case "array":
     case "record": {
       const collection = collectionOf(schema);
 
-      if (collection) return <CollectionRow {...common} schema={collection} value={resolved} path={path} />;
+      if (collection)
+        return <CollectionRow {...common} schema={collection} value={resolved} path={path} />;
 
       return schema.type === "array" ? (
         <ArrayField {...common} element={schema.element} value={asArray(resolved)} />
@@ -158,7 +183,9 @@ export function FieldRenderer({ schema, value, onChange, label, required, path =
       return <TupleField {...common} items={schema.items} value={asArray(resolved)} path={path} />;
 
     case "object":
-      return <ObjectField {...common} shape={schema.shape} value={asRecord(resolved)} path={path} />;
+      return (
+        <ObjectField {...common} shape={schema.shape} value={asRecord(resolved)} path={path} />
+      );
 
     case "union":
       // Only discriminated unions get the variant selector; a plain union has no
@@ -222,7 +249,9 @@ export function FieldList({
                 <CollapsibleTrigger className="group flex w-full items-center gap-1 px-3 py-2 text-sm font-medium">
                   <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
                   {group}
-                  <span className="ml-auto text-xs font-normal text-muted-foreground">{fields.length}</span>
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">
+                    {fields.length}
+                  </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-4 border-t border-border p-3">
                   {fields.map(render)}
@@ -417,7 +446,10 @@ function AssetField({
   };
 
   return (
-    <FieldShell {...shell} hint={{ icon: assetType === "image" ? ImageIcon : FileIcon, text: kind }}>
+    <FieldShell
+      {...shell}
+      hint={{ icon: assetType === "image" ? ImageIcon : FileIcon, text: kind }}
+    >
       <div className="flex gap-2">
         <Input
           type="text"
@@ -559,7 +591,9 @@ function TupleField({
   ...shell
 }: FieldProps<unknown[]> & { items: FieldSchema[]; path: ValuePath }) {
   const updateItem = (index: number, newValue: unknown) => {
-    onChange(items.map((item, i) => (i === index ? newValue : (value[i] ?? getDefaultValue(item)))));
+    onChange(
+      items.map((item, i) => (i === index ? newValue : (value[i] ?? getDefaultValue(item)))),
+    );
   };
 
   return (
@@ -584,7 +618,9 @@ function TupleField({
 // them. Items added or dropped elsewhere, such as by a reset, get fresh keys at
 // the end.
 function useItemKeys(length: number): [string[], (keys: string[]) => void] {
-  const [keys, setKeys] = useState<string[]>(() => Array.from({ length }, () => crypto.randomUUID()));
+  const [keys, setKeys] = useState<string[]>(() =>
+    Array.from({ length }, () => crypto.randomUUID()),
+  );
 
   if (keys.length === length) return [keys, setKeys];
 
@@ -599,7 +635,12 @@ function useItemKeys(length: number): [string[], (keys: string[]) => void] {
 }
 
 /** A list of single values, such as tags, edited in place. */
-function ArrayField({ element, value, onChange, ...shell }: FieldProps<unknown[]> & { element: FieldSchema }) {
+function ArrayField({
+  element,
+  value,
+  onChange,
+  ...shell
+}: FieldProps<unknown[]> & { element: FieldSchema }) {
   const { t } = useTranslation();
   const [keys, setKeys] = useItemKeys(value.length);
 
@@ -644,7 +685,12 @@ function ArrayField({ element, value, onChange, ...shell }: FieldProps<unknown[]
             </div>
           )}
         </SortableList>
-        <Button type="button" variant="outline" size="xs" onClick={() => onChange([...value, getDefaultValue(element)])}>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={() => onChange([...value, getDefaultValue(element)])}
+        >
           <Plus className="size-3" />
           {t(($) => $.editors.addItem)}
         </Button>
@@ -703,7 +749,12 @@ function ObjectField({
   path,
 }: FieldProps<Record<string, unknown>> & { shape: Record<string, FieldSchema>; path: ValuePath }) {
   const fields = (
-    <FieldList shape={shape} values={value} onChange={(key, v) => onChange({ ...value, [key]: v })} path={path} />
+    <FieldList
+      shape={shape}
+      values={value}
+      onChange={(key, v) => onChange({ ...value, [key]: v })}
+      path={path}
+    />
   );
 
   // Unlabelled, the object is an item its container already frames.
@@ -789,7 +840,11 @@ function RecordField({
         ))}
         <NewKeyInput
           onAdd={(key) =>
-            onChange({ ...value, [uniqueName(key, (taken) => Object.hasOwn(value, taken))]: getDefaultValue(valueSchema) })
+            onChange({
+              ...value,
+              [uniqueName(key, (taken) => Object.hasOwn(value, taken))]:
+                getDefaultValue(valueSchema),
+            })
           }
         />
       </div>
@@ -881,7 +936,13 @@ function NullableWrapper({
     <FieldShell label={label} required={required}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">{children}</div>
-        <Button type="button" variant="ghost" size="icon-xs" aria-label={t(($) => $.editors.clear)} onClick={onClear}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t(($) => $.editors.clear)}
+          onClick={onClear}
+        >
           <X className="size-4" />
         </Button>
       </div>

@@ -35,12 +35,21 @@ import {
 } from "@/client/components/media-browser";
 import { listDirectory } from "@/client/lib/entry-tree";
 import type { MediaFile } from "@/shared/types";
-import { isTransactionalMedia, mediaKind, parseMediaLibrary, type MediaLibraryId } from "@/shared/media";
+import {
+  isTransactionalMedia,
+  mediaKind,
+  parseMediaLibrary,
+  type MediaLibraryId,
+} from "@/shared/media";
 import { libraryLabel } from "@/client/lib/media";
 import { Button } from "@/client/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
 import { Card, CardContent } from "@/client/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/client/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/client/components/ui/collapsible";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
 import { Toggle } from "@/client/components/ui/toggle";
 import { ArrowRight, ChevronRight, Dot, FileWarning, ImageOff } from "lucide-react";
@@ -72,9 +81,17 @@ function formatSize(bytes: number): string {
   if (bytes === 0) return "--";
 
   const [value, unit] =
-    bytes < 1024 ? [bytes, "byte"] : bytes < 1024 ** 2 ? [bytes / 1024, "kilobyte"] : [bytes / 1024 ** 2, "megabyte"];
+    bytes < 1024
+      ? [bytes, "byte"]
+      : bytes < 1024 ** 2
+        ? [bytes / 1024, "kilobyte"]
+        : [bytes / 1024 ** 2, "megabyte"];
 
-  return new Intl.NumberFormat(config.locale, { style: "unit", unit, maximumFractionDigits: 1 }).format(value);
+  return new Intl.NumberFormat(config.locale, {
+    style: "unit",
+    unit,
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function MediaLibrary({ library }: { library: MediaLibraryId }) {
@@ -125,8 +142,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
   );
 
   const currentFiles = useMemo(
-    () =>
-      unusedOnly && used ? dirFiles.filter((file) => !used.has(file.path)) : dirFiles,
+    () => (unusedOnly && used ? dirFiles.filter((file) => !used.has(file.path)) : dirFiles),
     [dirFiles, unusedOnly, used],
   );
 
@@ -201,7 +217,12 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   total: files.length,
                 })}
               </span>
-              <Toggle variant="outline" size="sm" pressed={unusedOnly} onPressedChange={setUnusedOnly}>
+              <Toggle
+                variant="outline"
+                size="sm"
+                pressed={unusedOnly}
+                onPressedChange={setUnusedOnly}
+              >
                 {t(($) => $.media.unusedOnly)}
               </Toggle>
             </>
@@ -230,7 +251,8 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
               {stale.map((reference, i: number) => (
                 <li key={i}>
                   {describeReference(reference)}{" "}
-                  <ArrowRight className="inline size-3" aria-hidden="true" /> <code>{reference.path}</code>
+                  <ArrowRight className="inline size-3" aria-hidden="true" />{" "}
+                  <code>{reference.path}</code>
                 </li>
               ))}
             </ul>
@@ -253,7 +275,9 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
             <EmptyMedia variant="icon">
               <ImageOff />
             </EmptyMedia>
-            <EmptyTitle>{unusedOnly ? t(($) => $.media.noUnused) : t(($) => $.media.noFiles)}</EmptyTitle>
+            <EmptyTitle>
+              {unusedOnly ? t(($) => $.media.noUnused) : t(($) => $.media.noFiles)}
+            </EmptyTitle>
           </EmptyHeader>
         </Empty>
       )}
@@ -261,12 +285,7 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Folder cards */}
         {folders.map(({ name, path }) => (
-          <FolderCard
-            key={path}
-            name={name}
-            onOpen={() => setCurrentDir(path)}
-            className="h-28"
-          />
+          <FolderCard key={path} name={name} onOpen={() => setCurrentDir(path)} className="h-28" />
         ))}
 
         {/* File cards */}
@@ -281,7 +300,11 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
                   className="flex h-28 w-full items-center justify-center rounded-none bg-muted cursor-pointer"
                   aria-label={`Preview ${basename(file.path)}`}
                 >
-                  <MediaThumbnail library={library} file={file} className="h-full w-full object-contain" />
+                  <MediaThumbnail
+                    library={library}
+                    file={file}
+                    className="h-full w-full object-contain"
+                  />
                 </Button>
               ) : (
                 <div className="flex h-28 items-center justify-center bg-muted">

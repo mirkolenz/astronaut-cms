@@ -37,5 +37,9 @@ it("checks links to #id against the anchors of the entry, each defined once", ()
 
 it("declares an id without #, keeping the site's own constraints", () => {
   expect(anchor().safeParse("#contact").success).toBe(false);
-  expect(zodToFieldSchema(anchor().regex(/^[a-z]+$/))).toEqual({ type: "string", format: "anchor", pattern: "^[a-z]+$" });
+  expect(zodToFieldSchema(anchor().regex(/^[a-z]+$/))).toEqual({
+    type: "string",
+    format: "anchor",
+    pattern: "^[a-z]+$",
+  });
 });

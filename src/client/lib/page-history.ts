@@ -20,7 +20,11 @@ import {
   type EditorState,
   type LexicalEditor,
 } from "lexical";
-import { createEmptyHistoryState, type HistoryState, type HistoryStateEntry } from "@lexical/history";
+import {
+  createEmptyHistoryState,
+  type HistoryState,
+  type HistoryStateEntry,
+} from "@lexical/history";
 import type { Cell } from "@mdxeditor/editor";
 
 // MDXEditor exports the history its editors share, but its declarations leave it out as internal.
@@ -49,7 +53,10 @@ export function clearPageHistory(): void {
 function unfocused(entry: HistoryStateEntry): HistoryStateEntry {
   const selection = entry.editorState.read($getSelection);
 
-  return { ...entry, editorState: entry.editorState.clone($isNodeSelection(selection) ? selection.clone() : null) };
+  return {
+    ...entry,
+    editorState: entry.editorState.clone($isNodeSelection(selection) ? selection.clone() : null),
+  };
 }
 
 /**
@@ -107,7 +114,8 @@ export function historicUpdate(editor: LexicalEditor, change: () => void, mergeK
     lastEdit.state === editor.getEditorState();
 
   update(editor, change, merge ? HISTORY_MERGE_TAG : HISTORY_PUSH_TAG);
-  lastEdit = mergeKey === undefined ? undefined : { key: mergeKey, at, state: editor.getEditorState() };
+  lastEdit =
+    mergeKey === undefined ? undefined : { key: mergeKey, at, state: editor.getEditorState() };
 }
 
 /** Changes an editor from outside it without an undo step, as where its history starts from. */
@@ -131,15 +139,21 @@ function json(state: EditorState): string {
 }
 
 // Whether restoring the entry would change its editor.
-const changes = ({ editor, editorState }: HistoryStateEntry) => json(editorState) !== json(editor.getEditorState());
+const changes = ({ editor, editorState }: HistoryStateEntry) =>
+  json(editorState) !== json(editor.getEditorState());
 
 /** Whether undo, or redo, has a step that changes something. */
-export const hasStep = (stack: readonly HistoryStateEntry[]): boolean => stack.findLast(changes) !== undefined;
+export const hasStep = (stack: readonly HistoryStateEntry[]): boolean =>
+  stack.findLast(changes) !== undefined;
 
 let skipping = false;
 
 // Passes over the steps that change nothing before the history takes the next one.
-function skipUnchanged(editor: LexicalEditor, command: typeof UNDO_COMMAND, stack: HistoryStateEntry[]): false {
+function skipUnchanged(
+  editor: LexicalEditor,
+  command: typeof UNDO_COMMAND,
+  stack: HistoryStateEntry[],
+): false {
   if (skipping) return false;
 
   skipping = true;

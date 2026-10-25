@@ -35,7 +35,8 @@ export function conformTrailingSlash(
 
   const url = new URL(rawUrl);
 
-  url.pathname = policy === "always" ? withTrailingSlash(url.pathname) : withoutTrailingSlash(url.pathname);
+  url.pathname =
+    policy === "always" ? withTrailingSlash(url.pathname) : withoutTrailingSlash(url.pathname);
 
   return url.href;
 }

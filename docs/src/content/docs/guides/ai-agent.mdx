@@ -170,10 +170,10 @@ The first model is the default, and the relay rejects any request that names no 
 
 <Aside type="note">
   With `netlify` and `vercel`, credentials come from the platform, so no secret appears in your
-  config or environment. Netlify injects `OPENAI_BASE_URL` and `OPENAI_API_KEY`, which the CMS
-  reads only as a pair, so a site that sets its own has to set both. Vercel sends each function a
-  fresh OIDC token, and `AI_GATEWAY_API_KEY` takes precedence when set. Configure unified billing on the platform so all model usage lands on
-  a single invoice.
+  config or environment. Netlify injects `OPENAI_BASE_URL` and `OPENAI_API_KEY`, which the CMS reads
+  only as a pair, so a site that sets its own has to set both. Vercel sends each function a fresh
+  OIDC token, and `AI_GATEWAY_API_KEY` takes precedence when set. Configure unified billing on the
+  platform so all model usage lands on a single invoice.
 </Aside>
 
 <Aside type="note">

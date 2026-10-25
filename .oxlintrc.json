@@ -7,21 +7,15 @@
   ],
   "overrides": [
     {
-      "files": [
-        "src/**"
-      ],
-      "excludeFiles": [
-        "src/client/**"
-      ],
+      "files": ["src/**"],
+      "excludeFiles": ["src/client/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "group": [
-                  "**/client/**"
-                ],
+                "group": ["**/client/**"],
                 "message": "Only the admin bundle may import admin code, the server and the integration never run it."
               }
             ]

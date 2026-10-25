@@ -53,39 +53,39 @@ function ChangeRow({ change }: { change: FileChange }) {
 
   return (
     <Card size="sm" className="gap-0 py-0">
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="flex items-center gap-2 px-3 py-2">
-        <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-          <Icon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{described.label}</span>
-          {described.previousPath && (
-            <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-              <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">{described.previousPath}</span>
-            </span>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-2 px-3 py-2">
+          <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+            <Icon className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate font-medium">{described.label}</span>
+            {described.previousPath && (
+              <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <ArrowLeft className="size-3 shrink-0" aria-hidden="true" />
+                <span className="truncate">{described.previousPath}</span>
+              </span>
+            )}
+          </CollapsibleTrigger>
+          {reviewed && (
+            <CircleCheck
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-label={t(($) => $.changes.reviewed)}
+            />
           )}
-        </CollapsibleTrigger>
-        {reviewed && (
-          <CircleCheck
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-label={t(($) => $.changes.reviewed)}
-          />
-        )}
-        <Badge variant={variant}>{t(label)}</Badge>
-        {/* A deleted entry has nowhere to navigate to. */}
-        {described.collection && described.entryId && described.kind !== "deleted" && (
-          <EntryLink collection={described.collection} entryId={described.entryId} />
-        )}
-      </div>
-      <CollapsibleContent className="px-3 pb-3">
-        {described.patch ? (
-          <HighlightedCode code={described.patch} language="diff" />
-        ) : (
-          <p className="text-xs text-muted-foreground">{t(($) => $.changes.noDiff)}</p>
-        )}
-      </CollapsibleContent>
-    </Collapsible>
+          <Badge variant={variant}>{t(label)}</Badge>
+          {/* A deleted entry has nowhere to navigate to. */}
+          {described.collection && described.entryId && described.kind !== "deleted" && (
+            <EntryLink collection={described.collection} entryId={described.entryId} />
+          )}
+        </div>
+        <CollapsibleContent className="px-3 pb-3">
+          {described.patch ? (
+            <HighlightedCode code={described.patch} language="diff" />
+          ) : (
+            <p className="text-xs text-muted-foreground">{t(($) => $.changes.noDiff)}</p>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }

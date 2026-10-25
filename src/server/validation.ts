@@ -111,9 +111,14 @@ async function checkAssets(
 ): Promise<Diagnostic[]> {
   if (assets.length === 0) return [];
 
-  const located = assets.map((asset) => ({ asset, location: mediaPath(asset.value, source.media, base) }));
+  const located = assets.map((asset) => ({
+    asset,
+    location: mediaPath(asset.value, source.media, base),
+  }));
   // Each library a value names is listed once, and one no value names not at all.
-  const libraries = new Set(located.map(({ location }) => location?.library).filter((id) => id != null));
+  const libraries = new Set(
+    located.map(({ location }) => location?.library).filter((id) => id != null),
+  );
   const paths = new Map(
     await Promise.all(
       [...libraries].map(
@@ -199,7 +204,11 @@ async function validateEntryWrite(source: ContentSource, write: EntryWrite): Pro
     body: validateBody(body, format, source.components),
   });
 
-  return [...validateEntryId(id), ...diagnostics, ...(await checkResolvableLeaves(source, leaves, path))];
+  return [
+    ...validateEntryId(id),
+    ...diagnostics,
+    ...(await checkResolvableLeaves(source, leaves, path)),
+  ];
 }
 
 /** Throws {@link ContentValidationError} unless the entry is safe to write. */

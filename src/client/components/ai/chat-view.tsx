@@ -10,7 +10,13 @@ import { ToolCall } from "@/client/components/ai/tool-call";
 import { Button } from "@/client/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/client/components/ui/alert";
 import { Bubble, BubbleContent } from "@/client/components/ui/bubble";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/client/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/client/components/ui/empty";
 import { Message, MessageContent } from "@/client/components/ui/message";
 import {
   MessageScroller,
@@ -40,7 +46,13 @@ export type CmsChat = ReturnType<typeof useCmsChat>;
  * content), the CMS declares no data parts, and step boundaries carry no content
  * of their own. Hence the bare null.
  */
-function MessagePart({ part, role }: { part: CmsUIMessage["parts"][number]; role: CmsUIMessage["role"] }) {
+function MessagePart({
+  part,
+  role,
+}: {
+  part: CmsUIMessage["parts"][number];
+  role: CmsUIMessage["role"];
+}) {
   if (part.type === "text") {
     return role === "user" ? (
       <Bubble variant="muted">

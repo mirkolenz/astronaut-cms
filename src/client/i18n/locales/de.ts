@@ -73,7 +73,7 @@ const de: TranslationShape<typeof en> = {
   },
   media: {
     libraries: { repo: "Medien", s3: "Cloud-Medien" },
-    tryLibrary: 'Lade sie stattdessen in „{{library}}“ hoch.',
+    tryLibrary: "Lade sie stattdessen in „{{library}}“ hoch.",
     noFiles: "Keine Mediendateien",
     noFilesFound: "Keine Mediendateien gefunden.",
     deleteFile: "Datei löschen",
@@ -143,7 +143,8 @@ const de: TranslationShape<typeof en> = {
     deleted: "Gelöscht",
     renamed: "Umbenannt",
     openEntry: "Öffnen",
-    noDiff: "Für diese Datei ist keine Vorschau verfügbar. Öffnen Sie den Eintrag oder die Datei selbst, um sie zu prüfen.",
+    noDiff:
+      "Für diese Datei ist keine Vorschau verfügbar. Öffnen Sie den Eintrag oder die Datei selbst, um sie zu prüfen.",
     reviewed: "Geprüft",
     reviewProgress:
       "Geprüft: {{reviewed}} / {{count}}. Öffnen Sie jede Änderung, bevor Sie veröffentlichen können.",
@@ -199,7 +200,8 @@ const de: TranslationShape<typeof en> = {
     addNamed: "{{label}} hinzufügen",
     addChild: "Hinzufügen",
     missingProps: "Fehlt: {{props}}",
-    sourceOnly: "Enthält außerdem Inhalte, die nur in der Quelltextansicht bearbeitet werden können.",
+    sourceOnly:
+      "Enthält außerdem Inhalte, die nur in der Quelltextansicht bearbeitet werden können.",
     contents: "Inhalt",
     noProps: "Diese Komponente hat keine Eigenschaften.",
     editCollection: "Einträge in {{collection}} bearbeiten",

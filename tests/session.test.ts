@@ -41,7 +41,9 @@ describe("sealed session", () => {
 
     await expect(verify("session", token, "second-secret", sessionSchema)).resolves.toBeNull();
     await expect(verify("session", `${token}x`, "first-secret", sessionSchema)).resolves.toBeNull();
-    await expect(verify("session", "not-a-cookie", "first-secret", sessionSchema)).resolves.toBeNull();
+    await expect(
+      verify("session", "not-a-cookie", "first-secret", sessionSchema),
+    ).resolves.toBeNull();
   });
 
   // Every kind of token the CMS issues shares one key, so without the audience a

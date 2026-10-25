@@ -48,7 +48,11 @@ function checkLoaded(
   }
 
   if (id !== undefined && loaded.id !== id) {
-    return [diagnostic(`Astro names the file "${path}" "${loaded.id}" rather than "${id}". Use "${loaded.id}" as the id.`)];
+    return [
+      diagnostic(
+        `Astro names the file "${path}" "${loaded.id}" rather than "${id}". Use "${loaded.id}" as the id.`,
+      ),
+    ];
   }
 
   if (!data.slug) return [];

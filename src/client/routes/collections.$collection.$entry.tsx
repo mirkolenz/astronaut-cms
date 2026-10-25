@@ -24,7 +24,10 @@ import {
   useFormDirty,
 } from "@/client/stores/form-store";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
-import { UnsavedChangesDialog, useUnsavedChangesBlocker } from "@/client/components/unsaved-changes-dialog";
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesBlocker,
+} from "@/client/components/unsaved-changes-dialog";
 import { EntryIdDialog } from "@/client/components/entry-id-dialog";
 import { toast } from "@/client/components/toast";
 import { useWriteError } from "@/client/lib/write-error";
@@ -92,7 +95,8 @@ function EntryEditor() {
   useEffect(() => () => resetForms(), [form]);
 
   useEffect(() => {
-    if (isNew) openForm(form, { values: schemaDefaults(shape), saved: null, shape: shape ?? {}, label });
+    if (isNew)
+      openForm(form, { values: schemaDefaults(shape), saved: null, shape: shape ?? {}, label });
   }, [form, isNew, shape, label]);
 
   useEffect(() => {
@@ -300,7 +304,11 @@ function EntryEditor() {
           </div>
           <div className="flex items-center gap-2">
             <HistoryControls />
-            <Button variant="outline" onClick={handleCancel} disabled={(!isNew && !isDirty) || saveMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              disabled={(!isNew && !isDirty) || saveMutation.isPending}
+            >
               {t(($) => $.common.cancel)}
             </Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending || !isDirty}>
@@ -336,9 +344,7 @@ function EntryEditor() {
 
         <div inert={saveMutation.isPending} className="flex min-h-0 flex-1 gap-6">
           <div className="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto">
-            {shape && (
-              <EntryFields form={form} />
-            )}
+            {shape && <EntryFields form={form} />}
             {isContentFormat && (
               <MdxEditor
                 // Each entry has an editor, and a history, of its own.

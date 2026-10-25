@@ -25,7 +25,10 @@ const props = resolveProps(${quote(name)}, Astro.props);
  * component that applies its schema before rendering it, and the index that
  * exports them, each by name and all together as `mdxComponents`.
  */
-export function componentModules(configPath: string | null, files: Record<string, string>): Record<string, string> {
+export function componentModules(
+  configPath: string | null,
+  files: Record<string, string>,
+): Record<string, string> {
   const names = Object.keys(files);
   const modules: Record<string, string> = {
     "index.ts": [
@@ -73,9 +76,15 @@ export function writeModules(dir: string, modules: Record<string, string>): void
  * The declaration of {@link COMPONENTS_MODULE}, read off the type of the
  * config's `components` export, which `typesDir` holds a relative import of.
  */
-export function componentTypes(typesDir: string, configPath: string | null, names: string[]): string {
+export function componentTypes(
+  typesDir: string,
+  configPath: string | null,
+  names: string[],
+): string {
   const config = configPath && relative(typesDir, configPath);
-  const components = config ? `typeof import(${quote(config.startsWith(".") ? config : `./${config}`)}).components` : "{}";
+  const components = config
+    ? `typeof import(${quote(config.startsWith(".") ? config : `./${config}`)}).components`
+    : "{}";
 
   return `declare module "${COMPONENTS_MODULE}" {
   type Infer<Side extends "input" | "output"> = import("astronaut-cms/internal").InferComponentProps<${components}, Side>;

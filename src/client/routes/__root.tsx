@@ -52,7 +52,10 @@ function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }
 function RootLayout() {
   return (
     <ErrorBoundary>
-      <div data-astronaut-cms className="flex h-screen overflow-hidden bg-background text-foreground">
+      <div
+        data-astronaut-cms
+        className="flex h-screen overflow-hidden bg-background text-foreground"
+      >
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header />

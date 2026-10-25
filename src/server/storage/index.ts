@@ -55,7 +55,8 @@ export function createStorage(session: Session, library: MediaLibraryId = "repo"
 function workingTreeLibrary(id: MediaLibraryId): WorkingTreeLibrary {
   const library = mediaLibrary(client.media, id);
 
-  if (library.directory == null) throw new Error(`The ${id} media library is not kept in the project.`);
+  if (library.directory == null)
+    throw new Error(`The ${id} media library is not kept in the project.`);
 
   return { ...library, directory: library.directory };
 }

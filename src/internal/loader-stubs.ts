@@ -42,7 +42,9 @@ export function defineCollection<T>(config: T): T {
   return config;
 }
 
-export function glob(options: Pick<AstroGlobOptions, "pattern" | "base" | "generateId">): LoaderMarker {
+export function glob(
+  options: Pick<AstroGlobOptions, "pattern" | "base" | "generateId">,
+): LoaderMarker {
   return {
     __cmsPattern: options.pattern,
     // Astro reads from the project root when no base is given.

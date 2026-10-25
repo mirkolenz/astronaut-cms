@@ -35,7 +35,12 @@ export function describeChange(change: FileChange): DescribedChange {
     const entry = globEntry(col, path);
 
     if (entry) {
-      return { ...change, collection: name, entryId: entry.id, label: singletonEntry(col) ? label : `${label} / ${entry.id}` };
+      return {
+        ...change,
+        collection: name,
+        entryId: entry.id,
+        label: singletonEntry(col) ? label : `${label} / ${entry.id}`,
+      };
     }
   }
 

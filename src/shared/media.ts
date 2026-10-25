@@ -128,7 +128,8 @@ export function isTransactionalMedia(media: ClientMediaConfig, library: MediaLib
   return mediaLibrary(media, library).directory != null;
 }
 
-export const megabytes = (bytes: number): string => `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
+export const megabytes = (bytes: number): string =>
+  `${Math.round((bytes / 1024 / 1024) * 10) / 10} MB`;
 
 /** Why a file of `size` bytes is refused by a library, or null when it fits. */
 export function sizeLimitError(size: number, limits: SizeLimits): string | null {
@@ -145,7 +146,8 @@ export function sizeLimitError(size: number, limits: SizeLimits): string | null 
 
 /** Why a library refuses a file, by its type or its size, or null when it takes it. */
 export function libraryRefusal(library: ClientLibrary, name: string, size: number): string | null {
-  if (!isLibraryFile(name, library.extensions)) return `"${name}" is not of a type this media library accepts.`;
+  if (!isLibraryFile(name, library.extensions))
+    return `"${name}" is not of a type this media library accepts.`;
 
   return sizeLimitError(size, library);
 }
@@ -217,11 +219,7 @@ export function mediaRef({ library, path }: MediaLocation, media: MediaRefConfig
  * `base` is the content file a relative reference is written in. Rebasing is a
  * repository-library rule: an object-store reference is an absolute URL.
  */
-export function mediaPath(
-  ref: string,
-  media: MediaRefConfig,
-  base?: string,
-): MediaLocation | null {
+export function mediaPath(ref: string, media: MediaRefConfig, base?: string): MediaLocation | null {
   if (isAbsoluteUrl(ref)) {
     const key = media.s3 && publicKey(ref, media.s3.publicUrl);
 
@@ -242,7 +240,12 @@ function publicKey(url: string, publicUrl: string): string | null {
   const location = URL.parse(url);
   const base = URL.parse(`${publicUrl}/`);
 
-  if (!location || !base || location.origin !== base.origin || !location.pathname.startsWith(base.pathname)) {
+  if (
+    !location ||
+    !base ||
+    location.origin !== base.origin ||
+    !location.pathname.startsWith(base.pathname)
+  ) {
     return null;
   }
 
@@ -266,7 +269,9 @@ export function markdownImageUrl(
 ): string {
   const ref = mediaRef(location, media);
 
-  return location.library === "repo" && contentFile ? relative(dirname(contentFile), ref.slice(1)) : ref;
+  return location.library === "repo" && contentFile
+    ? relative(dirname(contentFile), ref.slice(1))
+    : ref;
 }
 
 /**
@@ -277,7 +282,9 @@ export function markdownImageUrl(
 export function uniqueMediaPath(path: string, taken: ReadonlySet<string>): string {
   const ext = extname(path);
 
-  return uniqueName(path.slice(0, path.length - ext.length), (stem) => taken.has(`${stem}${ext}`)) + ext;
+  return (
+    uniqueName(path.slice(0, path.length - ext.length), (stem) => taken.has(`${stem}${ext}`)) + ext
+  );
 }
 
 /** A bucket's S3 API: where requests go, and the region they are signed for. */
