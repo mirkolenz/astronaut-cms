@@ -292,13 +292,17 @@ function FieldShell({
   return (
     <div className="grid gap-1.5 @lg/fields:grid-cols-[9rem_minmax(0,1fr)] @lg/fields:gap-x-4">
       <Label className="flex-wrap @lg/fields:min-h-9">
-        {label}
-        {required && (
-          <span className="-ml-1.5 text-destructive">
-            <Asterisk className="size-3" />
-            <span className="sr-only">{t(($) => $.editors.required)}</span>
-          </span>
-        )}
+        <span className="leading-snug">
+          {label}
+          {/* A word joiner, so the marker never wraps onto a line of its own. */}
+          {required && (
+            <span className="text-destructive">
+              {"\u2060"}
+              <Asterisk className="ml-0.5 inline size-3 align-text-top" />
+              <span className="sr-only">{t(($) => $.editors.required)}</span>
+            </span>
+          )}
+        </span>
         {hint && (
           <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
             <hint.icon className="size-3" />
