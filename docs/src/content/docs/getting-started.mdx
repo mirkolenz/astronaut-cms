@@ -78,7 +78,7 @@ A deployed CMS is different: it holds the repository session on the server, so i
   <StepItem title="An SSR adapter">
     `@astrojs/node`, `@astrojs/cloudflare`, `@astrojs/vercel`, `@astrojs/netlify` — whichever suits
     your host. The rest of your site can stay static. The build fails with a message if one is
-    missing.
+    missing, unless `admin: false` leaves the admin out of the build.
   </StepItem>
 
   <StepItem title="A Git backend">

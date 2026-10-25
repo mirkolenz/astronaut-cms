@@ -224,6 +224,16 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         validateS3(effectiveConfig, astroConfig.site);
         validateAi(config);
 
+        // Local storage has no sign-in and runs in Node only, so it is never deployed.
+        const deployable = configuredStorage !== "local";
+        const admin = config.admin ?? deployable;
+
+        if (admin && !deployable) {
+          throw new Error(
+            "astronaut-cms: 'admin' needs a Git backend, local storage only serves the admin in \"astro dev\". Configure 'storage' or remove 'admin'.",
+          );
+        }
+
         // Validate the effective storage so the dev override skips OAuth-credential checks.
         const storage = effectiveConfig.storage;
 
@@ -404,14 +414,9 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           },
         });
 
-        // The admin is only reachable via `astro dev` when storage is local; a
-        // remote backend keeps it in the production build too.
-        const adminAvailable = command === "dev" || storageType(effectiveConfig) !== "local";
-
-        if (!adminAvailable) {
-          logger.info(
-            `Admin panel disabled for "${command}" with local storage (only available via "astro dev")`,
-          );
+        // Without an admin, the build needs no adapter and stays static.
+        if (command !== "dev" && !admin) {
+          logger.info(`Admin panel disabled for "${command}" (only available via "astro dev")`);
 
           return;
         }

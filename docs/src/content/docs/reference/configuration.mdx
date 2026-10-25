@@ -11,6 +11,7 @@ Options passed to the `cms()` integration function in `astro.config.ts`.
 interface CmsConfig {
   config?: string;
   mountPoint?: string;
+  admin?: boolean;
   storage?: StorageConfig;
   localStorageInDev?: boolean;
   media?: MediaConfig;
@@ -26,6 +27,7 @@ interface CmsConfig {
 | ------------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `config`            | `string`               | auto-discovered         | Path to the CMS config file relative to the project root                                                            |
 | `mountPoint`        | `string`               | `"/admin"`              | URL path for the admin panel                                                                                        |
+| `admin`             | `boolean`              | `true` for Git storage  | Ship the admin and its API in `astro build`, `false` builds a purely static site. `astro dev` always serves the admin |
 | `storage`           | `StorageConfig`        | `{ type: "local" }`     | Storage backend configuration                                                                                       |
 | `localStorageInDev` | `boolean`              | `true`                  | Edit the working tree during `astro dev` instead of the configured backend                                          |
 | `media`             | `MediaConfig`          | `{}`                    | Media libraries configuration                                                                                       |

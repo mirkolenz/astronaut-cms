@@ -10,6 +10,8 @@ export interface CmsConfig {
   config?: string;
   /** Mount point for the admin panel (default: "/admin") */
   mountPoint?: string;
+  /** Ship the admin and its API in `astro build`, `astro dev` always serves them (default: true for a Git backend, false for local storage) */
+  admin?: boolean;
   /** Storage backend configuration */
   storage?: StorageConfig;
   /** Substitute the local filesystem backend during `astro dev`, even when a remote storage is configured (default: true) */

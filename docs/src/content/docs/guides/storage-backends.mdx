@@ -128,6 +128,7 @@ See [Where the cookie key comes from](/astronaut-cms/guides/security/#where-the-
 
 You also need an SSR adapter (`@astrojs/node`, `@astrojs/cloudflare`, `@astrojs/vercel`, `@astrojs/netlify`, ...).
 The CMS holds the repository session on the server, so its API routes render on demand; the build fails with a message saying so if no adapter is registered.
+To build a purely static site without the admin, for example for a deployment nobody edits, set `admin: false` and drop the adapter.
 
 ## How signing in works
 
