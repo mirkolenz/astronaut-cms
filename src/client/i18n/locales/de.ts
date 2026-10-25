@@ -202,6 +202,7 @@ const de: TranslationShape<typeof en> = {
     sourceOnly: "Enthält außerdem Inhalte, die nur in der Quelltextansicht bearbeitet werden können.",
     contents: "Inhalt",
     noProps: "Diese Komponente hat keine Eigenschaften.",
+    editCollection: "Einträge in {{collection}} bearbeiten",
     outline: "Gliederung",
     outlineEmpty: "Hier werden die Blöcke des Inhalts zum Umsortieren aufgelistet.",
     emptyLine: "Schreiben oder / zum Einfügen drücken",

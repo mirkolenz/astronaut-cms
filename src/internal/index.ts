@@ -5,11 +5,13 @@
  *
  * - `loader-stubs`: aliased in for `astro:content` / `astro/loaders` when
  *   the integration loads the user's content config in Node.
- * - `editor-stubs`: aliased in for `astronaut-cms/editor` when it loads the
- *   user's `cms.config.ts`, whose editors only ever run in the admin.
+ * - `editor-stubs`: aliased in for `astronaut-cms/editor` wherever the
+ *   user's `cms.config.ts` loads outside the admin, where its editors never run.
  * - `user-config`: the `cms.config.ts` normalizer, run in Node by the
  *   integration and in the admin by the generated
  *   `virtual:astronaut-cms/user-config` module.
+ * - `propsResolver` and `InferComponentProps`: what the generated component
+ *   wrappers and their declarations read.
  * - `http` and `auth`: the response hardening and the root element id the
  *   injected routes, the admin page and the admin share, reached from
  *   `admin.astro`, which can only import package entry points.
@@ -17,5 +19,6 @@
 export * from "./loader-stubs.ts";
 export * from "./editor-stubs.ts";
 export * from "./user-config.ts";
+export { propsResolver, type InferComponentProps } from "../shared/component-props.ts";
 export { HARDENING_HEADERS } from "../shared/http.ts";
 export { ADMIN_ROOT_ID } from "../shared/auth.ts";

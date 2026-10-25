@@ -1,9 +1,9 @@
 ---
 title: Config Helpers
-description: API reference for defineCollection, defineComponent, the schema helpers, file, and InferComponentProps.
+description: API reference for defineCollection, defineComponent, the schema helpers, file, link, anchor, and the generated astronaut-cms:components module.
 ---
 
-These functions and types are exported from `astronaut-cms/config`.
+These functions and types are exported from `astronaut-cms/config`, except for the generated [`astronaut-cms:components`](#astronaut-cmscomponents) module.
 
 ## `defineCollection()`
 
@@ -14,16 +14,22 @@ function defineCollection(options: CollectionOptions): CollectionOptions;
 
 interface CollectionOptions {
   sort?: "id" | "natural" | "file"; // default: "id"
+  label?: string; // default: the name, title-cased
+  description?: string;
+  icon?: ComponentIcon;
 }
 ```
 
+The `label`, `description` and `icon` name and explain the collection in the admin, and agents read the `label` and `description` too.
+
 ## `defineComponent()`
 
-A type-safe wrapper for component definitions.
-Returns the definition as-is, providing TypeScript inference.
+A type-safe wrapper for component definitions, which returns the definition as it is.
 
 ```ts
-function defineComponent<T extends z.ZodType>(def: ComponentDefinition<T>): ComponentDefinition<T>;
+function defineComponent<T extends z.ZodType, C extends ChildrenConfig>(
+  def: ComponentDefinition<T, C>,
+): ComponentDefinition<T, C>;
 ```
 
 ### Usage
@@ -36,21 +42,23 @@ const Alert = defineComponent({
   props: z.object({
     type: z.enum(["info", "warning", "error"]),
   }),
+  component: "@/components/Alert.astro",
   children: "markdown",
   label: "Alert",
 });
 ```
 
-## Schema helpers (`image`, `file`, `link`, `reference`)
+## Schema helpers (`image`, `file`, `link`, `anchor`, `reference`)
 
-A component's `props` may be written as a function, which receives the asset, link and reference helpers:
+A component's `props` may be written as a function, which receives the asset, link, anchor and reference helpers:
 
 ```ts
 type SchemaHelpers = {
   image: () => z.ZodString;
   file: () => z.ZodString;
   link: () => z.ZodString;
-  reference: (collection: string) => z.ZodString;
+  anchor: () => z.ZodString;
+  reference: (collection: CollectionName) => z.ZodString;
 };
 
 props: T | ((helpers: SchemaHelpers) => T);
@@ -69,11 +77,13 @@ import { z } from "zod";
 
 const Hero = defineComponent({
   props: ({ image }) => z.object({ cover: image() }),
+  component: "@/components/Hero.astro",
   children: "markdown",
 });
 
 const Download = defineComponent({
   props: ({ file }) => z.object({ document: file(), label: z.string() }),
+  component: "@/components/Download.astro",
 });
 ```
 
@@ -85,29 +95,48 @@ Every other string field, `z.url()` aside, refuses a value that would act as a l
 ```ts
 const CallToAction = defineComponent({
   props: ({ link }) => z.object({ label: z.string(), href: link() }),
+  component: "@/components/CallToAction.astro",
+});
+```
+
+`anchor()` declares the prop that renders an element id, such as the `id` of a section.
+Its value is the id without `#` and without spaces.
+A link to `#id`, in a `link()` field or a Markdown link, has to name an anchor of the same entry, a Markdown heading of it by the id astro derives from its text, or `#top`.
+Each anchor may occur only once in an entry.
+Saving refuses a link that matches none, `astro build` fails on one and `astro dev` warns about it.
+A prop that points at an anchor, such as the target of a jump navigation, is a `link()` holding `#id`.
+Links to another page, such as `/services/#heating`, are not checked, since the routes of the site decide which entry a URL renders.
+
+```ts
+const Section = defineComponent({
+  props: ({ anchor }) => z.object({ id: anchor().optional(), title: z.string() }),
+  component: "@/components/Section.astro",
+  children: "markdown",
 });
 ```
 
 `reference(collection)` stores the id of an entry in another collection, which the admin offers as a picker and checks on save.
 The component receives the id and can look the entry up with `getEntry()`.
+`CollectionName` is the union of the collection names of the content config, generated like [`astronaut-cms:components`](#astronaut-cmscomponents), so a misspelled name is a type error.
 
 ```ts
 const TeamMember = defineComponent({
   props: ({ reference }) => z.object({ member: reference("team") }),
+  component: "@/components/TeamMember.astro",
 });
 ```
 
-`cms.config.ts` is bundled into the browser admin, so it cannot import `content.config.ts` or anything from `astro:content`.
+`cms.config.ts` is bundled into the browser admin and loaded by the component wrappers on the server, so it cannot import `content.config.ts` or anything from `astro:content`.
 Keep values both configs use, such as a shared `z.enum()` of colours, in a module of their own that each imports.
 
 `image` is deliberately not importable. A collection field takes astro's own `({ image })` and a
 component prop takes the one its props function is handed, so there is no spelling that resolves in
 one place and silently fails in the other.
 
-## `file()` and `link()`
+## `file()`, `link()` and `anchor()`
 
 The helpers that _are_ exported, because astro's collection schema has no counterpart for them.
-Use them for a non-image asset or a URL in a `content.config.ts` field:
+Use them for a non-image asset, a URL or an element id in a `content.config.ts` field:
 
 ```ts title="src/content.config.ts"
 import { file, link } from "astronaut-cms/config";
@@ -123,37 +152,35 @@ const pages = defineCollection({
 });
 ```
 
-Inside a `cms.config.ts` props function, take `file` and `link` from the helpers instead of importing them.
+Inside a `cms.config.ts` props function, take `file`, `link` and `anchor` from the helpers instead of importing them.
 
-## `InferComponentProps`
+## `astronaut-cms:components`
 
-A utility type that maps each component name, nested children included, to its prop types.
-Use this to type-check Astro component props against the CMS schema.
+A module the integration generates from `cms.config.ts`.
+`astro sync`, `astro dev` and `astro build` regenerate it and its types, and so does every change to `cms.config.ts` during `astro dev`.
 
-The types are the schema's input, since MDX passes attributes exactly as written.
-A prop with `.default()` is therefore optional, and the component applies the default itself.
-Children declared in a parent's `children` map are part of the result, as long as the parent is written with `defineComponent()`.
+```ts
+declare module "astronaut-cms:components" {
+  /** The props each component renders with, every schema default applied, nested children included. */
+  export type ComponentProps = { [Name in ComponentName]: z.output<Schema[Name]> };
 
-The props schema is inferred the same way from either form, so a component that declares its props
-directly and one that takes the helpers are indistinguishable to consumers.
+  /** Every component by name, for `<Content components={mdxComponents} />`. */
+  export const mdxComponents: { [Name in ComponentName]: Wrapper<Name> };
 
-### Usage
-
-Export a bound `ComponentProps` type from your CMS config file:
-
-```ts title="src/cms.config.ts" {1} {5}
-import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
-import { z } from "zod";
-
-export const components = {/* ... */};
-export type ComponentProps = InferComponentProps<typeof components>;
+  /** Each component on its own, under its name. */
+  export const Alert: Wrapper<"Alert">;
+}
 ```
 
-Then use indexed access in your Astro components:
+A wrapper parses the props it receives with the component's schema, so every `.default()` and transform applies, and renders the component of the definition's `component` with the result.
+It keeps attributes the schema does not declare, such as `class`, and throws an error naming the component for invalid props.
+It takes the props as MDX writes them, where a prop with a `.default()` is optional.
+
+Type each component with `ComponentProps`, which holds the props as the component receives them, with every default applied:
 
 ```astro title="src/components/Alert.astro"
 ---
-import type { ComponentProps } from "@/cms.config";
+import type { ComponentProps } from "astronaut-cms:components";
 
 type Props = ComponentProps["Alert"];
 
@@ -165,18 +192,22 @@ const { type } = Astro.props;
 </div>
 ```
 
+See [Rendering Components](/astronaut-cms/guides/cms-config/#rendering-components) for passing `mdxComponents` to a body.
+
 ## `ComponentDefinition`
 
 The interface for a single component definition.
 
 ```ts
 interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
-  props: T;
+  props: T | ((helpers: SchemaHelpers) => T);
+  component: string;
   children?: "markdown" | Record<string, ComponentDefinition>;
   kind?: "flow" | "text";
-  source?: string;
-  defaultExport?: boolean;
   label?: string;
+  description?: string;
+  collections?: CollectionName[];
+  summary?: string;
   icon?: ComponentIcon;
   editor?: JsxEditor;
 }

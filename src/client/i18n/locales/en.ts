@@ -194,6 +194,7 @@ const en = {
     sourceOnly: "Also contains content that can only be edited in the source view.",
     contents: "Contents",
     noProps: "This component has no properties.",
+    editCollection: "Edit the entries in {{collection}}",
     outline: "Outline",
     outlineEmpty: "The blocks of the body are listed here, to reorder them.",
     emptyLine: "Type, or press / to insert",

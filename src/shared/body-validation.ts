@@ -23,7 +23,7 @@ import {
   type MdxJsxExpressionAttribute,
 } from "mdast-util-mdx";
 import { attributeValue, type StaticValue } from "./mdx-attributes.ts";
-import { childComponents, componentEntries, findComponent } from "./component-lookup.ts";
+import { childComponents, findComponent } from "./component-lookup.ts";
 import {
   isRequired,
   objectShape,
@@ -60,7 +60,6 @@ type Parent = { name: string; def: ComponentSchema } | null;
 interface WalkContext {
   components: ComponentSchemaMap;
   topLevel: ReadonlySet<string>;
-  sources: ReadonlySet<string>;
   slugger: GithubSlugger;
   diagnostics: Diagnostic[];
   leaves: ResolvableLeaf[];
@@ -69,11 +68,6 @@ interface WalkContext {
 // Capitalized names are components; lowercase ones are plain HTML with no schema.
 function isComponentName(name: string): boolean {
   return /^[A-Z]/.test(name);
-}
-
-// Every `source` a registered component is imported from, nested ones included.
-function componentSources(components: ComponentSchemaMap): Set<string> {
-  return new Set(componentEntries(components).flatMap(([, def]) => (def.source ? [def.source] : [])));
 }
 
 // The text a node renders, which astro derives a heading's id from.
@@ -105,25 +99,14 @@ function markdownLeaf(ctx: WalkContext, node: BodyNode): ResolvableLeaf | null {
 // Why a node that is not a JSX element breaks the subset, or null when it does
 // not. A missing program counts as code, so a parser that stops attaching one
 // fails closed.
-function nodeViolation(ctx: WalkContext, node: BodyNode): string | null {
-  const program = node.data?.estree;
-
+function nodeViolation(node: BodyNode): string | null {
   switch (node.type) {
-    case "mdxjsEsm": {
-      const allowed = program?.body.every(
-        (statement) =>
-          statement.type === "ImportDeclaration" &&
-          ctx.sources.has(String(statement.source.value)),
-      );
-
-      return allowed
-        ? null
-        : "Only imports of components registered in cms.config are allowed, no other import or export.";
-    }
+    case "mdxjsEsm":
+      return "Imports and exports are not allowed, every component of cms.config is available by name.";
 
     case "mdxFlowExpression":
     case "mdxTextExpression":
-      return program?.body.length === 0
+      return node.data?.estree?.body.length === 0
         ? null
         : "JavaScript expressions in braces are not allowed, only {/* comments */}.";
 
@@ -250,7 +233,7 @@ function walk(ctx: WalkContext, nodes: BodyNode[], parent: Parent): void {
   const allowed = allowedChildren(ctx, parent);
 
   for (const node of nodes) {
-    const violation = nodeViolation(ctx, node);
+    const violation = nodeViolation(node);
 
     if (violation) ctx.diagnostics.push(diagnostic(violation));
 
@@ -346,7 +329,6 @@ export function validateBody(
   const ctx: WalkContext = {
     components,
     topLevel: new Set(Object.keys(components)),
-    sources: componentSources(components),
     slugger: new GithubSlugger(),
     diagnostics: [],
     leaves: [],

@@ -46,4 +46,15 @@ const team = defineCollection({
     }),
 });
 
-export const collections = { pages, posts, team };
+// The studio's contact details, a singleton: its glob names one file, so the
+// admin opens that entry directly and offers no way to add another.
+const studio = defineCollection({
+  loader: glob({ pattern: "studio.yml", base: "src/content" }),
+  schema: z.object({
+    name: z.string(),
+    email: z.string().email(),
+    address: z.string(),
+  }),
+});
+
+export const collections = { pages, posts, team, studio };

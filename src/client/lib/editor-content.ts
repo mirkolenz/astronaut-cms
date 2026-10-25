@@ -161,7 +161,7 @@ function pastedContent<T>(
   let nodes: RootContent[];
 
   try {
-    // The editor writes the imports of the components the body uses itself.
+    // A body imports nothing, since the site maps every component by name.
     nodes = parseMdx(realm, text).children.filter((node) => node.type !== "mdxjsEsm");
   } catch {
     toast(i18n.t(($) => $.editors.pasteInvalid), "error");

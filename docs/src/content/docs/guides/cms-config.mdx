@@ -8,7 +8,7 @@ import { Aside } from "@astrojs/starlight/components";
 The CMS config file (`src/cms.config.ts`) holds everything the CMS adds to your content collections: the MDX block components editors can use in entry bodies, and options per collection.
 Everything else, such as storage, media and the assistant, is configured in `astro.config.ts`.
 
-The file is bundled into the admin, so keep secrets and Node-only imports out of it.
+The file is bundled into the admin and loaded on the server to render components, so keep secrets and Node-only imports out of it.
 
 ## Basic Setup
 
@@ -22,6 +22,7 @@ export const components = {
     props: z.object({
       type: z.enum(["info", "warning", "error"]).default("info"),
     }),
+    component: "@/components/Alert.astro",
     children: "markdown",
     label: "Alert",
     icon: TriangleAlert,
@@ -39,14 +40,22 @@ The `collections` export gives options to collections of `src/content.config.ts`
 
 ```ts title="src/cms.config.ts"
 import { defineCollection } from "astronaut-cms/config";
+import { Users } from "lucide-react";
 
 export const collections = {
-  team: defineCollection({ sort: "file" }),
+  team: defineCollection({
+    sort: "file",
+    label: "Team",
+    description: "The people shown on the about page.",
+    icon: Users,
+  }),
 };
 ```
 
 A name that is not a collection of the content config fails the build.
 See [Entry order](/astronaut-cms/guides/content-collections/#entry-order) for the `sort` values.
+The `label` (default: the name, title-cased), `description` and `icon` are what the admin shows for the collection in its navigation and pages.
+Agents read the `label` and `description` to learn what the collection is for.
 
 ## Component Definition
 
@@ -59,6 +68,14 @@ Each component is defined using `defineComponent()` with the following options:
 A Zod schema defining the component's props.
 The admin panel generates a form from this schema, shown in the inspector next to the body once the component is selected.
 Its fields take the same [labels and groups](/astronaut-cms/guides/content-collections/#labels-and-groups) as a collection's, and its [lists of objects](/astronaut-cms/guides/content-collections/#lists-of-objects) open in the inspector the same way.
+
+### `component`
+
+- **Type:** `string`
+
+The `.astro` component that renders it, written as an import of `cms.config.ts`, such as `"@/components/Alert.astro"` or `"./components/Alert.astro"`.
+A file that does not exist fails `astro sync`, `astro dev` and `astro build`.
+See [Rendering Components](#rendering-components) for how MDX bodies use it.
 
 ### `children`
 
@@ -82,6 +99,15 @@ A human-readable label shown in the admin panel.
 - **Default:** `undefined`
 
 What the component is for, shown when inserting it and in the inspector.
+
+### `collections`
+
+- **Type:** `CollectionName[]`, a collection name of the content config
+- **Default:** `undefined`
+
+The collections whose entries the component renders, such as `["projects"]` for a block that lists the projects.
+The inspector links to each, since that is where the content of the block is edited.
+The build fails if one is not a collection of the content config.
 
 ### `summary`
 
@@ -135,11 +161,13 @@ import { z } from "zod";
 export const components = {
   Tabs: defineComponent({
     props: z.object({}),
+    component: "@/components/Tabs.astro",
     children: {
       Tab: defineComponent({
         props: z.object({
           label: z.string(),
         }),
+        component: "@/components/Tab.astro",
         children: "markdown",
         label: "Tab",
       }),
@@ -182,6 +210,7 @@ export const components = {
         cover: image(),
         caption: z.string().optional(),
       }),
+    component: "@/components/Hero.astro",
     children: "markdown",
     label: "Hero",
   }),
@@ -191,11 +220,13 @@ export const components = {
         document: file(),
         label: z.string(),
       }),
+    component: "@/components/Download.astro",
     label: "Download",
   }),
   Quote: defineComponent({
     // No asset props, so no helpers are needed.
     props: z.object({ text: z.string(), author: z.string() }),
+    component: "@/components/Quote.astro",
     label: "Quote",
   }),
 };
@@ -217,43 +248,35 @@ with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
 
 Entries are held to a small subset of their format, so neither an editor nor the assistant can put code into the site.
 
-- **MDX** may import registered components from their `source`, pass them literal props, and use `<div>` and `<span>` with a literal `class` as wrappers. Any other element, attribute, directive, expression, spread, import or export is refused. `{/* comments */}` are allowed.
+- **MDX** may use registered components by name, pass them literal props, and use `<div>` and `<span>` with a literal `class` as wrappers. Any other element, attribute, directive, expression, spread, import or export is refused. `{/* comments */}` are allowed.
 - **Markdown and Markdoc** may not contain raw HTML.
 - **Links and images** may only point to relative, `http`, `https`, `mailto` or `tel` URLs.
-- **URLs in fields** may only be stored in a [`link()`](/astronaut-cms/reference/config-helpers/#schema-helpers-image-file-link) or `z.url()` field, with the same schemes. Any other string field, in frontmatter, data or component props, refuses a value that would act as a link.
+- **URLs in fields** may only be stored in a [`link()`](/astronaut-cms/reference/config-helpers/#schema-helpers-image-file-link-anchor-reference) or `z.url()` field, with the same schemes. Any other string field, in frontmatter, data or component props, refuses a value that would act as a link.
+- **Links to `#id`** have to name an [`anchor()`](/astronaut-cms/reference/config-helpers/#schema-helpers-image-file-link-anchor-reference) or a Markdown heading of the same entry.
 
 Anything beyond that belongs in a registered component.
 `astro build` fails on committed content outside the subset or its collection schema, and `astro dev` warns about it, so editors never open an entry they cannot save.
 
-## Matching Astro Components
+## Rendering Components
 
-Each component defined in `cms.config.ts` must have a corresponding Astro component that renders the HTML.
-Place these in `src/components/` and import them in your MDX content or configure MDX component mapping.
+The integration generates the module `astronaut-cms:components` from `cms.config.ts`.
+It wraps each component, nested ones included, so that its schema parses the props MDX passes as written, and every `.default()` and transform applies before the component renders.
 
-First, export a bound `ComponentProps` type from your CMS config:
+Pass `mdxComponents` to every rendered body, so the body uses each component by name and never imports one:
 
-```ts title="src/cms.config.ts" {1} {5}
-import { defineComponent, type InferComponentProps } from "astronaut-cms/config";
-import { z } from "zod";
-
-export const components = {/* ... */};
-export type ComponentProps = InferComponentProps<typeof components>;
-```
-
-Then use indexed access in your Astro components:
-
-```astro title="src/components/Alert.astro"
+```astro title="src/pages/[...slug].astro"
 ---
-import type { ComponentProps } from "@/cms.config";
+import { render } from "astro:content";
+import { mdxComponents } from "astronaut-cms:components";
 
-type Props = ComponentProps["Alert"];
-
-const { type = "info" } = Astro.props;
+const { entry } = Astro.props;
+const { Content } = await render(entry);
 ---
 
-<div class={`alert alert-${type}`}>
-  <slot />
-</div>
+<Content components={mdxComponents} />
 ```
 
-The `ComponentProps` utility type extracts the inferred prop types from the CMS config, ensuring type safety between the CMS schema and the rendering component.
+The schema stays the only place a default is written.
+A page or component that renders a block itself imports its wrapped version from the same module, as in `import { Alert } from "astronaut-cms:components"`, so the defaults apply there too.
+
+See [`astronaut-cms:components`](/astronaut-cms/reference/config-helpers/#astronaut-cmscomponents) for everything the module exports, how a component types its props, and when the module is regenerated.

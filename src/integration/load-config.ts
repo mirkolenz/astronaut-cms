@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { extname, relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { repoImageMarker } from "../shared/cms-markers.ts";
 import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
+import { componentEntries } from "../shared/component-lookup.ts";
 import type { CollectionOptions, ComponentDefinition } from "../config.ts";
 import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { SchemaContext } from "astro/content/config";
@@ -14,6 +16,7 @@ import {
   type CollectionManifestEntry,
 } from "@/shared/types";
 import { errorMessage } from "../shared/errors.ts";
+import { editorStubPlugin } from "./vite-plugin.ts";
 
 /**
  * The user's two config files, read in Node so the integration can see a live
@@ -24,17 +27,19 @@ import { errorMessage } from "../shared/errors.ts";
  * resolves exactly as it does in the site: tsconfig `paths` included.
  */
 
-// The two build-time-only Astro modules a content config imports, and the
-// admin's editor primitives, which a cms config imports for editors that only
-// ever run in the browser. Everything else (third-party loaders and schemas)
-// runs for real. Matched exactly, since an alias otherwise also claims every
-// subpath of its key.
-const ALIASES: Alias[] = [/^astro:content$/, /^astro\/loaders$/, /^astronaut-cms\/editor$/].map(
+// The two build-time-only Astro modules a content config imports. Everything
+// else (third-party loaders and schemas) runs for real, except the admin's
+// editor primitives (see `editorStubPlugin`). Matched exactly, since an alias
+// otherwise also claims every subpath of its key.
+const ALIASES: Alias[] = [/^astro:content$/, /^astro\/loaders$/].map(
   (find) => ({ find, replacement: "astronaut-cms/internal" }),
 );
 
 /** Imports a config module, typed as the exports the caller reads. */
 type ConfigImport = <T>(path: string) => Promise<T>;
+
+/** Resolves an import as a module of `importer` would, to its file or null. */
+type ConfigResolve = (id: string, importer: string) => Promise<string | null>;
 
 const RUNNER = "astronaut_cms_config";
 
@@ -46,7 +51,10 @@ const RUNNER = "astronaut_cms_config";
  * build without the assets they reference, so the error is the integration's
  * to raise rather than to degrade around.
  */
-async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) => Promise<T>) {
+async function withConfigImport<T>(
+  rootDir: string,
+  load: (load: ConfigImport, resolve: ConfigResolve) => Promise<T>,
+) {
   const config = await resolveConfig(
     {
       configFile: false,
@@ -54,6 +62,7 @@ async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) =
       root: rootDir,
       logLevel: "error",
       resolve: { alias: ALIASES, tsconfigPaths: true },
+      plugins: [editorStubPlugin()],
       // A component's editor is JSX, which Node cannot run as written.
       oxc: { jsx: { runtime: "automatic" } },
       // Dependencies run in Node as they are, as astro's own config loader has them.
@@ -73,13 +82,16 @@ async function withConfigImport<T>(rootDir: string, load: (load: ConfigImport) =
   await using cleanup = new AsyncDisposableStack();
   cleanup.defer(() => environment.close());
 
-  return await load(async <M>(path: string) => {
-    try {
-      return await environment.runner.import<M>(path);
-    } catch (error) {
-      throw new Error(`astronaut-cms: failed to load ${path}: ${errorMessage(error)}`, { cause: error });
-    }
-  });
+  return await load(
+    async <M>(path: string) => {
+      try {
+        return await environment.runner.import<M>(path);
+      } catch (error) {
+        throw new Error(`astronaut-cms: failed to load ${path}: ${errorMessage(error)}`, { cause: error });
+      }
+    },
+    async (id, importer) => (await environment.pluginContainer.resolveId(id, importer))?.id ?? null,
+  );
 }
 
 // Astro hands a function-style schema exactly one helper, `image`. Standing a
@@ -122,6 +134,7 @@ async function loadCollections(
   load: ConfigImport,
   rootDir: string,
   contentConfigPath: string,
+  warn: (message: string) => void,
 ): Promise<CollectionManifest> {
   const mod = await load<{ collections?: Record<string, RawCollection> }>(contentConfigPath);
   const manifest: CollectionManifest = {};
@@ -141,6 +154,12 @@ async function loadCollections(
           `Collection "${name}" uses file("${loader.__cmsFileName}") with a custom parser or unsupported format. The CMS can edit only JSON, YAML, and TOML file collections without a custom parser.`,
         );
       }
+    }
+
+    if (loader?.__cmsCustomId) {
+      warn(
+        `Collection "${name}" passes its own generateId to glob(), which the CMS cannot mirror. The admin names its entries by astro's default ids, so a reference it writes may not resolve.`,
+      );
     }
 
     manifest[name] = {
@@ -197,25 +216,75 @@ function withOptions(
   return resolved;
 }
 
+/** What {@link loadConfigs} reads off the site's two configs. */
+export interface LoadedConfigs {
+  collections: CollectionManifest;
+  components: ComponentManifest;
+  /** The file of each component's `component`, by name, nested ones included. */
+  componentFiles: Record<string, string>;
+}
+
 /**
  * Both configs, each empty when the site has none. The components are lowered
  * into the same {@link ComponentManifest} the admin bundle builds for itself at
  * runtime; the admin has to do its own pass because `icon` and `editor` are live
- * React refs, and a build wants nothing but the lowered prop schemas.
+ * React refs, and a build wants nothing but the lowered prop schemas. What the
+ * CMS can load but not mirror is reported through `warn`.
  */
 export function loadConfigs(
   rootDir: string,
   paths: { content: string | null; cms: string | null },
-): Promise<{ collections: CollectionManifest; components: ComponentManifest }> {
-  return withConfigImport(rootDir, async (load) => {
+  warn: (message: string) => void,
+): Promise<LoadedConfigs> {
+  return withConfigImport(rootDir, async (load, resolve) => {
     const [collections, cms] = await Promise.all([
-      paths.content ? loadCollections(load, rootDir, paths.content) : {},
+      paths.content ? loadCollections(load, rootDir, paths.content, warn) : {},
       paths.cms ? load<CmsConfigModule>(paths.cms) : undefined,
     ]);
 
-    return {
-      collections: withOptions(collections, cms?.collections ?? {}),
-      components: processUserConfig(cms?.components),
-    };
+    const manifest = withOptions(collections, cms?.collections ?? {});
+    const components = processUserConfig(cms?.components);
+    const componentFiles = paths.cms
+      ? await resolveComponents(cms?.components ?? {}, manifest, paths.cms, resolve)
+      : {};
+
+    return { collections: manifest, components, componentFiles };
   });
+}
+
+/**
+ * Each component's file, resolved as an import of `cms.config` itself, so the
+ * site's aliases apply. A missing one fails here rather than in the build of
+ * the wrapper that imports it, and so does a component that points editors to
+ * a collection the content config lacks, which would link nowhere.
+ */
+async function resolveComponents(
+  components: Record<string, ComponentDefinition>,
+  collections: CollectionManifest,
+  configPath: string,
+  resolve: ConfigResolve,
+): Promise<Record<string, string>> {
+  // processUserConfig has refused a name defined twice, so a repeated name is a reused definition.
+  const unique = new Map(componentEntries(components));
+  const files = await Promise.all(
+    unique.entries().map(async ([name, { component, collections: targets = [] }]) => {
+      const unknown = targets.find((collection) => !Object.hasOwn(collections, collection));
+
+      if (unknown !== undefined) {
+        throw new Error(`cms.config components: ${name} lists "${unknown}", which is not a collection of the content config.`);
+      }
+
+      const file = component ? await resolve(component, configPath) : null;
+
+      if (!file || !existsSync(file)) {
+        throw new Error(
+          `cms.config components: ${name} renders with ${component ? `"${component}", which names no file` : "no component"}. Set its \`component\` to the .astro file, such as "@/components/${name}.astro".`,
+        );
+      }
+
+      return [name, file] as const;
+    }),
+  );
+
+  return Object.fromEntries(files);
 }

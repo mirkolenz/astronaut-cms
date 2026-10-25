@@ -8,6 +8,7 @@ import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import { libraryDirectories, type ClientMediaConfig, type MediaRefConfig } from "../shared/media.ts";
 import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
+import { COMPONENTS_MODULE } from "./component-codegen.ts";
 
 export interface CmsVitePluginOptions {
   clientConfig: CmsClientConfig;
@@ -16,6 +17,8 @@ export interface CmsVitePluginOptions {
   userConfigPath: string | null;
   /** The components as lowered in Node, whose schemas the server validates against. */
   components: ComponentManifest;
+  /** The generated module behind `astronaut-cms:components`. */
+  componentsEntry: string;
   rootDir: string;
 }
 
@@ -25,7 +28,26 @@ interface LoadContext {
   watch: (path: string) => void;
 }
 
-export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin {
+/**
+ * Stands the Node stubs in for `astronaut-cms/editor` wherever a module runs on
+ * the server: the integration loading `cms.config`, and the component wrappers
+ * importing it as the site renders. The admin's editor primitives would touch
+ * the DOM as they load there.
+ */
+export function editorStubPlugin(): Plugin {
+  return {
+    name: "astronaut-cms:editor-stub",
+    enforce: "pre",
+
+    resolveId(id, importer) {
+      if (id !== "astronaut-cms/editor" || this.environment.config.consumer !== "server") return;
+
+      return this.resolve("astronaut-cms/internal", importer, { skipSelf: true });
+    },
+  };
+}
+
+export function cmsVitePlugin(options: CmsVitePluginOptions): Plugin[] {
   const { clientConfig, serverConfig, userConfigPath } = options;
 
   const virtualModules: Record<string, string | ((ctx: LoadContext) => string)> = {
@@ -45,11 +67,13 @@ export const components = ${JSON.stringify(options.components)};`,
     "virtual:astronaut-cms/assets": `export const media = ${JSON.stringify(assetsMedia(clientConfig.media))};\n${generateAssetsModule(clientConfig.media)}`,
   };
 
-  return {
+  const virtualModulesPlugin: Plugin = {
     name: "astronaut-cms:virtual-modules",
     enforce: "pre",
 
     resolveId(id) {
+      if (id === COMPONENTS_MODULE) return options.componentsEntry;
+
       return id in virtualModules ? "\0" + id : undefined;
     },
 
@@ -64,6 +88,8 @@ export const components = ${JSON.stringify(options.components)};`,
       });
     },
   };
+
+  return [editorStubPlugin(), virtualModulesPlugin];
 }
 
 /** What the site's resolver reads of the libraries, and so all a page that resolves an asset ships. */

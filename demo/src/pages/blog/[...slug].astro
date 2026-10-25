@@ -1,6 +1,7 @@
 ---
 import type { GetStaticPaths } from "astro";
 import { getCollection, getEntry, render } from "astro:content";
+import { mdxComponents } from "astronaut-cms:components";
 import { Image } from "astro:assets";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { formatDate } from "@/lib/format";
@@ -50,7 +51,7 @@ const { Content } = await render(post);
     <Image class="article__cover" src={cover} alt={title} width={1280} height={720} />
 
     <div class="prose">
-      <Content />
+      <Content components={mdxComponents} />
     </div>
   </article>
 

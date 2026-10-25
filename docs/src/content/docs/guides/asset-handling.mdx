@@ -64,15 +64,14 @@ value is stored as a path string and turned into an optimized asset at render ti
 ```ts title="src/cms.config.ts"
 Figure: defineComponent({
   props: ({ image }) => z.object({ src: image(), alt: z.string() }),
-  source: "@/components/Figure.astro",
-  defaultExport: true,
+  component: "@/components/Figure.astro",
 });
 ```
 
 ```astro title="src/components/Figure.astro"
 ---
 import Image from "astronaut-cms/Image.astro";
-import type { ComponentProps } from "@/cms.config";
+import type { ComponentProps } from "astronaut-cms:components";
 
 type Props = ComponentProps["Figure"];
 const { src, alt } = Astro.props;
@@ -107,8 +106,7 @@ A video's poster is an `image()`, which is optimized like any other.
 ```ts title="src/cms.config.ts"
 Film: defineComponent({
   props: ({ image, file }) => z.object({ src: file(), poster: image(), title: z.string() }),
-  source: "@/components/Film.astro",
-  defaultExport: true,
+  component: "@/components/Film.astro",
 });
 ```
 
@@ -118,7 +116,7 @@ It sizes the element from the optimized poster, which carries the video's propor
 ```astro title="src/components/Film.astro"
 ---
 import Video from "astronaut-cms/Video.astro";
-import type { ComponentProps } from "@/cms.config";
+import type { ComponentProps } from "astronaut-cms:components";
 
 type Props = ComponentProps["Film"];
 const { src, poster, title } = Astro.props;

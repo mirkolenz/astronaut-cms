@@ -1,4 +1,5 @@
 import type { ClientComponentDef, ComponentManifest } from "../../src/internal/user-config.ts";
+import type { ComponentIcon } from "../../src/config.ts";
 
 // Stand-in for the build-time `virtual:astronaut-cms/user-config` module, which
 // the admin bundle types as the full `ComponentManifest`. A component with an
@@ -13,13 +14,12 @@ const figure: ClientComponentDef = {
     shape: { src: { type: "image" }, alt: { type: "string" } },
   },
   kind: "flow",
-  source: "@/components/Figure.astro",
-  defaultExport: false,
   label: "Figure",
   description: null,
   summary: null,
   icon: null,
   editor: null,
+  collections: [],
 };
 
 export const components: ComponentManifest = {
@@ -27,8 +27,9 @@ export const components: ComponentManifest = {
   Gallery: {
     ...figure,
     props: null,
-    children: { Tile: { ...figure, label: "Tile", source: "@/components/Tile.astro" } },
+    children: { Tile: { ...figure, label: "Tile" } },
     label: "Gallery",
-    source: "@/components/Gallery.astro",
   },
 };
+
+export const collectionIcons: Record<string, ComponentIcon> = {};

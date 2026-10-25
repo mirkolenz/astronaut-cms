@@ -12,9 +12,10 @@ import { cmsDevPlugin } from "./dev-middleware.ts";
 import { loadConfigs } from "./load-config.ts";
 import { secretsSchema } from "./env-schema.ts";
 import { sitemapListsAdmin } from "./sitemap-check.ts";
-import { checkContent } from "./check-content.ts";
+import { checkContent, missingSingletons } from "./check-content.ts";
 import { mediaGraph, type MediaGraph } from "./media-graph.ts";
 import { contentEntries } from "./content-files.ts";
+import { componentModules, componentTypes, writeModules } from "./component-codegen.ts";
 import { unexposable } from "../shared/tools/exposable.ts";
 import {
   DEFAULT_S3_DEV_DIRECTORY,
@@ -41,7 +42,6 @@ export type {
   CollectionOptions,
   CollectionSort,
   ComponentDefinition,
-  InferComponentProps,
   ChildrenConfig,
   SchemaHelpers,
 } from "../config.ts";
@@ -142,12 +142,19 @@ function validateS3(config: CmsConfig, site: string | undefined): void {
 
 /**
  * Narrows `resolveImage` to the libraries the site configures, so the call
- * sites of a site without an object store never handle a URL they cannot receive.
+ * sites of a site without an object store never handle a URL they cannot receive,
+ * and names the collections `cms.config` may point to.
  */
-function mediaTypes(s3: boolean): string {
+function registryTypes(s3: boolean, collections: string[]): string {
   return `declare module "astronaut-cms/assets" {
   interface MediaRegistry {
     s3: ${s3};
+  }
+}
+
+declare module "astronaut-cms/config" {
+  interface CollectionRegistry {
+    name: ${collections.map((name) => JSON.stringify(name)).join(" | ") || "never"};
   }
 }
 
@@ -156,9 +163,10 @@ export {};
 }
 
 export default function cms(config: CmsConfig = {}): AstroIntegration {
-  let hasS3 = false;
   let adminPath = "/";
   let graph: MediaGraph | null = null;
+  // Written once the config is set up, injected once astro allows it.
+  let injectedTypes: { filename: string; content: string }[] = [];
 
   return {
     name: "astronaut-cms",
@@ -169,6 +177,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         injectRoute,
         updateConfig,
         addWatchFile,
+        createCodegenDir,
         logger,
       }) => {
         const rootDir = fileURLToPath(astroConfig.root);
@@ -263,11 +272,17 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         }
 
         // Read once, for the check below and the components the server validates against.
-        const loaded = await loadConfigs(rootDir, {
-          content: contentConfigPath,
-          cms: userConfigPath,
-        });
-        const { collections, components } = loaded;
+        const { collections, components, componentFiles } = await loadConfigs(
+          rootDir,
+          { content: contentConfigPath, cms: userConfigPath },
+          (message) => logger.warn(message),
+        );
+
+        // A wrapper per component applies its schema defaults, which MDX would
+        // otherwise hand it as written, and `astronaut-cms:components` maps them all.
+        const codegenDir = fileURLToPath(createCodegenDir());
+
+        writeModules(join(codegenDir, "components"), componentModules(userConfigPath, componentFiles));
 
         // The integration reads both at startup, so an edit restarts the dev server.
         // So does a rebuild of the integration itself, which only a linked checkout
@@ -293,14 +308,14 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             `Multilingual content enabled for locales ${locales.join(", ")} (default: ${defaultLocale})`,
           );
         }
-        const entries =
-          command === "build" || command === "dev"
-            ? contentEntries(rootDir, collections, components)
-            : [];
+        const readsContent = command === "build" || command === "dev";
+        const entries = readsContent ? contentEntries(rootDir, collections, components) : [];
 
         // Content the admin would refuse to save fails a build, where whoever
         // committed it sees it, rather than surfacing later at an editor's save.
-        const problems = checkContent(entries, rootDir, clientConfig.media);
+        const problems = readsContent
+          ? [...checkContent(entries, rootDir, clientConfig.media), ...missingSingletons(collections, entries)]
+          : [];
 
         if (problems.length > 0) {
           const report = `Content the CMS cannot save:\n${problems.map((p) => `- ${p}`).join("\n")}`;
@@ -340,7 +355,13 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
         const { s3: s3Library } = clientConfig.media;
 
-        hasS3 = s3Library != null;
+        injectedTypes = [
+          { filename: "types.d.ts", content: registryTypes(s3Library != null, Object.keys(collections)) },
+          {
+            filename: "components.d.ts",
+            content: componentTypes(codegenDir, userConfigPath, Object.keys(componentFiles)),
+          },
+        ];
         graph = mediaGraph({
           rootDir,
           srcDir: fileURLToPath(astroConfig.srcDir),
@@ -355,11 +376,12 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
           env: { schema: secretsSchema(config) },
           vite: {
             plugins: [
-              cmsVitePlugin({
+              ...cmsVitePlugin({
                 clientConfig,
                 serverConfig,
                 userConfigPath,
                 components,
+                componentsEntry: join(codegenDir, "components/index.ts"),
                 rootDir,
               }),
               ...graph.plugins,
@@ -444,7 +466,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
       },
 
       "astro:config:done": ({ injectTypes }) => {
-        injectTypes({ filename: "types.d.ts", content: mediaTypes(hasS3) });
+        for (const types of injectedTypes) injectTypes(types);
       },
 
       // Outside the site's root, so the dev server has to be told to watch it.

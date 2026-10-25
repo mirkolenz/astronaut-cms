@@ -7,6 +7,7 @@
  */
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "@tanstack/react-router";
 import { rootEditor$ } from "@mdxeditor/editor";
 import { components } from "virtual:astronaut-cms/user-config";
 import type { ClientComponentDef } from "@/internal/user-config";
@@ -29,6 +30,7 @@ import {
 import { updateBlock, useBlockActions, useBlockElement } from "@/client/lib/block-editing";
 import type { ValuePath } from "@/client/lib/field-values";
 import { useMediaQuery } from "@/client/lib/use-media-query";
+import { collectionIcon, collectionLabel } from "@/client/lib/collections";
 import {
   isBlockSelection,
   select,
@@ -41,6 +43,7 @@ import { FieldList, FieldNavContext } from "@/client/components/editors/field-re
 import { FieldInspector, FormInspector } from "@/client/components/editors/field-inspector";
 import { BlockList, ChildListControls, DOCKED, InspectorView } from "@/client/components/editors/block-controls";
 import { BlockOutline } from "@/client/components/editors/block-outline";
+import { Button } from "@/client/components/ui/button";
 
 export function InspectorPanel() {
   const selection = useSelection();
@@ -139,9 +142,26 @@ function ComponentInspector({ selection, field }: { selection: BlockSelection; f
           )}
 
           {childDefs && <ChildList selection={selection} element={element} childDefs={childDefs} />}
+
+          {def?.collections.map((name) => <CollectionLink key={name} name={name} />)}
         </InspectorView>
       )}
     </FieldNavContext.Provider>
+  );
+}
+
+/** A collection the selected block renders, whose entries are its content. */
+function CollectionLink({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const Icon = collectionIcon(name);
+
+  return (
+    <Button asChild variant="outline" size="sm" className="w-full justify-start">
+      <Link to="/collections/$collection" params={{ collection: name }}>
+        <Icon />
+        {t(($) => $.editors.editCollection, { collection: collectionLabel(name) })}
+      </Link>
+    </Button>
   );
 }
 

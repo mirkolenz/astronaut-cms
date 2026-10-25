@@ -98,8 +98,6 @@ export type FieldSchema = FieldMods &
 export interface ComponentSchema {
   props: FieldSchema | null;
   children?: "markdown" | Record<string, this>;
-  /** The module an MDX body imports the component from, the one import a body may carry. */
-  source?: string | null;
 }
 
 export type ComponentSchemaMap = Record<string, ComponentSchema>;

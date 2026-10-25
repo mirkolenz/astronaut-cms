@@ -1,5 +1,6 @@
 ---
 import { getCollection, getEntry, render } from "astro:content";
+import { mdxComponents } from "astronaut-cms:components";
 import { Image } from "astro:assets";
 import { sortEntries } from "astronaut-cms/content";
 import BaseLayout from "@/layouts/BaseLayout.astro";
@@ -13,7 +14,7 @@ const team = sortEntries(await getCollection("team"));
 ---
 
 <BaseLayout title={about.data.title} description={about.data.description}>
-  <Content />
+  <Content components={mdxComponents} />
 
   <section class="section">
     <div class="wrap">

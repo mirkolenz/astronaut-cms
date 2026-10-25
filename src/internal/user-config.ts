@@ -7,17 +7,11 @@
  * import, so nothing Node-only leaks into the client.
  */
 import type { CollectionOptions, ComponentDefinition, ComponentIcon, JsxEditor } from "../config.ts";
-import type { ComponentSchema } from "../shared/field-schema.ts";
+import type { DescribedComponent } from "../shared/field-schema.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
-import { schemaHelpers } from "../shared/cms-markers.ts";
+import { componentSchema } from "../shared/component-props.ts";
 
-export interface ClientComponentDef extends ComponentSchema {
-  kind: "flow" | "text";
-  source: string | null;
-  defaultExport: boolean;
-  label: string;
-  description: string | null;
-  summary: string | null;
+export interface ClientComponentDef extends DescribedComponent {
   icon: ComponentIcon | null;
   editor: JsxEditor | null;
 }
@@ -25,9 +19,8 @@ export interface ClientComponentDef extends ComponentSchema {
 export type ComponentManifest = Record<string, ClientComponentDef>;
 
 /**
- * An MDX body refers to a component by its name alone, both in its tags and in
- * the import the editor writes for it, so one name may stand for one definition
- * only. A child set may reuse a definition under the same name.
+ * An MDX body refers to a component by its name alone, so one name may stand
+ * for one definition only. A child set may reuse a definition under the same name.
  */
 export function processUserConfig(
   components: Record<string, ComponentDefinition> | undefined,
@@ -44,20 +37,19 @@ export function processUserConfig(
 
     seen.set(name, def);
 
-    const props = typeof def.props === "function" ? def.props(schemaHelpers) : def.props;
+    const props = componentSchema(def);
 
     result[name] = {
       props: props ? zodToFieldSchema(props) : null,
       children:
         typeof def.children === "object" ? processUserConfig(def.children, seen) : def.children,
       kind: def.kind ?? "flow",
-      source: def.source ?? null,
-      defaultExport: def.defaultExport ?? false,
       label: def.label ?? name,
       description: def.description ?? null,
       summary: def.summary ?? null,
       icon: def.icon ?? null,
       editor: def.editor ?? null,
+      collections: def.collections ?? [],
     };
   }
 

@@ -1,8 +1,9 @@
 /**
  * Node stand-ins for `astronaut-cms/editor`, aliased in when the integration
- * loads the user's `cms.config.ts`. That load only reads component schemas, and
- * the real module is the admin's browser bundle, which touches the DOM as it
- * loads. An editor is never rendered there, so none of these ever runs.
+ * loads the user's `cms.config.ts`, and when the site's server renders the
+ * component wrappers. Both only read component schemas, and the real module is
+ * the admin's browser bundle, which touches the DOM as it loads. An editor is
+ * never rendered there, so none of these ever runs.
  */
 import type { EditorExports } from "../shared/jsx-editor.ts";
 

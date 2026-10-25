@@ -23,13 +23,12 @@ const feature: ClientComponentDef = {
     shape: { title: { type: "string" }, icon: { type: "enum", options: ["a", "b"], default: "a" } },
   },
   kind: "flow",
-  source: null,
-  defaultExport: false,
   label: "Feature",
   description: null,
   summary: null,
   icon: null,
   editor: null,
+  collections: [],
 };
 
 function grid(...titles: string[]): JsxChild {

@@ -1,11 +1,16 @@
 import type { ComponentSchema } from "./field-schema.ts";
 
+/** A component as far as its nesting goes. */
+interface ComponentNode<T> {
+  children?: "markdown" | Record<string, T>;
+}
+
 /**
  * Every component in the tree with its name, nested child sets included. Generic
- * over the definition so the admin gets its full `ClientComponentDef` back while
- * the build gets the structural shape it walks with.
+ * over the definition so the admin gets its full `ClientComponentDef` back, the
+ * build the structural shape it walks with, and the site its live definitions.
  */
-export function* componentEntries<T extends ComponentSchema>(
+export function* componentEntries<T extends ComponentNode<T>>(
   tree: Record<string, T>,
 ): Generator<[string, T]> {
   for (const [name, def] of Object.entries(tree)) {

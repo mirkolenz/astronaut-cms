@@ -1,5 +1,6 @@
 ---
 import { getCollection, getEntry, render } from "astro:content";
+import { mdxComponents } from "astronaut-cms:components";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import PostCard from "@/components/PostCard.astro";
 
@@ -15,7 +16,7 @@ const authors = await Promise.all(posts.map((post) => getEntry(post.data.author)
 
 <BaseLayout title="Meridian" description={home.data.description}>
   <!-- Everything above is composed visually in the CMS block editor. -->
-  <Content />
+  <Content components={mdxComponents} />
 
   <!-- ...and mixed freely with dynamic collection data. -->
   <section class="section">

@@ -5,9 +5,10 @@ import { CmsComponentEditor } from "@/client/components/editors/cms-component-ed
 
 /**
  * Converts a CMS ComponentDefinition map to an array of JsxComponentDescriptors.
- * Nested child components are included, since MDXEditor writes the import of
- * every component it finds in the body by its descriptor. Only MDXEditor's
- * generic editor reads `props`, and every component has an editor of its own.
+ * Nested child components are included, since MDXEditor needs a descriptor for
+ * every component it finds in the body. None has a `source`, so MDXEditor writes
+ * no import, the site maps every component by name. Only MDXEditor's generic
+ * editor reads `props`, and every component has an editor of its own.
  */
 export function toJsxDescriptors(
   components: Record<string, ClientComponentDef>,
@@ -15,8 +16,6 @@ export function toJsxDescriptors(
   return [...componentEntries(components)].map(([name, def]) => ({
     name,
     kind: def.kind,
-    source: def.source ?? undefined,
-    defaultExport: def.defaultExport,
     props: [],
     hasChildren: def.children !== undefined,
     Editor: def.editor ?? CmsComponentEditor,

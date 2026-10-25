@@ -1,8 +1,4 @@
-import {
-  defineCollection,
-  defineComponent,
-  type InferComponentProps,
-} from "astronaut-cms/config";
+import { defineCollection, defineComponent } from "astronaut-cms/config";
 import { z } from "zod";
 import {
   Sparkles,
@@ -11,13 +7,14 @@ import {
   MousePointerClick,
   Quote as QuoteIcon,
   Image as ImageIcon,
+  Building2,
 } from "lucide-react";
 
 // A small, curated palette of blocks. Editors compose pages by inserting these
 // and filling short forms, so the set stays intentionally tight: a hero, a
 // feature grid, a call to action, a pull quote, and a captioned figure. Each
-// block points at its rendering `.astro` component via `source`, so the editor
-// wires up the import automatically.
+// block names the `.astro` component that renders it, which every MDX body then
+// uses by name, with the schema's defaults applied.
 //
 // A block whose props name an asset or a link takes the function form and reads
 // `image` / `file` / `link` off the helpers it is handed,
@@ -34,8 +31,7 @@ export const components = {
         ctaText: z.string().optional().meta({ title: "Button text", group: "Button" }),
         ctaHref: link().optional().meta({ title: "Button link", group: "Button" }),
       }),
-    source: "@/components/Hero.astro",
-    defaultExport: true,
+    component: "@/components/Hero.astro",
     label: "Hero",
     description: "A large page opener with a headline, an image and a button.",
     icon: Sparkles,
@@ -52,14 +48,12 @@ export const components = {
           icon: z.enum(["compass", "layers", "pen", "spark"]).default("compass"),
         }),
         children: "markdown",
-        source: "@/components/Feature.astro",
-        defaultExport: true,
+        component: "@/components/Feature.astro",
         label: "Feature",
         icon: Star,
       }),
     },
-    source: "@/components/FeatureGrid.astro",
-    defaultExport: true,
+    component: "@/components/FeatureGrid.astro",
     label: "Feature Grid",
     description: "A grid of features, each with an icon and a short text.",
     icon: LayoutGrid,
@@ -73,8 +67,7 @@ export const components = {
         buttonText: z.string(),
         buttonHref: link(),
       }),
-    source: "@/components/CallToAction.astro",
-    defaultExport: true,
+    component: "@/components/CallToAction.astro",
     label: "Call to Action",
     description: "A closing prompt with a button.",
     icon: MousePointerClick,
@@ -86,8 +79,7 @@ export const components = {
       author: z.string(),
       role: z.string().optional(),
     }),
-    source: "@/components/Quote.astro",
-    defaultExport: true,
+    component: "@/components/Quote.astro",
     label: "Quote",
     description: "A pull quote with its author.",
     icon: QuoteIcon,
@@ -100,17 +92,16 @@ export const components = {
         alt: z.string(),
         caption: z.string().optional(),
       }),
-    source: "@/components/Figure.astro",
-    defaultExport: true,
+    component: "@/components/Figure.astro",
     label: "Figure",
     description: "An image with a caption.",
     icon: ImageIcon,
   }),
 };
 
-export type ComponentProps = InferComponentProps<typeof components>;
-
 // The team page lists members in the order of `src/data/team.json`.
 export const collections = {
-  team: defineCollection({ sort: "file" }),
+  posts: defineCollection({ label: "Blog", description: "Articles from the studio." }),
+  team: defineCollection({ sort: "file", description: "The people on the about page." }),
+  studio: defineCollection({ label: "Studio", description: "Contact details shown in the footer.", icon: Building2 }),
 };

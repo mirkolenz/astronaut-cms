@@ -3,6 +3,8 @@ import { z } from "zod";
 import { defineComponent } from "../src/config.ts";
 import { processUserConfig } from "../src/internal/user-config.ts";
 
+const component = "@/components/Block.astro";
+
 // A component declares its props either directly or as a function handed the
 // asset helpers, the same two forms astro's collection `schema` takes. Both have
 // to lower to the same FieldSchema, since everything downstream — the form
@@ -11,10 +13,12 @@ describe("processUserConfig", () => {
   it("lowers both props forms, and only the helpers can name an asset", () => {
     const manifest = processUserConfig({
       Figure: defineComponent({
+        component,
         props: ({ image, file }) =>
           z.object({ src: image(), doc: file().optional(), alt: z.string() }),
       }),
       Quote: defineComponent({
+        component,
         props: z.object({ text: z.string() }),
       }),
     });
@@ -37,9 +41,10 @@ describe("processUserConfig", () => {
   it("lowers a nested child component the same way", () => {
     const manifest = processUserConfig({
       Grid: defineComponent({
+        component,
         props: z.object({ title: z.string() }),
         children: {
-          Cell: defineComponent({ props: ({ image }) => z.object({ src: image() }) }),
+          Cell: defineComponent({ component, props: ({ image }) => z.object({ src: image() }) }),
         },
       }),
     });
@@ -55,6 +60,7 @@ describe("processUserConfig", () => {
   it("reads a field's title, description and group from either side of its modifiers", () => {
     const manifest = processUserConfig({
       Hero: defineComponent({
+        component,
         props: z.object({
           title: z.string().meta({ title: "Headline", group: "Text" }).optional(),
           href: z.string().optional().describe("Where it leads."),
@@ -72,19 +78,19 @@ describe("processUserConfig", () => {
   });
 
   it("refuses two definitions under one name, but not one definition shared by two parents", () => {
-    const Item = defineComponent({ props: z.object({ title: z.string() }) });
+    const Item = defineComponent({ component, props: z.object({ title: z.string() }) });
 
     expect(() =>
       processUserConfig({
-        Tabs: defineComponent({ props: z.object({}), children: { Item } }),
-        List: defineComponent({ props: z.object({}), children: { Item } }),
+        Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
+        List: defineComponent({ component, props: z.object({}), children: { Item } }),
       }),
     ).not.toThrow();
 
     expect(() =>
       processUserConfig({
-        Tabs: defineComponent({ props: z.object({}), children: { Item } }),
-        Item: defineComponent({ props: z.object({ label: z.string() }) }),
+        Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
+        Item: defineComponent({ component, props: z.object({ label: z.string() }) }),
       }),
     ).toThrow(/defined twice/);
   });

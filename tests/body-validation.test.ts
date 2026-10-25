@@ -60,14 +60,15 @@ describe("validateBody", () => {
     expect(leaves).toEqual([]);
   });
 
-  // The build compiles a body into a module and runs it, so anything beyond a
-  // registered import and static props would be code a content write smuggles in.
-  it("allows only registered imports, class wrappers and safe URLs", () => {
+  // The build compiles a body into a module and runs it, so anything beyond
+  // static props would be code a content write smuggles in.
+  it("allows only components, class wrappers and safe URLs", () => {
     const allowed = [
-      'import Figure from "@/components/Figure.astro";\n\n{/* note */}\n\n<Figure src="/src/assets/hero.png" alt="Hero" />',
+      '{/* note */}\n\n<Figure src="/src/assets/hero.png" alt="Hero" />',
       '<div class="grid gap-4">\n\n[docs](/docs) and <span class="font-bold">[mail](mailto:a@b.c)</span>\n\n</div>',
     ];
     const refused = [
+      'import Figure from "@/components/Figure.astro";',
       'import fs from "node:fs";',
       "export const x = await fetch('https://evil.example');",
       "{process.env.SECRET}",
