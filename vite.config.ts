@@ -76,6 +76,11 @@ export default defineConfig({
             }),
             dts(),
           ],
+          // Node's builtins have no import side effects, so a helper import that tree
+          // shaking empties leaves no bare `import "node:module"` the admin bundle reaches.
+          treeshake: {
+            moduleSideEffects: [{ test: /^node:/, external: true, sideEffects: false }],
+          },
           output: { chunkFileNames: "chunks/[name]-[hash].js" },
         },
       },
