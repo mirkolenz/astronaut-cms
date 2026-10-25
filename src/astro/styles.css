@@ -227,6 +227,18 @@
   border-radius: 0;
 }
 
+/* Only editable text takes a caret or a selection, never the chrome of a block
+   around it, such as a component header or a code block toolbar. */
+.mdxeditor [contenteditable="false"] {
+  cursor: default;
+  user-select: none;
+}
+
+.mdxeditor [contenteditable="true"] {
+  cursor: text;
+  user-select: text;
+}
+
 /* The text children of an inline component flow within its chip. */
 .mdxeditor .cms-inline-slot [class*="_nestedEditor_"],
 .mdxeditor .cms-inline-slot p {

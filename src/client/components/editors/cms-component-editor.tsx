@@ -31,6 +31,7 @@ import {
   select,
   useIsSelected,
   type BlockNode,
+  type BlockSelection,
   type Crumb,
 } from "@/client/stores/inspector-store";
 import { useAssetUrl } from "@/client/queries/use-media";
@@ -42,15 +43,24 @@ const TrailContext = createContext<readonly Crumb[]>([]);
 // Blocks nest, and an event is the innermost one's alone. One that only reaches
 // a block through a portal, such as a menu, happened elsewhere. Blocks select
 // on capture, so a control inside one, such as the add button, can select
-// something else after.
-function ownsEvent(event: SyntheticEvent<HTMLElement>): boolean {
+// something else after. The block is selected as a node without moving the
+// focus, so a click on its chrome rather than its text drops the caret left elsewhere.
+function claim(event: SyntheticEvent<HTMLElement>, selection: BlockSelection): void {
   const target = event.target;
 
-  return (
-    target instanceof Element &&
-    event.currentTarget.contains(target) &&
-    target.closest("[data-cms-block]") === event.currentTarget
-  );
+  if (
+    !(target instanceof Element) ||
+    !event.currentTarget.contains(target) ||
+    target.closest("[data-cms-block]") !== event.currentTarget
+  ) {
+    return;
+  }
+
+  select(selection);
+
+  if (target.closest("[contenteditable]")?.getAttribute("contenteditable") === "false") {
+    window.getSelection()?.removeAllRanges();
+  }
 }
 
 export function CmsComponentEditor({ mdastNode }: JsxEditorProps) {
@@ -130,10 +140,6 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
   const Icon = def?.icon;
   const inner = [...crumbs, { label: summary ?? label, selection: { ...block, trail: outer } }];
 
-  const claim = (event: SyntheticEvent<HTMLElement>) => {
-    if (ownsEvent(event)) select({ ...block, trail: outer });
-  };
-
   useEffect(() => {
     if (reveal) ref.current?.scrollIntoView({ block: "nearest" });
   }, [reveal]);
@@ -143,8 +149,8 @@ function Block({ node, path, element, def, outer, crumbs }: BlockProps) {
       ref={ref}
       data-cms-block
       data-cms-selected={selected || undefined}
-      onClickCapture={claim}
-      onFocusCapture={claim}
+      onClickCapture={(event) => claim(event, { ...block, trail: outer })}
+      onFocusCapture={(event) => claim(event, { ...block, trail: outer })}
       className="rounded-md border border-border bg-card transition-[border-color,box-shadow] hover:border-ring/60"
     >
       <div className="not-prose flex min-h-9 cursor-default items-center gap-2 px-2 py-1">
@@ -244,16 +250,12 @@ function InlineBlock({
   const summary = summaryOf(def, element);
   const Icon = def?.icon;
 
-  const claim = (event: SyntheticEvent<HTMLElement>) => {
-    if (ownsEvent(event)) select({ ...block, trail });
-  };
-
   return (
     <span
       data-cms-block
       data-cms-selected={selected || undefined}
-      onClickCapture={claim}
-      onFocusCapture={claim}
+      onClickCapture={(event) => claim(event, { ...block, trail })}
+      onFocusCapture={(event) => claim(event, { ...block, trail })}
       className="not-prose inline-flex max-w-full items-baseline gap-1 rounded border border-border bg-card px-1.5 align-baseline"
     >
       {Icon && <Icon className="size-3 shrink-0 self-center text-muted-foreground" />}
