@@ -282,10 +282,10 @@ function MediaLibrary({ library }: { library: MediaLibraryId }) {
         </Empty>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Folder cards */}
         {folders.map(({ name, path }) => (
-          <FolderCard key={path} name={name} onOpen={() => setCurrentDir(path)} className="h-28" />
+          <FolderCard key={path} name={name} onOpen={() => setCurrentDir(path)} />
         ))}
 
         {/* File cards */}

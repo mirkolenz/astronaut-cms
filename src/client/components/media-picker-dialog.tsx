@@ -124,10 +124,10 @@ export function MediaPickerDialog({
 
         {upload.mutation.error && <ErrorBanner>{upload.mutation.error.message}</ErrorBanner>}
 
-        <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+        <div className="grid max-h-[60vh] auto-rows-fr grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
           {isLoading && [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
           {folders.map(({ name, path }) => (
-            <FolderCard key={path} name={name} onOpen={() => setDir(path)} className="h-full" />
+            <FolderCard key={path} name={name} onOpen={() => setDir(path)} />
           ))}
           {files.map((file) => (
             <button

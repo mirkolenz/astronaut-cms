@@ -7,7 +7,6 @@ import config from "@/client/lib/config";
 import { dirSegments } from "@/client/lib/entry-tree";
 import { optimizeImage } from "@/client/lib/image-utils";
 import { libraryLabel } from "@/client/lib/media";
-import { cn } from "cn";
 import { validateMediaPath } from "@/shared/validation";
 import { mediaLibrary, type MediaKind, type MediaLibraryId } from "@/shared/media";
 import type { MediaFile } from "@/shared/types";
@@ -74,24 +73,14 @@ export function MediaBreadcrumbs({
   );
 }
 
-export function FolderCard({
-  name,
-  onOpen,
-  className,
-}: {
-  name: string;
-  onOpen: () => void;
-  className: string;
-}) {
+/** A folder in a grid of files, as tall as their cards in a grid of equal rows. */
+export function FolderCard({ name, onOpen }: { name: string; onOpen: () => void }) {
   return (
     <Button
       type="button"
       variant="outline"
       onClick={onOpen}
-      className={cn(
-        "flex flex-col items-center justify-center gap-2 hover:border-accent-foreground/30 hover:bg-accent",
-        className,
-      )}
+      className="flex h-full flex-col items-center justify-center gap-2 hover:border-accent-foreground/30 hover:bg-accent"
     >
       <Folder className="size-8 text-muted-foreground" />
       <span className="truncate text-sm font-medium text-foreground">{name}</span>
