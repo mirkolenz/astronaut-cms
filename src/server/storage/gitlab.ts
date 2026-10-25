@@ -308,7 +308,6 @@ export class GitLabStorage extends BranchedStorage {
 
     return {
       ...bytes,
-      contentType: this.contentTypeOf(path),
       // Read off the response rather than asked for: GitLab documents this
       // header on the file endpoints, and where it is absent the route simply
       // falls back to the short cache.

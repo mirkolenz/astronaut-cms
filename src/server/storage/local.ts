@@ -228,7 +228,7 @@ export class LocalStorage extends StorageBase {
     const fullPath = await this.resolve(this.mediaRepoPath(path));
     const stats = await stat(fullPath);
     const partial = range && partialContent(range, stats.size);
-    const base = { contentType: this.contentTypeOf(path), version: statVersion(stats), partial };
+    const base = { version: statVersion(stats), partial };
 
     if (partial && !partial.span) return { ...base, body: null };
 

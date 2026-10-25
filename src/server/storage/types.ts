@@ -153,7 +153,6 @@ export type MediaContent = {
   | { redirect: string }
   | {
       body: BodyInit | null;
-      contentType: string;
       /** How the range the backend was asked for was answered, absent without one. */
       partial?: PartialContent;
     }

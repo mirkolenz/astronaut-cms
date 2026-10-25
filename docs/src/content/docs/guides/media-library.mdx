@@ -67,7 +67,8 @@ Replacing a file is checked the same way, so a replacement outside the library's
 A library accepts any file unless its `allowedExtensions` restricts it.
 Hidden files (`.DS_Store`, `.gitkeep`) are never listed.
 A file's content type comes from its extension, and one no registry can name is stored as a generic download.
-HTML, SVG and other XML documents are always served with `Content-Disposition: attachment`, so an uploaded document cannot run as a page.
+The admin serves images, videos and audio with their own type and everything else as a generic download, all under a sandboxing content security policy, so an uploaded file can neither run as a page nor be loaded as a script.
+An object store gets HTML, SVG and other XML documents with `Content-Disposition: attachment`.
 
 ### Folders
 

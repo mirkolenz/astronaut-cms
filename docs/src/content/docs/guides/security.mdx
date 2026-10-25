@@ -194,6 +194,7 @@ The one exception is a presigned media upload, whose store origin is added, beca
 
 The CMS needs an SSR adapter, so the admin always renders on demand and the policy always reaches the browser as a header — which is what lets it carry `frame-ancestors`, something a `<meta>` policy cannot.
 Every CMS response also carries `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy: same-origin` and `Cross-Origin-Opener-Policy: same-origin`.
+Media served through the CMS adds `Content-Security-Policy: sandbox` and keeps its own type only for images, videos and audio, everything else is `application/octet-stream`, so no library file can run as a page or load as a script on the admin's origin.
 
 `worker-src blob:` admits only workers started from a blob, because a blob worker inherits this policy.
 A worker loaded from a URL would run under the headers of its own response, which a site's static assets usually lack.

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BodyTooLargeError, readBody, readBytes } from "@/shared/http";
 import { RateLimiter, callerAddress, limited } from "@/shared/rate-limit";
-import { isActiveContentType, mediaContentType } from "@/shared/media";
 
 // The injected routes spend something the caller does not own — a gateway
 // credential, a bucket — on a request the caller shapes. These are the three
@@ -88,15 +87,6 @@ describe("RateLimiter", () => {
     } finally {
       clock.mockRestore();
     }
-  });
-});
-
-describe("stored content types", () => {
-  it("derives the type from the extension and flags the ones a browser runs", () => {
-    expect(mediaContentType("photos/hero.PNG")).toBe("image/png");
-    expect(mediaContentType("notes.unknown")).toBe("application/octet-stream");
-    expect(isActiveContentType(mediaContentType("logo.svg"))).toBe(true);
-    expect(isActiveContentType(mediaContentType("logo.png"))).toBe(false);
   });
 });
 

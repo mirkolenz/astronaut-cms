@@ -134,11 +134,10 @@ describe("media a backend would redirect for", () => {
     expect(await response.text()).toBe(PROXIED);
     expect(fetched).toEqual([DESTINATION]);
     expect(response.headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
-    // Typed from the name rather than from the answer, so a file served this way
-    // is treated exactly as one the library stored itself — which for an SVG
-    // means it is handed over as a download rather than run as a document.
+    // Typed from the name rather than from the answer, and sandboxed, so an SVG
+    // opened as a page of its own runs no script on the admin's origin.
     expect(response.headers.get("content-type")).toBe("image/svg+xml");
-    expect(response.headers.get("content-disposition")).toBe("attachment");
+    expect(response.headers.get("content-security-policy")).toBe("sandbox");
   });
 
   // GitHub's download URL and GitLab's raw endpoint are relayed alike, and a

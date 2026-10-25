@@ -340,3 +340,12 @@ export function mediaKind(path: string): MediaKind {
 
   return type === "image" || type === "video" || type === "audio" ? type : "file";
 }
+
+/**
+ * The type the CMS serves a library file as from its own origin. Only what the
+ * admin previews keeps its type, everything else goes out as opaque bytes, which
+ * `nosniff` keeps a page from loading as a script or stylesheet.
+ */
+export function servedContentType(path: string): string {
+  return mediaKind(path) === "file" ? "application/octet-stream" : mediaContentType(path);
+}

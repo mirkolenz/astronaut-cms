@@ -49,7 +49,6 @@ import {
 import {
   assertWithinSizeLimit,
   isLibraryFile,
-  mediaContentType,
   type ClientMediaConfig,
   type MediaLibraryId,
   type WorkingTreeLibrary,
@@ -600,11 +599,6 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
 
   purgeTrash(): Promise<never> {
     return Promise.reject(new HttpError(untrashable, 400));
-  }
-
-  /** The type a library file is served back as, derived from its name, never from a caller. */
-  protected contentTypeOf(path: string): string {
-    return mediaContentType(path);
   }
 
   /**

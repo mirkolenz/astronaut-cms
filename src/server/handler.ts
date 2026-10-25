@@ -29,15 +29,9 @@ import {
   parseByteRange,
   readBody,
   readBytes,
-  type ByteRange,
 } from "../shared/http.ts";
 import { fetchRange } from "./ranges.ts";
-import {
-  isActiveContentType,
-  mediaContentType,
-  mediaLibrary,
-  parseMediaLibrary,
-} from "../shared/media.ts";
+import { mediaLibrary, parseMediaLibrary, servedContentType } from "../shared/media.ts";
 import { conformTrailingSlash, withoutTrailingSlash } from "../shared/url.ts";
 import { getSecret } from "astro:env/server";
 import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
@@ -553,23 +547,20 @@ async function route(path: string, request: Request, url: URL): Promise<Response
     // fresh redirect every few minutes.
     const source =
       "redirect" in content
-        ? await proxyMedia(content.redirect, filePath, range)
+        ? await fetchRange((headers) => fetch(content.redirect, { headers }), range)
         : content;
 
     return new Response(source.body, {
       status: source.partial?.status ?? 200,
       headers: {
-        "content-type": source.contentType,
+        // Typed from the name, never from the backend's answer.
+        "content-type": servedContentType(filePath),
         "accept-ranges": "bytes",
         ...(source.partial?.contentRange && { "content-range": source.partial.contentRange }),
         // These bytes are served same-origin with the admin's own cookie, so a
-        // type a browser would run as a document is stored XSS waiting for an
-        // editor to open it. An object store is told the same thing at upload
-        // (see `UploadTerms.attachment`); bytes proxied from a repository have
-        // no such record, so the decision is remade from the type here.
-        ...(isActiveContentType(source.contentType) && {
-          "content-disposition": "attachment",
-        }),
+        // file opened as a page of its own, an SVG say, gets an opaque origin
+        // and no scripts. Embedding ignores this, so previews are unaffected.
+        "content-security-policy": "sandbox",
         ...caching,
         ...HARDENING_HEADERS,
         ...extra,
@@ -625,21 +616,6 @@ async function route(path: string, request: Request, url: URL): Promise<Response
   }
 
   return fail("Not found.", 404);
-}
-
-/**
- * The bytes behind a URL a backend would rather hand the browser directly, read
- * here because the caller named a version and only an answer from this origin can
- * promise to keep being that one. Relayed through {@link fetchRange} exactly as
- * GitLab's bytes are, so a large file costs the function no more memory than a
- * small one.
- */
-async function proxyMedia(source: string, path: string, range: ByteRange | null) {
-  const { body, partial } = await fetchRange((headers) => fetch(source, { headers }), range);
-
-  // Typed from the name rather than taken from the answer, so a file served
-  // this way is typed exactly as one the library stored itself.
-  return { body, partial, contentType: mediaContentType(path) };
 }
 
 async function startLogin(url: URL): Promise<Response> {

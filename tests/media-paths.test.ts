@@ -8,6 +8,7 @@ import {
   mediaPath,
   mediaRef,
   remoteMediaUrl,
+  servedContentType,
   sizeLimitError,
   uniqueMediaPath,
 } from "@/shared/media";
@@ -114,6 +115,13 @@ describe("media types", () => {
     expect(isActiveContentType(mediaContentType("page.html"))).toBe(true);
     expect(isActiveContentType(mediaContentType("page.xhtml"))).toBe(true);
     expect(isActiveContentType(mediaContentType("teaser.mp4"))).toBe(false);
+  });
+
+  it("serves only what the admin previews with its own type", () => {
+    expect(servedContentType("logo.svg")).toBe("image/svg+xml");
+    expect(servedContentType("teaser.mp4")).toBe("video/mp4");
+    expect(servedContentType("app.js")).toBe("application/octet-stream");
+    expect(servedContentType("page.html")).toBe("application/octet-stream");
   });
 });
 
