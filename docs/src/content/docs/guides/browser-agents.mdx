@@ -26,7 +26,8 @@ What it reaches is bounded exactly as the assistant is, because it goes through 
 See [what the agent may reach](/astronaut-cms/guides/ai-agent/#what-the-agent-may-reach) for the reasoning, which applies unchanged.
 
 The one genuine difference is that the agent is not one this project wrote, and it arrives without the assistant's system prompt.
-It is told only what the tool list says, so the descriptions carry that weight, and a `getContentModel` tool describes your collections, formats, media reference style and content languages on request.
+It is told only what the tool list says, so the descriptions carry that weight, and a `getContentModel` tool describes your collections, formats, media reference style, content languages and components on request.
+A `getComponents` tool returns the props of the components it names as JSON Schema, and its description says how to write a component in MDX.
 
 <Aside type="caution">
   Tools are registered only while a signed-in editor has the admin open, and only for the admin's

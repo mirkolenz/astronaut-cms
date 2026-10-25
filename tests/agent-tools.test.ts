@@ -5,6 +5,7 @@ import { operations } from "@/server/operations";
 import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
 import { READ_ONLY_OPERATIONS, isWriteOperation } from "@/shared/operations";
 import { client } from "virtual:astronaut-cms/server";
+import { components } from "virtual:astronaut-cms/user-config";
 import { createCmsTools } from "@/shared/tools/catalog";
 import { TOOL_NAME_PATTERN, unexposable } from "@/shared/tools/exposable";
 import type { CmsCall, CmsToolSet, ToolConfig } from "@/shared/tools/types";
@@ -13,6 +14,8 @@ const config: ToolConfig = {
   media: client.media,
   contentI18n: null,
   collections: client.collections,
+  // A block rendering a collection's entries, whose content is edited there.
+  components: { ...components, Gallery: { ...components.Gallery!, collections: ["posts"] } },
 };
 
 const unreachable: CmsCall = () => Promise.reject(new Error("the server should not be reached"));
@@ -50,6 +53,23 @@ describe("the tool catalog", () => {
 
     expect(schema).toMatchObject({
       properties: { data: { properties: { title: { type: "string" } } } },
+    });
+  });
+
+  // Without them an agent can only imitate existing bodies: the content model
+  // says where each component may go, and its props are handed out on demand.
+  it("describes the MDX components a body may use", async () => {
+    const tools = catalog();
+
+    await expect(tools.getContentModel!.execute({})).resolves.toMatchObject({
+      components: {
+        Gallery: { kind: "block", collections: ["posts"], children: { Tile: { label: "Tile" } } },
+      },
+    });
+    await expect(tools.getComponents!.execute({ names: ["Tile"] })).resolves.toEqual({
+      Tile: {
+        props: expect.objectContaining({ required: ["src", "alt"] }),
+      },
     });
   });
 

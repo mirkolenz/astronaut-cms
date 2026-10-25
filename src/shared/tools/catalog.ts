@@ -28,10 +28,12 @@ import {
   collectionFormatEnum,
   collectionPatchSchema,
 } from "../collection-schema.ts";
+import { componentEntries } from "../component-lookup.ts";
 import { ContentValidationError } from "../diagnostics.ts";
 import { mediaLibraries, mediaRef } from "../media.ts";
 import { unexposable } from "./exposable.ts";
-import type { CollectionManifestEntry } from "../types.ts";
+import { singletonEntry, type CollectionManifestEntry } from "../types.ts";
+import { componentDetails } from "./components.ts";
 import { contentModel } from "./content-model.ts";
 import {
   defineTool,
@@ -152,6 +154,13 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
   const libraries = mediaLibraries(config.media);
   const librarySchema = z.enum(libraries).describe("Media library holding the file, as listMedia reports it.");
 
+  // The one id a singleton's tools take, so an agent cannot even ask for another.
+  const entryIdOf = (col: CollectionManifestEntry) => {
+    const singleton = singletonEntry(col);
+
+    return singleton ? z.literal(singleton.id).describe("Id of the collection's only entry.") : entryId;
+  };
+
   /**
    * One full-overwrite tool per collection, carrying that collection's exact
    * data schema and format set. The two kinds differ only in the markdown
@@ -172,7 +181,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     if (!content) {
       return defineTool({
         ...common,
-        inputSchema: z.object({ id: entryId, data, format }),
+        inputSchema: z.object({ id: entryIdOf(col), data, format }),
         execute: ({ id, data, format }) =>
           call("saveEntry", { collection: name, id, entry: { data, body: "", format } }),
       });
@@ -181,7 +190,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     return defineTool({
       ...common,
       inputSchema: z.object({
-        id: entryId,
+        id: entryIdOf(col),
         data,
         body: z.string().describe("Complete markdown body, replacing whatever is there."),
         format,
@@ -231,14 +240,14 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     if (!content) {
       return defineTool({
         ...common,
-        inputSchema: z.object({ id: entryId, data }),
+        inputSchema: z.object({ id: entryIdOf(col), data }),
         execute: ({ id, data }) => edit(id, data),
       });
     }
 
     return defineTool({
       ...common,
-      inputSchema: z.object({ id: entryId, data: data.optional(), body: bodyEdit }),
+      inputSchema: z.object({ id: entryIdOf(col), data: data.optional(), body: bodyEdit }),
       execute: ({ id, data, body }) => edit(id, data, body),
     });
   }
@@ -256,15 +265,38 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
       ]),
   );
 
+  // Offered only where there is a component to describe, since an empty enum
+  // would leave a tool no call could satisfy.
+  const componentNames = [...new Set(componentEntries(config.components).map(([name]) => name))];
+  const componentTools: CmsToolSet = componentNames.length
+    ? {
+        getComponents: defineTool({
+          title: "Describe MDX components",
+          description:
+            'Describe MDX components by name: the JSON Schema of their `props` and the prop that names an instance. getContentModel lists every component with what it is for, its kind and its children. In an MDX body a component is a JSX tag with literal props: a string in quotes (`title="Hi"`) and any other value as JSON in braces (`count={3}`, `items={[{ "label": "A" }]}`), never a variable, spread or other expression. A `block` component stands on lines of its own, an `inline` one within a line of text. Between its tags goes markdown with top-level components when its children are "markdown", only its listed child components when they are a set, and nothing when it has none, so the tag closes itself (`<Name />`). A component listing `collections` renders their entries, so what it shows is changed by editing those entries, not the component. Besides components, a body may only use `<div>` and `<span>` with a literal `class`. A body never imports anything, every component is available by name.',
+          inputSchema: z.object({
+            names: z
+              .array(z.enum(componentNames as [string, ...string[]]))
+              .min(1)
+              .describe("Components to describe, as getContentModel lists them."),
+          }),
+          annotations: { readOnly: true },
+          execute: async ({ names }) => componentDetails(config.components, names),
+        }),
+      }
+    : {};
+
   return guarded({
     getContentModel: defineTool({
       title: "Describe the content model",
       description:
-        "Describe this site's content model: which collections exist, whether each stores data or content, the file formats it accepts, how image and file fields spell a media reference, and the site's content languages. Call this first when you do not already know the site.",
+        "Describe this site's content model: which collections exist, whether each stores data or content, the file formats it accepts, how image and file fields spell a media reference, the site's content languages, and the MDX components an entry body may use. Call this first when you do not already know the site.",
       inputSchema: z.object({}),
       annotations: { readOnly: true },
       execute: async () => contentModel(config),
     }),
+
+    ...componentTools,
 
     listEntries: defineTool({
       title: "List entries",
@@ -300,7 +332,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     renameEntry: defineTool({
       title: "Rename an entry",
       description:
-        "Rename an entry (change its id) while keeping its content. Fails if an entry with the new id already exists.",
+        "Rename an entry (change its id) while keeping its content. Fails if an entry with the new id already exists, and in a singleton collection.",
       inputSchema: z.object({
         collection,
         id: entryId,
@@ -313,7 +345,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     duplicateEntry: defineTool({
       title: "Duplicate an entry",
       description:
-        "Duplicate an entry under a new id, copying its data and body. Fails if an entry with the new id already exists.",
+        "Duplicate an entry under a new id, copying its data and body. Fails if an entry with the new id already exists, and in a singleton collection.",
       inputSchema: z.object({
         collection,
         id: entryId.describe("Id of the entry to copy."),
@@ -326,7 +358,7 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     deleteEntry: defineTool({
       title: "Delete an entry",
       description:
-        "Delete an entry. The deletion joins the pending changeset, so a human still reviews it before it is published.",
+        "Delete an entry. The deletion joins the pending changeset, so a human still reviews it before it is published. Fails in a singleton collection.",
       inputSchema: z.object({ collection, id: entryId }),
       annotations: { destructive: true },
       execute: ({ collection: name, id }) => call("deleteEntry", { collection: name, id }),

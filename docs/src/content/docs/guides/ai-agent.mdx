@@ -200,6 +200,12 @@ A collection named otherwise (`"blog posts"`, `"news.de"`) is left out of the ag
 It stays fully editable by hand, and the agent can still read it through `listEntries` and `getEntry` — it just cannot write to it.
 Renaming the collection is the fix.
 
+### Components
+
+The agent knows the components of your `cms.config.ts`.
+Its prompt lists each one with its `label`, `description`, kind and allowed children, and the `getComponents` tool returns their props as JSON Schema on demand, with the titles, descriptions and defaults of your `.meta()` calls.
+Describing components and props well therefore helps the agent as much as it helps editors.
+
 ## Reviewing what the agent did
 
 The agent never asks for approval before a tool call, and it cannot publish or discard.

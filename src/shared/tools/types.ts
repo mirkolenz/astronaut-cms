@@ -10,6 +10,7 @@
  */
 import type { z } from "zod";
 import type { CmsCall } from "../../server/operations.ts";
+import type { DescribedComponent } from "../field-schema.ts";
 import type { ContentI18n } from "../i18n.ts";
 import type { ClientMediaConfig } from "../media.ts";
 import type { CollectionManifest } from "../types.ts";
@@ -26,6 +27,7 @@ export interface ToolConfig {
   media: ClientMediaConfig;
   contentI18n: ContentI18n | null;
   collections: CollectionManifest;
+  components: Record<string, DescribedComponent>;
 }
 
 export interface ToolContext {

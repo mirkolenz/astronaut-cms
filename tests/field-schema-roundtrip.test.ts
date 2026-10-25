@@ -303,6 +303,14 @@ describe("tool JSON Schema stays simple", () => {
     );
   });
 
+  it("carries a field's title and description ahead of its type's own hint", () => {
+    expect(jsonSchema({ type: "file", label: "Flyer", description: "The PDF to download." })).toMatchObject({
+      properties: {
+        f: { title: "Flyer", description: expect.stringMatching(/^The PDF to download\.\n.*listMedia/) },
+      },
+    });
+  });
+
   it("keeps a pattern the schema author wrote themselves", () => {
     expect(JSON.stringify(jsonSchema({ type: "string", pattern: "^[a-z]+$" }))).toContain(
       "pattern",

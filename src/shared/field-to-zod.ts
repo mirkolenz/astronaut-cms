@@ -157,6 +157,18 @@ function base(field: FieldSchema): z.ZodType {
   }
 }
 
+// The field's `.meta()` title and description, so an agent reading the JSON
+// Schema sees what the form shows. A hint the base type carries, such as what
+// a media `ref` is, follows the author's description rather than giving way to it.
+function withMeta(schema: z.ZodType, { label, description }: FieldSchema): z.ZodType {
+  const meta: { title?: string; description?: string } = {};
+
+  if (label !== undefined) meta.title = label;
+  if (description !== undefined) meta.description = [description, schema.description].filter(Boolean).join("\n");
+
+  return Object.keys(meta).length ? schema.meta(meta) : schema;
+}
+
 // A FieldSchema is immutable serialized data, so the validator built from one is
 // reusable for as long as it is reachable. That matters because reconstruction
 // costs orders of magnitude more than the parse it enables, and the build walks
@@ -169,7 +181,7 @@ export function fieldSchemaToZod(field: FieldSchema): z.ZodType {
 
   if (cached) return cached;
 
-  let schema = base(field);
+  let schema = withMeta(base(field), field);
 
   if (field.nullable) schema = schema.nullable();
   if (field.optional) schema = schema.optional();

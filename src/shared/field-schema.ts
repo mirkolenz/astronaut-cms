@@ -104,6 +104,18 @@ export interface ComponentSchema {
 
 export type ComponentSchemaMap = Record<string, ComponentSchema>;
 
+/** A component as the admin presents it to an editor, and the tool catalog to an agent. */
+export interface DescribedComponent extends ComponentSchema {
+  /** `text` is written within a line of text, `flow` on lines of its own. */
+  kind: "flow" | "text";
+  label: string;
+  description: string | null;
+  /** The prop that names an instance, such as its title. */
+  summary: string | null;
+  /** The collections whose entries the component renders. */
+  collections: string[];
+}
+
 /**
  * Whether a value has to be written for this field. Every modifier that supplies
  * one of its own answers no: an absent optional, an explicit null, a `.default()`

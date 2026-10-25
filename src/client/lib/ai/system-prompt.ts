@@ -1,12 +1,21 @@
 import { contentModel } from "@/shared/tools/content-model";
 import config from "@/client/lib/config";
+import { toolConfig } from "@/client/lib/tools";
 
 // Compact view of the content model: which collections exist, their kind, and the
-// file formats they accept. Each collection's field schema is not repeated here,
-// because its dedicated `writeEntry_<collection>` tool already exposes it as JSON
-// Schema. The same description is what `getContentModel` answers with, for an
-// agent that arrives without this prompt.
-const collectionsOverview = JSON.stringify(contentModel(config).collections, null, 2);
+// file formats they accept, plus the MDX components and where each may go. Field
+// and prop schemas are not repeated here, because `writeEntry_<collection>` and
+// `getComponents` expose them as JSON Schema. The same description is what
+// `getContentModel` answers with, for an agent that arrives without this prompt.
+const model = contentModel(toolConfig);
+
+const componentSection = Object.keys(model.components).length
+  ? [
+      "",
+      "Available MDX components (call getComponents for their props before writing one):",
+      JSON.stringify(model.components, null, 2),
+    ]
+  : [];
 
 // Multilingual sites store each entry under a leading locale segment, so the
 // assistant needs the language list to read the ids it sees and to place a new
@@ -47,5 +56,6 @@ export const SYSTEM_PROMPT = [
   "- Every change you make (including deletions) joins a pending changeset that the user reviews and then publishes or discards as a whole, so no single change is final and none of them needs approval first. You cannot publish or discard: say what you changed and leave that decision to the user. Use getChanges to see what is currently pending.",
   "",
   "Available collections:",
-  collectionsOverview,
+  JSON.stringify(model.collections, null, 2),
+  ...componentSection,
 ].join("\n");
