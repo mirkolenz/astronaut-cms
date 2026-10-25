@@ -6,7 +6,6 @@ import { Header } from "@/client/components/layout/header";
 import { PublishBar } from "@/client/components/publish-bar";
 import { Toaster } from "@/client/components/toast";
 import { Button } from "@/client/components/ui/button";
-import { TooltipProvider } from "@/client/components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -53,22 +52,17 @@ function ErrorFallback({ error, onReset }: { error: Error; onReset: () => void }
 function RootLayout() {
   return (
     <ErrorBoundary>
-      <TooltipProvider>
-        <div
-          data-astronaut-cms
-          className="flex h-screen overflow-hidden bg-background text-foreground"
-        >
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Header />
-            <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
-              <Outlet />
-            </main>
-            <PublishBar />
-          </div>
+      <div data-astronaut-cms className="flex h-screen overflow-hidden bg-background text-foreground">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Header />
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
+            <Outlet />
+          </main>
+          <PublishBar />
         </div>
-        <Toaster />
-      </TooltipProvider>
+      </div>
+      <Toaster />
     </ErrorBoundary>
   );
 }
