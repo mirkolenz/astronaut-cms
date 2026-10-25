@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { findPackageJSON } from "node:module";
+import { dirname, join, resolve as resolvePath } from "node:path";
+import { pathToFileURL } from "node:url";
 import { esmExternalRequirePlugin, type Plugin } from "vite";
 
 interface Package {
@@ -119,22 +121,45 @@ interface LicenseEntry {
 
 const VITE_LICENSES = ".vite/license.json";
 
+const STYLESHEET_IMPORTS = /@(?:import|plugin)\s+["']([^"']+)["']/g;
+
+/**
+ * The packages a stylesheet pulls in through `@import` and `@plugin`, following
+ * its relative imports. Tailwind inlines them itself, so they never reach the
+ * module graph. Node resolves them, since a package of only CSS exports nothing
+ * under the conditions of a script.
+ */
+function stylesheetPackages(file: string): string[] {
+  return [...readFileSync(file, "utf8").matchAll(STYLESHEET_IMPORTS)].flatMap(([, specifier = ""]) => {
+    const manifest = findPackageJSON(specifier, pathToFileURL(file)) ?? [];
+
+    if (!specifier.startsWith(".") || !specifier.endsWith(".css")) return manifest;
+
+    return [manifest, stylesheetPackages(resolvePath(dirname(file), specifier))].flat();
+  });
+}
+
 /**
  * Vite's `build.license`, completed with what it leaves out: the packages in
- * worker bundles, which are built on their own, and those behind assets such as
- * fonts. Vite writes its list as JSON, and the main build merges it with the
- * rest and writes `fileName` in Markdown. Listed in the environment's
- * `rolldownOptions`, the plugin runs in its worker builds too.
+ * worker bundles, which are built on their own, those behind assets such as
+ * fonts, and those a stylesheet inlines. Vite writes its list as JSON, and the
+ * main build merges it with the rest and writes `fileName` in Markdown. Listed
+ * in the environment's `rolldownOptions`, the plugin runs in its worker builds too.
  */
 export function licenseExtras(self: string, fileName: string): { option: { fileName: string }; plugin: Plugin } {
-  const extras = new Map<string, Package>();
+  // Per environment, which its worker builds share by name, and emptied once written.
+  const extras = new Map<string, Map<string, Package>>();
 
-  const add = (ids: Iterable<string>): void => {
+  const add = (environment: string, ids: Iterable<string>): void => {
+    const packages = extras.get(environment) ?? new Map<string, Package>();
+
     for (const id of ids) {
       const found = owningPackage(id);
 
-      if (found && found.name !== self) extras.set(found.dir, found);
+      if (found && found.name !== self) packages.set(found.dir, found);
     }
+
+    extras.set(environment, packages);
   };
 
   const plugin: Plugin = {
@@ -144,15 +169,24 @@ export function licenseExtras(self: string, fileName: string): { option: { fileN
       order: "post",
       handler(_, bundle) {
         const outputs = Object.values(bundle);
+        const { name: environment, config } = this.environment;
 
         // Each worker ends before the main build that imports it does.
-        if (this.environment.config.isWorker) {
-          for (const output of outputs) if (output.type === "chunk") add(output.moduleIds);
+        if (config.isWorker) {
+          for (const output of outputs) if (output.type === "chunk") add(environment, output.moduleIds);
 
           return;
         }
 
-        for (const output of outputs) if (output.type === "asset") add(output.originalFileNames);
+        for (const output of outputs) {
+          if (output.type !== "asset") continue;
+
+          add(environment, output.originalFileNames);
+
+          for (const name of output.originalFileNames) {
+            if (name.endsWith(".css")) add(environment, stylesheetPackages(resolvePath(config.root, name)));
+          }
+        }
 
         const file = bundle[VITE_LICENSES];
 
@@ -164,7 +198,7 @@ export function licenseExtras(self: string, fileName: string): { option: { fileN
           entries.set(`${entry.name}@${entry.version}`, entry);
         }
 
-        for (const { dir, name, version = "0.0.0", license } of extras.values()) {
+        for (const { dir, name, version = "0.0.0", license } of extras.get(environment)?.values() ?? []) {
           const key = `${name}@${version}`;
 
           if (entries.has(key)) continue;
@@ -187,6 +221,7 @@ export function licenseExtras(self: string, fileName: string): { option: { fileN
 
         delete bundle[VITE_LICENSES];
         this.emitFile({ type: "asset", fileName, source: `# Licenses\n\n${sections.join("\n\n")}\n` });
+        extras.delete(environment);
       },
     },
   };
