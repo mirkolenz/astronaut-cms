@@ -113,6 +113,8 @@ export default defineConfig({
           formats: ["es"],
         },
         rolldownOptions: {
+          // React's `"use client"` only matters to server components, which the admin has none of.
+          checks: { moduleLevelDirective: false },
           // Worker builds take these too, where the license plugin lists their packages.
           plugins: [
             // React is the site's, and the editor's declarations use the mdast types
