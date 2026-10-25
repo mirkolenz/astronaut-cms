@@ -13,18 +13,11 @@ import { SYSTEM_PROMPT } from "./system-prompt";
 import { cmsTools } from "./tools";
 
 // Read from the panel store on every call (via `prepareCall`) so one agent
-// outlives model and effort switches instead of being recreated. The effort goes
-// through `providerOptions` rather than the portable top-level `reasoning`
-// option because the OpenAI-compatible provider drops "none" instead of
-// forwarding it, which would leave reasoning on when the user turned it off.
+// outlives model and effort switches instead of being recreated.
 function callSettings() {
   const { model, effort } = useAiSettingsStore.getState();
 
-  return {
-    model: aiProvider.chatModel(model),
-    providerOptions:
-      effort === "provider-default" ? undefined : { openaiCompatible: { reasoningEffort: effort } },
-  };
+  return { model: aiProvider.chatModel(model), reasoning: effort };
 }
 
 // The whole agent loop runs in the browser: each step streams from the model

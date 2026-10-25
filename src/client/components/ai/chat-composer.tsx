@@ -36,10 +36,6 @@ import { errorMessage } from "@/shared/errors";
 
 function effortLabel(t: TFunction, effort: ReasoningEffort): string {
   switch (effort) {
-    case "provider-default":
-      return t(($) => $.ai.reasoningDefault);
-    case "none":
-      return t(($) => $.ai.reasoningNone);
     case "low":
       return t(($) => $.ai.reasoningLow);
     case "medium":

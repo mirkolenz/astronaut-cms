@@ -16,7 +16,7 @@ export const useAiSettingsStore = create<AiSettingsState>()(
   persist(
     (set) => ({
       model: aiConfig?.models[0] ?? "",
-      effort: "provider-default",
+      effort: "medium",
       setModel: (model) => set({ model }),
       setEffort: (effort) => set({ effort }),
     }),

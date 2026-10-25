@@ -254,8 +254,6 @@ const de: TranslationShape<typeof en> = {
     toolOutput: "Ergebnis",
     toolError: "Fehler",
     reasoning: "Denkaufwand",
-    reasoningDefault: "Standard",
-    reasoningNone: "Aus",
     reasoningLow: "Niedrig",
     reasoningMedium: "Mittel",
     reasoningHigh: "Hoch",

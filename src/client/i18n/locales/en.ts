@@ -246,8 +246,6 @@ const en = {
     toolOutput: "Result",
     toolError: "Error",
     reasoning: "Thinking effort",
-    reasoningDefault: "Default",
-    reasoningNone: "Off",
     reasoningLow: "Low",
     reasoningMedium: "Medium",
     reasoningHigh: "High",
