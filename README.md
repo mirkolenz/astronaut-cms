@@ -1,20 +1,30 @@
 # Astronaut CMS
 
 A Git-native headless CMS built as an Astro integration.
-It provides a visual admin interface for managing structured content directly in your repository — no external database, no proprietary backend, just Git.
+It provides a visual admin interface for managing structured content directly in your repository, with no external database and no proprietary backend, just Git.
 
 ## Features
 
 ### Zero-Config Setup
 
 Add the integration to your Astro config and the admin panel appears at `/admin`.
-Astronaut CMS auto-discovers your content collections — there is nothing else to configure to get started.
+Astronaut CMS auto-discovers your content collections, so there is nothing else to configure to get started.
 
 ### Your Zod Schemas Drive the UI
 
 Editor forms are generated directly from the Zod schemas in your `content.config.ts`.
-No other CMS does this — every alternative requires you to redefine your content model in a separate DSL, YAML file, or database.
-With Astronaut CMS, your content types, validation, TypeScript types, and editor UI are a single source of truth.
+Your content types, validation, TypeScript types, and editor UI share a single source of truth.
+
+### Built Into Astro
+
+Astronaut CMS runs inside your Astro project rather than next to it.
+It reads `content.config.ts` as is, including `glob()` and `file()` loaders, `reference()` and `image()` fields, and third-party schemas such as Starlight's.
+Multilingual content follows your `i18n` config, and `base` and `trailingSlash` are honored throughout.
+The admin and its API are injected as on-demand routes served by your SSR adapter, while the rest of the site stays prerendered.
+In `astro dev`, it edits the working tree directly, so local editing needs no OAuth app.
+Collections and MDX components get generated types, and secrets are declared through `astro:env`.
+Media flows through `astro:assets` with ready-made `Image` and `Video` components.
+Builds fail on content the admin could not save, and unreferenced library files are pruned from the output.
 
 ### Git-Native Storage
 
@@ -25,7 +35,7 @@ No database to provision, no server to run, fully compatible with static builds.
 ### Atomic Batch Publishing
 
 Stage changes across multiple collections and entries, then publish everything as a single commit or PR.
-This prevents partial updates and keeps coordinated changes — like a new page with its assets and navigation — consistent.
+This prevents partial updates and keeps coordinated changes, like a new page with its assets and navigation, consistent.
 
 ### MDX Block Editor
 
@@ -40,7 +50,8 @@ A WYSIWYG editor renders text blocks and custom components as you type, so what 
 
 Browse, upload, replace, rename, and delete assets with folder navigation.
 An inline asset picker integrates directly into image and file fields.
-Files live in the repository by default, or in any S3-compatible object store (AWS S3, Cloudflare R2, MinIO) when the library outgrows Git — uploads then go straight from the browser to the bucket through a presigned URL, and the site serves them from your CDN.
+Files live in the repository by default, or in any S3-compatible object store (AWS S3, Cloudflare R2, MinIO) when the library outgrows Git.
+Uploads then go straight from the browser to the bucket through a presigned URL, and the site serves them from your CDN.
 
 ### Agent-Ready
 
@@ -53,18 +64,22 @@ Both go through the same server operations, so an agent reaches exactly what the
 Ships with OAuth-based storage backends for both GitHub and GitLab, plus a local backend for development.
 Adding new Git providers means implementing a single interface.
 
-## Comparison
+## Alternatives
 
-| CMS                                                   | Open Source | Astro Integration | Content Storage | Uses Astro Schemas | Schema Definition | MDX Block Editor | Batch Publishing | Live Preview | Media Library | Static Builds |
-| ----------------------------------------------------- | ----------- | ----------------- | --------------- | ------------------ | ----------------- | ---------------- | ---------------- | ------------ | ------------- | ------------- |
-| Astronaut CMS                                         | Yes         | Native            | Git             | Yes                | Zod               | Yes              | Yes              | Yes          | Yes           | Yes           |
-| [Apostrophe](https://apostrophecms.com/)              | Yes         | Plugin (SSR)      | Database        | No                 | Own DSL           | No               | N/A              | Yes          | Yes           | No            |
-| [CloudCannon](https://cloudcannon.com/)               | No          | Plugin            | Git             | No                 | GUI               | No               | No               | Yes          | Yes           | Yes           |
-| [Dark Matter](https://getdarkmatter.dev)              | No          | Desktop App       | Git             | Yes                | Zod               | No               | No               | Yes          | No            | Yes           |
-| [Decap CMS](https://decapcms.org/)                    | Yes         | Manual            | Git             | No                 | YAML              | No               | No               | Yes          | Yes           | Yes           |
-| [Keystatic](https://keystatic.com/)                   | Yes         | Plugin            | Git             | No                 | Own DSL           | No               | No               | No           | Yes           | Yes           |
-| [Pages CMS](https://pagescms.org/)                    | Yes         | Manual            | Git             | No                 | YAML              | No               | No               | No           | Yes           | Yes           |
-| [Spinal](https://spinalcms.com/)                      | No          | Plugin            | Git             | No                 | GUI               | No               | No               | No           | No            | Yes           |
-| [StudioCMS](https://studiocms.dev/)                   | Yes         | Native            | Database        | No                 | DB Migrations     | No               | N/A              | No           | Via Plugin    | No            |
-| [Sveltia CMS](https://github.com/sveltia/sveltia-cms) | Yes         | Manual            | Git             | No                 | YAML              | No               | No               | No           | Yes           | Yes           |
-| [TinaCMS](https://tina.io/)                           | Yes         | Plugin            | Git + API       | No                 | Own DSL           | Yes              | No               | Yes          | Yes           | Yes           |
+Astronaut CMS is made for Astro sites that keep their content in Git.
+It is an Astro integration rather than a separate app, so it builds on your existing content collections, routes, assets, and dev server.
+Its editor is generated from the Zod schemas of your content collections, every change is published atomically as a commit or pull request, and pages are composed from MDX blocks without touching code.
+
+Other content management systems with a different focus:
+
+- [Apostrophe](https://apostrophecms.com/): database-backed CMS with in-context page editing and enterprise multisite support.
+- [CloudCannon](https://cloudcannon.com/): commercial hosted platform with visual editing for many static site generators.
+- [Dark Matter](https://getdarkmatter.dev): desktop app for editing local Astro content collections.
+- [Decap CMS](https://decapcms.org/): long-established, framework-agnostic Git CMS configured through YAML.
+- [EmDash](https://emdashcms.com): full-stack, database-backed Astro CMS in the spirit of WordPress with sandboxed plugins.
+- [Keystatic](https://keystatic.com/): Git-based CMS with a TypeScript configuration API.
+- [Pages CMS](https://pagescms.org/): hosted Git CMS for GitHub repositories that requires no installation.
+- [Spinal](https://spinalcms.com/): commercial Git-based CMS tailored to content marketing teams.
+- [StudioCMS](https://studiocms.dev/): Astro-native, database-backed CMS for server-rendered sites with a plugin ecosystem.
+- [Sveltia CMS](https://github.com/sveltia/sveltia-cms): modern, faster drop-in replacement for Decap CMS.
+- [TinaCMS](https://tina.io/): visual inline editing backed by Git with a GraphQL content API.
