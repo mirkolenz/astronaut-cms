@@ -28,7 +28,7 @@ describe("FieldRenderer dispatch", () => {
     ["reference", { type: "reference", collection: "posts" }, "ReferenceField"],
     ["string", { type: "string" }, "StringField"],
     ["string (email)", { type: "string", format: "email" }, "StringField"],
-    ["string (long)", { type: "string", maxLength: 500 }, "TextareaField"],
+    ["string (multiline)", { type: "string", multiline: true }, "TextareaField"],
     ["number", { type: "number" }, "NumberField"],
     ["boolean", { type: "boolean" }, "BooleanField"],
     ["date", { type: "date" }, "DateField"],

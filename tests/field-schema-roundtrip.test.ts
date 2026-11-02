@@ -29,6 +29,19 @@ describe("zodToFieldSchema lowering", () => {
     expect(() => zodToFieldSchema(z.literal(undefined))).toThrow(/CMS schema literals/);
   });
 
+  it("reads how a field is presented from its meta", () => {
+    expect(zodToFieldSchema(z.string().optional().meta({ multiline: true }))).toEqual({
+      type: "string",
+      optional: true,
+      multiline: true,
+    });
+    expect(zodToFieldSchema(z.enum(["a", "b"]).meta({ labels: { a: "Alpha" } }))).toEqual({
+      type: "enum",
+      options: ["a", "b"],
+      labels: { a: "Alpha" },
+    });
+  });
+
   it("threads optional / nullable / default flags onto the base type", () => {
     expect(zodToFieldSchema(z.string().optional())).toMatchObject({
       type: "string",

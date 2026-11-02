@@ -175,7 +175,7 @@ export function FieldRenderer({
         return <StringField {...common} value={asString(resolved)} format={schema.format} />;
       }
 
-      if (schema.maxLength && schema.maxLength > 200) {
+      if (schema.multiline) {
         return <TextareaField {...common} value={asString(resolved)} />;
       }
 
@@ -192,7 +192,15 @@ export function FieldRenderer({
 
     case "enum":
       // An option may be an empty text, which is chosen as it is.
-      return <EnumField {...shell} onChange={onChange} options={schema.options} value={resolved} />;
+      return (
+        <EnumField
+          {...shell}
+          onChange={onChange}
+          options={schema.options}
+          labels={schema.labels}
+          value={resolved}
+        />
+      );
 
     case "array":
     case "record": {
@@ -483,10 +491,14 @@ function DateField({ value, onChange, ...shell }: FieldProps<string>) {
 
 function EnumField({
   options,
+  labels,
   value,
   onChange,
   ...shell
-}: FieldProps<unknown> & { options: (string | number | boolean | null)[] }) {
+}: FieldProps<unknown> & {
+  options: (string | number | boolean | null)[];
+  labels?: Record<string, string>;
+}) {
   const selected = options.findIndex((option) => Object.is(option, value));
 
   return (
@@ -506,7 +518,7 @@ function EnumField({
           <SelectContent>
             {options.map((option, index) => (
               <SelectItem key={index} value={String(index)}>
-                {String(option)}
+                {labels?.[String(option)] ?? String(option)}
               </SelectItem>
             ))}
           </SelectContent>

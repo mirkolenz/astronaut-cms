@@ -19,6 +19,7 @@ import {
   type FieldMeta,
   type FieldMods,
   type FieldSchema,
+  isRecord,
 } from "./field-schema.ts";
 
 // Bounds recursion through `z.lazy` and pathologically deep schemas: a
@@ -88,7 +89,12 @@ function readMeta(schema: z.ZodType, meta: FieldMeta): void {
   if (typeof data?.title === "string") meta.label ??= data.title;
   if (typeof data?.description === "string") meta.description ??= data.description;
   if (typeof data?.group === "string") meta.group ??= data.group;
+  if (data?.multiline === true) meta.multiline ??= true;
+  if (isStringRecord(data?.labels)) meta.labels ??= data.labels;
 }
+
+const isStringRecord = (value: unknown): value is Record<string, string> =>
+  isRecord(value) && Object.values(value).every((label) => typeof label === "string");
 
 // Coerces a Zod literal value into the JSON-safe subset `FieldSchema` allows.
 function literalValue(value: unknown): string | number | boolean | null {

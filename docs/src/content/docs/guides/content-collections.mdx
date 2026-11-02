@@ -187,6 +187,15 @@ z.object({
 
 `title` replaces the label, and `description` (or `.describe()`) is shown below the field.
 Fields that share a `group` are listed together in a section that opens on demand, after the fields without one.
+`multiline: true` edits a text in a textarea, and `labels` names the options of an enum:
+
+```ts
+z.object({
+  intro: z.string().meta({ multiline: true }),
+  layout: z.enum(["mosaic", "grid"]).meta({ labels: { mosaic: "Mosaic", grid: "Equal tiles" } }),
+});
+```
+
 The same keys work for the props of a component.
 
 <Aside type="tip">

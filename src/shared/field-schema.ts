@@ -34,6 +34,10 @@ export interface FieldMeta {
   description?: string;
   /** `.meta({ group })`, the collapsible section the field is listed in. */
   group?: string;
+  /** `.meta({ multiline: true })`, a text field edited in a textarea. */
+  multiline?: true;
+  /** `.meta({ labels })`, what an enum shows for each option, keyed by the option. */
+  labels?: Record<string, string>;
 }
 
 // Declarative Zod checks that lower losslessly (a serializable number / string /
