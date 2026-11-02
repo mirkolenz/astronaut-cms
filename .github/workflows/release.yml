@@ -21,8 +21,8 @@ jobs:
       released: ${{ steps.semanticrelease.outputs.released }}
       git-head: ${{ steps.semanticrelease.outputs.git-head }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v23
         with:
           extra-conf: |
             accept-flake-config = true
@@ -44,11 +44,11 @@ jobs:
       pages: read
     environment: github-pages
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.git-head }}
-      - uses: actions/configure-pages@v5
-      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: actions/configure-pages@v6
+      - uses: DeterminateSystems/nix-installer-action@v23
         with:
           extra-conf: |
             accept-flake-config = true
@@ -57,7 +57,7 @@ jobs:
           name: mirkolenz
           authToken: ${{ secrets.CACHIX_TOKEN }}
       - run: nix build .#docs
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: ./result
   deploy-docs:
@@ -70,5 +70,5 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v5
         id: deploy
