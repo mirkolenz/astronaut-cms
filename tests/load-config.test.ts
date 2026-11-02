@@ -21,6 +21,7 @@ it("rejects file collections the CMS cannot serialize safely", async () => {
           content: join(root, "src/content.config.ts"),
           cms: null,
         },
+        null,
         warn,
       ),
     ).rejects.toThrow('Collection "records" uses file(');
@@ -39,6 +40,7 @@ it("carries a collection's label and description into the manifest", async () =>
       content: join(root, "src/content.config.ts"),
       cms: join(root, "src/cms.config.ts"),
     },
+    null,
     warn,
   );
 
@@ -52,7 +54,7 @@ it("carries a collection's label and description into the manifest", async () =>
 it("rejects a component that points editors to an unknown collection", async () => {
   const root = project({
     "src/content.config.ts": `export const collections = { jobs: { loader: { __cmsPattern: "**/*.md" } } };`,
-    "src/cms.config.ts": `export const components = { Jobs: { props: null, collections: ["jobs", "projects"] } };`,
+    "src/cms.config.ts": `export const components = { Jobs: { collections: ["jobs", "projects"] } };`,
   });
 
   await expect(
@@ -62,6 +64,7 @@ it("rejects a component that points editors to an unknown collection", async () 
         content: join(root, "src/content.config.ts"),
         cms: join(root, "src/cms.config.ts"),
       },
+      null,
       warn,
     ),
   ).rejects.toThrow('Jobs lists "projects"');
@@ -69,7 +72,7 @@ it("rejects a component that points editors to an unknown collection", async () 
 
 it("resolves each component's file like the site's imports, and refuses a missing one", async () => {
   const config = (path: string) =>
-    `export const components = { Steps: { props: null, component: "@/components/Steps.astro", children: { Step: { props: null, component: "${path}" } } } };`;
+    `export const components = { Steps: { component: "@/components/Steps.astro", children: { Step: { component: "${path}" } } } };`;
   const files = {
     "tsconfig.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["./src/*"] } } }),
     "src/components/Steps.astro": "",
@@ -80,6 +83,7 @@ it("resolves each component's file like the site's imports, and refuses a missin
   const { componentFiles } = await loadConfigs(
     root,
     { content: null, cms: join(root, "src/cms.config.ts") },
+    null,
     warn,
   );
 
@@ -91,6 +95,6 @@ it("resolves each component's file like the site's imports, and refuses a missin
   const broken = project({ ...files, "src/cms.config.ts": config("@/components/Missing.astro") });
 
   await expect(
-    loadConfigs(broken, { content: null, cms: join(broken, "src/cms.config.ts") }, warn),
+    loadConfigs(broken, { content: null, cms: join(broken, "src/cms.config.ts") }, null, warn),
   ).rejects.toThrow('Step renders with "@/components/Missing.astro", which names no file');
 });

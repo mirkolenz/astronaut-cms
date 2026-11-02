@@ -85,7 +85,14 @@ export type FieldSchema = FieldMods &
     | { type: "reference"; collection: string }
     | { type: "array"; element: FieldSchema; minItems?: number; maxItems?: number }
     | { type: "tuple"; items: FieldSchema[] }
-    | { type: "object"; shape: Record<string, FieldSchema> }
+    | {
+        type: "object";
+        shape: Record<string, FieldSchema>;
+        /** Whether a key outside `shape` is refused, as by `z.strictObject`. */
+        strict?: true;
+        /** A `localized()` value, one field per content language, edited in tabs. */
+        localized?: true;
+      }
     | { type: "record"; value: FieldSchema }
     // `discriminator` is present only for discriminated unions; a plain union
     // omits it and is rendered/explained by its variants alone.
@@ -148,3 +155,5 @@ export const CMS_FILE = "x-cms-file";
 export const CMS_REFERENCE = "x-cms-reference";
 export const CMS_LINK = "x-cms-link";
 export const CMS_ANCHOR = "x-cms-anchor";
+/** Tags a record as one value per content language, see `localized()`. */
+export const CMS_LOCALIZED = "x-cms-localized";

@@ -21,6 +21,7 @@ import {
   DEFAULT_S3_DEV_DIRECTORY,
   isByok,
   resolveClientConfig,
+  resolveContentI18n,
   resolveMediaServer,
   resolveServerConfig,
   storageType,
@@ -37,7 +38,7 @@ export type {
   SupportedLocale,
 } from "./types.ts";
 export type { ContentI18n } from "../shared/i18n.ts";
-export { defineCollection, defineComponent, file, libraryImage } from "../config.ts";
+export { defineCollection, defineComponent, file, libraryImage, localized } from "../config.ts";
 export type {
   CollectionOptions,
   CollectionSort,
@@ -304,6 +305,7 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         const { collections, components, componentFiles } = await loadConfigs(
           rootDir,
           { content: contentConfigPath, cms: userConfigPath },
+          resolveContentI18n(config, astroConfig.i18n),
           (message) => logger.warn(message),
         );
 

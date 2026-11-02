@@ -14,6 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { isRequired, type FieldSchema } from "@/shared/field-schema";
+import { localeLabel } from "@/shared/i18n";
+import { MISSING } from "@/client/components/locale-tabs";
 import { mediaRef, type MediaLocation } from "@/shared/media";
 import config from "@/client/lib/config";
 import { arrayMove } from "@/client/lib/arrays";
@@ -51,6 +53,7 @@ import { AssetThumbnail } from "@/client/components/editors/asset-thumbnail";
 import { BlockRowButton, MissingProps } from "@/client/components/editors/block-controls";
 import { Input } from "@/client/components/ui/input";
 import { Textarea } from "@/client/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/client/components/ui/toggle-group";
 import { Switch } from "@/client/components/ui/switch";
 import {
   Field,
@@ -220,7 +223,9 @@ export function FieldRenderer({
       return <TupleField {...common} items={schema.items} value={asArray(resolved)} path={path} />;
 
     case "object":
-      return (
+      return schema.localized ? (
+        <LocalizedField {...common} shape={schema.shape} value={asRecord(resolved)} path={path} />
+      ) : (
         <ObjectField {...common} shape={schema.shape} value={asRecord(resolved)} path={path} />
       );
 
@@ -813,6 +818,57 @@ function ObjectField({
     <FieldShell {...shell}>
       {/* Unlabelled, the object is an item its container already frames. */}
       {shell.label ? <div className="rounded-md border border-border p-3">{fields}</div> : fields}
+    </FieldShell>
+  );
+}
+
+/**
+ * A `localized()` value, one field per content language, shown one language at
+ * a time. A language without a value is dashed, and its field offers to add one.
+ */
+function LocalizedField({
+  shape,
+  value,
+  onChange,
+  path,
+  ...shell
+}: FieldProps<Record<string, unknown>> & { shape: Record<string, FieldSchema>; path: ValuePath }) {
+  const locales = Object.keys(shape);
+  const [active, setActive] = useState(locales[0] ?? "");
+  const field = shape[active];
+
+  return (
+    <FieldShell {...shell}>
+      <div className="space-y-2">
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          spacing={0}
+          value={active}
+          onValueChange={(locale) => locale && setActive(locale)}
+        >
+          {locales.map((locale) => (
+            <ToggleGroupItem
+              key={locale}
+              value={locale}
+              className={cn(isBlank(value[locale]) && MISSING)}
+            >
+              {localeLabel(locale)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        {field && (
+          <FieldRenderer
+            key={active}
+            schema={field}
+            value={value[active]}
+            onChange={(v) => onChange({ ...value, [active]: v })}
+            required={isRequired(field)}
+            path={[...path, active]}
+          />
+        )}
+      </div>
     </FieldShell>
   );
 }

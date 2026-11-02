@@ -10,7 +10,7 @@ import { ButtonGroup } from "@/client/components/ui/button-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/client/components/ui/tooltip";
 
 /** How a language that is missing shows, wherever languages are listed. */
-const MISSING = "border-dashed text-muted-foreground";
+export const MISSING = "border-dashed text-muted-foreground";
 
 /** A language and what it opens: a folder of the collection, or one entry's translation. */
 type LocaleTab = { locale: string } & ({ dir: string } | { entry: string; exists: boolean });

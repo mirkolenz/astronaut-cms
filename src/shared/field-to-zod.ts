@@ -26,7 +26,7 @@ const UNKNOWN = z.unknown().refine((value) => !containsLink(value), PLAIN_TEXT_M
  * Details the lowering could not capture (refinements, transforms) collapse to
  * their base type, so the reconstruction is a faithful view of the original
  * schema, stricter only by the link policy of `links.ts` that every string is
- * held to.
+ * held to, and by a `localized()` value taking no language the site lacks.
  */
 function base(field: FieldSchema): z.ZodType {
   switch (field.type) {
@@ -127,7 +127,7 @@ function base(field: FieldSchema): z.ZodType {
     case "object": {
       const shape: Record<string, z.ZodType> = {};
       for (const [key, value] of Object.entries(field.shape)) shape[key] = fieldSchemaToZod(value);
-      return z.object(shape);
+      return field.strict ? z.strictObject(shape) : z.object(shape);
     }
 
     case "record":

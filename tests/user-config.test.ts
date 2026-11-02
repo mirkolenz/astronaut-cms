@@ -21,7 +21,7 @@ describe("processUserConfig", () => {
         component,
         props: z.object({ text: z.string() }),
       }),
-    });
+    }, null);
 
     expect(manifest.Figure?.props).toEqual({
       type: "object",
@@ -47,7 +47,7 @@ describe("processUserConfig", () => {
           Cell: defineComponent({ component, props: ({ image }) => z.object({ src: image() }) }),
         },
       }),
-    });
+    }, null);
 
     const children = manifest.Grid?.children;
 
@@ -66,7 +66,7 @@ describe("processUserConfig", () => {
           href: z.string().optional().describe("Where it leads."),
         }),
       }),
-    });
+    }, null);
 
     expect(manifest.Hero?.props).toEqual({
       type: "object",
@@ -84,14 +84,14 @@ describe("processUserConfig", () => {
       processUserConfig({
         Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
         List: defineComponent({ component, props: z.object({}), children: { Item } }),
-      }),
+      }, null),
     ).not.toThrow();
 
     expect(() =>
       processUserConfig({
         Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
         Item: defineComponent({ component, props: z.object({ label: z.string() }) }),
-      }),
+      }, null),
     ).toThrow(/defined twice/);
   });
 });

@@ -29,12 +29,17 @@ declare module "virtual:astronaut-cms/assets" {
   export const files: Record<string, () => Promise<string>>;
 }
 
-/** The collections whose `sort` is not astro's own, and the file order of those sorted by file. */
-declare module "virtual:astronaut-cms/order" {
+/** What `astronaut-cms/content` reads off the site's content config. */
+declare module "virtual:astronaut-cms/content" {
   import type { CollectionSort } from "@/shared/types";
+  import type { ContentI18n } from "@/shared/i18n";
 
+  /** The collections whose `sort` is not astro's own. */
   export const sorts: Record<string, CollectionSort>;
+  /** The file order of the collections sorted by file. */
   export const fileOrder: Record<string, string[]>;
+  /** The content languages, null when the site edits no localized content. */
+  export const contentI18n: ContentI18n | null;
 }
 
 /**

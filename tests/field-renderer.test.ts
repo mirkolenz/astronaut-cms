@@ -41,6 +41,11 @@ describe("FieldRenderer dispatch", () => {
     ],
     ["tuple", { type: "tuple", items: [{ type: "string" }, { type: "number" }] }, "TupleField"],
     ["object", { type: "object", shape: { a: { type: "string" } } }, "ObjectField"],
+    [
+      "object (localized)",
+      { type: "object", localized: true, shape: { de: { type: "string" } } },
+      "LocalizedField",
+    ],
     ["record", { type: "record", value: { type: "string" } }, "RecordField"],
     [
       "record (structured)",

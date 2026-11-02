@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
 import { CMS_IMAGE, CMS_REFERENCE } from "@/shared/field-schema";
-import { libraryImage, repoImageMarker } from "@/shared/cms-markers";
+import { libraryImage, localizedMarker, repoImageMarker } from "@/shared/cms-markers";
 import { fieldSchemaToZod } from "@/shared/field-to-zod";
 import type { FieldSchema } from "@/shared/field-schema";
 
@@ -27,6 +27,22 @@ describe("zodToFieldSchema lowering", () => {
     expect(zodToFieldSchema(z.literal("x"))).toEqual({ type: "literal", value: "x" });
     expect(zodToFieldSchema(z.literal(null))).toEqual({ type: "literal", value: null });
     expect(() => zodToFieldSchema(z.literal(undefined))).toThrow(/CMS schema literals/);
+  });
+
+  it("lays a localized value out by the content languages, the default one required", () => {
+    const i18n = { locales: ["de", "en"], defaultLocale: "de" };
+    const field = zodToFieldSchema(localizedMarker(z.string()), i18n);
+
+    expect(field).toEqual({
+      type: "object",
+      strict: true,
+      localized: true,
+      shape: { de: { type: "string" }, en: { type: "string", optional: true } },
+    });
+    expect(fieldSchemaToZod(field).safeParse({ en: "Hi" }).success).toBe(false);
+    expect(fieldSchemaToZod(field).safeParse({ de: "Hallo", fr: "Salut" }).success).toBe(false);
+    expect(zodToFieldSchema(localizedMarker(z.string()))).toMatchObject({ type: "record" });
+    expect(zodToFieldSchema(z.strictObject({}))).toEqual({ type: "object", shape: {}, strict: true });
   });
 
   it("reads how a field is presented from its meta", () => {

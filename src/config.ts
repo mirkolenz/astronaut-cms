@@ -22,6 +22,7 @@ export {
   fileMarker as file,
   libraryImage,
   linkMarker as link,
+  localizedMarker as localized,
 } from "./shared/cms-markers.ts";
 
 /**

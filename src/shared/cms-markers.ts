@@ -20,6 +20,7 @@ import {
   CMS_REFERENCE,
   CMS_LINK,
   CMS_ANCHOR,
+  CMS_LOCALIZED,
 } from "./field-schema.ts";
 import { allowedLinks } from "./links.ts";
 import { anchorIds } from "./anchors.ts";
@@ -65,6 +66,16 @@ export const linkMarker = () => allowedLinks(z.string()).meta({ [CMS_LINK]: true
  */
 export const anchorMarker = () => anchorIds(z.string()).meta({ [CMS_ANCHOR]: true });
 
+/**
+ * One value per content language, such as a translated title in an otherwise
+ * language-neutral entry. Stored as `{ de: "…", en: "…" }` and read with
+ * `pickLocale` from `astronaut-cms/content`. The admin edits it in a tab per
+ * language, and the default language is required, which the build and every
+ * save check, since only the CMS knows the site's languages.
+ */
+export const localizedMarker = <T extends z.ZodType>(schema: T) =>
+  z.record(z.string(), schema).meta({ [CMS_LOCALIZED]: true });
+
 /** A Zod string that references an entry id in another collection. */
 export const referenceMarker = (collection: string) =>
   z.string().meta({ [CMS_REFERENCE]: collection });
@@ -86,6 +97,7 @@ export function schemaHelpers(resolveImage: ImageResolver) {
     file: fileMarker,
     link: linkMarker,
     anchor: anchorMarker,
+    localized: localizedMarker,
     reference: referenceMarker,
   };
 }

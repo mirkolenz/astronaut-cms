@@ -56,8 +56,61 @@ An empty collection counts as localized, which lets you create its first entry s
 
 <Aside>
   File collections (a single JSON, YAML, or TOML file) are never split by language, since their
-  entries are not stored as separate files. Add a language field to their schema instead.
+  entries are not stored as separate files. Use a [localized field](#localized-fields) for what
+  differs per language instead.
 </Aside>
+
+## Localized fields
+
+A language-neutral entry often holds a few values that differ per language, such as a translated title next to an address and a logo.
+Declare them with `localized()`, which takes the schema of one language's value:
+
+```ts title="src/content.config.ts"
+import { localized } from "astronaut-cms/config";
+
+const company = defineCollection({
+  loader: glob({ pattern: "company.yml", base: "src/content" }),
+  schema: ({ image }) =>
+    z.object({
+      name: z.string(),
+      logo: image(),
+      slogan: localized(z.string()),
+      hours: localized(z.object({ days: z.string(), time: z.string() })),
+    }),
+});
+```
+
+```yaml title="src/content/company.yml"
+slogan:
+  de: Wein und Wohnen an der Mosel
+  en: Wine and holidays on the Moselle
+```
+
+The admin edits the field with a tab per language, a missing translation dashed.
+The default language is required: saving refuses an entry without it, and the build fails on one.
+In a component's props, take `localized` from the helpers its props function is handed.
+
+## Reading localized content
+
+`astronaut-cms/content` reads localized content the way the admin edits it, falling back to the default language:
+
+```astro title="src/pages/[lang]/index.astro"
+---
+import { getCollection, getEntry } from "astro:content";
+import { getLocalizedEntry, localizeEntries, pickLocale } from "astronaut-cms/content";
+
+const lang = Astro.currentLocale ?? "en";
+// Every post once, in this language where it is translated, flagged `isFallback` where not.
+const posts = localizeEntries(await getCollection("posts"), lang);
+// One entry, such as a localized singleton's, by the id without its language.
+const texts = await getLocalizedEntry("texts", "site", lang);
+// One value of a localized field.
+const company = await getEntry("company", "company");
+const slogan = pickLocale(company.data.slogan, lang);
+---
+```
+
+Each localized entry comes with its `slug`, the id without the language, which is the path a site usually routes it under.
 
 ## Overriding the languages
 

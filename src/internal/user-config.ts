@@ -13,6 +13,7 @@ import type {
   JsxEditor,
 } from "../config.ts";
 import type { DescribedComponent } from "../shared/field-schema.ts";
+import type { ContentI18n } from "../shared/i18n.ts";
 import { zodToFieldSchema } from "../shared/zod-to-field.ts";
 import { componentSchema } from "../shared/component-props.ts";
 
@@ -26,39 +27,45 @@ export type ComponentManifest = Record<string, ClientComponentDef>;
 /**
  * An MDX body refers to a component by its name alone, so one name may stand
  * for one definition only. A child set may reuse a definition under the same name.
+ * `i18n` lays out the `localized()` props, see {@link zodToFieldSchema}.
  */
 export function processUserConfig(
   components: Record<string, ComponentDefinition> | undefined,
-  seen = new Map<string, ComponentDefinition>(),
+  i18n: ContentI18n | null,
 ): ComponentManifest {
-  const result: ComponentManifest = {};
+  const seen = new Map<string, ComponentDefinition>();
 
-  for (const [name, def] of Object.entries(components ?? {})) {
-    const previous = seen.get(name);
+  const walk = (defs: Record<string, ComponentDefinition>): ComponentManifest => {
+    const result: ComponentManifest = {};
 
-    if (previous && previous !== def) {
-      throw new Error(
-        `Component name "${name}" is defined twice in cms.config: names must be unique.`,
-      );
+    for (const [name, def] of Object.entries(defs)) {
+      const previous = seen.get(name);
+
+      if (previous && previous !== def) {
+        throw new Error(
+          `Component name "${name}" is defined twice in cms.config: names must be unique.`,
+        );
+      }
+
+      seen.set(name, def);
+
+      result[name] = {
+        props: zodToFieldSchema(componentSchema(def), i18n),
+        children: typeof def.children === "object" ? walk(def.children) : def.children,
+        kind: def.kind ?? "flow",
+        label: def.label ?? name,
+        description: def.description ?? null,
+        summary: def.summary ?? null,
+        icon: def.icon ?? null,
+        editor: def.editor ?? null,
+        collections: def.collections ?? [],
+      };
     }
 
-    seen.set(name, def);
+    return result;
+  };
 
-    result[name] = {
-      props: zodToFieldSchema(componentSchema(def)),
-      children:
-        typeof def.children === "object" ? processUserConfig(def.children, seen) : def.children,
-      kind: def.kind ?? "flow",
-      label: def.label ?? name,
-      description: def.description ?? null,
-      summary: def.summary ?? null,
-      icon: def.icon ?? null,
-      editor: def.editor ?? null,
-      collections: def.collections ?? [],
-    };
-  }
-
-  return result;
+  return walk(components ?? {});
 }
 
 /** The collections' icons by name, the one option the manifest cannot carry, being live components. */

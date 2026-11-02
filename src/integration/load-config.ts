@@ -16,6 +16,7 @@ import {
   type CollectionManifestEntry,
 } from "@/shared/types";
 import { errorMessage } from "../shared/errors.ts";
+import type { ContentI18n } from "../shared/i18n.ts";
 import { editorStubPlugin } from "./vite-plugin.ts";
 
 /**
@@ -137,6 +138,7 @@ async function loadCollections(
   load: ConfigImport,
   rootDir: string,
   contentConfigPath: string,
+  i18n: ContentI18n | null,
   warn: (message: string) => void,
 ): Promise<CollectionManifest> {
   const mod = await load<{ collections?: Record<string, RawCollection> }>(contentConfigPath);
@@ -168,7 +170,7 @@ async function loadCollections(
     manifest[name] = {
       name,
       type: collection.type === "data" ? "data" : "content",
-      schema: rawSchema == null ? null : zodToFieldSchema(rawSchema),
+      schema: rawSchema == null ? null : zodToFieldSchema(rawSchema, i18n),
       loaderType: loader?.__cmsFileName != null ? "file" : "glob",
       loaderPattern: loader?.__cmsPattern ?? null,
       loaderBase: rootRelative(rootDir, loader?.__cmsBase),
@@ -237,16 +239,17 @@ export interface LoadedConfigs {
 export function loadConfigs(
   rootDir: string,
   paths: { content: string | null; cms: string | null },
+  i18n: ContentI18n | null,
   warn: (message: string) => void,
 ): Promise<LoadedConfigs> {
   return withConfigImport(rootDir, async (load, resolve) => {
     const [collections, cms] = await Promise.all([
-      paths.content ? loadCollections(load, rootDir, paths.content, warn) : {},
+      paths.content ? loadCollections(load, rootDir, paths.content, i18n, warn) : {},
       paths.cms ? load<CmsConfigModule>(paths.cms) : undefined,
     ]);
 
     const manifest = withOptions(collections, cms?.collections ?? {});
-    const components = processUserConfig(cms?.components);
+    const components = processUserConfig(cms?.components, i18n);
     const componentFiles = paths.cms
       ? await resolveComponents(cms?.components ?? {}, manifest, paths.cms, resolve)
       : {};

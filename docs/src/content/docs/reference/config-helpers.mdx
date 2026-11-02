@@ -1,6 +1,6 @@
 ---
 title: Config Helpers
-description: API reference for defineCollection, defineComponent, the schema helpers, file, link, anchor, and the generated astronaut-cms:components module.
+description: API reference for defineCollection, defineComponent, the schema helpers, file, link, anchor, localized, and the generated astronaut-cms:components module.
 ---
 
 These functions and types are exported from `astronaut-cms/config`, except for the generated [`astronaut-cms:components`](#astronaut-cmscomponents) module.
@@ -48,9 +48,9 @@ const Alert = defineComponent({
 });
 ```
 
-## Schema helpers (`image`, `file`, `link`, `anchor`, `reference`)
+## Schema helpers (`image`, `file`, `link`, `anchor`, `localized`, `reference`)
 
-A component's `props` may be written as a function, which receives the asset, link, anchor and reference helpers:
+A component's `props` may be written as a function, which receives the asset, link, anchor, localized and reference helpers:
 
 ```ts
 type SchemaHelpers = {
@@ -58,6 +58,7 @@ type SchemaHelpers = {
   file: () => z.ZodString;
   link: () => z.ZodString;
   anchor: () => z.ZodString;
+  localized: <T extends z.ZodType>(schema: T) => z.ZodRecord<z.ZodString, T>;
   reference: (collection: CollectionName) => z.ZodString;
 };
 
@@ -133,13 +134,13 @@ Keep values both configs use, such as a shared `z.enum()` of colours, in a modul
 component prop takes the one its props function is handed, so there is no spelling that resolves in
 one place and silently fails in the other.
 
-## `file()`, `link()` and `anchor()`
+## `file()`, `link()`, `anchor()` and `localized()`
 
 The helpers that _are_ exported, because astro's collection schema has no counterpart for them.
-Use them for a non-image asset, a URL or an element id in a `content.config.ts` field:
+Use them for a non-image asset, a URL, an element id or a value per language in a `content.config.ts` field:
 
 ```ts title="src/content.config.ts"
-import { file, link } from "astronaut-cms/config";
+import { file, link, localized } from "astronaut-cms/config";
 
 const pages = defineCollection({
   loader: glob({ pattern: "**/*.mdx", base: "src/content/pages" }),
@@ -148,11 +149,13 @@ const pages = defineCollection({
       cover: image(), // astro's helper: resolved into entry.data
       brief: file().optional(), // the CMS's: a path string, resolved with resolveFile()
       website: link().optional(), // the only kind of field that may hold a URL
+      tagline: localized(z.string()), // { de: "…", en: "…" }, read with pickLocale()
     }),
 });
 ```
 
-Inside a `cms.config.ts` props function, take `file`, `link` and `anchor` from the helpers instead of importing them.
+See [Localized fields](/astronaut-cms/guides/multilingual-content/#localized-fields) for `localized()`.
+Inside a `cms.config.ts` props function, take `file`, `link`, `anchor` and `localized` from the helpers instead of importing them.
 
 ## `astronaut-cms:components`
 

@@ -10,12 +10,14 @@
  * `z.toJSONSchema()` for declarative constraints (min/max, regex, multipleOf, ...).
  */
 import { z } from "zod";
+import type { ContentI18n } from "./i18n.ts";
 import {
   CMS_IMAGE,
   CMS_FILE,
   CMS_REFERENCE,
   CMS_LINK,
   CMS_ANCHOR,
+  CMS_LOCALIZED,
   type FieldMeta,
   type FieldMods,
   type FieldSchema,
@@ -27,12 +29,16 @@ import {
 // field degrades to "unknown" (raw editor) rather than blowing the stack.
 const MAX_DEPTH = 10;
 
-/** Lowers a (live) Zod v4 schema into a serializable {@link FieldSchema}. */
-export function zodToFieldSchema(schema: unknown): FieldSchema {
-  return lower(schema, 0);
+/**
+ * Lowers a (live) Zod v4 schema into a serializable {@link FieldSchema}. `i18n`
+ * lays a `localized()` field out as one field per content language, the default
+ * one required. Without content languages it stays a record.
+ */
+export function zodToFieldSchema(schema: unknown, i18n: ContentI18n | null = null): FieldSchema {
+  return lower(schema, 0, i18n);
 }
 
-function lower(input: unknown, depth: number): FieldSchema {
+function lower(input: unknown, depth: number, i18n: ContentI18n | null): FieldSchema {
   if (depth > MAX_DEPTH) return { type: "unknown" };
 
   const mods: FieldMods = {};
@@ -71,7 +77,7 @@ function lower(input: unknown, depth: number): FieldSchema {
     }
   }
 
-  const base = convertBase(schema, depth);
+  const base = convertBase(schema, depth, i18n);
   if (mods.optional) base.optional = true;
   if (mods.nullable) base.nullable = true;
   if ("default" in mods) base.default = mods.default;
@@ -129,7 +135,7 @@ function realBound(value: unknown, sentinel: number): number | undefined {
   return typeof value === "number" && value !== sentinel ? value : undefined;
 }
 
-function convertBase(schema: unknown, depth: number): FieldSchema {
+function convertBase(schema: unknown, depth: number, i18n: ContentI18n | null): FieldSchema {
   if (!(schema instanceof z.ZodType)) return { type: "unknown" };
 
   const meta = schema.meta();
@@ -199,29 +205,44 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
 
   if (schema instanceof z.ZodArray) {
     const js = constraintsOf(schema);
-    const field: FieldSchema = { type: "array", element: lower(schema.element, next) };
+    const field: FieldSchema = { type: "array", element: lower(schema.element, next, i18n) };
     if (typeof js.minItems === "number") field.minItems = js.minItems;
     if (typeof js.maxItems === "number") field.maxItems = js.maxItems;
     return field;
   }
 
   if (schema instanceof z.ZodTuple) {
-    return { type: "tuple", items: schema.def.items.map((item) => lower(item, next)) };
+    return { type: "tuple", items: schema.def.items.map((item) => lower(item, next, i18n)) };
   }
 
   if (schema instanceof z.ZodObject) {
     const shape: Record<string, FieldSchema> = {};
-    for (const [key, value] of Object.entries(schema.shape)) shape[key] = lower(value, next);
-    return { type: "object", shape };
+    for (const [key, value] of Object.entries(schema.shape)) shape[key] = lower(value, next, i18n);
+    return schema.def.catchall instanceof z.ZodNever
+      ? { type: "object", shape, strict: true }
+      : { type: "object", shape };
   }
 
-  if (schema instanceof z.ZodRecord)
-    return { type: "record", value: lower(schema.valueType, next) };
+  if (schema instanceof z.ZodRecord) {
+    const value = lower(schema.valueType, next, i18n);
+
+    if (!meta?.[CMS_LOCALIZED] || !i18n) return { type: "record", value };
+
+    const shape = Object.fromEntries(
+      i18n.locales.map((locale) => [
+        locale,
+        locale === i18n.defaultLocale ? value : { ...value, optional: true },
+      ]),
+    );
+
+    // A language the site does not have would never be shown.
+    return { type: "object", shape, strict: true, localized: true };
+  }
 
   if (schema instanceof z.ZodUnion) {
     // `ZodDiscriminatedUnion` extends `ZodUnion`; its discriminator drives the
     // dedicated variant editor. A plain union has none.
-    const variants = schema.options.map((option) => lower(option, next));
+    const variants = schema.options.map((option) => lower(option, next, i18n));
     const discriminator =
       schema instanceof z.ZodDiscriminatedUnion ? schema.def.discriminator : undefined;
     return typeof discriminator === "string"
@@ -233,15 +254,15 @@ function convertBase(schema: unknown, depth: number): FieldSchema {
     // Flatten an intersection of two object schemas into one merged object so
     // both the form and the agent see a single field map. Non-object operands
     // have no faithful flat shape, so they degrade to "unknown".
-    const left = lower(schema.def.left, next);
-    const right = lower(schema.def.right, next);
+    const left = lower(schema.def.left, next, i18n);
+    const right = lower(schema.def.right, next, i18n);
     if (left.type === "object" && right.type === "object") {
       return { type: "object", shape: { ...left.shape, ...right.shape } };
     }
     return { type: "unknown" };
   }
 
-  if (schema instanceof z.ZodLazy) return lower(schema.unwrap(), next);
+  if (schema instanceof z.ZodLazy) return lower(schema.unwrap(), next, i18n);
 
   return { type: "unknown" };
 }

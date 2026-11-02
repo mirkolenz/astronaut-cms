@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "pathe";
 import type { Plugin } from "vite";
 import type { CmsClientConfig, CmsServerConfig } from "./types.ts";
-import type { CollectionManifest, CollectionSort } from "../shared/types.ts";
+import type { CollectionSort } from "../shared/types.ts";
 import type { ComponentManifest } from "../internal/user-config.ts";
 import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
@@ -64,9 +64,9 @@ export const server = ${JSON.stringify(serverConfig)};
 export const components = ${JSON.stringify(options.components)};`,
     "virtual:astronaut-cms/local-storage": ({ devApi }) =>
       generateLocalStorageModule(options, devApi),
-    "virtual:astronaut-cms/order": ({ watch }) =>
-      generateOrderModule(clientConfig.collections, options.rootDir, watch),
-    "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath),
+    "virtual:astronaut-cms/content": ({ watch }) =>
+      generateContentModule(clientConfig, options.rootDir, watch),
+    "virtual:astronaut-cms/user-config": generateUserConfigModule(userConfigPath, clientConfig),
     // The media config comes along so the resolver reads no config module, which
     // would take the whole admin config into a site island that resolves an asset.
     "virtual:astronaut-cms/assets": `export const media = ${JSON.stringify(assetsMedia(clientConfig.media))};\n${generateAssetsModule(clientConfig.media)}`,
@@ -162,10 +162,11 @@ export const images = import.meta.glob(${imagesGlob}, { import: "default" });
 export const files = import.meta.glob(${filesGlob}, { query: "?url&no-inline", import: "default" });`;
 }
 
-// The order behind `sortEntries`. File order is read off the file on every load
-// and the file is watched, so an edit reaches the site without a restart.
-function generateOrderModule(
-  collections: CollectionManifest,
+// What `astronaut-cms/content` reads: the order behind `sortEntries` and the
+// content languages. File order is read off the file on every load and the file
+// is watched, so an edit reaches the site without a restart.
+function generateContentModule(
+  { collections, contentI18n }: CmsClientConfig,
   rootDir: string,
   watch: (path: string) => void,
 ): string {
@@ -189,14 +190,20 @@ function generateOrderModule(
 
   return `\
 export const sorts = ${JSON.stringify(sorts)};
-export const fileOrder = ${JSON.stringify(fileOrder)};`;
+export const fileOrder = ${JSON.stringify(fileOrder)};
+export const contentI18n = ${JSON.stringify(contentI18n)};`;
 }
 
-function generateUserConfigModule(configPath: string | null): string {
+// The languages are inlined rather than imported from the content module, which
+// watches the file-sorted collections and would reload the admin on every save.
+function generateUserConfigModule(
+  configPath: string | null,
+  { contentI18n }: CmsClientConfig,
+): string {
   if (!configPath) return "export const components = {};\nexport const collectionIcons = {};";
   return `\
 import * as config from ${JSON.stringify(configPath)};
 import { processCollectionIcons, processUserConfig } from "astronaut-cms/internal";
-export const components = processUserConfig(config.components);
+export const components = processUserConfig(config.components, ${JSON.stringify(contentI18n)});
 export const collectionIcons = processCollectionIcons(config.collections);`;
 }

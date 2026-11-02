@@ -10,7 +10,8 @@ export default defineConfig({
     tsconfigPaths: true,
     alias: [
       { find: "astro:env/server", replacement: path("tests/fixtures/env.ts") },
-      ...["server", "local-storage", "order", "user-config"].map((name) => ({
+      { find: /^astro:content$/, replacement: path("tests/fixtures/astro-content.ts") },
+      ...["server", "local-storage", "content", "user-config"].map((name) => ({
         find: `virtual:astronaut-cms/${name}`,
         replacement: path("tests/fixtures", `${name}.ts`),
       })),
