@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BodyTooLargeError, readBody, readBytes } from "@/shared/http";
-import { RateLimiter, callerAddress, limited } from "@/shared/rate-limit";
+import { RateLimiter, limited } from "@/shared/rate-limit";
 
 // The injected routes spend something the caller does not own, a gateway
 // credential or a bucket, on a request the caller shapes. These are the three
@@ -122,18 +122,5 @@ describe("limited", () => {
 
     release();
     await first;
-  });
-});
-
-// The platform sets one of these in front of a serverless function; reached
-// directly they are the caller's to spell, which is why a shared bucket backs them.
-describe("callerAddress", () => {
-  const from = (headers: Record<string, string>) =>
-    callerAddress(new Request("https://x.test/", { headers }));
-
-  it("prefers the platform header and takes the first forwarded hop", () => {
-    expect(from({ "cf-connecting-ip": "1.1.1.1", "x-forwarded-for": "9.9.9.9" })).toBe("1.1.1.1");
-    expect(from({ "x-forwarded-for": "2.2.2.2, 3.3.3.3" })).toBe("2.2.2.2");
-    expect(from({})).toBe("anonymous");
   });
 });

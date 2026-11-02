@@ -128,23 +128,3 @@ export async function limited<T>(
 
   return await work();
 }
-
-/**
- * Who to charge a request to when there is no session yet.
- *
- * The platform sets one of these in front of a serverless function, and behind
- * one they are trustworthy. Reached directly they are the caller's to spell and
- * to rotate, which buys a fresh budget per request, so a bucket keyed on this
- * has to sit inside one charged to everybody at once (see the sign-in limiters
- * in `server/handler.ts`), and the real ceiling still belongs at the CDN. This
- * separates honest callers, it does not identify dishonest ones.
- */
-export function callerAddress(request: Request): string {
-  for (const header of ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]) {
-    const address = request.headers.get(header)?.split(",")[0]?.trim();
-
-    if (address) return address;
-  }
-
-  return "anonymous";
-}

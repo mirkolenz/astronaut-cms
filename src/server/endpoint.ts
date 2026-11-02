@@ -11,7 +11,9 @@ export const prerender = false;
 /** The whole API for one request, also what the dev server calls without a route around it. */
 export { handle };
 
-const route: APIRoute = ({ request }) => handle(request);
+// Read unguarded: an adapter that cannot tell throws, which is louder than
+// every caller silently sharing one sign-in budget.
+const route: APIRoute = ({ request, clientAddress }) => handle(request, clientAddress);
 
 export const GET = route;
 export const POST = route;

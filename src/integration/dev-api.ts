@@ -41,7 +41,7 @@ export function serveDevApi(server: ViteDevServer, apiPath: string): void {
       .import<Endpoint>("astronaut-cms/endpoint")
       // Astro's own bridge, the one its Node adapter serves production with, so
       // a browser that goes away aborts `request.signal` and cancels the body.
-      .then(({ handle }) => handle(createRequestFromNodeRequest(req)))
+      .then(({ handle }) => handle(createRequestFromNodeRequest(req), req.socket.remoteAddress))
       .then((response) => writeResponse(response, res))
       .catch(next);
   });

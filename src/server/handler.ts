@@ -34,7 +34,7 @@ import { fetchRange } from "./ranges.ts";
 import { mediaLibrary, parseMediaLibrary, servedContentType } from "../shared/media.ts";
 import { conformTrailingSlash, withoutTrailingSlash } from "../shared/url.ts";
 import { getSecret } from "astro:env/server";
-import { RateLimiter, callerAddress, limited } from "../shared/rate-limit.ts";
+import { RateLimiter, limited } from "../shared/rate-limit.ts";
 import { Coalesced } from "../shared/coalesce.ts";
 import { relay } from "../ai/handler.ts";
 import { createContext, type RequestContext } from "./context.ts";
@@ -78,25 +78,17 @@ const LOGIN_COOKIE = "astronaut_cms_login";
 const LOGIN_MAX_AGE = 600;
 
 /**
- * Sign-in is the only thing an unauthenticated caller can make this server do
- * work for, and redeeming a code means an outbound request to the provider. A
- * flood of those costs invocations and risks the provider rate-limiting the
- * deployment's address, which would break sign-in for everyone, so the cap is
- * on the outbound call rather than on the bytes.
- *
- * Generous against real use: a deployment sees one exchange per editor per
- * session.
+ * Sign-in, the only work an unauthenticated caller can cause, per client
+ * address. Generous against real use: one sign-in per editor per session.
  */
 const signIn = new RateLimiter({ requests: 20, windowMs: 60_000, concurrency: 4 });
 
 /**
- * The same thing charged to everybody at once. Behind a proxy the forwarded
- * address above is trustworthy, but reached directly it is the caller's to
- * spell and to rotate, which makes the per-address bucket alone a formality.
- * This is the ceiling that holds whatever the request claims to be, set high
- * enough that it is only ever reached by a flood.
+ * Code exchanges, which call the provider, charged to everybody at once so a
+ * flood cannot get the deployment's address rate-limited there. Behind
+ * {@link signIn}, so no single caller can spend it.
  */
-const signInTotal = new RateLimiter({ requests: 120, windowMs: 60_000, concurrency: 16 });
+const exchanges = new RateLimiter({ requests: 120, windowMs: 60_000, concurrency: 16 });
 
 /**
  * What one signed-in editor may ask of the server. The admin is chatty, as a
@@ -107,6 +99,7 @@ const signInTotal = new RateLimiter({ requests: 120, windowMs: 60_000, concurren
 const rpc = new RateLimiter({ requests: 300, windowMs: 60_000, concurrency: 12 });
 
 const tooMany = (message: string) => () => new HttpError(message, 429);
+const tooManySignIns = tooMany("Too many sign-in attempts. Wait a moment and try again.");
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -387,20 +380,30 @@ function sessionState(request: Request, url: URL, authenticated: Authenticated):
   };
 }
 
-export async function handle(request: Request): Promise<Response> {
+/**
+ * The whole API for one request. `clientAddress` is the caller's address as the
+ * adapter determined it, which trusts a forwarded header only where the
+ * platform sets one.
+ */
+export async function handle(request: Request, clientAddress?: string): Promise<Response> {
   const url = new URL(request.url);
   // The same split the cookie scope uses, so a site base that itself contains
   // the API segment cannot be read one way here and another way there.
   const path = withoutTrailingSlash(url.pathname.slice(sitePath(url).length + API_BASE.length));
 
   try {
-    return await route(path, request, url);
+    return await route(path, request, url, clientAddress);
   } catch (err) {
     return toResponse(err);
   }
 }
 
-async function route(path: string, request: Request, url: URL): Promise<Response> {
+async function route(
+  path: string,
+  request: Request,
+  url: URL,
+  clientAddress: string | undefined,
+): Promise<Response> {
   // A cookie rides along with any request this origin receives, whoever caused
   // it, so anything that changes state has to prove the admin itself asked.
   if (request.method !== "GET" && !isSameOrigin(request, url)) {
@@ -410,12 +413,8 @@ async function route(path: string, request: Request, url: URL): Promise<Response
   // Both halves of the sign-in dance share a budget: the redirect out mints a
   // state cookie, and only a caller holding one can reach the exchange.
   if (path === "/login" || path === "/callback") {
-    const denied = tooMany("Too many sign-in attempts. Wait a moment and try again.");
-
-    return limited(signInTotal, "all", denied, () =>
-      limited(signIn, callerAddress(request), denied, () =>
-        path === "/login" ? startLogin(url) : completeLogin(request, url),
-      ),
+    return limited(signIn, clientAddress ?? "anonymous", tooManySignIns, () =>
+      path === "/login" ? startLogin(url) : completeLogin(request, url),
     );
   }
 
@@ -690,7 +689,9 @@ async function completeLogin(request: Request, url: URL): Promise<Response> {
     return failed("The sign-in link expired. Try again.");
   }
 
-  const session = await exchangeCode(provider, code, siteUrl(url, API_CALLBACK), login.verifier);
+  const session = await limited(exchanges, "all", tooManySignIns, () =>
+    exchangeCode(provider, code, siteUrl(url, API_CALLBACK), login.verifier),
+  );
 
   return redirect(admin, sessionCookie(url, await issueSession(session, secret)));
 }
