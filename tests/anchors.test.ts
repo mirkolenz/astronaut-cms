@@ -7,7 +7,7 @@ import type { ComponentSchemaMap } from "@/shared/field-schema";
 import { dataLeaves } from "@/shared/resolvable-leaves";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
 
-const { anchor, link } = schemaHelpers;
+const { anchor, link } = schemaHelpers(async (path) => path);
 
 const components: ComponentSchemaMap = {
   Section: { props: zodToFieldSchema(z.object({ id: anchor().optional() })), children: "markdown" },

@@ -26,7 +26,7 @@ export const components: ComponentManifest = {
   Figure: figure,
   Gallery: {
     ...figure,
-    props: null,
+    props: { type: "object", shape: {} },
     children: { Tile: { ...figure, label: "Tile" } },
     label: "Gallery",
   },

@@ -64,8 +64,10 @@ Each component is defined using `defineComponent()` with the following options:
 ### `props`
 
 - **Type:** `z.ZodType`
+- **Default:** no props
 
 A Zod schema defining the component's props.
+Leave it out for a component that takes none, such as a block that renders a collection.
 The admin panel generates a form from this schema, shown in the inspector next to the body once the component is selected.
 Its fields take the same [labels and groups](/astronaut-cms/guides/content-collections/#labels-and-groups) as a collection's, and its [lists of objects](/astronaut-cms/guides/content-collections/#lists-of-objects) open in the inspector the same way.
 
@@ -240,10 +242,11 @@ export const components = {
 };
 ```
 
-The admin panel renders these as asset pickers connected to the media library. Asset props are
-stored as root-absolute path strings and resolved to optimized assets at render time. See
-[Asset Handling](/astronaut-cms/guides/asset-handling/) for how the matching component renders them
-with `astronaut-cms/Image.astro` or `resolveImage()`/`resolveFile()`.
+The admin panel renders these as asset pickers connected to the media library.
+Asset props are stored as root-absolute path strings.
+The generated wrapper resolves every `image()` prop before the component renders, so a component receives its images as a collection's `image()` field arrives: as `ImageMetadata`, or an object-store URL.
+A `file()` prop arrives as its path, as a collection's `file()` field does, and `resolveFile()` turns it into a URL.
+See [Asset Handling](/astronaut-cms/guides/asset-handling/) for how the matching component renders them.
 
 <Aside type="note">
   There is no importable `image()`. A collection field takes astro's `({image})` and a component

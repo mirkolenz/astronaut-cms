@@ -54,7 +54,7 @@ A component's `props` may be written as a function, which receives the asset, li
 
 ```ts
 type SchemaHelpers = {
-  image: () => z.ZodString;
+  image: () => z.ZodType<ResolvedImage, string>; // written as a path, rendered resolved
   file: () => z.ZodString;
   link: () => z.ZodString;
   anchor: () => z.ZodString;
@@ -66,8 +66,8 @@ props: T | ((helpers: SchemaHelpers) => T);
 
 `image()` and `file()` create Zod strings tagged with `x-cms-image` / `x-cms-file` metadata, which
 the admin renders as pickers connected to the media library. The stored value is a root-absolute
-path string; resolve it at render time with `astronaut-cms/Image.astro` or
-`resolveImage()`/`resolveFile()` (see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
+path string. The component wrapper resolves an `image()` prop before the component renders, and a
+`file()` prop is resolved with `resolveFile()` (see [Asset Handling](/astronaut-cms/guides/asset-handling/)).
 
 ### Usage
 
@@ -161,7 +161,7 @@ A module the integration generates from `cms.config.ts`.
 
 ```ts
 declare module "astronaut-cms:components" {
-  /** The props each component renders with, every schema default applied, nested children included. */
+  /** The props each component renders with, every schema default applied and every image resolved, nested children included. */
   export type ComponentProps = { [Name in ComponentName]: z.output<Schema[Name]> };
 
   /** Every component by name, for `<Content components={mdxComponents} />`. */
@@ -172,11 +172,12 @@ declare module "astronaut-cms:components" {
 }
 ```
 
-A wrapper parses the props it receives with the component's schema, so every `.default()` and transform applies, and renders the component of the definition's `component` with the result.
+A wrapper parses the props it receives with the component's schema, so every `.default()` and transform applies, resolves every `image()` prop to `ImageMetadata` or an object-store URL, and renders the component of the definition's `component` with the result.
 It keeps attributes the schema does not declare, such as `class`, and throws an error naming the component for invalid props.
 It takes the props as MDX writes them, where a prop with a `.default()` is optional.
 
-Type each component with `ComponentProps`, which holds the props as the component receives them, with every default applied:
+Type each component with `ComponentProps`, which holds the props as the component receives them, with every default applied.
+A component without props gets an empty type, so it can add props a page passes it directly:
 
 ```astro title="src/components/Alert.astro"
 ---
@@ -200,7 +201,7 @@ The interface for a single component definition.
 
 ```ts
 interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
-  props: T | ((helpers: SchemaHelpers) => T);
+  props?: T | ((helpers: SchemaHelpers) => T);
   component: string;
   children?: "markdown" | Record<string, ComponentDefinition>;
   kind?: "flow" | "text";

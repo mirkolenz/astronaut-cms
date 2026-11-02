@@ -100,7 +100,7 @@ export type FieldSchema = FieldMods &
  * and the build take this narrower shape and never the admin's.
  */
 export interface ComponentSchema {
-  props: FieldSchema | null;
+  props: FieldSchema;
   children?: "markdown" | Record<string, this>;
 }
 

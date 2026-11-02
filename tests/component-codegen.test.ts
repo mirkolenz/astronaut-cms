@@ -13,7 +13,7 @@ it("wraps each component to apply its schema and maps them all by name", () => {
   expect(modules["Hero.astro"]).toContain(
     'import Component from "/site/src/components/Hero.astro";',
   );
-  expect(modules["Hero.astro"]).toContain('resolveProps("Hero", Astro.props)');
+  expect(modules["Hero.astro"]).toContain('await resolveProps("Hero", Astro.props)');
   expect(modules["Hero.astro"]).toContain(
     'Astro.slots.has("default") ? <Component {...props}><slot /></Component> : <Component {...props} />',
   );

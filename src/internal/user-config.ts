@@ -44,10 +44,8 @@ export function processUserConfig(
 
     seen.set(name, def);
 
-    const props = componentSchema(def);
-
     result[name] = {
-      props: props ? zodToFieldSchema(props) : null,
+      props: zodToFieldSchema(componentSchema(def)),
       children:
         typeof def.children === "object" ? processUserConfig(def.children, seen) : def.children,
       kind: def.kind ?? "flow",

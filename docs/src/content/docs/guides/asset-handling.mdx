@@ -15,7 +15,8 @@ default `satteri()` pipeline and under `unified()`.
 | Markdown image `![alt](./x.png)`     | prose               | Astro's Markdown processor, no extra wiring                          |
 | `image()` schema field               | frontmatter, data   | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
 | `libraryImage(image)` schema field   | frontmatter, data   | As above, or the object-store URL as it is                           |
-| `image()` / `file()` component prop  | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
+| `image()` component prop            | MDX component props | Resolved by the generated wrapper, arrives as `ImageMetadata`        |
+| `file()` component prop             | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | `file()` schema field                | frontmatter, data   | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | Link to a file `[doc](/files/x.pdf)` | prose               | Put the file in `public/` (plain URL)                                |
 
@@ -58,8 +59,9 @@ the CMS at render time.
 
 ## MDX component props
 
-A prop of a CMS component is the one reference Astro has no hook for, so the CMS resolves it. The
-value is stored as a path string and turned into an optimized asset at render time:
+A prop of a CMS component is the one reference Astro has no hook for, so the CMS resolves it.
+The value is stored as a path string, and the generated wrapper resolves every `image()` prop before the component renders, nested ones included.
+The component receives its images as a collection's `image()` field arrives, as `ImageMetadata`, or as the URL of an object-store file, and `ComponentProps` types them that way:
 
 ```ts title="src/cms.config.ts"
 Figure: defineComponent({
@@ -82,8 +84,10 @@ const { src, alt } = Astro.props;
 </figure>
 ```
 
-`<Image>` accepts a path string or an `ImageMetadata`, so the same component works whether the
-value comes from the CMS or from a manual import. For full control, call the resolvers directly:
+`<Image>` takes an `ImageMetadata`, an object-store URL or a path string, so the same component renders a block's prop, a collection field and a manual import alike.
+A block is therefore reusable with a collection's `image()` value without any conversion.
+A `file()` prop stays a path, as a collection's `file()` field does, since only the component knows whether it wants the URL.
+For full control, call the resolvers directly:
 
 ```astro
 ---
@@ -152,19 +156,22 @@ const img = await resolveImage("../../assets/photo.png", "src/content/blog/post.
 
 ### React islands
 
-The resolvers are async, which Astro awaits in `.astro` frontmatter. React components render
-synchronously and cannot await, so resolve in an `.astro` wrapper and pass the already-resolved
-`src` (or a plain URL) down to the island:
+React components render synchronously and cannot await, so optimize in an `.astro` component and pass the URLs down to the island.
+A block's `image()` props arrive resolved already:
 
 ```astro title="src/components/Gallery.astro"
 ---
 import { getImage } from "astro:assets";
+import type { ComponentProps } from "astronaut-cms:components";
 import Carousel from "@/components/Carousel.tsx";
-import { resolveImage } from "astronaut-cms/assets";
 
-// getImage takes a repository image and an object-store URL alike, and returns an optimized URL for both.
+type Props = ComponentProps["Gallery"];
+
+// A repository image is `ImageMetadata`, an object-store one a URL astro measures itself.
 const images = await Promise.all(
-  Astro.props.srcs.map(async (src) => (await getImage({ src: await resolveImage(src), inferSize: true })).src),
+  Astro.props.images.map(async (src) =>
+    (await getImage(typeof src === "string" ? { src, inferSize: true } : { src })).src,
+  ),
 );
 ---
 

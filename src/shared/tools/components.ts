@@ -26,8 +26,8 @@ export interface ComponentOverview {
 }
 
 export interface ComponentDetails {
-  /** JSON Schema of its props, or null when it takes none. */
-  props: z.core.JSONSchema.BaseSchema | null;
+  /** JSON Schema of its props. */
+  props: z.core.JSONSchema.BaseSchema;
   /** The prop that names an instance, such as its title. */
   summary?: string;
 }
@@ -60,9 +60,10 @@ export function componentDetails(
       .map(([name, def]) => [
         name,
         {
-          props: def.props
-            ? z.toJSONSchema(fieldSchemaToZod(def.props), { target: "draft-2020-12", io: "input" })
-            : null,
+          props: z.toJSONSchema(fieldSchemaToZod(def.props), {
+            target: "draft-2020-12",
+            io: "input",
+          }),
           summary: def.summary ?? undefined,
         },
       ]),

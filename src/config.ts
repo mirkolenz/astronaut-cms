@@ -35,9 +35,15 @@ export type CollectionName = CollectionRegistry extends { name: infer N extends 
   ? N
   : string;
 
-/** The asset, link, anchor and reference helpers a component's props function receives. */
-export type SchemaHelpers = Omit<typeof schemaHelpers, "reference"> & {
-  reference: (collection: CollectionName) => ReturnType<typeof schemaHelpers.reference>;
+type Helpers = ReturnType<typeof schemaHelpers>;
+
+/**
+ * The asset, link, anchor and reference helpers a component's props function
+ * receives. An `image()` prop is written as a path and rendered as the image it
+ * resolves to, as a collection's `image()` field arrives.
+ */
+export type SchemaHelpers = Omit<Helpers, "reference"> & {
+  reference: (collection: CollectionName) => ReturnType<Helpers["reference"]>;
 };
 
 export type ChildrenConfig = "markdown" | Record<string, ComponentDefinition>;
@@ -50,8 +56,9 @@ export interface ComponentDefinition<
    * The component's props, either as a Zod object or as a function handed the
    * schema helpers, exactly like astro's collection `schema`. Reach for the
    * function form only when a prop names an asset, a link, an anchor or an entry.
+   * Left out, the component takes no props.
    */
-  props: T | ((helpers: SchemaHelpers) => T);
+  props?: T | ((helpers: SchemaHelpers) => T);
   /**
    * The `.astro` component that renders it, imported as the site imports it,
    * such as `"@/components/Hero.astro"`, or relative to `cms.config`.
@@ -108,7 +115,10 @@ export function defineCollection(options: CollectionOptions): CollectionOptions 
  * One entry of the `components` export of `cms.config`. The integration renders
  * it in MDX through a generated wrapper, which `astronaut-cms:components` exports.
  */
-export function defineComponent<T extends z.ZodType<object>, C extends ChildrenConfig = never>(
+export function defineComponent<
+  T extends z.ZodType<object> = z.ZodObject<{}>,
+  C extends ChildrenConfig = never,
+>(
   def: ComponentDefinition<T, C>,
 ): ComponentDefinition<T, C> {
   return def;

@@ -13,7 +13,7 @@ function wrapperModule(name: string, file: string): string {
 import Component from ${quote(file)};
 import { resolveProps } from "./props.ts";
 
-const props = resolveProps(${quote(name)}, Astro.props);
+const props = await resolveProps(${quote(name)}, Astro.props);
 ---
 
 {Astro.slots.has("default") ? <Component {...props}><slot /></Component> : <Component {...props} />}
@@ -42,9 +42,10 @@ export function componentModules(
 
   modules["props.ts"] = `\
 import { components } from ${quote(configPath)};
+import { resolveImage } from "astronaut-cms/assets";
 import { propsResolver } from "astronaut-cms/internal";
 
-export const resolveProps = propsResolver(components);
+export const resolveProps = propsResolver(components, resolveImage);
 `;
 
   for (const [name, file] of Object.entries(files)) {
@@ -92,7 +93,7 @@ export function componentTypes(
   // As astro declares any \`.astro\` module, taking the props MDX writes and any attribute besides.
   type Wrapper<Name extends keyof Input> = (props: Input[Name] & Record<string, unknown>) => any;
 
-  /** The props each component renders with, every default of its schema applied. */
+  /** The props each component renders with, every default of its schema applied and every image resolved. */
   export type ComponentProps = Infer<"output">;
 
   /** Every component by name, for \`<Content components={mdxComponents} />\`. */

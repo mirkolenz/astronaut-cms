@@ -13,12 +13,19 @@
  * since astro has no say over an MDX component's props.
  */
 import { z } from "zod";
-import { CMS_IMAGE, CMS_FILE, CMS_REFERENCE, CMS_LINK, CMS_ANCHOR } from "./field-schema.ts";
+import type { ResolvedImage } from "../assets/index.ts";
+import {
+  CMS_IMAGE,
+  CMS_FILE,
+  CMS_REFERENCE,
+  CMS_LINK,
+  CMS_ANCHOR,
+} from "./field-schema.ts";
 import { allowedLinks } from "./links.ts";
 import { anchorIds } from "./anchors.ts";
 
-/** A Zod string naming an image in either media library. */
-export const imageMarker = () => z.string().meta({ [CMS_IMAGE]: true });
+/** What a component's `image()` prop is resolved with, `resolveImage` on the site. */
+export type ImageResolver = (path: string) => Promise<ResolvedImage>;
 
 /** Astro's collection `image()` as the admin reads it: an image in the repository library alone. */
 export const repoImageMarker = () => z.string().meta({ [CMS_IMAGE]: "repo" });
@@ -68,10 +75,17 @@ export const referenceMarker = (collection: string) =>
  * what keeps an `image()` meant for a component prop out of a `content.config.ts`,
  * where astro's own helper is the only one that resolves.
  */
-export const schemaHelpers = {
-  image: imageMarker,
-  file: fileMarker,
-  link: linkMarker,
-  anchor: anchorMarker,
-  reference: referenceMarker,
-};
+export function schemaHelpers(resolveImage: ImageResolver) {
+  return {
+    // A Zod string naming an image in either media library, resolved when the
+    // props are parsed. The marker sits on the transform, the side of the pipe
+    // that `zodToFieldSchema` lowers. A lambda, since a transform also hands
+    // over its context, which `resolveImage` would take for its `base`.
+    image: () =>
+      z.string().pipe(z.transform((path: string) => resolveImage(path)).meta({ [CMS_IMAGE]: true })),
+    file: fileMarker,
+    link: linkMarker,
+    anchor: anchorMarker,
+    reference: referenceMarker,
+  };
+}
