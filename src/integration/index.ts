@@ -94,6 +94,22 @@ function validateMediaOrigin(publicUrl: string, site: string | undefined): void 
   );
 }
 
+// The oldest Node the server code runs on, as `engines` declares it. It uses
+// `Uint8Array#toHex` and `#toBase64`, which older versions lack, and npm only
+// warns about `engines`, so the mismatch would otherwise surface as a TypeError
+// on the first entry the admin loads.
+const MIN_NODE_MAJOR = 26;
+
+function validateNode(): void {
+  const major = Number.parseInt(process.versions.node, 10);
+
+  if (major >= MIN_NODE_MAJOR) return;
+
+  throw new Error(
+    `astronaut-cms: Node.js ${MIN_NODE_MAJOR} or newer is required, found ${process.versions.node}.`,
+  );
+}
+
 /** What an enabled assistant has to declare before any of it is resolved. */
 function validateAi(config: CmsConfig): void {
   if (!config.ai?.enabled) return;
@@ -181,6 +197,8 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
         createCodegenDir,
         logger,
       }) => {
+        validateNode();
+
         const rootDir = fileURLToPath(astroConfig.root);
 
         // `astro dev` edits the working tree rather than the configured backends, so

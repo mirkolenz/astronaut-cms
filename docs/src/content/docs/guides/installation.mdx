@@ -10,9 +10,10 @@ Install the CMS package along with its peer dependencies.
 `vite` is a peer too, but Astro already depends on it, so it needs no install of its own.
 
 <Aside type="caution">
-  npm only warns about the Node.js version, so an older one installs cleanly and fails later.
-  Whatever builds your site needs Node.js 26 as well, so pin it where your host reads it, for
-  example in a `.node-version` file for Cloudflare Workers Builds.
+  npm only warns about the Node.js version, so an older one installs cleanly, and `astro dev` or
+  `astro build` then stops with an error naming the version it found. Whatever builds your site
+  needs Node.js 26 as well, so pin it where your host reads it, for example in a `.node-version`
+  file for Cloudflare Workers Builds.
 </Aside>
 
 <Tabs>
