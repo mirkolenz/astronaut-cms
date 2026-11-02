@@ -1,14 +1,11 @@
 import { client, components, server as serverConfig } from "virtual:astronaut-cms/server";
 import { LocalStorage } from "virtual:astronaut-cms/local-storage";
-import type { StorageBackend } from "./types.ts";
 import { GitHubStorage } from "./github.ts";
 import { GitLabStorage } from "./gitlab.ts";
 import type { StorageBase, StorageOptions } from "./base.ts";
 import { unreachable } from "../../shared/unreachable.ts";
 import { mediaLibrary, type MediaLibraryId, type WorkingTreeLibrary } from "../../shared/media.ts";
 import type { Session } from "../session.ts";
-
-export type { StorageBackend };
 
 /**
  * The backend for one request, built from the session that request carries.

@@ -13,7 +13,7 @@ import { useEntryContext } from "@/client/lib/entry-context";
  * deliberately sits outside the media key that every upload and delete
  * invalidates, and it reads every entry, so nothing fetches it eagerly.
  */
-export const referencesQuery = queryOptions({
+const referencesQuery = queryOptions({
   queryKey: cmsKeys.references,
   queryFn: () => call("getReferences", {}),
   staleTime: 5 * 60 * 1000,

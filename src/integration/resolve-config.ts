@@ -35,8 +35,8 @@ import {
 import { parseRepo } from "../shared/repo.ts";
 import type { CollectionManifest } from "../shared/types.ts";
 
-export const DEFAULT_MOUNT_POINT = "/admin";
-export const DEFAULT_MEDIA_DIRECTORY = "src/assets";
+const DEFAULT_MOUNT_POINT = "/admin";
+const DEFAULT_MEDIA_DIRECTORY = "src/assets";
 export const DEFAULT_S3_DEV_DIRECTORY = ".astronaut-cms/s3";
 
 /**

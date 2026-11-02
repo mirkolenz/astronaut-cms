@@ -36,7 +36,7 @@ const MIN_GITLAB_ACCESS_LEVEL = 30;
 const GITLAB_CLOUD = "https://gitlab.com";
 
 /** The providers that actually sign anyone in: everything but the dev-only local one. */
-export type OAuthProvider = Exclude<Provider, "local">;
+type OAuthProvider = Exclude<Provider, "local">;
 
 /** What a provider needs from the CMS config to run a login. */
 export interface ProviderConfig {

@@ -99,7 +99,7 @@ export function schemaDefaults(
  * back from storage has to be normalized before it can be checked against the
  * reconstructed (string-based) schema.
  */
-export function normalizeDates(value: unknown): unknown {
+function normalizeDates(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
 
   if (Array.isArray(value)) return value.map(normalizeDates);

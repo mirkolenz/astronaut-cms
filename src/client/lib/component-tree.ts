@@ -146,7 +146,7 @@ export function withProp(element: MdxJsxElement, key: string, value: unknown): M
 }
 
 /** The props a new instance is written with: every default a field has, and nothing it may leave out. */
-export function defaultProps(def: ClientComponentDef): Record<string, unknown> {
+function defaultProps(def: ClientComponentDef): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(objectShape(def.props) ?? {}).flatMap(([key, field]) => {
       const value = getDefaultValue(field);

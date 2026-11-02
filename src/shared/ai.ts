@@ -9,7 +9,7 @@ import { API_BASE } from "./auth.ts";
 export const AI_API_BASE = `${API_BASE}/ai`;
 
 /** The key of a `custom` gateway, optional since a local model server needs none. */
-export const AI_API_KEY_ENV = "ASTRONAUT_CMS_AI_API_KEY";
+const AI_API_KEY_ENV = "ASTRONAUT_CMS_AI_API_KEY";
 
 /** Default maximum model/tool round-trips per assistant turn. */
 export const DEFAULT_AI_MAX_STEPS = 24;
@@ -59,7 +59,7 @@ export interface GatewayEndpoint {
  * Where the relay finds a gateway credential: a server variable, or a header
  * the platform adds to every request.
  */
-export type KeySource = { env: string } | { header: string };
+type KeySource = { env: string } | { header: string };
 
 /** A gateway addressed from the config alone, and where the relay finds its key. */
 export interface GatewayAddress extends GatewayEndpoint {

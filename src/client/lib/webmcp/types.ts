@@ -19,7 +19,7 @@ export interface WebmcpToolAnnotations {
   consequentialHint?: boolean;
 }
 
-export interface WebmcpTextContent {
+interface WebmcpTextContent {
   type: "text";
   text: string;
 }
@@ -28,7 +28,7 @@ export interface WebmcpToolResult {
   content: WebmcpTextContent[];
 }
 
-export interface WebmcpTool {
+interface WebmcpTool {
   /** 1 to 128 ASCII alphanumerics, underscores, hyphens or periods. */
   name: string;
   title?: string;
@@ -42,7 +42,7 @@ export interface WebmcpTool {
   ) => WebmcpToolResult | Promise<WebmcpToolResult>;
 }
 
-export interface WebmcpRegisterToolOptions {
+interface WebmcpRegisterToolOptions {
   /** Origins allowed to see the tool. Same-origin only when omitted. */
   exposedTo?: string[];
   /** Aborting it unregisters the tool. */

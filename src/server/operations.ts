@@ -361,7 +361,7 @@ export interface OperationError {
 /** What one operation of a batch answers with. */
 export type OperationResult = { ok: true; data: unknown } | { ok: false; error: OperationError };
 
-export type Operations = typeof operations;
+type Operations = typeof operations;
 export type OperationName = keyof Operations;
 export type OperationInput<K extends OperationName> = NonNullable<Operations[K]["input"]>;
 export type OperationOutput<K extends OperationName> = Awaited<ReturnType<Operations[K]["run"]>>;

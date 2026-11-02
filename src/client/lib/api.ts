@@ -27,7 +27,7 @@ import { invalidate, keysFor, type QueryKey } from "@/client/lib/query-keys";
 import { apiFetch, apiUrl } from "@/client/lib/routes";
 
 /** A refusal from the CMS server, keeping the status the UI reacts to. */
-export class CmsError extends Error {
+class CmsError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {
@@ -46,7 +46,7 @@ export const isStaleWrite = (error: unknown): boolean =>
   error instanceof CmsError && error.status === 412;
 
 /** The session lapsed with the tab open, so the admin has to sign in again. */
-export class UnauthenticatedError extends Error {
+class UnauthenticatedError extends Error {
   constructor() {
     super("Your session has expired. Sign in again.");
     this.name = "UnauthenticatedError";

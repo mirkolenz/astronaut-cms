@@ -25,7 +25,7 @@ import { errorMessage } from "../errors.ts";
 export const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** The two tools a collection gets, which is also what its name has to survive. */
-export const entryToolNames = (collection: string): string[] => [
+const entryToolNames = (collection: string): string[] => [
   `writeEntry_${collection}`,
   `editEntry_${collection}`,
 ];
