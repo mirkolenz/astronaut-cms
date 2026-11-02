@@ -283,7 +283,7 @@ const optional = <T>(lookup: Promise<T>): Promise<T | null> => lookup.catch(() =
  *
  * At sign-in this turns "every write fails" into one clear message at the door.
  * It is also what a live session is re-checked against, for the reason given by
- * `revocable` in `handler.ts`.
+ * `checkAccess` in `handler.ts`.
  */
 export async function verifyAccess(config: ProviderConfig, token: string): Promise<string> {
   return config.provider === "github"

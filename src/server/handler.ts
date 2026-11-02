@@ -292,11 +292,11 @@ async function authenticate(
   }
 
   if (session.checkedAt == null || session.checkedAt + ACCESS_TTL_MS <= Date.now()) {
-    const error = await revoked(provider, session.token);
+    const { error, at } = await checkAccess(provider, session.token);
 
     if (error) return { kind: "revoked", error, session };
 
-    session = { ...session, checkedAt: Date.now() };
+    session = { ...session, checkedAt: at };
   }
 
   // Only when something actually changed, which is a renewed token, a fresh
@@ -313,13 +313,20 @@ const describeFailure = (err: unknown): string =>
 /** How long a confirmed authorization stands before the provider is asked again. */
 const ACCESS_TTL_MS = 5 * 60_000;
 
+/** What the provider answered about a token, and when. */
+interface AccessCheck {
+  /** Why the token may no longer be used, absent while it still may. */
+  error?: string;
+  /** Epoch milliseconds, which becomes the session's `checkedAt`. */
+  at: number;
+}
+
 /**
- * Token to the check on its way, so the requests one navigation fires against a
- * cold instance make one provider call between them rather than each starting
- * their own. Nothing is kept once it answers: the window belongs to the session
- * (see `Session.checkedAt`), and a second one here would silently double it.
+ * Token to its latest check, kept for the window so a client replaying a cookie
+ * with a lapsed `checkedAt` cannot make every request a provider round trip.
+ * The session takes the check's own time, so the window is not doubled.
  */
-const checks = new Coalesced<string | undefined>(0);
+const checks = new Coalesced<AccessCheck>(ACCESS_TTL_MS);
 
 /**
  * How long a completed refresh answers for the token it consumed. Long enough to
@@ -332,7 +339,7 @@ const REFRESH_TTL_MS = 60_000;
 const refreshes = new Coalesced<Session | null>(REFRESH_TTL_MS);
 
 /**
- * Why this token may no longer be used, or undefined while it still may.
+ * Whether this token may still be used.
  *
  * Every call the CMS makes on the editor's own token is re-decided by the
  * provider, so for the repository a stale session is already harmless. The
@@ -345,15 +352,14 @@ const refreshes = new Coalesced<Session | null>(REFRESH_TTL_MS);
  * Called from `authenticate` rather than from a route, so a route added later
  * cannot forget it.
  */
-function revoked(provider: ProviderConfig, token: string): Promise<string | undefined> {
+function checkAccess(provider: ProviderConfig, token: string): Promise<AccessCheck> {
   // Fails closed: a provider outage reads as "no longer permitted", which is the
   // right direction for a gate and the same answer signing in would give.
-  return checks.run(token, () =>
-    verifyAccess(provider, token).then(
-      () => undefined,
-      (err: unknown) => describeFailure(err),
-    ),
-  );
+  return checks.run(token, async () => {
+    const error = await verifyAccess(provider, token).then(() => undefined, describeFailure);
+
+    return { ...(error && { error }), at: Date.now() };
+  });
 }
 
 /**

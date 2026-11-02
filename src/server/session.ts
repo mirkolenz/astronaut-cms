@@ -9,7 +9,7 @@
  *
  * Stateless on purpose. A serverless deployment needs no KV, no database and no
  * sticky instance, and the cost is that the cookie itself cannot be torn up
- * before it expires. What it grants can be: see `revocable` in `handler.ts`.
+ * before it expires. What it grants can be: see `checkAccess` in `handler.ts`.
  *
  * The format is a JWE (`dir` + A256GCM) rather than a bare AES-GCM blob. Same
  * primitive, standard envelope, which buys the two things a hand-rolled seal
@@ -63,7 +63,7 @@ export const sessionSchema = z.object({
    * check is made once per editor per window across the whole deployment, not
    * once per warm instance. On a serverless host most requests land somewhere
    * cold, and the check is an outbound round trip on the critical path of every
-   * one of them. See `revoked` in `handler.ts`.
+   * one of them. See `checkAccess` in `handler.ts`.
    */
   checkedAt: z.number().optional(),
 });
