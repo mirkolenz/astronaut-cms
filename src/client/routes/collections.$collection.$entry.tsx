@@ -47,7 +47,7 @@ import { preload } from "@/client/lib/query-client";
 import {
   collectionDescription,
   collectionLabel,
-  collectionSingleton,
+  isSingleton,
 } from "@/client/lib/collections";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 import { Skeleton } from "@/client/components/ui/skeleton";
@@ -101,7 +101,7 @@ function EntryEditor() {
   const duplicateMutation = useDuplicateEntry(collection);
 
   const meta = config.collections[collection];
-  const singleton = collectionSingleton(collection) !== null;
+  const singleton = isSingleton(collection);
   const shape = objectShape(meta?.schema);
   const format = entry?.format ?? newFormat;
   const form = `${collection}/${entryId}`;

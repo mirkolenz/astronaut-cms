@@ -85,6 +85,9 @@ The admin opens its entry form directly from the navigation and offers no way to
 The server refuses those operations too, for editors and agents alike.
 A build fails while the file is missing.
 
+With [content languages](/astronaut-cms/guides/multilingual-content/), a singleton can hold one file per language: a pattern of a language folder followed by one literal file, such as `*/site.yml`.
+See [Localized singletons](/astronaut-cms/guides/multilingual-content/#localized-singletons).
+
 ## Entry order
 
 Astro's `getCollection()` returns entries sorted by id, whatever order a file holds them in.

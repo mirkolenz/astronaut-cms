@@ -342,24 +342,26 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
             `Multilingual content enabled for locales ${locales.join(", ")} (default: ${defaultLocale})`,
           );
         }
-        const readsContent = command === "build" || command === "dev";
-        const entries = readsContent ? contentEntries(rootDir, collections, components) : [];
+        if (command === "build" || command === "dev") {
+          const entries = contentEntries(rootDir, collections, components);
+          const missing = missingSingletons(collections, entries);
+          const list = (lines: string[]) => lines.map((line) => `- ${line}`).join("\n");
 
-        // Content the admin would refuse to save fails a build, where whoever
-        // committed it sees it, rather than surfacing later at an editor's save.
-        const problems = readsContent
-          ? [
-              ...checkContent(entries, rootDir, clientConfig.media),
-              ...missingSingletons(collections, entries),
-            ]
-          : [];
+          // Content the admin would refuse to save fails a build, where whoever
+          // committed it sees it, rather than surfacing later at an editor's save.
+          const problems = [...checkContent(entries, rootDir, clientConfig.media), ...missing.required];
 
-        if (problems.length > 0) {
-          const report = `Content the CMS cannot save:\n${problems.map((p) => `- ${p}`).join("\n")}`;
+          if (missing.translations.length > 0) {
+            logger.warn(`Untranslated singletons, shown in the default language:\n${list(missing.translations)}`);
+          }
 
-          if (command === "build") throw new Error(`astronaut-cms: ${report}`);
+          if (problems.length > 0) {
+            const report = `Content the CMS cannot save:\n${list(problems)}`;
 
-          logger.warn(report);
+            if (command === "build") throw new Error(`astronaut-cms: ${report}`);
+
+            logger.warn(report);
+          }
         }
 
         // Only worth saying where something would read it. The tools a

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ContentValidationError } from "@/shared/diagnostics";
 import {
-  singletonEntry,
+  findSingleton,
   type CollectionManifest,
   type CollectionManifestEntry,
 } from "@/shared/types";
@@ -20,6 +20,7 @@ const firma: CollectionManifestEntry = {
   loaderBase: "src/content",
   loaderFileName: null,
   sort: "id",
+  singleton: { main: { id: "firma", format: "yml", path: "src/content/firma.yml" }, translations: [] },
   schema: { type: "object", shape: { name: { type: "string" } } },
   label: "Company",
   description: "Master data of the company.",
@@ -27,35 +28,45 @@ const firma: CollectionManifestEntry = {
 
 const collections: CollectionManifest = { firma };
 
+const i18n = { locales: ["en", "de"], defaultLocale: "de" };
+const textsSource = {
+  loaderType: "glob",
+  loaderPattern: "*/site.yaml",
+  loaderBase: "src/content/texts",
+} as const;
+
 describe("singleton collections", () => {
   it("are the glob collections naming one literal file", () => {
-    expect(singletonEntry(firma)).toEqual({
-      id: "firma",
-      format: "yml",
-      path: "src/content/firma.yml",
-    });
-    expect(
-      singletonEntry({ loaderType: "glob", loaderPattern: ["./site/About Us.md"], loaderBase: "" }),
-    ).toEqual({
+    const main = (loaderPattern: string | string[] | null) =>
+      findSingleton({ loaderType: "glob", loaderPattern, loaderBase: "" }, null)?.main ?? null;
+
+    expect(findSingleton(firma, null)).toEqual(firma.singleton);
+    expect(main(["./site/About Us.md"])).toEqual({
       id: "site/about-us",
       format: "md",
       path: "site/About Us.md",
     });
-    expect(
-      singletonEntry({ loaderType: "glob", loaderPattern: "team\\[2026\\].json", loaderBase: "" }),
-    ).toEqual({
+    expect(main("team\\[2026\\].json")).toEqual({
       id: "team2026",
       format: "json",
       path: "team[2026].json",
     });
 
     for (const loaderPattern of ["**/*.md", "firma.{yml,json}", ["firma.yml", "!x.yml"], null]) {
-      expect(singletonEntry({ loaderType: "glob", loaderPattern, loaderBase: "" })).toBeNull();
+      expect(main(loaderPattern)).toBeNull();
     }
 
-    expect(
-      singletonEntry({ loaderType: "file", loaderPattern: null, loaderBase: null }),
-    ).toBeNull();
+    expect(findSingleton({ loaderType: "file", loaderPattern: null, loaderBase: null }, null)).toBeNull();
+  });
+
+  it("are localized with one file per language, the default language's the main one", () => {
+    expect(findSingleton(textsSource, i18n)).toEqual({
+      main: { id: "de/site", format: "yaml", path: "src/content/texts/de/site.yaml" },
+      translations: [{ id: "en/site", format: "yaml", path: "src/content/texts/en/site.yaml" }],
+    });
+    expect(findSingleton({ ...textsSource, loaderPattern: "{de,en}/site.yaml" }, i18n)).not.toBeNull();
+    expect(findSingleton({ ...textsSource, loaderPattern: "*/*.yaml" }, i18n)).toBeNull();
+    expect(findSingleton(textsSource, null)).toBeNull();
   });
 
   it("list, write and delete only their one entry", async () => {
@@ -84,17 +95,37 @@ describe("singleton collections", () => {
     const tool = createCmsTools({ call: () => Promise.reject(new Error("unreachable")), config });
     const schema = z.toJSONSchema(tool.writeEntry_firma!.inputSchema, { io: "input" });
 
-    expect(schema).toMatchObject({ properties: { id: { const: "firma" } } });
+    expect(schema).toMatchObject({ properties: { id: { enum: ["firma"] } } });
     expect(contentModel(config).collections.firma).toMatchObject({
       label: "Company",
       description: "Master data of the company.",
-      singleton: "firma",
+      singleton: ["firma"],
+    });
+  });
+
+  it("of one file per language take only their languages, and need the default one", async () => {
+    const texts: CollectionManifestEntry = {
+      ...firma,
+      ...textsSource,
+      name: "texts",
+      singleton: findSingleton(textsSource, i18n),
+    };
+    const store = new TreeStorage(storageOptions({ texts }));
+    const entry = { data: { name: "Wolf" }, body: "", format: "yaml" as const };
+
+    await store.saveEntry("texts", "en/site", entry);
+    await expect(store.saveEntry("texts", "fr/site", entry)).rejects.toThrow(ContentValidationError);
+    await expect(store.deleteEntry("texts", "de/site")).rejects.toThrow(ContentValidationError);
+    expect(missingSingletons({ texts }, [])).toEqual({
+      required: ['src/content/texts/de/site.yaml: the singleton collection "texts" needs this file.'],
+      translations: ['src/content/texts/en/site.yaml: the singleton collection "texts" needs this file.'],
     });
   });
 
   it("fail the build without their file", () => {
-    expect(missingSingletons(collections, [])).toEqual([
-      'src/content/firma.yml: the singleton collection "firma" needs this file, its only entry.',
-    ]);
+    expect(missingSingletons(collections, [])).toEqual({
+      required: ['src/content/firma.yml: the singleton collection "firma" needs this file.'],
+      translations: [],
+    });
   });
 });

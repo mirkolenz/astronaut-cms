@@ -12,7 +12,6 @@ import { PageHeader } from "@/client/components/page-header";
 import {
   collectionDescription,
   collectionLabel,
-  collectionSingleton,
 } from "@/client/lib/collections";
 import { listDirectory } from "@/client/lib/entry-tree";
 import { joinLocale, localeLabel, splitLocale } from "@/shared/i18n";
@@ -57,7 +56,8 @@ function CollectionPage() {
   const { t } = useTranslation();
   const { collection } = Route.useParams();
   const { data: entries, error } = useEntries(collection);
-  const singleton = collectionSingleton(collection);
+  // A localized singleton opens the default language.
+  const singleton = config.collections[collection]?.singleton?.main;
 
   if (error) {
     return (

@@ -4,7 +4,6 @@ import { collectionIcons } from "virtual:astronaut-cms/user-config";
 import config from "@/client/lib/config";
 import type { ComponentIcon } from "@/config";
 import { collectionLabel as labelOf } from "@/shared/labels";
-import { singletonEntry, type SingletonEntry } from "@/shared/types";
 
 /** What the admin calls a collection, as agents are told it too. */
 export function collectionLabel(name: string): string {
@@ -37,9 +36,7 @@ export function collectionIcon(name: string): ComponentIcon {
   );
 }
 
-/** The one entry of a singleton collection, which the admin edits in its place, or null. */
-export function collectionSingleton(name: string): SingletonEntry | null {
-  const col = config.collections[name];
-
-  return col ? singletonEntry(col) : null;
+/** Whether a collection is a singleton, whose entries the admin edits in its place. */
+export function isSingleton(name: string): boolean {
+  return Boolean(config.collections[name]?.singleton);
 }

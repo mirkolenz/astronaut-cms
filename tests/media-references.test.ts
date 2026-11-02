@@ -21,6 +21,7 @@ const posts: CollectionManifestEntry = {
   loaderBase: "src/content/blog",
   loaderFileName: null,
   sort: "id",
+  singleton: null,
   schema: { type: "object", shape: { cover: { type: "image" } } },
 };
 

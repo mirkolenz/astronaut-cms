@@ -21,6 +21,7 @@ it("rejects asset references that the generated loader cannot resolve", () => {
       loaderBase: "src/content/pages",
       loaderFileName: null,
       sort: "id",
+      singleton: null,
     },
     file: "src/content/pages/home.mdx",
     scope: "frontmatter",

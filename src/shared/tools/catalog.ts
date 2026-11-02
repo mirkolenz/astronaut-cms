@@ -32,7 +32,7 @@ import { componentEntries } from "../component-lookup.ts";
 import { ContentValidationError } from "../diagnostics.ts";
 import { mediaLibraries, mediaRef } from "../media.ts";
 import { unexposable } from "./exposable.ts";
-import { singletonEntry, type CollectionManifestEntry } from "../types.ts";
+import { singletonIds, type CollectionManifestEntry } from "../types.ts";
 import { componentDetails } from "./components.ts";
 import { contentModel } from "./content-model.ts";
 import {
@@ -160,10 +160,10 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
 
   // The one id a singleton's tools take, so an agent cannot even ask for another.
   const entryIdOf = (col: CollectionManifestEntry) => {
-    const singleton = singletonEntry(col);
+    const [first, ...rest] = singletonIds(col);
 
-    return singleton
-      ? z.literal(singleton.id).describe("Id of the collection's only entry.")
+    return first
+      ? z.enum([first, ...rest]).describe("Id of the collection's entry, one per language when localized.")
       : entryId;
   };
 

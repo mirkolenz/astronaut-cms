@@ -123,6 +123,7 @@ const collections: CollectionManifest = {
     loaderBase: "src/content/blog",
     loaderFileName: null,
     sort: "id",
+    singleton: null,
     schema: { type: "object", shape: { title: { type: "string" } } },
   },
 };
@@ -136,6 +137,7 @@ const fileCollections: CollectionManifest = {
     loaderBase: null,
     loaderFileName: "src/data/authors.json",
     sort: "file",
+    singleton: null,
     schema: { type: "object", shape: { name: { type: "string" } } },
   },
 };
@@ -149,6 +151,7 @@ const tomlCollections: CollectionManifest = {
     loaderBase: "src/data/events",
     loaderFileName: null,
     sort: "id",
+    singleton: null,
     schema: { type: "object", shape: { published: { type: "date" } } },
   },
 };

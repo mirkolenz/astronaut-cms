@@ -22,6 +22,7 @@ const posts = (
   loaderBase,
   loaderFileName: null,
   sort: "id",
+  singleton: null,
 });
 
 // What astro's glob() loader loads and skips for each pattern, checked against its tinyglobby walk.

@@ -20,6 +20,7 @@ export const client: CmsClientConfig = {
       loaderBase: "src/content/blog",
       loaderFileName: null,
       sort: "id",
+      singleton: null,
       schema: { type: "object", shape: { title: { type: "string" } } },
     },
   },

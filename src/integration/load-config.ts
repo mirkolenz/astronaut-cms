@@ -11,6 +11,7 @@ import type { LoaderMarker } from "../internal/loader-stubs.ts";
 import type { SchemaContext } from "astro/content/config";
 import {
   DATA_FORMATS,
+  findSingleton,
   type AssertNever,
   type CollectionManifest,
   type CollectionManifestEntry,
@@ -167,15 +168,20 @@ async function loadCollections(
       );
     }
 
+    const source: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase"> = {
+      loaderType: loader?.__cmsFileName != null ? "file" : "glob",
+      loaderPattern: loader?.__cmsPattern ?? null,
+      loaderBase: rootRelative(rootDir, loader?.__cmsBase),
+    };
+
     manifest[name] = {
       name,
       type: collection.type === "data" ? "data" : "content",
       schema: rawSchema == null ? null : zodToFieldSchema(rawSchema, i18n),
-      loaderType: loader?.__cmsFileName != null ? "file" : "glob",
-      loaderPattern: loader?.__cmsPattern ?? null,
-      loaderBase: rootRelative(rootDir, loader?.__cmsBase),
+      ...source,
       loaderFileName: rootRelative(rootDir, loader?.__cmsFileName),
       sort: "id",
+      singleton: findSingleton(source, i18n),
     } satisfies CollectionManifestEntry;
   }
 

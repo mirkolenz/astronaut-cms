@@ -388,7 +388,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
   async deleteEntry(collection: string, id: string, expectedVersion?: string): Promise<void> {
     const message = `Delete ${collection}/${id}`;
 
-    assertEntryDeletable(this.schema(collection));
+    assertEntryDeletable(this.schema(collection), id);
 
     if (this.isFileCollection(collection)) {
       const { path, content } = await this.editFileCollection(collection, (entries) => {

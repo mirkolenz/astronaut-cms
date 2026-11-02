@@ -4,6 +4,7 @@ import picomatch from "picomatch/posix.js";
 import { slug } from "github-slugger";
 import { getFileExtension } from "./content-parser.ts";
 import type { FieldSchema } from "./field-schema.ts";
+import { joinLocale, type ContentI18n } from "./i18n.ts";
 import { projectPath } from "./paths.ts";
 
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
@@ -75,6 +76,8 @@ export interface CollectionManifestEntry {
   loaderBase: string | null;
   loaderFileName: string | null;
   sort: CollectionSort;
+  /** The files of a singleton, see {@link findSingleton}, null for any other collection. */
+  singleton: Singleton | null;
   label?: string;
   description?: string;
 }
@@ -89,8 +92,13 @@ export interface GlobEntry {
   path: string;
 }
 
-/** The one entry of a singleton collection, see {@link singletonEntry}. */
-export type SingletonEntry = GlobEntry;
+/** The files of a singleton collection, see {@link findSingleton}. */
+export interface Singleton {
+  /** Its one file, or the default language's, which the site cannot do without. */
+  main: GlobEntry;
+  /** The other languages' files of a localized singleton, which fall back to `main`. */
+  translations: GlobEntry[];
+}
 
 /** Where a walk for a glob collection's files has to look, see {@link globRoots}. */
 export interface GlobRoot {
@@ -101,7 +109,7 @@ export interface GlobRoot {
 }
 
 /** `derive` cached per manifest entry, which never changes once loaded. */
-function perCollection<C extends object, R extends object | null>(
+function perCollection<C extends object, R extends object>(
   derive: (col: C) => R,
 ): (col: C) => R {
   const cache = new WeakMap<C, R>();
@@ -120,22 +128,49 @@ function perCollection<C extends object, R extends object | null>(
 }
 
 /**
- * The one entry of a singleton, a collection whose `glob()` names a single
- * literal file, or null for any other collection. Such a loader can only ever
- * load that file, so the admin edits it directly and nothing may add, rename or
- * remove an entry, which would only write a file the site never reads.
+ * The files of a singleton, whose loader can only ever load the files it names,
+ * so the admin edits them directly and nothing may add, rename or remove one,
+ * which would only write a file the site never reads. That is the one file a
+ * literal pattern names, or, with content languages, one file per language for
+ * a pattern that is a language folder followed by a literal file, such as
+ * `*\/site.yaml`. Null for any other collection. Resolved once into the
+ * manifest, as {@link CollectionManifestEntry.singleton}.
  */
-export const singletonEntry = perCollection(
-  (
-    col: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase">,
-  ): SingletonEntry | null => {
-    const [root] = globRoots(col);
+export function findSingleton(
+  col: Pick<CollectionManifestEntry, "loaderType" | "loaderPattern" | "loaderBase">,
+  i18n: ContentI18n | null,
+): Singleton | null {
+  const patterns = loaderPatterns(col);
+  const [pattern] = patterns;
 
-    return col.loaderType === "glob" && loaderPatterns(col).length === 1 && root?.file
-      ? globEntry(col, root.path)
-      : null;
-  },
-);
+  if (col.loaderType !== "glob" || patterns.length !== 1 || !pattern) return null;
+
+  const [root] = globRoots(col);
+
+  if (root?.file) {
+    const main = globEntry(col, root.path);
+
+    return main && { main, translations: [] };
+  }
+
+  const slash = pattern.indexOf("/");
+  const file = pattern.slice(slash + 1);
+
+  if (!i18n || slash < 0 || picomatch.scan(file, { unescape: true }).isGlob) return null;
+
+  const entryIn = (locale: string) =>
+    globEntry(col, projectPath(collectionBase(col), joinLocale(locale, file)));
+  const main = entryIn(i18n.defaultLocale);
+  const translations = i18n.locales
+    .filter((locale) => locale !== i18n.defaultLocale)
+    .map(entryIn);
+
+  return main && translations.every((entry) => entry !== null) ? { main, translations } : null;
+}
+
+/** The ids of a singleton's entries, the main one first, none for any other collection. */
+export const singletonIds = ({ singleton }: Pick<CollectionManifestEntry, "singleton">): string[] =>
+  singleton ? [singleton.main, ...singleton.translations].map((entry) => entry.id) : [];
 
 // Astro's glob loader skips its legacy content config wherever a pattern matches it.
 const ASTRO_CONFIG_FILES = new Set(["js", "ts", "mjs"].map((ext) => `src/content/config.${ext}`));

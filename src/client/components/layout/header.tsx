@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link, useMatches, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { collectionLabel, collectionSingleton } from "@/client/lib/collections";
+import { collectionLabel, isSingleton } from "@/client/lib/collections";
 import { basename } from "pathe";
 import { dirSegments, parentDir } from "@/client/lib/entry-tree";
 import { joinLocale, splitLocale } from "@/shared/i18n";
@@ -47,7 +47,7 @@ export function Header() {
     segments.push({ label: t(($) => $.ai.title) });
   } else if (params.library) {
     segments.push({ label: libraryLabel(params.library) });
-  } else if (collection && collectionSingleton(collection)) {
+  } else if (collection && isSingleton(collection)) {
     // A singleton's one entry is the collection, so there is no listing to link to.
     segments.push({ label: collectionLabel(collection) });
   } else if (collection) {

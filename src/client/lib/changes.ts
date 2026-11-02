@@ -1,7 +1,7 @@
 import config from "@/client/lib/config";
 import { libraryDirectories } from "@/shared/media";
 import { stripMediaPrefix } from "@/shared/paths";
-import { globEntry, singletonEntry, type FileChange } from "@/shared/types";
+import { globEntry, type FileChange } from "@/shared/types";
 import { collectionLabel } from "@/client/lib/collections";
 
 /** A changed file mapped back onto the content model the user recognizes. */
@@ -39,7 +39,8 @@ export function describeChange(change: FileChange): DescribedChange {
         ...change,
         collection: name,
         entryId: entry.id,
-        label: singletonEntry(col) ? label : `${label} / ${entry.id}`,
+        // The one entry of a plain singleton is the collection itself.
+        label: col.singleton?.translations.length === 0 ? label : `${label} / ${entry.id}`,
       };
     }
   }

@@ -6,7 +6,7 @@ import {
   type ClientMediaConfig,
   type MediaLibraryId,
 } from "@/shared/media";
-import { singletonEntry, type CollectionManifestEntry } from "@/shared/types";
+import { singletonIds, type CollectionManifestEntry } from "@/shared/types";
 import { isAsset, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import { validateBody } from "@/shared/body-validation";
 import { checkEntry } from "@/shared/entry-checks";
@@ -206,8 +206,22 @@ async function validateEntryWrite(source: ContentSource, write: EntryWrite): Pro
 
   return [
     ...validateEntryId(id),
+    ...singletonIdProblems(col, id),
     ...diagnostics,
     ...(await checkResolvableLeaves(source, leaves, path)),
+  ];
+}
+
+// A localized singleton's pattern also matches a folder that names no language.
+function singletonIdProblems(col: CollectionManifestEntry, id: string): Diagnostic[] {
+  const ids = singletonIds(col);
+
+  if (ids.length === 0 || ids.includes(id)) return [];
+
+  return [
+    diagnostic(
+      `"${col.name}" is a singleton collection, whose only entries are ${ids.map((i) => `"${i}"`).join(", ")}.`,
+    ),
   ];
 }
 
@@ -218,11 +232,14 @@ export async function assertEntryWritable(source: ContentSource, write: EntryWri
   if (diagnostics.length > 0) throw new ContentValidationError(diagnostics);
 }
 
-/** Throws {@link ContentValidationError} for a singleton's entry, which the site cannot do without. */
-export function assertEntryDeletable(col: CollectionManifestEntry): void {
-  if (singletonEntry(col)) {
+/**
+ * Throws {@link ContentValidationError} for a singleton's main entry, which the
+ * site cannot do without. A translation of it may go.
+ */
+export function assertEntryDeletable(col: CollectionManifestEntry, id: string): void {
+  if (col.singleton?.main.id === id) {
     throw new ContentValidationError([
-      diagnostic(`"${col.name}" is a singleton collection, whose only entry cannot be deleted.`),
+      diagnostic(`"${col.name}" is a singleton collection, whose entry "${id}" cannot be deleted.`),
     ]);
   }
 }

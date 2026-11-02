@@ -60,6 +60,22 @@ An empty collection counts as localized, which lets you create its first entry s
   differs per language instead.
 </Aside>
 
+## Localized singletons
+
+A singleton can hold one file per language, such as the texts of a site's header and footer.
+Its pattern is a language folder followed by one literal file:
+
+```ts title="src/content.config.ts"
+const texts = defineCollection({
+  loader: glob({ pattern: "*/site.yml", base: "src/content/texts" }),
+  schema: z.object({ tagline: z.string(), openingHours: z.string() }),
+});
+```
+
+The admin opens the default language's entry from the navigation, and the language switcher of the entry moves between the others, with a `+` creating a missing one as a copy.
+Nothing else creates, renames or deletes an entry.
+The default language's file is required, and the build fails without it, while a translation may be missing or deleted, since the site falls back to the default language.
+
 ## Localized fields
 
 A language-neutral entry often holds a few values that differ per language, such as a translated title next to an address and a logo.

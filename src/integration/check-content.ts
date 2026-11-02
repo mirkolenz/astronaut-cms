@@ -8,7 +8,7 @@ import { isAsset, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
 import { checkEntry } from "../shared/entry-checks.ts";
 import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
 import type { ContentEntry } from "./content-files.ts";
-import { singletonEntry, type CollectionManifest } from "../shared/types.ts";
+import type { CollectionManifest, GlobEntry } from "../shared/types.ts";
 
 /**
  * The entries on disk that the admin would refuse to save, their data or their
@@ -76,20 +76,25 @@ function assetProblems(
 }
 
 /**
- * Every singleton whose one file is missing. The site reads that entry by its
- * id, so a build without it would fail there instead, less legibly.
+ * The missing files of every singleton. `required` holds its main file, which
+ * the site reads by its id, so a build without it would fail there instead, less
+ * legibly. `translations` holds the other languages', which fall back to it.
  */
 export function missingSingletons(
   collections: CollectionManifest,
   entries: ContentEntry[],
-): string[] {
-  return Object.values(collections).flatMap((collection) => {
-    const singleton = singletonEntry(collection);
+): { required: string[]; translations: string[] } {
+  const present = new Set(entries.map((entry) => entry.file));
+  const singletons = Object.values(collections).flatMap(({ name, singleton }) =>
+    singleton ? [{ name, ...singleton }] : [],
+  );
+  const missing = (files: GlobEntry[], name: string) =>
+    files
+      .filter(({ path }) => !present.has(path))
+      .map(({ path }) => `${path}: the singleton collection "${name}" needs this file.`);
 
-    if (!singleton || entries.some((entry) => entry.collection.name === collection.name)) return [];
-
-    return [
-      `${singleton.path}: the singleton collection "${collection.name}" needs this file, its only entry.`,
-    ];
-  });
+  return {
+    required: singletons.flatMap(({ name, main }) => missing([main], name)),
+    translations: singletons.flatMap(({ name, translations }) => missing(translations, name)),
+  };
 }
