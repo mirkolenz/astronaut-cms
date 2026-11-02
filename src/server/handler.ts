@@ -91,15 +91,17 @@ const signIn = new RateLimiter({ requests: 20, windowMs: 60_000, concurrency: 4 
 const exchanges = new RateLimiter({ requests: 120, windowMs: 60_000, concurrency: 16 });
 
 /**
- * What one signed-in editor may ask of the server. The admin is chatty, as a
- * navigation is several reads, so this is set well above anything a person
- * produces, and exists to bound a runaway agent loop or a compromised tab
- * rather than to pace the interface.
+ * Operations and uploads per editor, well above what a person produces, to
+ * bound a runaway agent loop or a compromised tab.
  */
 const rpc = new RateLimiter({ requests: 300, windowMs: 60_000, concurrency: 12 });
 
+/** Media reads per editor, higher since a media page asks for a thumbnail per file. */
+const mediaReads = new RateLimiter({ requests: 1200, windowMs: 60_000, concurrency: 24 });
+
 const tooMany = (message: string) => () => new HttpError(message, 429);
 const tooManySignIns = tooMany("Too many sign-in attempts. Wait a moment and try again.");
+const tooManyRequests = tooMany("Too many requests. Wait a moment and try again.");
 
 function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -477,7 +479,7 @@ async function route(
     const results = await limited(
       rpc,
       session.login,
-      tooMany("Too many requests. Wait a moment and try again."),
+      tooManyRequests,
       () => runBatch(ctx, calls),
       calls.length,
     );
@@ -486,91 +488,9 @@ async function route(
   }
 
   if (path.startsWith("/media/") && request.method === "GET") {
-    const [id = "", ...segments] = path.slice("/media/".length).split("/");
-    const libraryId = parseMediaLibrary(clientConfig.media, id);
-
-    if (!libraryId) return fail("Unknown media library.", 404);
-
-    let filePath: string;
-
-    try {
-      filePath = decodeURIComponent(segments.join("/"));
-    } catch {
-      return fail("Invalid media path.", 400);
-    }
-
-    const library = ctx.media(libraryId);
-    // A range is what lets a browser play and seek a video or audio file, and
-    // Safari will not play one at all without it.
-    const range = parseByteRange(request.headers.get("range"));
-    const content = await library.readMedia(filePath, range ?? undefined);
-    // Kept for good only when the URL names the bytes that came back. The
-    // version is what makes the address change with the file, so honouring a `v`
-    // the file does not have would pin the wrong bytes in a browser for a year,
-    // and a backend that cannot name its bytes gets the short cache rather than
-    // a policy resting on the caller's word.
-    const addressed = content.version != null && url.searchParams.get("v") === content.version;
-
-    if ("redirect" in content && !addressed) {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: content.redirect,
-          // A redirect is uncacheable unless it says otherwise, and without this
-          // every render of the same thumbnail comes back here. Private, because
-          // where it points depends on who asked, and short, because a signed
-          // destination expires.
-          "cache-control": "private, max-age=300",
-          ...extra,
-        },
-      });
-    }
-
-    // The version is an entity tag in the word's exact sense: two answers
-    // carrying the same one are the same bytes. Sending it is what makes the
-    // short cache cheap as well, since the revalidation it ends in comes back
-    // as a 304 with no body rather than as the file again.
-    const etag = content.version == null ? undefined : `"${content.version}"`;
-    const caching = {
-      // The library is the editor's own repository or bucket, so it is cached
-      // per browser and never by a shared proxy.
-      "cache-control": addressed ? "private, max-age=31536000, immutable" : "private, max-age=300",
-      ...(etag && { etag }),
-    };
-
-    if (etag && request.headers.get("if-none-match") === etag) {
-      // A streamed body would otherwise hold its upstream open until collected.
-      if ("body" in content && content.body instanceof ReadableStream) void content.body.cancel();
-
-      return new Response(null, { status: 304, headers: { ...caching, ...extra } });
-    }
-
-    // An addressed request a backend would rather redirect is served from here
-    // instead: a redirect cannot carry the immutable promise, since where it
-    // points is the provider's to expire. It is also the cheaper answer, because
-    // the browser then keeps this version for good rather than coming back for a
-    // fresh redirect every few minutes.
-    const source =
-      "redirect" in content
-        ? await fetchRange((headers) => fetch(content.redirect, { headers }), range)
-        : content;
-
-    return new Response(source.body, {
-      status: source.partial?.status ?? 200,
-      headers: {
-        // Typed from the name, never from the backend's answer.
-        "content-type": servedContentType(filePath),
-        "accept-ranges": "bytes",
-        ...(source.partial?.contentRange && { "content-range": source.partial.contentRange }),
-        // These bytes are served same-origin with the admin's own cookie, so a
-        // file opened as a page of its own, an SVG say, gets an opaque origin
-        // and no scripts. Embedding ignores this, so previews are unaffected.
-        "content-security-policy": "sandbox",
-        ...caching,
-        ...HARDENING_HEADERS,
-        ...extra,
-      },
-    });
+    return limited(mediaReads, session.login, tooManyRequests, () =>
+      serveMedia(ctx, path.slice("/media/".length), request, url, extra),
+    );
   }
 
   if (path === "/ai/chat/completions" && request.method === "POST") {
@@ -594,33 +514,138 @@ async function route(
   }
 
   if (path === "/upload" && request.method === "PUT") {
-    const params = url.searchParams;
-    const uploadPath = params.get("path");
-
-    const libraryId = parseMediaLibrary(clientConfig.media, params.get("library"));
-
-    if (!uploadPath) return fail("An upload path is required.", 400);
-
-    if (!libraryId) return fail("Unknown media library.", 404);
-
-    const library = ctx.media(libraryId);
-
-    // An object store takes every upload straight from the browser.
-    if (!library.uploadMedia) return fail("This library takes uploads directly.", 400);
-
-    // The body is held in memory until it is committed, so the library's own
-    // limit is also how much of it is read before refusing.
-    const bytes = await readBytes(
-      request,
-      mediaLibrary(clientConfig.media, libraryId).maxFileSize ?? Number.POSITIVE_INFINITY,
-    );
-
-    await library.uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
-
-    return json({ ok: true }, 200, extra);
+    return limited(rpc, session.login, tooManyRequests, () => upload(ctx, request, url, extra));
   }
 
   return fail("Not found.", 404);
+}
+
+/** One media file, `path` being the library id followed by the file's path within it. */
+async function serveMedia(
+  ctx: RequestContext,
+  path: string,
+  request: Request,
+  url: URL,
+  extra: Record<string, string>,
+): Promise<Response> {
+  const [id = "", ...segments] = path.split("/");
+  const libraryId = parseMediaLibrary(clientConfig.media, id);
+
+  if (!libraryId) return fail("Unknown media library.", 404);
+
+  let filePath: string;
+
+  try {
+    filePath = decodeURIComponent(segments.join("/"));
+  } catch {
+    return fail("Invalid media path.", 400);
+  }
+
+  const library = ctx.media(libraryId);
+  // A range is what lets a browser play and seek a video or audio file, and
+  // Safari will not play one at all without it.
+  const range = parseByteRange(request.headers.get("range"));
+  const content = await library.readMedia(filePath, range ?? undefined);
+  // Kept for good only when the URL names the bytes that came back. The
+  // version is what makes the address change with the file, so honouring a `v`
+  // the file does not have would pin the wrong bytes in a browser for a year,
+  // and a backend that cannot name its bytes gets the short cache rather than
+  // a policy resting on the caller's word.
+  const addressed = content.version != null && url.searchParams.get("v") === content.version;
+
+  if ("redirect" in content && !addressed) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        location: content.redirect,
+        // A redirect is uncacheable unless it says otherwise, and without this
+        // every render of the same thumbnail comes back here. Private, because
+        // where it points depends on who asked, and short, because a signed
+        // destination expires.
+        "cache-control": "private, max-age=300",
+        ...extra,
+      },
+    });
+  }
+
+  // The version is an entity tag in the word's exact sense: two answers
+  // carrying the same one are the same bytes. Sending it is what makes the
+  // short cache cheap as well, since the revalidation it ends in comes back
+  // as a 304 with no body rather than as the file again.
+  const etag = content.version == null ? undefined : `"${content.version}"`;
+  const caching = {
+    // The library is the editor's own repository or bucket, so it is cached
+    // per browser and never by a shared proxy.
+    "cache-control": addressed ? "private, max-age=31536000, immutable" : "private, max-age=300",
+    ...(etag && { etag }),
+  };
+
+  if (etag && request.headers.get("if-none-match") === etag) {
+    // A streamed body would otherwise hold its upstream open until collected.
+    if ("body" in content && content.body instanceof ReadableStream) void content.body.cancel();
+
+    return new Response(null, { status: 304, headers: { ...caching, ...extra } });
+  }
+
+  // An addressed request a backend would rather redirect is served from here
+  // instead: a redirect cannot carry the immutable promise, since where it
+  // points is the provider's to expire. It is also the cheaper answer, because
+  // the browser then keeps this version for good rather than coming back for a
+  // fresh redirect every few minutes.
+  const source =
+    "redirect" in content
+      ? await fetchRange((headers) => fetch(content.redirect, { headers }), range)
+      : content;
+
+  return new Response(source.body, {
+    status: source.partial?.status ?? 200,
+    headers: {
+      // Typed from the name, never from the backend's answer.
+      "content-type": servedContentType(filePath),
+      "accept-ranges": "bytes",
+      ...(source.partial?.contentRange && { "content-range": source.partial.contentRange }),
+      // These bytes are served same-origin with the admin's own cookie, so a
+      // file opened as a page of its own, an SVG say, gets an opaque origin
+      // and no scripts. Embedding ignores this, so previews are unaffected.
+      "content-security-policy": "sandbox",
+      ...caching,
+      ...HARDENING_HEADERS,
+      ...extra,
+    },
+  });
+}
+
+/** A file uploaded through the server, for a library that commits it rather than a store. */
+async function upload(
+  ctx: RequestContext,
+  request: Request,
+  url: URL,
+  extra: Record<string, string>,
+): Promise<Response> {
+  const params = url.searchParams;
+  const uploadPath = params.get("path");
+  const libraryId = parseMediaLibrary(clientConfig.media, params.get("library"));
+
+  if (!uploadPath) return fail("An upload path is required.", 400);
+
+  if (!libraryId) return fail("Unknown media library.", 404);
+
+  const library = ctx.media(libraryId);
+  const { maxFileSize } = mediaLibrary(clientConfig.media, libraryId);
+
+  // An object store takes every upload straight from the browser, and only it
+  // resolves without a limit (see `resolveLibrary`).
+  if (!library.uploadMedia || maxFileSize == null) {
+    return fail("This library takes uploads directly.", 400);
+  }
+
+  // The body is held in memory until it is committed, so the library's own
+  // limit is also how much of it is read before refusing.
+  const bytes = await readBytes(request, maxFileSize);
+
+  await library.uploadMedia(uploadPath, bytes, params.get("overwrite") === "true");
+
+  return json({ ok: true }, 200, extra);
 }
 
 async function startLogin(url: URL): Promise<Response> {

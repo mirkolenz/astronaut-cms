@@ -19,6 +19,7 @@ import type {
   ServerStorageConfig,
 } from "./types.ts";
 import {
+  MAX_SERVER_UPLOAD_BYTES,
   s3BaseUrl,
   type ClientLibrary,
   type ClientMediaConfig,
@@ -144,8 +145,14 @@ const DEFAULT_IMAGE_OPTIMIZATION: ResolvedImageOptimization = {
   minQuality: 0.5,
 };
 
-/** What every library resolves alike. */
-function resolveLibrary(library: RepoMediaConfig | S3MediaConfig | undefined): ClientLibrary {
+/**
+ * What every library resolves alike. A library whose uploads the server holds
+ * in memory gets a default size limit.
+ */
+function resolveLibrary(
+  library: RepoMediaConfig | S3MediaConfig | undefined,
+  throughServer: boolean,
+): ClientLibrary {
   const optimize = library?.optimizeImages;
 
   return {
@@ -153,7 +160,7 @@ function resolveLibrary(library: RepoMediaConfig | S3MediaConfig | undefined): C
     // Lower-cased once, so `isLibraryFile` never re-normalizes the list.
     extensions: library?.allowedExtensions?.map((ext) => ext.toLowerCase()) ?? null,
     minFileSize: library?.minFileSize ?? null,
-    maxFileSize: library?.maxFileSize ?? null,
+    maxFileSize: library?.maxFileSize ?? (throughServer ? MAX_SERVER_UPLOAD_BYTES : null),
     imageOptimization: optimize === false ? null : { ...DEFAULT_IMAGE_OPTIMIZATION, ...optimize },
   };
 }
@@ -169,12 +176,12 @@ function resolveClientMedia(config: CmsConfig, s3DevDirectory: string | null): C
 
   return {
     repo: {
-      ...resolveLibrary(repo),
+      ...resolveLibrary(repo, true),
       directory: repo?.directory ?? DEFAULT_MEDIA_DIRECTORY,
     },
     s3: s3
       ? {
-          ...resolveLibrary(s3),
+          ...resolveLibrary(s3, s3DevDirectory != null),
           publicUrl: trimSlashes(s3.publicUrl),
           // Where every presigned upload goes, which the admin's CSP has to allow.
           storeOrigin: s3BaseUrl(storeS3(s3)).origin,

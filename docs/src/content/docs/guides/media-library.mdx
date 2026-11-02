@@ -47,10 +47,11 @@ Every library takes these:
 | `label`             | `string`                           | translated | The library's name in the admin's sidebar and picker                          |
 | `allowedExtensions` | `string[]`                         | any file   | Restricts the library to these extensions, e.g. `[".svg", ".png"]`            |
 | `minFileSize`       | `number`                           | none       | Smallest upload in bytes, refused by the admin and again by the server        |
-| `maxFileSize`       | `number`                           | unlimited  | Largest upload in bytes, refused by the admin and again by the server         |
+| `maxFileSize`       | `number`                           | see below  | Largest upload in bytes, refused by the admin and again by the server         |
 | `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How an image is reshaped in the browser before it is uploaded to this library |
 
 The repository library (`media.repo`) adds `directory` (default `"src/assets"`) and `prune`.
+Its `maxFileSize` defaults to 100 MiB, the largest file GitHub accepts, while the object store has none, except for its `devDirectory` in `astro dev`, whose uploads also pass through the CMS route.
 The object store (`media.s3`) is described in [Where files are stored](#where-files-are-stored).
 
 The size is checked against the file as it is uploaded, so after image optimization where that is enabled.

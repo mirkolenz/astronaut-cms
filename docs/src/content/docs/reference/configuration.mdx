@@ -129,7 +129,7 @@ Every library takes these options:
 | `label`             | `string`                           | translated | The library's name in the admin                                                                               |
 | `allowedExtensions` | `string[]`                         | any file   | Restricts the library to these extensions (with leading dot)                                                  |
 | `minFileSize`       | `number`                           | none       | Smallest upload in bytes, checked in the admin and again on the server                                        |
-| `maxFileSize`       | `number`                           | unlimited  | Largest upload in bytes, checked in the admin, signed into an object-store upload URL, and checked on arrival |
+| `maxFileSize`       | `number`                           | see below  | Largest upload in bytes, checked in the admin, signed into an object-store upload URL, and checked on arrival |
 | `optimizeImages`    | `ImageOptimizationConfig \| false` | enabled    | How the browser reshapes an image before uploading it here, or `false` to upload originals untouched          |
 
 The sizes are checked against the file as it is uploaded, after optimization where that is enabled.
@@ -145,6 +145,7 @@ The library in the repository. Its uploads are commits on the draft branch, publ
 | `prune`     | `boolean` | automatic      | Whether a build deletes the library files nothing delivered links |
 
 Its uploads pass through the CMS route, which holds each one in memory, so `maxFileSize` is also that route's body limit.
+It defaults to 100 MiB, the largest file GitHub accepts, while the object store has none, except for its `devDirectory` in `astro dev`, whose uploads also pass through the CMS route.
 
 ### `prune`
 

@@ -28,6 +28,12 @@ export interface MediaLocation {
   path: string;
 }
 
+/**
+ * Largest upload the server holds in memory when a library sets no limit of its
+ * own. GitHub refuses a file above this size anyway.
+ */
+export const MAX_SERVER_UPLOAD_BYTES = 100 * 1024 * 1024;
+
 /** Bounds on a file's size in bytes, null where there is none. */
 export interface SizeLimits {
   minFileSize: number | null;
