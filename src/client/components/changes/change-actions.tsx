@@ -126,7 +126,19 @@ export function ChangeActions() {
       <ConfirmDialog
         open={confirming === "discard"}
         title={t(($) => $.changes.discardAll)}
-        description={t(($) => $.changes.discardAllMessage)}
+        description={
+          <>
+            <p>{t(($) => $.changes.discardAllMessage, { count })}</p>
+            {config.storageType === "local" && <p className="mt-2">{t(($) => $.changes.discardAllLocal)}</p>}
+            <ul className="mt-2 max-h-48 overflow-y-auto font-mono text-xs">
+              {changes.data?.map((change) => (
+                <li key={change.path} className="truncate">
+                  {change.path}
+                </li>
+              ))}
+            </ul>
+          </>
+        }
         confirmLabel={t(($) => $.common.discard)}
         pendingLabel={t(($) => $.publish.discarding)}
         isPending={discard.isPending}

@@ -156,7 +156,8 @@ const en = {
     reviewProgress: "Reviewed: {{reviewed}} / {{count}}. Open every change before you can publish.",
     discardAll: "Discard all",
     discardAllMessage:
-      "Discard all pending changes? They are not published anywhere and cannot be recovered.",
+      "Discard these {{count}} changes? They are not published anywhere and cannot be recovered.",
+    discardAllLocal: "Changes staged in git are kept.",
     discarded: "Pending changes discarded",
     failedLoad: "Failed to load changes: {{message}}",
   },

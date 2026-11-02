@@ -163,7 +163,8 @@ const de: TranslationShape<typeof en> = {
       "Geprüft: {{reviewed}} / {{count}}. Öffnen Sie jede Änderung, bevor Sie veröffentlichen können.",
     discardAll: "Alle verwerfen",
     discardAllMessage:
-      "Alle ausstehenden Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
+      "Diese {{count}} Änderungen verwerfen? Sie sind nirgends veröffentlicht und können nicht wiederhergestellt werden.",
+    discardAllLocal: "Mit git vorgemerkte Änderungen bleiben erhalten.",
     discarded: "Ausstehende Änderungen verworfen",
     failedLoad: "Änderungen konnten nicht geladen werden: {{message}}",
   },

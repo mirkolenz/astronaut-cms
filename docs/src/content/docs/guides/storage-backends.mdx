@@ -16,6 +16,8 @@ That is what the [Security Model](/astronaut-cms/guides/security/) is built on, 
 
 Local storage is the default.
 It reads and writes files directly in the working tree.
+Its pending changes are what the working tree holds beyond the git index, within the collections and media directories.
+Whatever you stage with `git add` is yours: the admin neither lists it nor discards it, so staging is how you keep a hand edit out of the admin's changeset.
 
 ```ts title="astro.config.ts"
 cms({

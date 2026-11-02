@@ -73,4 +73,16 @@ describe("git-backed changeset", () => {
     expect(existsSync(join(rootDir, "src/content/post.md"))).toBe(true);
     expect(existsSync(join(rootDir, "src/other.md"))).toBe(true);
   });
+
+  it("keeps what the developer staged", async () => {
+    write("src/content/post.md", "staged\n");
+    git("add", "src/content/post.md");
+
+    expect(await readChanges(rootDir, managed)).toEqual([]);
+
+    write("src/content/post.md", "edited\n");
+    await discardChanges(rootDir, managed);
+
+    expect(readFileSync(join(rootDir, "src/content/post.md"), "utf-8")).toBe("staged\n");
+  });
 });

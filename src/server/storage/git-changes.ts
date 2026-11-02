@@ -3,10 +3,12 @@
  *
  * The remote backends get their changeset for free: everything on the user's
  * draft branch is pending, and publishing merges it. Local storage writes
- * straight into the working tree, so the equivalent "what has changed since the
- * last commit" comes from git itself. Every command is scoped to the paths the
- * CMS manages (collection directories, file-collection files, the media
- * directory), so a discard can never touch the developer's source edits.
+ * straight into the working tree, so the equivalent comes from git itself: what
+ * the working tree holds beyond the index. The index is the developer's own
+ * checkpoint, so whatever they staged is theirs, and neither listed nor
+ * discarded. Every command is scoped to the paths the CMS manages (collection
+ * directories, file-collection files, the media directory), so a discard can
+ * never touch the developer's source edits either.
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -57,25 +59,27 @@ async function repositoryPrefix(rootDir: string): Promise<string | null> {
   }
 }
 
-function toKind(status: string): ChangeKind {
-  if (status.includes("?") || status.includes("A")) return "added";
-  if (status.includes("D")) return "deleted";
-  if (status.includes("R")) return "renamed";
+// The working-tree column of a status record, which compares against the index.
+// Git only detects renames between HEAD and the index, so none shows here.
+function toKind(worktree: string): ChangeKind {
+  if (worktree === "?") return "added";
+  if (worktree === "D") return "deleted";
 
   return "modified";
 }
 
 interface StatusEntry {
   path: string;
-  previousPath?: string;
   kind: ChangeKind;
   untracked: boolean;
 }
 
 /**
  * Parses `git status --porcelain=v1 -z`: NUL-terminated records of `XY <path>`,
- * where a rename record is followed by a second record holding the old path.
- * Paths are made project-relative by stripping the repository prefix.
+ * where a staged rename or copy is followed by a second record holding the old
+ * path. Only records whose working tree differs from the index are kept, since
+ * whatever the developer staged is theirs. Paths are made project-relative by
+ * stripping the repository prefix.
  */
 function parseStatus(stdout: string, prefix: string): StatusEntry[] {
   const records = stdout.split("\0").filter(Boolean).values();
@@ -83,14 +87,15 @@ function parseStatus(stdout: string, prefix: string): StatusEntry[] {
   const strip = (path: string) => (path.startsWith(prefix) ? path.slice(prefix.length) : path);
 
   for (const record of records) {
-    const status = record.slice(0, 2);
-    const previousPath = status.includes("R") ? records.next().value : undefined;
+    const [staged = " ", worktree = " "] = record;
+
+    if (staged === "R" || staged === "C") records.next();
+    if (worktree === " ") continue;
 
     entries.push({
       path: strip(record.slice(3)),
-      previousPath: previousPath && strip(previousPath),
-      kind: toKind(status),
-      untracked: status === "??",
+      kind: toKind(worktree),
+      untracked: worktree === "?",
     });
   }
 
@@ -116,12 +121,12 @@ async function readStatus(
 async function toFileChange(rootDir: string, entry: StatusEntry): Promise<FileChange> {
   const patch = entry.untracked
     ? await gitDiff(rootDir, ["diff", "--no-index", "--", "/dev/null", entry.path])
-    : await gitDiff(rootDir, ["diff", "HEAD", "--", entry.path]);
+    : await gitDiff(rootDir, ["diff", "--", entry.path]);
 
-  return { path: entry.path, kind: entry.kind, previousPath: entry.previousPath, patch };
+  return { path: entry.path, kind: entry.kind, patch };
 }
 
-/** Working-tree changes to the managed paths, in the shape the git backends report. */
+/** Unstaged changes to the managed paths, in the shape the git backends report. */
 export async function readChanges(rootDir: string, paths: string[]): Promise<FileChange[]> {
   const prefix = await repositoryPrefix(rootDir);
 
@@ -134,7 +139,7 @@ export async function readChanges(rootDir: string, paths: string[]): Promise<Fil
   return Promise.all(entries.map((entry) => toFileChange(rootDir, entry)));
 }
 
-/** Restores every managed path to its committed state, deleting files that were newly added. */
+/** Restores every managed path to its staged state, deleting files that were newly added. */
 export async function discardChanges(rootDir: string, paths: string[]): Promise<void> {
   const prefix = await repositoryPrefix(rootDir);
 
@@ -145,11 +150,7 @@ export async function discardChanges(rootDir: string, paths: string[]): Promise<
   const untracked = entries.filter((entry) => entry.untracked);
 
   if (tracked.length > 0) {
-    const restorable = tracked.flatMap((entry) =>
-      entry.previousPath ? [entry.path, entry.previousPath] : [entry.path],
-    );
-
-    await git(rootDir, ["restore", "--source=HEAD", "--staged", "--worktree", "--", ...restorable]);
+    await git(rootDir, ["restore", "--worktree", "--", ...tracked.map((entry) => entry.path)]);
   }
 
   await Promise.all(
