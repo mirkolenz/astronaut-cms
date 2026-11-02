@@ -86,6 +86,14 @@ Defines what the component accepts as children.
 Set to `"markdown"` for components that wrap markdown content.
 Set to an object for components that contain named child components (e.g., tabs with tab items).
 
+### `kind`
+
+- **Type:** `"flow" | "text"`
+- **Default:** `"flow"`
+
+Where the component is written: `"flow"` on lines of its own, like a block, and `"text"` within a line of text, like a badge in a sentence.
+Where only a line of text fits, such as a table cell, the insert menu and pasting offer `"text"` components alone.
+
 ### `label`
 
 - **Type:** `string`

@@ -208,7 +208,7 @@ interface ComponentDefinition<T extends z.ZodType = z.ZodType> {
   description?: string;
   collections?: CollectionName[];
   summary?: string;
-  icon?: ComponentIcon;
+  icon?: ComponentIcon; // a React component taking `className`
   editor?: JsxEditor;
 }
 ```
