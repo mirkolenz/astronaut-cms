@@ -137,18 +137,18 @@
   },
   "overrides": {
     "@mdxeditor/editor": {
-      "lexical": "$lexical",
-      "@lexical/clipboard": "$lexical",
-      "@lexical/extension": "$lexical",
-      "@lexical/history": "$lexical",
-      "@lexical/link": "$lexical",
-      "@lexical/list": "$lexical",
-      "@lexical/markdown": "$lexical",
-      "@lexical/plain-text": "$lexical",
-      "@lexical/react": "$lexical",
-      "@lexical/rich-text": "$lexical",
-      "@lexical/selection": "$lexical",
-      "@lexical/utils": "$lexical"
+      "lexical": "^0.53",
+      "@lexical/clipboard": "^0.53",
+      "@lexical/extension": "^0.53",
+      "@lexical/history": "^0.53",
+      "@lexical/link": "^0.53",
+      "@lexical/list": "^0.53",
+      "@lexical/markdown": "^0.53",
+      "@lexical/plain-text": "^0.53",
+      "@lexical/react": "^0.53",
+      "@lexical/rich-text": "^0.53",
+      "@lexical/selection": "^0.53",
+      "@lexical/utils": "^0.53"
     }
   },
   "engines": {
