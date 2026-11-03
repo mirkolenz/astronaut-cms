@@ -5,21 +5,21 @@ import {
   type CollectionManifestEntry,
   type FileChange,
   type MediaFile,
-} from "../../shared/types.ts";
-import { projectPath } from "../../shared/paths.ts";
-import { BranchedStorage, fromBase64, memoized, type StorageOptions } from "./base.ts";
+} from "@/shared/types";
+import { projectPath } from "@/shared/paths";
+import { BranchedStorage, fromBase64, memoized, type StorageOptions } from "@/server/storage/base";
 import type {
   ChangeRequestSummary,
   MediaContent,
   Precondition,
   PublishMode,
   VersionedContent,
-} from "./types.ts";
-import { MergeConflictError, exists, getErrorStatus, staleWrite } from "./types.ts";
-import { ApiClient } from "./api.ts";
-import { fetchRange } from "../ranges.ts";
-import type { ByteRange } from "../../shared/http.ts";
-import { joinUrl } from "../../shared/url.ts";
+} from "@/server/storage/types";
+import { MergeConflictError, exists, getErrorStatus, staleWrite } from "@/server/storage/types";
+import { ApiClient } from "@/server/storage/api";
+import { fetchRange } from "@/server/ranges";
+import type { ByteRange } from "@/shared/http";
+import { joinUrl } from "@/shared/url";
 
 export interface GitLabConfig {
   project: string;

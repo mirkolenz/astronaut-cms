@@ -3,7 +3,7 @@ import { assertEntryWritable, type ContentSource } from "@/server/validation";
 import { collectionEnum, validateAgainstSchema } from "@/shared/collection-schema";
 import { ContentValidationError } from "@/shared/diagnostics";
 import type { CollectionManifestEntry } from "@/shared/types";
-import { repoMedia, s3Media } from "./fixtures/media";
+import { repoMedia, s3Media } from "@tests/fixtures/media";
 
 // An entry that does not match its collection schema is fatal to the site: Astro
 // throws while syncing content and the dev server exits. These pin the two ways

@@ -14,7 +14,7 @@ import { z } from "zod";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { frontmatter } from "micromark-extension-frontmatter";
-import type { FileEntryLayout } from "./types";
+import type { FileEntryLayout } from "@/shared/types";
 import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
 import { isRecord } from "@/shared/field-schema";
 

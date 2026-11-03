@@ -1,4 +1,4 @@
-import { errorMessage } from "../shared/errors.ts";
+import { errorMessage } from "@/shared/errors";
 
 /** An error with the HTTP status it should reach the browser as. */
 export class HttpError extends Error {

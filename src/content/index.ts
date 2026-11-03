@@ -9,8 +9,8 @@
  */
 import { type CollectionEntry, type CollectionKey, getEntry } from "astro:content";
 import { contentI18n, fileOrder, sorts } from "virtual:astronaut-cms/content";
-import { type ContentI18n, joinLocale, splitLocale } from "../shared/i18n.ts";
-import { compareIds, sortByIds } from "../shared/types.ts";
+import { type ContentI18n, joinLocale, splitLocale } from "@/shared/i18n";
+import { compareIds, sortByIds } from "@/shared/types";
 
 // Each file position by id, built once per module instance.
 const ranks = new Map(

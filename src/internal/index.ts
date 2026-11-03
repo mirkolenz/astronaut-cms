@@ -16,9 +16,9 @@
  *   injected routes, the admin page and the admin share, reached from
  *   `admin.astro`, which can only import package entry points.
  */
-export * from "./loader-stubs.ts";
-export * from "./editor-stubs.ts";
-export * from "./user-config.ts";
-export { propsResolver, type InferComponentProps } from "../shared/component-props.ts";
-export { HARDENING_HEADERS } from "../shared/http.ts";
-export { ADMIN_ROOT_ID } from "../shared/auth.ts";
+export * from "@/internal/loader-stubs";
+export * from "@/internal/editor-stubs";
+export * from "@/internal/user-config";
+export { propsResolver, type InferComponentProps } from "@/shared/component-props";
+export { HARDENING_HEADERS } from "@/shared/http";
+export { ADMIN_ROOT_ID } from "@/shared/auth";

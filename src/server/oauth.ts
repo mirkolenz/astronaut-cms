@@ -20,14 +20,14 @@
  */
 import { encode as base64url } from "jose/base64url";
 import { z } from "zod";
-import { GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "../shared/auth.ts";
-import type { Provider } from "../shared/auth.ts";
-import { parseRepo } from "../shared/repo.ts";
-import { joinUrl } from "../shared/url.ts";
+import { GITHUB_CLIENT_SECRET_ENV, GITLAB_CLIENT_SECRET_ENV } from "@/shared/auth";
+import type { Provider } from "@/shared/auth";
+import { parseRepo } from "@/shared/repo";
+import { joinUrl } from "@/shared/url";
 import { getSecret } from "astro:env/server";
-import type { Session } from "./session.ts";
-import { GITHUB_API, githubClient } from "./storage/github.ts";
-import { gitlabClient } from "./storage/gitlab.ts";
+import type { Session } from "@/server/session";
+import { GITHUB_API, githubClient } from "@/server/storage/github";
+import { gitlabClient } from "@/server/storage/gitlab";
 
 /** GitLab access levels: 30 = Developer, the lowest that may push and open MRs. */
 const MIN_GITLAB_ACCESS_LEVEL = 30;

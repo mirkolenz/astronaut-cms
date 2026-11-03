@@ -5,15 +5,15 @@ import {
   type CollectionManifestEntry,
   type FileChange,
   type MediaFile,
-} from "../../shared/types.ts";
-import { BranchedStorage, fromBase64, type StorageOptions } from "./base.ts";
+} from "@/shared/types";
+import { BranchedStorage, fromBase64, type StorageOptions } from "@/server/storage/base";
 import type {
   ChangeRequestSummary,
   MediaContent,
   Precondition,
   PublishMode,
   VersionedContent,
-} from "./types.ts";
+} from "@/server/storage/types";
 import {
   MergeConflictError,
   exists,
@@ -21,9 +21,9 @@ import {
   satisfies,
   staleWrite,
   versioned,
-} from "./types.ts";
-import { ApiClient } from "./api.ts";
-import { encodeKeyPath } from "../../shared/media.ts";
+} from "@/server/storage/types";
+import { ApiClient } from "@/server/storage/api";
+import { encodeKeyPath } from "@/shared/media";
 
 export const GITHUB_API = "https://api.github.com";
 

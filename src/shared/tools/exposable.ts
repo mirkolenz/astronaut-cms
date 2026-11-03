@@ -13,9 +13,9 @@
  * person who can actually fix it.
  */
 import { z } from "zod";
-import { collectionDataSchema, collectionPatchSchema } from "../collection-schema.ts";
-import type { CollectionManifestEntry } from "../types.ts";
-import { errorMessage } from "../errors.ts";
+import { collectionDataSchema, collectionPatchSchema } from "@/shared/collection-schema";
+import type { CollectionManifestEntry } from "@/shared/types";
+import { errorMessage } from "@/shared/errors";
 
 /**
  * What a tool may be called, as the strictest of its consumers allows: WebMCP

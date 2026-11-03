@@ -5,11 +5,11 @@
  * WebMCP has no prompt of ours at all, so it gets the same answer from a tool,
  * built here, once, so the two can never describe different sites.
  */
-import { extractFormatsFromLoader, singletonIds } from "../types.ts";
-import { describeMediaRef } from "../media.ts";
-import { collectionLabel } from "../labels.ts";
-import { componentOverview, type ComponentOverview } from "./components.ts";
-import type { ToolConfig } from "./types.ts";
+import { extractFormatsFromLoader, singletonIds } from "@/shared/types";
+import { describeMediaRef } from "@/shared/media";
+import { collectionLabel } from "@/shared/labels";
+import { componentOverview, type ComponentOverview } from "@/shared/tools/components";
+import type { ToolConfig } from "@/shared/tools/types";
 
 export interface ContentModel {
   /**

@@ -2,21 +2,21 @@ import type { AstroIntegration } from "astro";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "pathe";
-import type { CmsConfig } from "./types.ts";
-import { API_BASE, API_CALLBACK, API_PATTERN, LICENSES_PATH } from "../shared/auth.ts";
-import { gatewayAddress } from "../shared/ai.ts";
-import { conformTrailingSlash, trimSlashes } from "../shared/url.ts";
-import { megabytes } from "../shared/media.ts";
-import { cmsVitePlugin } from "./vite-plugin.ts";
-import { cmsDevPlugin } from "./dev-middleware.ts";
-import { loadConfigs } from "./load-config.ts";
-import { secretsSchema } from "./env-schema.ts";
-import { sitemapListsAdmin } from "./sitemap-check.ts";
-import { checkContent, missingSingletons } from "./check-content.ts";
-import { mediaGraph, type MediaGraph } from "./media-graph.ts";
-import { contentEntries } from "./content-files.ts";
-import { componentModules, componentTypes, writeModules } from "./component-codegen.ts";
-import { unexposable } from "../shared/tools/exposable.ts";
+import type { CmsConfig } from "@/integration/types";
+import { API_BASE, API_CALLBACK, API_PATTERN, LICENSES_PATH } from "@/shared/auth";
+import { gatewayAddress } from "@/shared/ai";
+import { conformTrailingSlash, trimSlashes } from "@/shared/url";
+import { megabytes } from "@/shared/media";
+import { cmsVitePlugin } from "@/integration/vite-plugin";
+import { cmsDevPlugin } from "@/integration/dev-middleware";
+import { loadConfigs } from "@/integration/load-config";
+import { secretsSchema } from "@/integration/env-schema";
+import { sitemapListsAdmin } from "@/integration/sitemap-check";
+import { checkContent, missingSingletons } from "@/integration/check-content";
+import { mediaGraph, type MediaGraph } from "@/integration/media-graph";
+import { contentEntries } from "@/integration/content-files";
+import { componentModules, componentTypes, writeModules } from "@/integration/component-codegen";
+import { unexposable } from "@/shared/tools/exposable";
 import {
   DEFAULT_S3_DEV_DIRECTORY,
   isByok,
@@ -25,7 +25,7 @@ import {
   resolveMediaServer,
   resolveServerConfig,
   storageType,
-} from "./resolve-config.ts";
+} from "@/integration/resolve-config";
 
 export type {
   CmsConfig,
@@ -36,16 +36,16 @@ export type {
   S3EndpointMediaConfig,
   R2MediaConfig,
   SupportedLocale,
-} from "./types.ts";
-export type { ContentI18n } from "../shared/i18n.ts";
-export { defineCollection, defineComponent, file, libraryImage, localized } from "../config.ts";
+} from "@/integration/types";
+export type { ContentI18n } from "@/shared/i18n";
+export { defineCollection, defineComponent, file, libraryImage, localized } from "@/config";
 export type {
   CollectionOptions,
   CollectionSort,
   ComponentDefinition,
   ChildrenConfig,
   SchemaHelpers,
-} from "../config.ts";
+} from "@/config";
 
 const CONFIG_EXTENSIONS = ["ts", "tsx", "mts", "js", "jsx", "mjs"];
 

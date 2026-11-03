@@ -1,5 +1,5 @@
 import type { CmsClientConfig, CmsServerConfig } from "@/integration/types";
-import { repoMedia } from "./media";
+import { repoMedia } from "@tests/fixtures/media";
 
 // Stand-in for the build-time `virtual:astronaut-cms/server` module. Local
 // storage, so no provider credential is involved in a test run, and one
@@ -33,4 +33,4 @@ export const server: CmsServerConfig = {
   ai: null,
 };
 
-export { components } from "./user-config";
+export { components } from "@tests/fixtures/user-config";

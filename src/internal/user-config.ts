@@ -6,16 +6,11 @@
  * instance. This module is intentionally free of any `astro:*` / `astro/*`
  * import, so nothing Node-only leaks into the client.
  */
-import type {
-  CollectionOptions,
-  ComponentDefinition,
-  ComponentIcon,
-  JsxEditor,
-} from "../config.ts";
-import type { DescribedComponent } from "../shared/field-schema.ts";
-import type { ContentI18n } from "../shared/i18n.ts";
-import { zodToFieldSchema } from "../shared/zod-to-field.ts";
-import { componentSchema } from "../shared/component-props.ts";
+import type { CollectionOptions, ComponentDefinition, ComponentIcon, JsxEditor } from "@/config";
+import type { DescribedComponent } from "@/shared/field-schema";
+import type { ContentI18n } from "@/shared/i18n";
+import { zodToFieldSchema } from "@/shared/zod-to-field";
+import { componentSchema } from "@/shared/component-props";
 
 export interface ClientComponentDef extends DescribedComponent {
   icon: ComponentIcon | null;

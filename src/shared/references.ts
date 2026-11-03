@@ -5,7 +5,7 @@
  * function and lives here, where both sides can reach it.
  */
 import { z } from "zod";
-import type { MediaLibraryId, MediaLocation } from "./media.ts";
+import type { MediaLibraryId, MediaLocation } from "@/shared/media";
 
 /** A reference an entry holds. */
 export const assetReferenceSchema = z.object({

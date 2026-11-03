@@ -1,18 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "pathe";
 import type { Plugin } from "vite";
-import type { CmsClientConfig, CmsServerConfig } from "./types.ts";
-import type { CollectionSort } from "../shared/types.ts";
-import type { ComponentManifest } from "../internal/user-config.ts";
-import { getFileExtension, parseMultiEntryFile } from "../shared/content-parser.ts";
-import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
-import {
-  libraryDirectories,
-  type ClientMediaConfig,
-  type MediaRefConfig,
-} from "../shared/media.ts";
-import { DEV_API_ENVIRONMENT } from "./dev-api.ts";
-import { COMPONENTS_MODULE } from "./component-codegen.ts";
+import type { CmsClientConfig, CmsServerConfig } from "@/integration/types";
+import type { CollectionSort } from "@/shared/types";
+import type { ComponentManifest } from "@/internal/user-config";
+import { getFileExtension, parseMultiEntryFile } from "@/shared/content-parser";
+import { ASTRO_IMAGE_FORMATS } from "@/shared/image-formats";
+import { libraryDirectories, type ClientMediaConfig, type MediaRefConfig } from "@/shared/media";
+import { DEV_API_ENVIRONMENT } from "@/integration/dev-api";
+import { COMPONENTS_MODULE } from "@/integration/component-codegen";
 
 export interface CmsVitePluginOptions {
   clientConfig: CmsClientConfig;

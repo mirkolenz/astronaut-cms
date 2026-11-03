@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateBody } from "@/shared/body-validation";
-import { components } from "./fixtures/user-config";
+import { components } from "@tests/fixtures/user-config";
 
 // Asset props on MDX components are plain strings in the schema, so a model can
 // satisfy the tool's JSON Schema while pointing at an image that does not exist.

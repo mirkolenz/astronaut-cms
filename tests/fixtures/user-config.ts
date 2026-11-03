@@ -1,5 +1,5 @@
-import type { ClientComponentDef, ComponentManifest } from "../../src/internal/user-config.ts";
-import type { ComponentIcon } from "../../src/config.ts";
+import type { ClientComponentDef, ComponentManifest } from "@/internal/user-config";
+import type { ComponentIcon } from "@/config";
 
 // Stand-in for the build-time `virtual:astronaut-cms/user-config` module, which
 // the admin bundle types as the full `ComponentManifest`. A component with an

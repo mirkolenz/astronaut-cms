@@ -19,8 +19,8 @@ import {
   type ChangeKind,
   type CollectionManifest,
   type FileChange,
-} from "../../shared/types.ts";
-import { assertWithinBase } from "./paths.ts";
+} from "@/shared/types";
+import { assertWithinBase } from "@/server/storage/paths";
 
 const run = promisify(execFile);
 

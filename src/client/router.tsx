@@ -1,5 +1,5 @@
 import { createHashHistory, createRouter } from "@tanstack/react-router";
-import { routeTree } from "./routeTree.gen";
+import { routeTree } from "@/client/routeTree.gen";
 
 export const router = createRouter({
   routeTree,

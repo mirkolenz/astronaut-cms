@@ -2,10 +2,10 @@
 import type { IntegrationResolvedRoute } from "astro";
 import { join, resolve } from "pathe";
 import type { Plugin } from "vite";
-import { isLibraryFile, type ClientMediaConfig } from "../shared/media.ts";
-import { stripMediaPrefix } from "../shared/paths.ts";
-import { trimSlashes } from "../shared/url.ts";
-import { pruneMedia, type EmittedAsset } from "./prune-media.ts";
+import { isLibraryFile, type ClientMediaConfig } from "@/shared/media";
+import { stripMediaPrefix } from "@/shared/paths";
+import { trimSlashes } from "@/shared/url";
+import { pruneMedia, type EmittedAsset } from "@/integration/prune-media";
 
 /** What of a resolved route decides whether its code can render media on demand. */
 type Route = Pick<IntegrationResolvedRoute, "entrypoint" | "isPrerendered" | "origin" | "pattern">;

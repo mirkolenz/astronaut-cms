@@ -1,5 +1,5 @@
 import { APICallError, DirectChatTransport } from "ai";
-import { cmsAgent } from "./agent";
+import { cmsAgent } from "@/client/lib/ai/agent";
 
 // Maps a streaming failure to a concise line for the UI. The complete error is
 // logged separately, so this only needs to be readable, not exhaustive.

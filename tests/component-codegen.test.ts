@@ -2,7 +2,7 @@ import { readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "pathe";
 import { expect, it } from "vitest";
 import { componentModules, componentTypes, writeModules } from "@/integration/component-codegen";
-import { project } from "./fixtures/project";
+import { project } from "@tests/fixtures/project";
 
 const modules = componentModules("/site/src/cms.config.ts", {
   Hero: "/site/src/components/Hero.astro",

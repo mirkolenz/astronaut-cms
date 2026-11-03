@@ -1,9 +1,9 @@
 import mime from "mime/lite";
 import { dirname, extname, relative } from "pathe";
-import { assetKey } from "./asset-path.ts";
-import { uniqueName } from "./paths.ts";
-import { isAbsoluteUrl, joinUrl, trimSlashes } from "./url.ts";
-import type { ResolvedImageOptimization } from "../integration/types.ts";
+import { assetKey } from "@/shared/asset-path";
+import { uniqueName } from "@/shared/paths";
+import { isAbsoluteUrl, joinUrl, trimSlashes } from "@/shared/url";
+import type { ResolvedImageOptimization } from "@/integration/types";
 
 /**
  * How the media libraries are addressed. There are at most two: the repository

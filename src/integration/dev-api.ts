@@ -18,7 +18,7 @@ import {
 /** The Vite environment the dev API runs in. */
 export const DEV_API_ENVIRONMENT = "astronaut_cms";
 
-type Endpoint = typeof import("../server/endpoint.ts");
+type Endpoint = typeof import("@/server/endpoint");
 
 export const devApiEnvironment: EnvironmentOptions = {
   consumer: "server",

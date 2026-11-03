@@ -1,14 +1,14 @@
 import { statSync } from "node:fs";
 import { join } from "pathe";
-import { diagnostic, formatDiagnostic, type Diagnostic } from "../shared/diagnostics.ts";
-import { getFileExtension } from "../shared/content-parser.ts";
-import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "../shared/media.ts";
-import { libraryPathError } from "../shared/validation.ts";
-import { isAsset, type ResolvableLeaf } from "../shared/resolvable-leaves.ts";
-import { checkEntry } from "../shared/entry-checks.ts";
-import { ASTRO_IMAGE_FORMATS } from "../shared/image-formats.ts";
-import type { ContentEntry } from "./content-files.ts";
-import type { CollectionManifest, GlobEntry } from "../shared/types.ts";
+import { diagnostic, formatDiagnostic, type Diagnostic } from "@/shared/diagnostics";
+import { getFileExtension } from "@/shared/content-parser";
+import { mediaPath, repoOnlyRefusal, type ClientMediaConfig } from "@/shared/media";
+import { libraryPathError } from "@/shared/validation";
+import { isAsset, type ResolvableLeaf } from "@/shared/resolvable-leaves";
+import { checkEntry } from "@/shared/entry-checks";
+import { ASTRO_IMAGE_FORMATS } from "@/shared/image-formats";
+import type { ContentEntry } from "@/integration/content-files";
+import type { CollectionManifest, GlobEntry } from "@/shared/types";
 
 /**
  * The entries on disk that the admin would refuse to save, their data or their

@@ -6,7 +6,7 @@
 import { getSecret } from "astro:env/server";
 import { AwsClient } from "aws4fetch";
 import { z } from "zod";
-import { ApiError } from "../server/errors.ts";
+import { ApiError } from "@/server/errors";
 import {
   encodeKeyPath,
   remoteMediaUrl,
@@ -15,8 +15,8 @@ import {
   S3_SESSION_TOKEN_ENV,
   s3BaseUrl,
   type S3Target,
-} from "../shared/media.ts";
-import { parseXml, xmlList } from "../shared/xml.ts";
+} from "@/shared/media";
+import { parseXml, xmlList } from "@/shared/xml";
 
 /**
  * What an upload is allowed to be, decided by the route and never by its caller.

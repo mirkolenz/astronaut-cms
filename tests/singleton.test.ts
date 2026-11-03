@@ -10,7 +10,7 @@ import { createCmsTools } from "@/shared/tools/catalog";
 import { contentModel } from "@/shared/tools/content-model";
 import { missingSingletons } from "@/integration/check-content";
 import { client } from "virtual:astronaut-cms/server";
-import { TreeStorage, storageOptions } from "./fixtures/storage";
+import { TreeStorage, storageOptions } from "@tests/fixtures/storage";
 
 const firma: CollectionManifestEntry = {
   name: "firma",

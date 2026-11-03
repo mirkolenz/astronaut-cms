@@ -2,10 +2,10 @@ import { extname, join, relative } from "pathe";
 // The `.js` extension, since picomatch has no exports map for node to resolve the subpath with.
 import picomatch from "picomatch/posix.js";
 import { slug } from "github-slugger";
-import { getFileExtension } from "./content-parser.ts";
-import type { FieldSchema } from "./field-schema.ts";
-import { joinLocale, type ContentI18n } from "./i18n.ts";
-import { projectPath } from "./paths.ts";
+import { getFileExtension } from "@/shared/content-parser";
+import type { FieldSchema } from "@/shared/field-schema";
+import { joinLocale, type ContentI18n } from "@/shared/i18n";
+import { projectPath } from "@/shared/paths";
 
 export const CONTENT_FORMATS = ["md", "mdx", "mdoc"] as const;
 export const DATA_FORMATS = ["json", "yaml", "yml", "toml"] as const;

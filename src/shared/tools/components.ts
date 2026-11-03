@@ -7,9 +7,9 @@
  * them out on demand, reconstructed exactly as a collection's write tool is.
  */
 import { z } from "zod";
-import { componentEntries } from "../component-lookup.ts";
-import type { DescribedComponent } from "../field-schema.ts";
-import { fieldSchemaToZod } from "../field-to-zod.ts";
+import { componentEntries } from "@/shared/component-lookup";
+import type { DescribedComponent } from "@/shared/field-schema";
+import { fieldSchemaToZod } from "@/shared/field-to-zod";
 
 export interface ComponentOverview {
   label: string;

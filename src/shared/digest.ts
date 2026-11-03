@@ -1,4 +1,4 @@
-import type { FileChange } from "./types.ts";
+import type { FileChange } from "@/shared/types";
 
 /** A hex SHA-256 of a string, the same in the browser and on the server. */
 export async function sha256(content: string): Promise<string> {

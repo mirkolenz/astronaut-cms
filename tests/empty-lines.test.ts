@@ -8,7 +8,7 @@ import {
   type LexicalEditor,
 } from "lexical";
 import { $moveToEmptyLine, pruneEmptyLines } from "@/client/lib/empty-lines";
-import { newEditor } from "./fixtures/editor";
+import { newEditor } from "@tests/fixtures/editor";
 
 const lines = (editor: LexicalEditor) =>
   editor.read(() =>

@@ -12,12 +12,12 @@
  * discipline; this one is a rule of the library.
  */
 import { client as config, components } from "virtual:astronaut-cms/server";
-import { isLibraryFile, mediaLibrary, mediaPath } from "../shared/media.ts";
-import { validateBody } from "../shared/body-validation.ts";
-import { dataLeaves, isAsset } from "../shared/resolvable-leaves.ts";
-import type { CollectionManifestEntry, EntryContent } from "../shared/types.ts";
-import { fileKey, type IndexedFile, type ReferenceIndex } from "../shared/references.ts";
-import type { StorageBackend } from "./storage/types.ts";
+import { isLibraryFile, mediaLibrary, mediaPath } from "@/shared/media";
+import { validateBody } from "@/shared/body-validation";
+import { dataLeaves, isAsset } from "@/shared/resolvable-leaves";
+import type { CollectionManifestEntry, EntryContent } from "@/shared/types";
+import { fileKey, type IndexedFile, type ReferenceIndex } from "@/shared/references";
+import type { StorageBackend } from "@/server/storage/types";
 
 /** How many entry reads may be in flight at once. */
 const CONCURRENCY = 10;

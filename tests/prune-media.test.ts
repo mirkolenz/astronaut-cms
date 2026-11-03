@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "pathe";
 import { expect, it } from "vitest";
 import { pruneMedia } from "@/integration/prune-media";
-import { project } from "./fixtures/project";
+import { project } from "@tests/fixtures/project";
 
 it("prunes owned copies and leaves unrelated files with identical bytes", () => {
   const root = project({

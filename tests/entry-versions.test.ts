@@ -7,7 +7,7 @@ import {
   type Precondition,
   type VersionedContent,
 } from "@/server/storage/types";
-import { StubStorage, storageOptions } from "./fixtures/storage";
+import { StubStorage, storageOptions } from "@tests/fixtures/storage";
 import type { CollectionManifest } from "@/shared/types";
 
 // A save carries the version the edit was made against, so a write cannot

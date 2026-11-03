@@ -3,7 +3,7 @@
  * bundled into the admin only, so the server graph must not import this module.
  */
 import { titleCase } from "scule";
-import type { CollectionManifestEntry } from "./types.ts";
+import type { CollectionManifestEntry } from "@/shared/types";
 
 export const toLabel = (slug: string): string => titleCase(slug);
 

@@ -15,9 +15,9 @@ import {
   useMdastNodeUpdater as useMdxMdastNodeUpdater,
   type MdastJsx,
 } from "@mdxeditor/editor";
-import type { EditorExports } from "@/shared/jsx-editor.ts";
+import type { EditorExports } from "@/shared/jsx-editor";
 
-export type * from "@/shared/jsx-editor.ts";
+export type * from "@/shared/jsx-editor";
 
 export const NestedLexicalEditor: EditorExports["NestedLexicalEditor"] = ({
   getUpdatedMdastNode,

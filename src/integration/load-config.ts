@@ -2,12 +2,12 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { extname, relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
-import { zodToFieldSchema } from "../shared/zod-to-field.ts";
-import { repoImageMarker } from "../shared/cms-markers.ts";
-import { processUserConfig, type ComponentManifest } from "../internal/user-config.ts";
-import { componentEntries } from "../shared/component-lookup.ts";
-import type { CollectionOptions, ComponentDefinition } from "../config.ts";
-import type { LoaderMarker } from "../internal/loader-stubs.ts";
+import { zodToFieldSchema } from "@/shared/zod-to-field";
+import { repoImageMarker } from "@/shared/cms-markers";
+import { processUserConfig, type ComponentManifest } from "@/internal/user-config";
+import { componentEntries } from "@/shared/component-lookup";
+import type { CollectionOptions, ComponentDefinition } from "@/config";
+import type { LoaderMarker } from "@/internal/loader-stubs";
 import type { SchemaContext } from "astro/content/config";
 import {
   DATA_FORMATS,
@@ -16,9 +16,9 @@ import {
   type CollectionManifest,
   type CollectionManifestEntry,
 } from "@/shared/types";
-import { errorMessage } from "../shared/errors.ts";
-import type { ContentI18n } from "../shared/i18n.ts";
-import { editorStubPlugin } from "./vite-plugin.ts";
+import { errorMessage } from "@/shared/errors";
+import type { ContentI18n } from "@/shared/i18n";
+import { editorStubPlugin } from "@/integration/vite-plugin";
 
 /**
  * The user's two config files, read in Node so the integration can see a live

@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { $createParagraphNode, $getRoot } from "lexical";
 import { isNodeSelected, select } from "@/client/stores/inspector-store";
-import { newEditor } from "./fixtures/editor";
+import { newEditor } from "@tests/fixtures/editor";
 
 it("selects a block as a node of its editor, and lets go of it again", () => {
   const editor = newEditor();

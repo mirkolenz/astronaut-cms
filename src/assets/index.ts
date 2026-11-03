@@ -28,8 +28,8 @@
  */
 import type { ImageMetadata } from "astro";
 import { join } from "pathe";
-import { assetKey } from "../shared/asset-path.ts";
-import { mediaPath } from "../shared/media.ts";
+import { assetKey } from "@/shared/asset-path";
+import { mediaPath } from "@/shared/media";
 import { images, files, media } from "virtual:astronaut-cms/assets";
 
 /**

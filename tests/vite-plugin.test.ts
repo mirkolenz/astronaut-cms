@@ -3,7 +3,7 @@ import { build } from "vite";
 import { expect, it } from "vitest";
 import { resolveClientConfig, resolveServerConfig } from "@/integration/resolve-config";
 import { cmsVitePlugin } from "@/integration/vite-plugin";
-import { project } from "./fixtures/project";
+import { project } from "@tests/fixtures/project";
 
 const plugin = (root: string, userConfigPath: string | null = null) =>
   cmsVitePlugin({

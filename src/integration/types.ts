@@ -1,7 +1,7 @@
-import type { ContentI18n } from "../shared/i18n.ts";
-import type { ClientMediaConfig, S3Target } from "../shared/media.ts";
-import type { AiCredentials, AiGateway, GatewayEndpoint } from "../shared/ai.ts";
-import type { CollectionManifest } from "../shared/types.ts";
+import type { ContentI18n } from "@/shared/i18n";
+import type { ClientMediaConfig, S3Target } from "@/shared/media";
+import type { AiCredentials, AiGateway, GatewayEndpoint } from "@/shared/ai";
+import type { CollectionManifest } from "@/shared/types";
 
 export type { AiGateway };
 

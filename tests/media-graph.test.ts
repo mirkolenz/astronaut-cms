@@ -2,8 +2,8 @@ import { join } from "pathe";
 import { build } from "vite";
 import { expect, it } from "vitest";
 import { mediaGraph, type MediaGraph } from "@/integration/media-graph";
-import { repoMedia } from "./fixtures/media";
-import { project } from "./fixtures/project";
+import { repoMedia } from "@tests/fixtures/media";
+import { project } from "@tests/fixtures/project";
 
 const graphFor = (root: string, ignore: string[] = []): MediaGraph =>
   mediaGraph({

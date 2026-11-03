@@ -15,7 +15,7 @@ import {
   pageHistory,
   registerSkipUnchanged,
 } from "@/client/lib/page-history";
-import { newEditor } from "./fixtures/editor";
+import { newEditor } from "@tests/fixtures/editor";
 
 const setText = (value: string) => () =>
   $getRoot()

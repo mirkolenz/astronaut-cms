@@ -1,4 +1,4 @@
-import { API_BASE } from "./auth.ts";
+import { API_BASE } from "@/shared/auth";
 
 /**
  * The AI relay, as the browser addresses it. It sits under the CMS API so one

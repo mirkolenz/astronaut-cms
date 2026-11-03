@@ -4,14 +4,14 @@
  * credential, an environment variable or a store the request did not earn.
  */
 import { client, server as serverConfig } from "virtual:astronaut-cms/server";
-import { S3Store } from "../media/s3-store.ts";
-import { ObjectStoreLibrary } from "./media.ts";
-import { HttpError } from "./errors.ts";
-import { createStorage } from "./storage/index.ts";
-import type { MediaBackend, StorageBackend } from "./storage/types.ts";
-import type { StorageBase } from "./storage/base.ts";
-import type { Session } from "./session.ts";
-import type { MediaLibraryId } from "../shared/media.ts";
+import { S3Store } from "@/media/s3-store";
+import { ObjectStoreLibrary } from "@/server/media";
+import { HttpError } from "@/server/errors";
+import { createStorage } from "@/server/storage";
+import type { MediaBackend, StorageBackend } from "@/server/storage/types";
+import type { StorageBase } from "@/server/storage/base";
+import type { Session } from "@/server/session";
+import type { MediaLibraryId } from "@/shared/media";
 
 export interface RequestContext {
   session: Session;

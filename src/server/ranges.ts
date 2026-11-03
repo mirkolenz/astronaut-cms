@@ -5,13 +5,8 @@
  * forwarding the range, refusing a failed answer and relaying what came back,
  * so the forges cannot drift apart.
  */
-import { HttpError } from "./errors.ts";
-import {
-  partialContent,
-  rangeHeader,
-  type ByteRange,
-  type PartialContent,
-} from "../shared/http.ts";
+import { HttpError } from "@/server/errors";
+import { partialContent, rangeHeader, type ByteRange, type PartialContent } from "@/shared/http";
 
 /** Upstream bytes as the media route relays them, whole or as one range. */
 export interface RelayedBytes {

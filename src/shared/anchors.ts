@@ -9,8 +9,8 @@
  * routes of the site, which the CMS does not know.
  */
 import type { z } from "zod";
-import { diagnostic, type Diagnostic } from "./diagnostics.ts";
-import type { ResolvableLeaf } from "./resolvable-leaves.ts";
+import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
+import type { ResolvableLeaf } from "@/shared/resolvable-leaves";
 
 const ANCHOR_MESSAGE = "Expected an anchor id without # or spaces, such as contact.";
 

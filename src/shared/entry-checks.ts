@@ -3,18 +3,18 @@
  * shared by the build, which refuses what is on disk, and a save, which refuses
  * what would be written, so that both hold content to the same rules.
  */
-import { validateAgainstSchema } from "./collection-schema.ts";
-import { checkAnchors } from "./anchors.ts";
-import type { BodyValidation } from "./body-validation.ts";
-import { diagnostic, type Diagnostic } from "./diagnostics.ts";
-import { dataLeaves, type ResolvableLeaf } from "./resolvable-leaves.ts";
+import { validateAgainstSchema } from "@/shared/collection-schema";
+import { checkAnchors } from "@/shared/anchors";
+import type { BodyValidation } from "@/shared/body-validation";
+import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
+import { dataLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
 import {
   collectionBase,
   globEntry,
   globEntryId,
   loaderPatterns,
   type CollectionManifestEntry,
-} from "./types.ts";
+} from "@/shared/types";
 
 export interface EntryCheck {
   diagnostics: Diagnostic[];

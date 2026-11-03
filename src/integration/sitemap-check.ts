@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
-import { globFiles } from "./content-files.ts";
-import { isWithin } from "../server/storage/paths.ts";
-import { parseXml, xmlList } from "../shared/xml.ts";
+import { globFiles } from "@/integration/content-files";
+import { isWithin } from "@/server/storage/paths";
+import { parseXml, xmlList } from "@/shared/xml";
 
 /** A page sitemap. An index lists sitemaps rather than pages, so it reads as empty. */
 const Sitemap = z.object({

@@ -9,11 +9,11 @@
  * the tools.
  */
 import type { z } from "zod";
-import type { CmsCall } from "../../server/operations.ts";
-import type { DescribedComponent } from "../field-schema.ts";
-import type { ContentI18n } from "../i18n.ts";
-import type { ClientMediaConfig } from "../media.ts";
-import type { CollectionManifest } from "../types.ts";
+import type { CmsCall } from "@/server/operations";
+import type { DescribedComponent } from "@/shared/field-schema";
+import type { ContentI18n } from "@/shared/i18n";
+import type { ClientMediaConfig } from "@/shared/media";
+import type { CollectionManifest } from "@/shared/types";
 
 /**
  * How a tool reaches the CMS, which is the operation registry and nothing else.

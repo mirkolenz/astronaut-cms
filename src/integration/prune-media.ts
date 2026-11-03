@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { basename, join } from "pathe";
-import { globFiles } from "./content-files.ts";
+import { globFiles } from "@/integration/content-files";
 
 export interface EmittedAsset {
   fileName: string;

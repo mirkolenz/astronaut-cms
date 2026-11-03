@@ -1,5 +1,5 @@
-import type en from "./en";
-import type { TranslationShape } from "../types";
+import type en from "@/client/i18n/locales/en";
+import type { TranslationShape } from "@/client/i18n/types";
 
 const de: TranslationShape<typeof en> = {
   common: {

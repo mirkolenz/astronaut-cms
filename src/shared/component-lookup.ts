@@ -1,4 +1,4 @@
-import type { ComponentSchema } from "./field-schema.ts";
+import type { ComponentSchema } from "@/shared/field-schema";
 
 /** A component as far as its nesting goes. */
 interface ComponentNode<T> {

@@ -5,7 +5,7 @@
  * the admin's browser bundle, which touches the DOM as it loads. An editor is
  * never rendered there, so none of these ever runs.
  */
-import type { EditorExports } from "../shared/jsx-editor.ts";
+import type { EditorExports } from "@/shared/jsx-editor";
 
 const adminOnly = (): never => {
   throw new Error("astronaut-cms/editor only runs in the admin.");

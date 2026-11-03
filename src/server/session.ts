@@ -22,7 +22,7 @@
 import { EncryptJWT } from "jose/jwt/encrypt";
 import { jwtDecrypt } from "jose/jwt/decrypt";
 import { z } from "zod";
-import { PROVIDERS } from "../shared/auth.ts";
+import { PROVIDERS } from "@/shared/auth";
 
 export const SESSION_COOKIE = "astronaut_cms_session";
 

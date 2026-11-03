@@ -1,4 +1,4 @@
-import type { ByteRange, PartialContent } from "../../shared/http.ts";
+import type { ByteRange, PartialContent } from "@/shared/http";
 import type {
   EntryMeta,
   EntryContent,
@@ -7,8 +7,8 @@ import type {
   MediaFile,
   SaveEntryRequest,
   TrashedFile,
-} from "../../shared/types.ts";
-import type { PresignedUpload } from "../../media/s3-store.ts";
+} from "@/shared/types";
+import type { PresignedUpload } from "@/media/s3-store";
 
 export type PublishMode = "direct" | "pull-request";
 

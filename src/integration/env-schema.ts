@@ -1,17 +1,17 @@
 import { envField } from "astro/config";
-import type { CmsConfig } from "./types.ts";
-import { isByok } from "./resolve-config.ts";
+import type { CmsConfig } from "@/integration/types";
+import { isByok } from "@/integration/resolve-config";
 import {
   GITHUB_CLIENT_SECRET_ENV,
   GITLAB_CLIENT_SECRET_ENV,
   SESSION_SECRET_ENV,
-} from "../shared/auth.ts";
+} from "@/shared/auth";
 import {
   S3_ACCESS_KEY_ID_ENV,
   S3_SECRET_ACCESS_KEY_ENV,
   S3_SESSION_TOKEN_ENV,
-} from "../shared/media.ts";
-import { gatewayEnv } from "../shared/ai.ts";
+} from "@/shared/media";
+import { gatewayEnv } from "@/shared/ai";
 
 type SecretField = ReturnType<typeof envField.string>;
 

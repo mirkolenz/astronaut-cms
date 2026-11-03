@@ -13,7 +13,7 @@
  * since astro has no say over an MDX component's props.
  */
 import { z } from "zod";
-import type { ResolvedImage } from "../assets/index.ts";
+import type { ResolvedImage } from "@/assets";
 import {
   CMS_IMAGE,
   CMS_FILE,
@@ -21,9 +21,9 @@ import {
   CMS_LINK,
   CMS_ANCHOR,
   CMS_LOCALIZED,
-} from "./field-schema.ts";
-import { allowedLinks } from "./links.ts";
-import { anchorIds } from "./anchors.ts";
+} from "@/shared/field-schema";
+import { allowedLinks } from "@/shared/links";
+import { anchorIds } from "@/shared/anchors";
 
 /** What a component's `image()` prop is resolved with, `resolveImage` on the site. */
 export type ImageResolver = (path: string) => Promise<ResolvedImage>;

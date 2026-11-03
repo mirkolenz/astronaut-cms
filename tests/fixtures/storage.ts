@@ -2,7 +2,7 @@ import { StorageBase } from "@/server/storage/base";
 import type { BranchStatus, Precondition } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
 import type { CollectionManifest, FileChange, MediaFile } from "@/shared/types";
-import { repoMedia } from "./media";
+import { repoMedia } from "@tests/fixtures/media";
 
 /** The rest of the storage contract, for a test that only cares about its collections. */
 const media = repoMedia([".png"]);

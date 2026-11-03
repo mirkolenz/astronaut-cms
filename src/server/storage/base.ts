@@ -8,7 +8,7 @@ import type {
   PublishMode,
   StorageBackend,
   UploadTicket,
-} from "./types.ts";
+} from "@/server/storage/types";
 import {
   isNotFound,
   mapMergeError,
@@ -17,7 +17,7 @@ import {
   versioned,
   type Precondition,
   type VersionedContent,
-} from "./types.ts";
+} from "@/server/storage/types";
 import type {
   CollectionManifest,
   CollectionManifestEntry,
@@ -29,8 +29,8 @@ import type {
   FileCollectionInfo,
   FileChange,
   TrashedFile,
-} from "../../shared/types.ts";
-import { asEntryFormat, entryFilePath, globEntry } from "../../shared/types.ts";
+} from "@/shared/types";
+import { asEntryFormat, entryFilePath, globEntry } from "@/shared/types";
 import {
   parseContent,
   parseMultiEntryFile,
@@ -39,25 +39,25 @@ import {
   getFileExtension,
   type FileEntries,
   type MultiEntryFile,
-} from "../../shared/content-parser.ts";
+} from "@/shared/content-parser";
 import {
   assertEntryDeletable,
   assertEntryWritable,
   type ContentSource,
   type MediaSource,
-} from "../validation.ts";
+} from "@/server/validation";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
   type ClientMediaConfig,
   type MediaLibraryId,
   type WorkingTreeLibrary,
-} from "../../shared/media.ts";
-import { isRecord, type ComponentSchemaMap, type FieldSchema } from "../../shared/field-schema.ts";
-import { activeVariant } from "../../shared/field-to-zod.ts";
-import { stripMediaPrefix } from "../../shared/paths.ts";
-import { HttpError, checked } from "../errors.ts";
-import { ContentValidationError, diagnostic } from "../../shared/diagnostics.ts";
+} from "@/shared/media";
+import { isRecord, type ComponentSchemaMap, type FieldSchema } from "@/shared/field-schema";
+import { activeVariant } from "@/shared/field-to-zod";
+import { stripMediaPrefix } from "@/shared/paths";
+import { HttpError, checked } from "@/server/errors";
+import { ContentValidationError, diagnostic } from "@/shared/diagnostics";
 import { assertLibraryPath } from "@/server/library-path";
 
 const untrashable =

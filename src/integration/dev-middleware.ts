@@ -9,9 +9,9 @@
  */
 import type { IncomingMessage } from "node:http";
 import type { Plugin } from "vite";
-import { API_BASE } from "../shared/auth.ts";
-import { WRITE_HEADER } from "../shared/http.ts";
-import { DEV_API_ENVIRONMENT, devApiEnvironment, serveDevApi } from "./dev-api.ts";
+import { API_BASE } from "@/shared/auth";
+import { WRITE_HEADER } from "@/shared/http";
+import { DEV_API_ENVIRONMENT, devApiEnvironment, serveDevApi } from "@/integration/dev-api";
 
 // How long after a CMS write to keep suppressing the dev-server reload it
 // triggers. It has to outlast the whole chain of write, content-layer sync,

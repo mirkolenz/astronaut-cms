@@ -1,4 +1,4 @@
-import { isLibraryFile } from "./media";
+import { isLibraryFile } from "@/shared/media";
 
 // Any letter, as astro's slugged ids keep them, with its marks.
 const ALLOWED_SEGMENT_CHARS = /^[\p{L}\p{M}\p{N}_-]+$/u;

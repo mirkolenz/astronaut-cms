@@ -7,8 +7,8 @@ import { parseContent } from "@/shared/content-parser";
 import { glob as globStub } from "@/internal/loader-stubs";
 import { ContentValidationError } from "@/shared/diagnostics";
 import { globEntryId, globMatcher, globRoots, type CollectionManifestEntry } from "@/shared/types";
-import { project } from "./fixtures/project";
-import { TreeStorage, storageOptions } from "./fixtures/storage";
+import { project } from "@tests/fixtures/project";
+import { TreeStorage, storageOptions } from "@tests/fixtures/storage";
 
 const posts = (
   loaderPattern: string | string[],

@@ -6,7 +6,7 @@ import { GitLabStorage } from "@/server/storage/gitlab";
 import { getErrorStatus, StaleWriteError } from "@/server/storage/types";
 import type { StorageOptions } from "@/server/storage/base";
 import { client } from "virtual:astronaut-cms/server";
-import { storageOptions } from "./fixtures/storage";
+import { storageOptions } from "@tests/fixtures/storage";
 
 // The provider SDKs were 1.1 MB of runtime JavaScript for twenty-nine endpoints,
 // so the CMS calls them over `fetch` instead. These pin what that hand-written

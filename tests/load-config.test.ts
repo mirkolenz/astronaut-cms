@@ -2,7 +2,7 @@ import { join } from "pathe";
 import { expect, it } from "vitest";
 import { file } from "@/internal/loader-stubs";
 import { loadConfigs } from "@/integration/load-config";
-import { project } from "./fixtures/project";
+import { project } from "@tests/fixtures/project";
 
 const warn = () => {};
 

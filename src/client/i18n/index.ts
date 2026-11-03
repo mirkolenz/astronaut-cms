@@ -1,9 +1,9 @@
-import "./types";
+import "@/client/i18n/types";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import config from "@/client/lib/config";
-import en from "./locales/en";
-import de from "./locales/de";
+import en from "@/client/i18n/locales/en";
+import de from "@/client/i18n/locales/de";
 
 const resources = {
   en: { translation: en },

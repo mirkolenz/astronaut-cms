@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { isRecord, type FieldSchema } from "./field-schema.ts";
+import { isRecord, type FieldSchema } from "@/shared/field-schema";
 import {
   allowedLinks,
   containsLink,
   isLinkLike,
   LINK_DESCRIPTION,
   PLAIN_TEXT_MESSAGE,
-} from "./links.ts";
-import { ANCHOR_DESCRIPTION, anchorIds } from "./anchors.ts";
+} from "@/shared/links";
+import { ANCHOR_DESCRIPTION, anchorIds } from "@/shared/anchors";
 
 // Hoisted out of the refinement below so the check reuses one validator instead
 // of building a fresh one per value.

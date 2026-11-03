@@ -7,10 +7,10 @@ import {
 } from "ai";
 import { DEFAULT_AI_MAX_STEPS } from "@/shared/ai";
 import { useAiSettingsStore } from "@/client/stores/ai-settings-store";
-import { aiConfig } from "./config";
-import { aiProvider } from "./provider";
-import { SYSTEM_PROMPT } from "./system-prompt";
-import { cmsTools } from "./tools";
+import { aiConfig } from "@/client/lib/ai/config";
+import { aiProvider } from "@/client/lib/ai/provider";
+import { SYSTEM_PROMPT } from "@/client/lib/ai/system-prompt";
+import { cmsTools } from "@/client/lib/ai/tools";
 
 // Read from the panel store on every call (via `prepareCall`) so one agent
 // outlives model and effort switches instead of being recreated.

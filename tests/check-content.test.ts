@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
 import { checkContent } from "@/integration/check-content";
 import type { ContentEntry } from "@/integration/content-files";
-import { repoMedia } from "./fixtures/media";
-import { project } from "./fixtures/project";
+import { repoMedia } from "@tests/fixtures/media";
+import { project } from "@tests/fixtures/project";
 
 it("rejects asset references that the generated loader cannot resolve", () => {
   const root = project({

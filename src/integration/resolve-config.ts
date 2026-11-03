@@ -17,24 +17,24 @@ import type {
   ResolvedImageOptimization,
   S3MediaConfig,
   ServerStorageConfig,
-} from "./types.ts";
+} from "@/integration/types";
 import {
   MAX_SERVER_UPLOAD_BYTES,
   s3BaseUrl,
   type ClientLibrary,
   type ClientMediaConfig,
   type S3Target,
-} from "../shared/media.ts";
-import { trimSlashes } from "../shared/url.ts";
-import type { ContentI18n } from "../shared/i18n.ts";
+} from "@/shared/media";
+import { trimSlashes } from "@/shared/url";
+import type { ContentI18n } from "@/shared/i18n";
 import {
   DEFAULT_AI_MAX_STEPS,
   gatewayAddress,
   type AiGateway,
   type GatewayEndpoint,
-} from "../shared/ai.ts";
-import { parseRepo } from "../shared/repo.ts";
-import type { CollectionManifest } from "../shared/types.ts";
+} from "@/shared/ai";
+import { parseRepo } from "@/shared/repo";
+import type { CollectionManifest } from "@/shared/types";
 
 const DEFAULT_MOUNT_POINT = "/admin";
 const DEFAULT_MEDIA_DIRECTORY = "src/assets";

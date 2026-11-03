@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { ComponentDefinition, SchemaHelpers } from "../config.ts";
-import { type ImageResolver, schemaHelpers } from "./cms-markers.ts";
-import { componentEntries } from "./component-lookup.ts";
+import type { ComponentDefinition, SchemaHelpers } from "@/config";
+import { type ImageResolver, schemaHelpers } from "@/shared/cms-markers";
+import { componentEntries } from "@/shared/component-lookup";
 
 // The admin and the build only lower a schema, which never runs its transforms.
 const loweringHelpers: SchemaHelpers = schemaHelpers(() => {

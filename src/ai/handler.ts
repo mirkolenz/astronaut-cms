@@ -9,13 +9,13 @@
  * calls go through the same operation registry as the UI, so they are bounded by
  * the same rules rather than by where they run.
  */
-import type { AiServerConfig } from "../integration/types.ts";
-import { gatewayAddress, NETLIFY_GATEWAY_ENV, type AiGateway } from "../shared/ai.ts";
-import { BodyTooLargeError, readBody } from "../shared/http.ts";
-import { RateLimiter } from "../shared/rate-limit.ts";
+import type { AiServerConfig } from "@/integration/types";
+import { gatewayAddress, NETLIFY_GATEWAY_ENV, type AiGateway } from "@/shared/ai";
+import { BodyTooLargeError, readBody } from "@/shared/http";
+import { RateLimiter } from "@/shared/rate-limit";
 import { getSecret } from "astro:env/server";
-import { joinUrl } from "../shared/url.ts";
-import { errorMessage } from "../shared/errors.ts";
+import { joinUrl } from "@/shared/url";
+import { errorMessage } from "@/shared/errors";
 import { z } from "zod";
 
 const requestBodySchema = z.record(z.string(), z.unknown());

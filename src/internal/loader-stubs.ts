@@ -17,10 +17,10 @@
 import { z } from "zod";
 import type * as AstroContentConfig from "astro/content/config";
 import type * as AstroLoaders from "astro/loaders";
-import type { AssertNever } from "../shared/types.ts";
+import type { AssertNever } from "@/shared/types";
 
 export { z };
-export { referenceMarker as reference } from "../shared/cms-markers.ts";
+export { referenceMarker as reference } from "@/shared/cms-markers";
 
 // The options astro's own `glob()` takes, so the two fields read back below are
 // named after astro's rather than after a copy of them.

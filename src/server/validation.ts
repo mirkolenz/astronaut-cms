@@ -12,7 +12,7 @@ import { validateBody } from "@/shared/body-validation";
 import { checkEntry } from "@/shared/entry-checks";
 import { diagnostic, ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 import type { ComponentSchemaMap } from "@/shared/field-schema";
-import { errorMessage } from "../shared/errors.ts";
+import { errorMessage } from "@/shared/errors";
 
 /**
  * What the checks need to look things up. The storage backend is passed in

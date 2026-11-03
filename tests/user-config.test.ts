@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { defineComponent } from "../src/config.ts";
-import { processUserConfig } from "../src/internal/user-config.ts";
+import { defineComponent } from "@/config";
+import { processUserConfig } from "@/internal/user-config";
 
 const component = "@/components/Block.astro";
 

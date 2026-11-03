@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import type { JsxEditor, JsxEditorProps } from "./shared/jsx-editor.ts";
+import type { JsxEditor, JsxEditorProps } from "@/shared/jsx-editor";
 import type { z } from "zod";
-import type { schemaHelpers } from "./shared/cms-markers.ts";
-import type { CollectionSort } from "./shared/types.ts";
+import type { schemaHelpers } from "@/shared/cms-markers";
+import type { CollectionSort } from "@/shared/types";
 
 export type { JsxEditor, JsxEditorProps };
 
@@ -23,7 +23,7 @@ export {
   libraryImage,
   linkMarker as link,
   localizedMarker as localized,
-} from "./shared/cms-markers.ts";
+} from "@/shared/cms-markers";
 
 /**
  * Filled in for each site by the types the integration generates, with the

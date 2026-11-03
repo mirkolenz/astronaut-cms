@@ -20,27 +20,27 @@ import {
   MAX_BATCH_OPS,
   SESSION_SECRET_ENV,
   type SessionState,
-} from "../shared/auth.ts";
-import { isWriteOperation } from "../shared/operations.ts";
-import { ContentValidationError, type Diagnostic } from "../shared/diagnostics.ts";
+} from "@/shared/auth";
+import { isWriteOperation } from "@/shared/operations";
+import { ContentValidationError, type Diagnostic } from "@/shared/diagnostics";
 import {
   BodyTooLargeError,
   HARDENING_HEADERS,
   parseByteRange,
   readBody,
   readBytes,
-} from "../shared/http.ts";
-import { fetchRange } from "./ranges.ts";
-import { mediaLibrary, parseMediaLibrary, servedContentType } from "../shared/media.ts";
-import { conformTrailingSlash, withoutTrailingSlash } from "../shared/url.ts";
+} from "@/shared/http";
+import { fetchRange } from "@/server/ranges";
+import { mediaLibrary, parseMediaLibrary, servedContentType } from "@/shared/media";
+import { conformTrailingSlash, withoutTrailingSlash } from "@/shared/url";
 import { getSecret } from "astro:env/server";
-import { RateLimiter, limited } from "../shared/rate-limit.ts";
-import { Coalesced } from "../shared/coalesce.ts";
-import { relay } from "../ai/handler.ts";
-import { createContext, type RequestContext } from "./context.ts";
-import { HttpError } from "./errors.ts";
-import { MergeConflictError, StaleWriteError } from "./storage/types.ts";
-import { dispatch, type OperationError, type OperationResult } from "./operations.ts";
+import { RateLimiter, limited } from "@/shared/rate-limit";
+import { Coalesced } from "@/shared/coalesce";
+import { relay } from "@/ai/handler";
+import { createContext, type RequestContext } from "@/server/context";
+import { HttpError } from "@/server/errors";
+import { MergeConflictError, StaleWriteError } from "@/server/storage/types";
+import { dispatch, type OperationError, type OperationResult } from "@/server/operations";
 import {
   authorizationUrl,
   challengeFor,
@@ -52,7 +52,7 @@ import {
   revokeSession,
   verifyAccess,
   type ProviderConfig,
-} from "./oauth.ts";
+} from "@/server/oauth";
 import {
   SESSION_COOKIE,
   SESSION_TTL,
@@ -67,8 +67,8 @@ import {
   verify,
   type Login,
   type Session,
-} from "./session.ts";
-import { errorMessage } from "../shared/errors.ts";
+} from "@/server/session";
+import { errorMessage } from "@/shared/errors";
 
 /** An RPC body is entry data, which is text. A media upload takes its own route. */
 const MAX_RPC_BYTES = 4 * 1024 * 1024;

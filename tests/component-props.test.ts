@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { defineComponent } from "../src/config.ts";
+import { defineComponent } from "@/config";
 import type { ImageMetadata } from "astro";
-import { propsResolver, type InferComponentProps } from "../src/shared/component-props.ts";
+import { propsResolver, type InferComponentProps } from "@/shared/component-props";
 
 const components = {
   Section: defineComponent({

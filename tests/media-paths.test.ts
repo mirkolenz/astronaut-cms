@@ -15,7 +15,7 @@ import {
 import { ObjectStoreLibrary } from "@/server/media";
 import type { MediaStore } from "@/media/s3-store";
 
-import { repoMedia, s3Media } from "./fixtures/media";
+import { repoMedia, s3Media } from "@tests/fixtures/media";
 
 // One rule maps a library file to the string content stores, and back. The two
 // libraries spell it differently, a project path for the repository and the

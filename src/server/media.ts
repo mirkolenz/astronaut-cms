@@ -10,11 +10,11 @@
  * store enforces all three as the write happens, so there is nothing left for a
  * second call to check and no window in which a check could go stale.
  */
-import type { MediaBackend, MediaContent, UploadTicket } from "./storage/types.ts";
-import type { MediaFile, TrashedFile } from "../shared/types.ts";
-import type { MediaServerConfig } from "../integration/types.ts";
-import { HttpError, checked } from "./errors.ts";
-import { mediaPathError } from "../shared/validation.ts";
+import type { MediaBackend, MediaContent, UploadTicket } from "@/server/storage/types";
+import type { MediaFile, TrashedFile } from "@/shared/types";
+import type { MediaServerConfig } from "@/integration/types";
+import { HttpError, checked } from "@/server/errors";
+import { mediaPathError } from "@/shared/validation";
 import {
   assertWithinSizeLimit,
   isLibraryFile,
@@ -22,8 +22,8 @@ import {
   mediaContentType,
   remoteMediaUrl,
   type ClientLibrary,
-} from "../shared/media.ts";
-import type { MediaStore, UploadTerms } from "../media/s3-store.ts";
+} from "@/shared/media";
+import type { MediaStore, UploadTerms } from "@/media/s3-store";
 import { assertLibraryPath } from "@/server/library-path";
 
 /**

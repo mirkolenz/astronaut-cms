@@ -1,14 +1,14 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { join, relative } from "pathe";
-import { getFileExtension, parseContent, parseMultiEntryFile } from "../shared/content-parser.ts";
-import { validateBody, type BodyValidation } from "../shared/body-validation.ts";
-import type { ComponentSchemaMap } from "../shared/field-schema.ts";
+import { getFileExtension, parseContent, parseMultiEntryFile } from "@/shared/content-parser";
+import { validateBody, type BodyValidation } from "@/shared/body-validation";
+import type { ComponentSchemaMap } from "@/shared/field-schema";
 import {
   globEntry,
   globRoots,
   type CollectionManifest,
   type CollectionManifestEntry,
-} from "../shared/types.ts";
+} from "@/shared/types";
 
 /**
  * One entry as it is on disk, parsed and its body walked once for the check

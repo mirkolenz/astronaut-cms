@@ -4,7 +4,7 @@
  * thing and the handler does the routing.
  */
 import type { APIRoute } from "astro";
-import { handle } from "./handler.ts";
+import { handle } from "@/server/handler";
 
 export const prerender = false;
 

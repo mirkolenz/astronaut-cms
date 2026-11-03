@@ -25,7 +25,11 @@ import config from "@/client/lib/config";
 import { cmsToolCatalog } from "@/client/lib/tools";
 import { TOOL_NAME_PATTERN } from "@/shared/tools/exposable";
 import type { AnyCmsTool, ToolAnnotations } from "@/shared/tools/types";
-import type { WebmcpModelContext, WebmcpToolAnnotations, WebmcpToolResult } from "./types";
+import type {
+  WebmcpModelContext,
+  WebmcpToolAnnotations,
+  WebmcpToolResult,
+} from "@/client/lib/webmcp/types";
 
 const asResult = (value: unknown): WebmcpToolResult => ({
   content: [{ type: "text", text: JSON.stringify(value) }],

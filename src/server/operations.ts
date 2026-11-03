@@ -15,23 +15,23 @@
  */
 import { z } from "zod";
 import { client } from "virtual:astronaut-cms/server";
-import { collectionEnum } from "../shared/collection-schema.ts";
-import { ALL_FORMATS } from "../shared/types.ts";
-import { ContentValidationError, diagnostic, type Diagnostic } from "../shared/diagnostics.ts";
+import { collectionEnum } from "@/shared/collection-schema";
+import { ALL_FORMATS } from "@/shared/types";
+import { ContentValidationError, diagnostic, type Diagnostic } from "@/shared/diagnostics";
 import {
   assetReferenceSchema,
   describeReference,
   referencesFor,
   type AssetReference,
   type ReferenceIndex,
-} from "../shared/references.ts";
-import { buildReferenceIndex } from "./references.ts";
-import { validateReorder } from "./validation.ts";
-import { RateLimiter, limited } from "../shared/rate-limit.ts";
-import type { RequestContext } from "./context.ts";
-import { HttpError } from "./errors.ts";
-import { changesetDigest } from "../shared/digest.ts";
-import { mediaLibraries, type MediaLocation } from "../shared/media.ts";
+} from "@/shared/references";
+import { buildReferenceIndex } from "@/server/references";
+import { validateReorder } from "@/server/validation";
+import { RateLimiter, limited } from "@/shared/rate-limit";
+import type { RequestContext } from "@/server/context";
+import { HttpError } from "@/server/errors";
+import { changesetDigest } from "@/shared/digest";
+import { mediaLibraries, type MediaLocation } from "@/shared/media";
 
 /**
  * One operation: a schema for what the caller may send and a handler that runs

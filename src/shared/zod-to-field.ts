@@ -10,7 +10,7 @@
  * `z.toJSONSchema()` for declarative constraints (min/max, regex, multipleOf, ...).
  */
 import { z } from "zod";
-import type { ContentI18n } from "./i18n.ts";
+import type { ContentI18n } from "@/shared/i18n";
 import {
   CMS_IMAGE,
   CMS_FILE,
@@ -22,7 +22,7 @@ import {
   type FieldMods,
   type FieldSchema,
   isRecord,
-} from "./field-schema.ts";
+} from "@/shared/field-schema";
 
 // Bounds recursion through `z.lazy` and pathologically deep schemas: a
 // self-referential schema would otherwise expand forever. Past this depth the

@@ -4,7 +4,7 @@ import { join } from "pathe";
 import { describe, expect, it } from "vitest";
 import { LocalStorage } from "@/server/storage/local";
 import { StaleWriteError } from "@/server/storage/types";
-import { storageOptions } from "./fixtures/storage";
+import { storageOptions } from "@tests/fixtures/storage";
 
 class TestLocalStorage extends LocalStorage {
   move(from: string, to: string) {

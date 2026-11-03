@@ -22,20 +22,20 @@ import {
   type MdxJsxAttribute,
   type MdxJsxExpressionAttribute,
 } from "mdast-util-mdx";
-import { attributeValue, type StaticValue } from "./mdx-attributes.ts";
-import { childComponents, findComponent } from "./component-lookup.ts";
+import { attributeValue, type StaticValue } from "@/shared/mdx-attributes";
+import { childComponents, findComponent } from "@/shared/component-lookup";
 import {
   isRequired,
   objectShape,
   type ComponentSchema,
   type ComponentSchemaMap,
-} from "./field-schema.ts";
-import { fieldSchemaToZod } from "./field-to-zod.ts";
-import { collectResolvableLeaves, type ResolvableLeaf } from "./resolvable-leaves.ts";
-import { diagnostic, type Diagnostic } from "./diagnostics.ts";
-import { imageUrls } from "./markdown-images.ts";
-import { isAllowedLink, LINK_MESSAGE } from "./links.ts";
-import { errorMessage } from "./errors.ts";
+} from "@/shared/field-schema";
+import { fieldSchemaToZod } from "@/shared/field-to-zod";
+import { collectResolvableLeaves, type ResolvableLeaf } from "@/shared/resolvable-leaves";
+import { diagnostic, type Diagnostic } from "@/shared/diagnostics";
+import { imageUrls } from "@/shared/markdown-images";
+import { isAllowedLink, LINK_MESSAGE } from "@/shared/links";
+import { errorMessage } from "@/shared/errors";
 
 // The HTML an MDX body may use directly, enough to wrap content in utility classes.
 const HTML_ELEMENTS: ReadonlySet<string> = new Set(["div", "span"]);

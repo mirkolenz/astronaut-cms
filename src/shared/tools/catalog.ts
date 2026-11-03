@@ -27,21 +27,21 @@ import {
   collectionEnum,
   collectionFormatEnum,
   collectionPatchSchema,
-} from "../collection-schema.ts";
-import { componentEntries } from "../component-lookup.ts";
-import { ContentValidationError } from "../diagnostics.ts";
-import { mediaLibraries, mediaRef } from "../media.ts";
-import { unexposable } from "./exposable.ts";
-import { singletonIds, type CollectionManifestEntry } from "../types.ts";
-import { componentDetails } from "./components.ts";
-import { contentModel } from "./content-model.ts";
+} from "@/shared/collection-schema";
+import { componentEntries } from "@/shared/component-lookup";
+import { ContentValidationError } from "@/shared/diagnostics";
+import { mediaLibraries, mediaRef } from "@/shared/media";
+import { unexposable } from "@/shared/tools/exposable";
+import { singletonIds, type CollectionManifestEntry } from "@/shared/types";
+import { componentDetails } from "@/shared/tools/components";
+import { contentModel } from "@/shared/tools/content-model";
 import {
   defineTool,
   isRefusal,
   type CmsToolSet,
   type ToolContext,
   type ToolRefusal,
-} from "./types.ts";
+} from "@/shared/tools/types";
 
 const entryId = z.string().describe('Id of an entry, as listEntries reports it (e.g. "about").');
 

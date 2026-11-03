@@ -18,15 +18,15 @@ import {
   type CollectionManifestEntry,
   type FileChange,
   type MediaFile,
-} from "../../shared/types.ts";
-import { StorageBase, type StorageOptions } from "./base.ts";
-import type { BranchStatus, MediaContent, VersionedContent } from "./types.ts";
-import { getErrorCode, isNotFound, staleWrite, type Precondition } from "./types.ts";
-import { discardChanges, managedPaths, readChanges } from "./git-changes.ts";
-import { assertWithinBase, isWithin } from "./paths.ts";
-import { partialContent, type ByteRange } from "../../shared/http.ts";
-import { sha256 } from "../../shared/digest.ts";
-import { libraryDirectories } from "../../shared/media.ts";
+} from "@/shared/types";
+import { StorageBase, type StorageOptions } from "@/server/storage/base";
+import type { BranchStatus, MediaContent, VersionedContent } from "@/server/storage/types";
+import { getErrorCode, isNotFound, staleWrite, type Precondition } from "@/server/storage/types";
+import { discardChanges, managedPaths, readChanges } from "@/server/storage/git-changes";
+import { assertWithinBase, isWithin } from "@/server/storage/paths";
+import { partialContent, type ByteRange } from "@/shared/http";
+import { sha256 } from "@/shared/digest";
+import { libraryDirectories } from "@/shared/media";
 
 export interface LocalConfig {
   /** Absolute project root. Every managed path is resolved against it. */

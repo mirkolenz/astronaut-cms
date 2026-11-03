@@ -10,8 +10,8 @@
  * them (see `getErrorStatus`).
  */
 import { z } from "zod";
-import { ApiError } from "../errors.ts";
-import { joinUrl } from "../../shared/url.ts";
+import { ApiError } from "@/server/errors";
+import { joinUrl } from "@/shared/url";
 
 export interface ApiRequest {
   /** Appended to the base URL. Interpolate and encode path segments before passing them. */

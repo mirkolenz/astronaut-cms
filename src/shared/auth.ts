@@ -2,7 +2,7 @@
  * Where the CMS server lives and what it needs from the environment. Shared so
  * the browser addresses exactly the routes the integration injects.
  */
-import type { CmsClientConfig } from "../integration/types.ts";
+import type { CmsClientConfig } from "@/integration/types";
 
 /**
  * Who issued the session. `local` is `astro dev` against the working tree, which
