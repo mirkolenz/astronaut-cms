@@ -1,6 +1,6 @@
 {
   "name": "astronaut-cms",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A Git-native headless CMS built as an Astro integration.",
   "keywords": [
     "astro",
