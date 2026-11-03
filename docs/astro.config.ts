@@ -10,6 +10,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Astronaut CMS",
+      disable404Route: true,
       logo: {
         src: "../src/brand/logo.png",
       },
