@@ -349,10 +349,15 @@ export default function cms(config: CmsConfig = {}): AstroIntegration {
 
           // Content the admin would refuse to save fails a build, where whoever
           // committed it sees it, rather than surfacing later at an editor's save.
-          const problems = [...checkContent(entries, rootDir, clientConfig.media), ...missing.required];
+          const problems = [
+            ...checkContent(entries, rootDir, clientConfig.media),
+            ...missing.required,
+          ];
 
           if (missing.translations.length > 0) {
-            logger.warn(`Untranslated singletons, shown in the default language:\n${list(missing.translations)}`);
+            logger.warn(
+              `Untranslated singletons, shown in the default language:\n${list(missing.translations)}`,
+            );
           }
 
           if (problems.length > 0) {

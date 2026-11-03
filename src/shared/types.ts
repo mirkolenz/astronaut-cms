@@ -109,9 +109,7 @@ export interface GlobRoot {
 }
 
 /** `derive` cached per manifest entry, which never changes once loaded. */
-function perCollection<C extends object, R extends object>(
-  derive: (col: C) => R,
-): (col: C) => R {
+function perCollection<C extends object, R extends object>(derive: (col: C) => R): (col: C) => R {
   const cache = new WeakMap<C, R>();
 
   return (col) => {
@@ -161,15 +159,15 @@ export function findSingleton(
   const entryIn = (locale: string) =>
     globEntry(col, projectPath(collectionBase(col), joinLocale(locale, file)));
   const main = entryIn(i18n.defaultLocale);
-  const translations = i18n.locales
-    .filter((locale) => locale !== i18n.defaultLocale)
-    .map(entryIn);
+  const translations = i18n.locales.filter((locale) => locale !== i18n.defaultLocale).map(entryIn);
 
   return main && translations.every((entry) => entry !== null) ? { main, translations } : null;
 }
 
 /** The ids of a singleton's entries, the main one first, none for any other collection. */
-export const singletonIds = ({ singleton }: Pick<CollectionManifestEntry, "singleton">): string[] =>
+export const singletonIds = ({
+  singleton,
+}: Pick<CollectionManifestEntry, "singleton">): string[] =>
   singleton ? [singleton.main, ...singleton.translations].map((entry) => entry.id) : [];
 
 // Astro's glob loader skips its legacy content config wherever a pattern matches it.

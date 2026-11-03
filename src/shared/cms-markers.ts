@@ -93,7 +93,9 @@ export function schemaHelpers(resolveImage: ImageResolver) {
     // that `zodToFieldSchema` lowers. A lambda, since a transform also hands
     // over its context, which `resolveImage` would take for its `base`.
     image: () =>
-      z.string().pipe(z.transform((path: string) => resolveImage(path)).meta({ [CMS_IMAGE]: true })),
+      z
+        .string()
+        .pipe(z.transform((path: string) => resolveImage(path)).meta({ [CMS_IMAGE]: true })),
     file: fileMarker,
     link: linkMarker,
     anchor: anchorMarker,

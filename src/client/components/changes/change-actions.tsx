@@ -129,7 +129,9 @@ export function ChangeActions() {
         description={
           <>
             <p>{t(($) => $.changes.discardAllMessage, { count })}</p>
-            {config.storageType === "local" && <p className="mt-2">{t(($) => $.changes.discardAllLocal)}</p>}
+            {config.storageType === "local" && (
+              <p className="mt-2">{t(($) => $.changes.discardAllLocal)}</p>
+            )}
             <ul className="mt-2 max-h-48 overflow-y-auto font-mono text-xs">
               {changes.data?.map((change) => (
                 <li key={change.path} className="truncate">

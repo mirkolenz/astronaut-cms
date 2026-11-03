@@ -9,10 +9,7 @@ import { NewEntryDialog } from "@/client/components/new-entry-dialog";
 import { ErrorBanner } from "@/client/components/error-banner";
 import { ListSkeleton } from "@/client/components/list-skeleton";
 import { PageHeader } from "@/client/components/page-header";
-import {
-  collectionDescription,
-  collectionLabel,
-} from "@/client/lib/collections";
+import { collectionDescription, collectionLabel } from "@/client/lib/collections";
 import { listDirectory } from "@/client/lib/entry-tree";
 import { joinLocale, localeLabel, splitLocale } from "@/shared/i18n";
 import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content-i18n";

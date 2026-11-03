@@ -15,8 +15,8 @@ default `satteri()` pipeline and under `unified()`.
 | Markdown image `![alt](./x.png)`     | prose               | Astro's Markdown processor, no extra wiring                          |
 | `image()` schema field               | frontmatter, data   | Astro's content layer: `entry.data.cover` is already `ImageMetadata` |
 | `libraryImage(image)` schema field   | frontmatter, data   | As above, or the object-store URL as it is                           |
-| `image()` component prop            | MDX component props | Resolved by the generated wrapper, arrives as `ImageMetadata`        |
-| `file()` component prop             | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
+| `image()` component prop             | MDX component props | Resolved by the generated wrapper, arrives as `ImageMetadata`        |
+| `file()` component prop              | MDX component props | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | `file()` schema field                | frontmatter, data   | Stored as a path string, resolved via `astronaut-cms/assets`         |
 | Link to a file `[doc](/files/x.pdf)` | prose               | Put the file in `public/` (plain URL)                                |
 

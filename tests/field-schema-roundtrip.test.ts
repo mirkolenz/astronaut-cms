@@ -42,7 +42,11 @@ describe("zodToFieldSchema lowering", () => {
     expect(fieldSchemaToZod(field).safeParse({ en: "Hi" }).success).toBe(false);
     expect(fieldSchemaToZod(field).safeParse({ de: "Hallo", fr: "Salut" }).success).toBe(false);
     expect(zodToFieldSchema(localizedMarker(z.string()))).toMatchObject({ type: "record" });
-    expect(zodToFieldSchema(z.strictObject({}))).toEqual({ type: "object", shape: {}, strict: true });
+    expect(zodToFieldSchema(z.strictObject({}))).toEqual({
+      type: "object",
+      shape: {},
+      strict: true,
+    });
   });
 
   it("reads how a field is presented from its meta", () => {

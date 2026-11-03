@@ -44,11 +44,7 @@ import { useRunMutation } from "@/client/hooks/use-run-mutation";
 import { Button } from "@/client/components/ui/button";
 import config from "@/client/lib/config";
 import { preload } from "@/client/lib/query-client";
-import {
-  collectionDescription,
-  collectionLabel,
-  isSingleton,
-} from "@/client/lib/collections";
+import { collectionDescription, collectionLabel, isSingleton } from "@/client/lib/collections";
 import { asEntryFormat, type EntryFormat } from "@/shared/types";
 import { Skeleton } from "@/client/components/ui/skeleton";
 

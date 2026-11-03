@@ -119,8 +119,6 @@ export function defineCollection(options: CollectionOptions): CollectionOptions 
 export function defineComponent<
   T extends z.ZodType<object> = z.ZodObject<{}>,
   C extends ChildrenConfig = never,
->(
-  def: ComponentDefinition<T, C>,
-): ComponentDefinition<T, C> {
+>(def: ComponentDefinition<T, C>): ComponentDefinition<T, C> {
   return def;
 }

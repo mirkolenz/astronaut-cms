@@ -20,7 +20,10 @@ const components = {
   }),
   Gallery: defineComponent({
     props: ({ image }) =>
-      z.object({ cover: image().optional(), images: z.array(z.object({ src: image(), alt: z.string() })) }),
+      z.object({
+        cover: image().optional(),
+        images: z.array(z.object({ src: image(), alt: z.string() })),
+      }),
     component: "@/components/Gallery.astro",
   }),
 };
@@ -45,7 +48,9 @@ describe("propsResolver", () => {
   });
 
   it("names the component whose props are invalid", async () => {
-    await expect(resolveProps("Section", { title: 1 })).rejects.toThrow(/Invalid props for Section/);
+    await expect(resolveProps("Section", { title: 1 })).rejects.toThrow(
+      /Invalid props for Section/,
+    );
   });
 
   it("types the props as rendered, and as MDX writes them", () => {

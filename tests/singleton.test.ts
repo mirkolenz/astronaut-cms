@@ -20,7 +20,10 @@ const firma: CollectionManifestEntry = {
   loaderBase: "src/content",
   loaderFileName: null,
   sort: "id",
-  singleton: { main: { id: "firma", format: "yml", path: "src/content/firma.yml" }, translations: [] },
+  singleton: {
+    main: { id: "firma", format: "yml", path: "src/content/firma.yml" },
+    translations: [],
+  },
   schema: { type: "object", shape: { name: { type: "string" } } },
   label: "Company",
   description: "Master data of the company.",
@@ -56,7 +59,9 @@ describe("singleton collections", () => {
       expect(main(loaderPattern)).toBeNull();
     }
 
-    expect(findSingleton({ loaderType: "file", loaderPattern: null, loaderBase: null }, null)).toBeNull();
+    expect(
+      findSingleton({ loaderType: "file", loaderPattern: null, loaderBase: null }, null),
+    ).toBeNull();
   });
 
   it("are localized with one file per language, the default language's the main one", () => {
@@ -64,7 +69,9 @@ describe("singleton collections", () => {
       main: { id: "de/site", format: "yaml", path: "src/content/texts/de/site.yaml" },
       translations: [{ id: "en/site", format: "yaml", path: "src/content/texts/en/site.yaml" }],
     });
-    expect(findSingleton({ ...textsSource, loaderPattern: "{de,en}/site.yaml" }, i18n)).not.toBeNull();
+    expect(
+      findSingleton({ ...textsSource, loaderPattern: "{de,en}/site.yaml" }, i18n),
+    ).not.toBeNull();
     expect(findSingleton({ ...textsSource, loaderPattern: "*/*.yaml" }, i18n)).toBeNull();
     expect(findSingleton(textsSource, null)).toBeNull();
   });
@@ -114,11 +121,17 @@ describe("singleton collections", () => {
     const entry = { data: { name: "Wolf" }, body: "", format: "yaml" as const };
 
     await store.saveEntry("texts", "en/site", entry);
-    await expect(store.saveEntry("texts", "fr/site", entry)).rejects.toThrow(ContentValidationError);
+    await expect(store.saveEntry("texts", "fr/site", entry)).rejects.toThrow(
+      ContentValidationError,
+    );
     await expect(store.deleteEntry("texts", "de/site")).rejects.toThrow(ContentValidationError);
     expect(missingSingletons({ texts }, [])).toEqual({
-      required: ['src/content/texts/de/site.yaml: the singleton collection "texts" needs this file.'],
-      translations: ['src/content/texts/en/site.yaml: the singleton collection "texts" needs this file.'],
+      required: [
+        'src/content/texts/de/site.yaml: the singleton collection "texts" needs this file.',
+      ],
+      translations: [
+        'src/content/texts/en/site.yaml: the singleton collection "texts" needs this file.',
+      ],
     });
   });
 

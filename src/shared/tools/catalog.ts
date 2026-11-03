@@ -163,7 +163,9 @@ export function createCmsTools({ call, config }: ToolContext): CmsToolSet {
     const [first, ...rest] = singletonIds(col);
 
     return first
-      ? z.enum([first, ...rest]).describe("Id of the collection's entry, one per language when localized.")
+      ? z
+          .enum([first, ...rest])
+          .describe("Id of the collection's entry, one per language when localized.")
       : entryId;
   };
 

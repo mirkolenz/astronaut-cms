@@ -57,7 +57,9 @@ export interface LocalizedEntry<E> {
 
 function languages(): ContentI18n {
   if (!contentI18n) {
-    throw new Error("astronaut-cms: localized content needs content languages, set `i18n` in astro.config.");
+    throw new Error(
+      "astronaut-cms: localized content needs content languages, set `i18n` in astro.config.",
+    );
   }
 
   return contentI18n;
@@ -119,7 +121,9 @@ export function pickLocale<T>(value: Partial<Record<string, T>>, locale: string)
   const picked = value[locale] ?? value[defaultLocale];
 
   if (picked === undefined) {
-    throw new Error(`astronaut-cms: a localized value has neither "${locale}" nor "${defaultLocale}".`);
+    throw new Error(
+      `astronaut-cms: a localized value has neither "${locale}" nor "${defaultLocale}".`,
+    );
   }
 
   return picked;

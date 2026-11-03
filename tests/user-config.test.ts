@@ -11,17 +11,20 @@ const component = "@/components/Block.astro";
 // renderer, the MDX walk, the build's asset collection) reads only that.
 describe("processUserConfig", () => {
   it("lowers both props forms, and only the helpers can name an asset", () => {
-    const manifest = processUserConfig({
-      Figure: defineComponent({
-        component,
-        props: ({ image, file }) =>
-          z.object({ src: image(), doc: file().optional(), alt: z.string() }),
-      }),
-      Quote: defineComponent({
-        component,
-        props: z.object({ text: z.string() }),
-      }),
-    }, null);
+    const manifest = processUserConfig(
+      {
+        Figure: defineComponent({
+          component,
+          props: ({ image, file }) =>
+            z.object({ src: image(), doc: file().optional(), alt: z.string() }),
+        }),
+        Quote: defineComponent({
+          component,
+          props: z.object({ text: z.string() }),
+        }),
+      },
+      null,
+    );
 
     expect(manifest.Figure?.props).toEqual({
       type: "object",
@@ -39,15 +42,18 @@ describe("processUserConfig", () => {
   });
 
   it("lowers a nested child component the same way", () => {
-    const manifest = processUserConfig({
-      Grid: defineComponent({
-        component,
-        props: z.object({ title: z.string() }),
-        children: {
-          Cell: defineComponent({ component, props: ({ image }) => z.object({ src: image() }) }),
-        },
-      }),
-    }, null);
+    const manifest = processUserConfig(
+      {
+        Grid: defineComponent({
+          component,
+          props: z.object({ title: z.string() }),
+          children: {
+            Cell: defineComponent({ component, props: ({ image }) => z.object({ src: image() }) }),
+          },
+        }),
+      },
+      null,
+    );
 
     const children = manifest.Grid?.children;
 
@@ -58,15 +64,18 @@ describe("processUserConfig", () => {
   });
 
   it("reads a field's title, description and group from either side of its modifiers", () => {
-    const manifest = processUserConfig({
-      Hero: defineComponent({
-        component,
-        props: z.object({
-          title: z.string().meta({ title: "Headline", group: "Text" }).optional(),
-          href: z.string().optional().describe("Where it leads."),
+    const manifest = processUserConfig(
+      {
+        Hero: defineComponent({
+          component,
+          props: z.object({
+            title: z.string().meta({ title: "Headline", group: "Text" }).optional(),
+            href: z.string().optional().describe("Where it leads."),
+          }),
         }),
-      }),
-    }, null);
+      },
+      null,
+    );
 
     expect(manifest.Hero?.props).toEqual({
       type: "object",
@@ -81,17 +90,23 @@ describe("processUserConfig", () => {
     const Item = defineComponent({ component, props: z.object({ title: z.string() }) });
 
     expect(() =>
-      processUserConfig({
-        Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
-        List: defineComponent({ component, props: z.object({}), children: { Item } }),
-      }, null),
+      processUserConfig(
+        {
+          Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
+          List: defineComponent({ component, props: z.object({}), children: { Item } }),
+        },
+        null,
+      ),
     ).not.toThrow();
 
     expect(() =>
-      processUserConfig({
-        Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
-        Item: defineComponent({ component, props: z.object({ label: z.string() }) }),
-      }, null),
+      processUserConfig(
+        {
+          Tabs: defineComponent({ component, props: z.object({}), children: { Item } }),
+          Item: defineComponent({ component, props: z.object({ label: z.string() }) }),
+        },
+        null,
+      ),
     ).toThrow(/defined twice/);
   });
 });
