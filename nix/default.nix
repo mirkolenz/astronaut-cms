@@ -38,6 +38,7 @@
       };
       treefmt = {
         projectRootFile = "flake.nix";
+        settings.global.excludes = [ "CHANGELOG.md" ];
         programs = {
           nixfmt.enable = true;
           oxfmt.enable = true;
