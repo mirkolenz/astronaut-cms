@@ -102,14 +102,17 @@ export const components = ${JSON.stringify(options.components)};`,
 
   // The top-level `optimizeDeps` reaches only the client. A server environment,
   // such as one in workerd, would pre-bundle the licenses route, and the optimizer
-  // cannot load its `?raw` imports. The scanner never sees the API route or the
-  // editor stub, so finding them while rendering would reload the server mid-request.
+  // cannot load its `?raw` imports. The scanner never sees the API route, the
+  // editor stub, or the generated components and asset helpers that resolve media,
+  // so finding them while rendering would reload the server mid-request.
   const optimizeDepsPlugin: Plugin = {
     name: "astronaut-cms:optimize-deps",
     configEnvironment: (name) => ({
       optimizeDeps: {
         exclude: ["astronaut-cms/licenses"],
-        ...(name !== "client" && { include: ["astronaut-cms/endpoint", "astronaut-cms/internal"] }),
+        ...(name !== "client" && {
+          include: ["astronaut-cms/assets", "astronaut-cms/endpoint", "astronaut-cms/internal"],
+        }),
       },
     }),
   };
