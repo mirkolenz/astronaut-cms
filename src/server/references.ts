@@ -18,20 +18,7 @@ import { dataLeaves, isAsset } from "@/shared/resolvable-leaves";
 import type { CollectionManifestEntry, EntryContent } from "@/shared/types";
 import { fileKey, type IndexedFile, type ReferenceIndex } from "@/shared/references";
 import type { StorageBackend } from "@/server/storage/types";
-
-/** How many entry reads may be in flight at once. */
-const CONCURRENCY = 10;
-
-/** A worker pool: a fixed number of readers sharing one iterator, with no barriers. */
-async function inParallel<T>(items: T[], fn: (item: T) => Promise<void>): Promise<void> {
-  const cursor = items.values();
-
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
-      for (const item of cursor) await fn(item);
-    }),
-  );
-}
+import { inParallel } from "@/server/parallel";
 
 /**
  * Paths and object-store URLs a body mentions with no schema to declare them.
