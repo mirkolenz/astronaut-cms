@@ -165,9 +165,7 @@ export function findSingleton(
 }
 
 /** The ids of a singleton's entries, the main one first, none for any other collection. */
-export const singletonIds = ({
-  singleton,
-}: Pick<CollectionManifestEntry, "singleton">): string[] =>
+export const singletonIds = ({ singleton }: Pick<CollectionManifestEntry, "singleton">): string[] =>
   singleton ? [singleton.main, ...singleton.translations].map((entry) => entry.id) : [];
 
 // Astro's glob loader skips its legacy content config wherever a pattern matches it.
