@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.0](https://github.com/mirkolenz/astronaut-cms/compare/v1.0.0...v1.1.0) (2026-11-17)
+
+### Features
+
+* **config:** add sidebar links ([a7e7e97](https://github.com/mirkolenz/astronaut-cms/commit/a7e7e9708262d9ae5d37816c46d10bdd1a567efe))
+* **config:** sort collections by field values with object notation ([1bcc3e3](https://github.com/mirkolenz/astronaut-cms/commit/1bcc3e32b73b0b12d29207228e34f55837586f9e))
+
+### Bug Fixes
+
+* **integration:** add the cms module to optimize deps ([03e291b](https://github.com/mirkolenz/astronaut-cms/commit/03e291bc86ddc7dc19860c2c4b9fda6413dcab1e))
+
 ## 1.0.0 (2026-11-03)
 
 ### ⚠ BREAKING CHANGES
