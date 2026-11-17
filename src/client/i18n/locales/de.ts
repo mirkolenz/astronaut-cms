@@ -30,6 +30,7 @@ const de: TranslationShape<typeof en> = {
     appName: "Astronaut CMS",
     collections: "Sammlungen",
     workspace: "Arbeitsbereich",
+    links: "Links",
     breadcrumbRoot: "CMS",
     licenses: "Lizenzen Dritter",
     toggleSidebar: "Seitenleiste ein- oder ausblenden",

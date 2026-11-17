@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { GitCompareArrows, Image, Cloud, Bot } from "lucide-react";
+import { GitCompareArrows, Image, Cloud, Bot, ExternalLink } from "lucide-react";
+import { links } from "virtual:astronaut-cms/user-config";
 import type { ComponentIcon } from "@/config";
 import config from "@/client/lib/config";
 import { libraryLabel } from "@/client/lib/media";
@@ -114,6 +115,24 @@ export function AppSidebar() {
             {aiEnabled && <NavItem to="/assistant" icon={Bot} label={t(($) => $.ai.title)} />}
           </SidebarMenu>
         </SidebarGroup>
+        {links.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>{t(($) => $.layout.links)}</SidebarGroupLabel>
+            <SidebarMenu>
+              {/* Plain anchors, they leave the admin, whose unsaved edits the browser guards. */}
+              {links.map(({ label, href, icon: Icon = ExternalLink }) => (
+                <SidebarMenuItem key={href}>
+                  <SidebarMenuButton asChild>
+                    <a href={href}>
+                      <Icon />
+                      <span>{label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

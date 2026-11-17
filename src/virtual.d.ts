@@ -42,14 +42,11 @@ declare module "virtual:astronaut-cms/content" {
   export const contentI18n: ContentI18n | null;
 }
 
-/**
- * The site's components, lowered in the admin, where `icon` and `editor` are
- * live, and its collections' icons, which are live too.
- */
+/** The site's `cms.config` exports, lowered for the admin, with `icon` and `editor` live. */
 declare module "virtual:astronaut-cms/user-config" {
-  import type { ComponentManifest } from "@/internal/user-config";
-  import type { ComponentIcon } from "@/config";
+  import type { UserModule } from "@/internal/user-config";
 
-  export const components: ComponentManifest;
-  export const collectionIcons: Record<string, ComponentIcon>;
+  export const components: UserModule["components"];
+  export const collectionIcons: UserModule["collectionIcons"];
+  export const links: UserModule["links"];
 }

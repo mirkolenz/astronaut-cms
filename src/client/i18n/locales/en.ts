@@ -27,6 +27,7 @@ const en = {
     appName: "Astronaut CMS",
     collections: "Collections",
     workspace: "Workspace",
+    links: "Links",
     breadcrumbRoot: "CMS",
     licenses: "Third-party licenses",
     toggleSidebar: "Toggle sidebar",

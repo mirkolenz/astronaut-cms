@@ -112,6 +112,19 @@ export function defineCollection(options: CollectionOptions): CollectionOptions 
   return options;
 }
 
+/** A link the admin lists in its sidebar, such as the site itself or a dashboard of its own. */
+export interface LinkOptions {
+  label: string;
+  /** A path of the site, such as `"/dashboard/"`, or a full URL, opened in place of the admin. */
+  href: string;
+  icon?: ComponentIcon;
+}
+
+/** One entry of the `links` export of `cms.config`. */
+export function defineLink(options: LinkOptions): LinkOptions {
+  return options;
+}
+
 /**
  * One entry of the `components` export of `cms.config`. The integration renders
  * it in MDX through a generated wrapper, which `astronaut-cms:components` exports.

@@ -1,11 +1,11 @@
 ---
 title: CMS Configuration
-description: Define collection options and custom MDX block components for the CMS editor.
+description: Define collection options, sidebar links and custom MDX block components for the CMS editor.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-The CMS config file (`src/cms.config.ts`) holds everything the CMS adds to your content collections: the MDX block components editors can use in entry bodies, and options per collection.
+The CMS config file (`src/cms.config.ts`) holds everything the CMS adds to your content collections: the MDX block components editors can use in entry bodies, options per collection, and links of the admin's sidebar.
 Everything else, such as storage, media and the assistant, is configured in `astro.config.ts`.
 
 The file is bundled into the admin and loaded on the server to render components, so keep secrets and Node-only imports out of it.
@@ -56,6 +56,23 @@ A name that is not a collection of the content config fails the build.
 See [Entry order](/astronaut-cms/guides/content-collections/#entry-order) for the `sort` values.
 The `label` (default: the name, title-cased), `description` and `icon` are what the admin shows for the collection in its navigation and pages.
 Agents read the `label` and `description` to learn what the collection is for.
+
+## Links
+
+The `links` export lists pages the admin links to in its sidebar, such as the site itself or a dashboard the site serves next to the CMS:
+
+```ts title="src/cms.config.ts"
+import { defineLink } from "astronaut-cms/config";
+import { Globe, LayoutDashboard } from "lucide-react";
+
+export const links = [
+  defineLink({ label: "Dashboard", href: "/dashboard/", icon: LayoutDashboard }),
+  defineLink({ label: "Website", href: "/", icon: Globe }),
+];
+```
+
+A link opens in place of the admin, and the browser asks before discarding unsaved edits.
+The `icon` defaults to an external link icon.
 
 ## Component Definition
 

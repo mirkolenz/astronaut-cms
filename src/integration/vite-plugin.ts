@@ -196,10 +196,12 @@ function generateUserConfigModule(
   configPath: string | null,
   { contentI18n }: CmsClientConfig,
 ): string {
-  if (!configPath) return "export const components = {};\nexport const collectionIcons = {};";
+  const source = configPath
+    ? `import * as config from ${JSON.stringify(configPath)};`
+    : "const config = {};";
+
   return `\
-import * as config from ${JSON.stringify(configPath)};
-import { processCollectionIcons, processUserConfig } from "astronaut-cms/internal";
-export const components = processUserConfig(config.components, ${JSON.stringify(contentI18n)});
-export const collectionIcons = processCollectionIcons(config.collections);`;
+${source}
+import { processUserModule } from "astronaut-cms/internal";
+export const { components, collectionIcons, links } = processUserModule(config, ${JSON.stringify(contentI18n)});`;
 }

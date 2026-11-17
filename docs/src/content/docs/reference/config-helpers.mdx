@@ -1,6 +1,6 @@
 ---
 title: Config Helpers
-description: API reference for defineCollection, defineComponent, the schema helpers, file, link, anchor, localized, and the generated astronaut-cms:components module.
+description: API reference for defineCollection, defineLink, defineComponent, the schema helpers, file, link, anchor, localized, and the generated astronaut-cms:components module.
 ---
 
 These functions and types are exported from `astronaut-cms/config`, except for the generated [`astronaut-cms:components`](#astronaut-cmscomponents) module.
@@ -21,6 +21,20 @@ interface CollectionOptions {
 ```
 
 The `label`, `description` and `icon` name and explain the collection in the admin, and agents read the `label` and `description` too.
+
+## `defineLink()`
+
+Types one entry of the `links` export of `cms.config.ts`, a link of the admin's sidebar.
+
+```ts
+function defineLink(options: LinkOptions): LinkOptions;
+
+interface LinkOptions {
+  label: string;
+  href: string; // a path of the site or a full URL
+  icon?: ComponentIcon; // default: an external link icon
+}
+```
 
 ## `defineComponent()`
 

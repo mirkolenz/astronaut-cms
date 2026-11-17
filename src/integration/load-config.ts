@@ -4,7 +4,11 @@ import { extname, relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
 import { repoImageMarker } from "@/shared/cms-markers";
-import { processUserConfig, type ComponentManifest } from "@/internal/user-config";
+import {
+  processUserConfig,
+  type CmsConfigModule,
+  type ComponentManifest,
+} from "@/internal/user-config";
 import { componentEntries } from "@/shared/component-lookup";
 import type { CollectionOptions, ComponentDefinition } from "@/config";
 import type { LoaderMarker } from "@/internal/loader-stubs";
@@ -186,12 +190,6 @@ async function loadCollections(
   }
 
   return manifest;
-}
-
-/** The two exports of `cms.config.ts` the integration reads. */
-interface CmsConfigModule {
-  components?: Record<string, ComponentDefinition>;
-  collections?: Record<string, CollectionOptions>;
 }
 
 /**

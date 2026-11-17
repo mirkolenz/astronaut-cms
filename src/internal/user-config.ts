@@ -6,7 +6,13 @@
  * instance. This module is intentionally free of any `astro:*` / `astro/*`
  * import, so nothing Node-only leaks into the client.
  */
-import type { CollectionOptions, ComponentDefinition, ComponentIcon, JsxEditor } from "@/config";
+import type {
+  CollectionOptions,
+  ComponentDefinition,
+  ComponentIcon,
+  JsxEditor,
+  LinkOptions,
+} from "@/config";
 import type { DescribedComponent } from "@/shared/field-schema";
 import type { ContentI18n } from "@/shared/i18n";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
@@ -18,6 +24,13 @@ export interface ClientComponentDef extends DescribedComponent {
 }
 
 export type ComponentManifest = Record<string, ClientComponentDef>;
+
+/** The exports of `cms.config.ts`, each optional. */
+export interface CmsConfigModule {
+  components?: Record<string, ComponentDefinition>;
+  collections?: Record<string, CollectionOptions>;
+  links?: LinkOptions[];
+}
 
 /**
  * An MDX body refers to a component by its name alone, so one name may stand
@@ -63,11 +76,28 @@ export function processUserConfig(
   return walk(components ?? {});
 }
 
-/** The collections' icons by name, the one option the manifest cannot carry, being live components. */
-export function processCollectionIcons(
-  collections: Record<string, CollectionOptions> | undefined,
-): Record<string, ComponentIcon> {
-  return Object.fromEntries(
-    Object.entries(collections ?? {}).flatMap(([name, { icon }]) => (icon ? [[name, icon]] : [])),
-  );
+/** The admin's view of `cms.config.ts`, as `virtual:astronaut-cms/user-config` exports it. */
+export interface UserModule {
+  components: ComponentManifest;
+  collectionIcons: Record<string, ComponentIcon>;
+  links: LinkOptions[];
+}
+
+/**
+ * Lowers `cms.config.ts` into its {@link UserModule}.
+ * The module is passed whole, so the bundler does not warn about the exports a site leaves out.
+ * The collections contribute their icons only, the one option the manifest
+ * cannot carry, being live components.
+ */
+export function processUserModule(
+  { components, collections = {}, links = [] }: CmsConfigModule,
+  i18n: ContentI18n | null,
+): UserModule {
+  return {
+    components: processUserConfig(components, i18n),
+    collectionIcons: Object.fromEntries(
+      Object.entries(collections).flatMap(([name, { icon }]) => (icon ? [[name, icon]] : [])),
+    ),
+    links,
+  };
 }
