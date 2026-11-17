@@ -10,20 +10,13 @@
 import { type CollectionEntry, type CollectionKey, getEntry } from "astro:content";
 import { contentI18n, fileOrder, sorts } from "virtual:astronaut-cms/content";
 import { type ContentI18n, joinLocale, splitLocale } from "@/shared/i18n";
-import { compareIds, sortByIds } from "@/shared/types";
-
-// Each file position by id, built once per module instance.
-const ranks = new Map(
-  Object.entries(fileOrder).map(([name, ids]) => [
-    name,
-    new Map(ids.map((id, index) => [id, index])),
-  ]),
-);
+import { DEFAULT_SORT, orderEntries } from "@/shared/types";
 
 /** What ordering reads off an entry of astro's `getCollection`. */
 interface SortableEntry {
   id: string;
   collection: string;
+  data: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -34,16 +27,14 @@ interface SortableEntry {
  */
 export function sortEntries<E extends SortableEntry>(entries: readonly E[]): E[] {
   const collection = entries[0]?.collection ?? "";
-  const sort = sorts[collection] ?? "id";
-  const rank = ranks.get(collection);
-
-  if (sort !== "file" || !rank) return sortByIds(entries, sort);
 
   // An entry the file does not hold yet, which a dev server can briefly see, sorts last.
-  const position = (entry: E): number => rank.get(entry.id) ?? rank.size;
-  const compare = compareIds(sort);
-
-  return entries.toSorted((a, b) => position(a) - position(b) || compare(a.id, b.id));
+  return orderEntries(
+    entries,
+    sorts[collection] ?? DEFAULT_SORT,
+    (entry, field) => entry.data[field],
+    fileOrder[collection],
+  );
 }
 
 /** An entry of a localized collection as one language shows it. */

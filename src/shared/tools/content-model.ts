@@ -48,7 +48,7 @@ export function contentModel(config: ToolConfig): ContentModel {
           description: col.description ?? null,
           type: col.type,
           formats: extractFormatsFromLoader(col.loaderPattern, col.loaderFileName),
-          reorderable: col.sort === "file",
+          reorderable: col.sort.by === "file",
           singleton: singletonIds(col),
         },
       ]),

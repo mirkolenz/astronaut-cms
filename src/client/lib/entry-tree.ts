@@ -1,4 +1,4 @@
-import { compareIds } from "@/shared/types";
+import { compareIds, DEFAULT_SORT } from "@/shared/types";
 
 export interface DirectoryListing<T> {
   folders: PathSegment[];
@@ -35,13 +35,14 @@ export function dirSegments(dir: string): PathSegment[] {
  * (a slash-joined prefix, "" being the root). Deeply nested items surface as
  * folders so the user drills down one level at a time instead of facing one flat
  * list. `key` is the slash-joined path to group by: an entry id in a collection,
- * a library path in the media browser. `compare` orders both lists by name.
+ * a library path in the media browser. `compare` orders the folders by name,
+ * while the items keep the order of the listing, which the server already sorted.
  */
 export function listDirectory<T>(
   items: T[],
   dir: string,
   key: (item: T) => string,
-  compare: (a: string, b: string) => number = compareIds("id"),
+  compare: (a: string, b: string) => number = compareIds(DEFAULT_SORT),
 ): DirectoryListing<T> {
   const prefix = dir ? `${dir}/` : "";
   const folders = new Set<string>();
@@ -62,6 +63,6 @@ export function listDirectory<T>(
 
   return {
     folders: [...folders].sort(compare).map((name) => ({ name, path: `${prefix}${name}` })),
-    files: files.sort((a, b) => compare(key(a), key(b))),
+    files,
   };
 }

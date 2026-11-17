@@ -19,7 +19,7 @@ const firma: CollectionManifestEntry = {
   loaderPattern: "firma.yml",
   loaderBase: "src/content",
   loaderFileName: null,
-  sort: "id",
+  sort: { by: "id" },
   singleton: {
     main: { id: "firma", format: "yml", path: "src/content/firma.yml" },
     translations: [],

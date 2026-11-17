@@ -16,7 +16,7 @@
 import { z } from "zod";
 import { client } from "virtual:astronaut-cms/server";
 import { collectionEnum } from "@/shared/collection-schema";
-import { ALL_FORMATS } from "@/shared/types";
+import { ALL_FORMATS, DEFAULT_SORT, orderEntries, type EntryMeta } from "@/shared/types";
 import { ContentValidationError, diagnostic, type Diagnostic } from "@/shared/diagnostics";
 import {
   assetReferenceSchema,
@@ -26,6 +26,7 @@ import {
   type ReferenceIndex,
 } from "@/shared/references";
 import { buildReferenceIndex } from "@/server/references";
+import { inParallel } from "@/server/parallel";
 import { validateReorder } from "@/server/validation";
 import { RateLimiter, limited } from "@/shared/rate-limit";
 import type { RequestContext } from "@/server/context";
@@ -194,12 +195,33 @@ async function assertMovable(
   await assertReferencesAcknowledged(ctx, file, acknowledged);
 }
 
+/**
+ * A collection's entries in its order, so no client sorts them again. A field
+ * order needs every entry read, and a file() collection lists in file order.
+ */
+async function listInOrder(ctx: RequestContext, collection: string): Promise<EntryMeta[]> {
+  const entries = await ctx.storage.listEntries(collection);
+  const sort = client.collections[collection]?.sort ?? DEFAULT_SORT;
+  const values = new Map<string, unknown>();
+
+  if (sort.by === "field") {
+    await inParallel(entries, async (entry) => {
+      values.set(entry.id, (await ctx.storage.readEntry(entry)).data[sort.field]);
+    });
+  }
+
+  return orderEntries(
+    entries,
+    sort,
+    (entry) => values.get(entry.id),
+    entries.map((entry) => entry.id),
+  );
+}
+
 export const operations = {
   // --- Entries -------------------------------------------------------------
 
-  listEntries: op(z.object({ collection }), (ctx, input) =>
-    ctx.storage.listEntries(input.collection),
-  ),
+  listEntries: op(z.object({ collection }), (ctx, input) => listInOrder(ctx, input.collection)),
 
   getEntry: op(entryRef, (ctx, { collection, id }) => ctx.storage.getEntry(collection, id)),
 
@@ -287,7 +309,9 @@ export const operations = {
 
   // --- Media ---------------------------------------------------------------
 
-  listMedia: op(z.object({ library }), async (ctx, input) => ctx.media(input.library).listMedia()),
+  listMedia: op(z.object({ library }), async (ctx, input) =>
+    (await ctx.media(input.library).listMedia()).toSorted((a, b) => a.path.localeCompare(b.path)),
+  ),
 
   beginUpload: op(
     mediaFile.extend({

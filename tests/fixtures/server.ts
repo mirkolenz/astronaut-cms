@@ -19,7 +19,7 @@ export const client: CmsClientConfig = {
       loaderPattern: "**/*.md",
       loaderBase: "src/content/blog",
       loaderFileName: null,
-      sort: "id",
+      sort: { by: "id" },
       singleton: null,
       schema: { type: "object", shape: { title: { type: "string" } } },
     },

@@ -15,7 +15,7 @@ it("reads a file collection whose literal filename contains glob characters", ()
         loaderPattern: null,
         loaderBase: null,
         loaderFileName: "src/data/team[2026].json",
-        sort: "id",
+        sort: { by: "id" },
         singleton: null,
       },
     },

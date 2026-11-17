@@ -102,7 +102,7 @@ export const components = {
 // The team page lists members in the order of `src/data/team.json`.
 export const collections = {
   posts: defineCollection({ label: "Blog", description: "Articles from the studio." }),
-  team: defineCollection({ sort: "file", description: "The people on the about page." }),
+  team: defineCollection({ sort: { by: "file" }, description: "The people on the about page." }),
   studio: defineCollection({
     label: "Studio",
     description: "Contact details shown in the footer.",

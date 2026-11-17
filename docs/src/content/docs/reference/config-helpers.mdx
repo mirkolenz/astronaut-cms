@@ -13,7 +13,7 @@ Types one entry of the `collections` export of `cms.config.ts`, keyed by collect
 function defineCollection(options: CollectionOptions): CollectionOptions;
 
 interface CollectionOptions {
-  sort?: "id" | "natural" | "file"; // default: "id"
+  sort?: { by: "id" | "natural" | "file" } | { by: "field"; field: string }; // default: { by: "id" }
   label?: string; // default: the name, title-cased
   description?: string;
   icon?: ComponentIcon;

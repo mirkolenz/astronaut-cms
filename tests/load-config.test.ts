@@ -45,10 +45,28 @@ it("carries a collection's label and description into the manifest", async () =>
   );
 
   expect(collections.jobs).toMatchObject({
-    sort: "id",
+    sort: { by: "id" },
     label: "Jobs",
     description: "Open positions.",
   });
+});
+
+it("rejects a field sort by no comparable top-level field", async () => {
+  const root = project({
+    // The throwaway project has no node_modules, so zod is imported from ours.
+    "src/content.config.ts": `import { z } from "${import.meta.resolve("zod")}";
+export const collections = { jobs: { loader: { __cmsPattern: "**/*.yaml" }, schema: z.object({ tags: z.array(z.string()) }) } };`,
+    "src/cms.config.ts": `export const collections = { jobs: { sort: { by: "field", field: "tags" } } };`,
+  });
+
+  await expect(
+    loadConfigs(
+      root,
+      { content: join(root, "src/content.config.ts"), cms: join(root, "src/cms.config.ts") },
+      null,
+      warn,
+    ),
+  ).rejects.toThrow('cannot sort by "tags"');
 });
 
 it("rejects a component that points editors to an unknown collection", async () => {

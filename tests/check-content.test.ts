@@ -20,7 +20,7 @@ it("rejects asset references that the generated loader cannot resolve", () => {
       loaderPattern: "**/*.mdx",
       loaderBase: "src/content/pages",
       loaderFileName: null,
-      sort: "id",
+      sort: { by: "id" },
       singleton: null,
     },
     file: "src/content/pages/home.mdx",

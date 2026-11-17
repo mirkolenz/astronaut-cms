@@ -170,10 +170,10 @@ function generateContentModule(
   const fileOrder: Record<string, string[]> = {};
 
   for (const { name, sort, loaderFileName } of Object.values(collections)) {
-    if (sort !== "id") sorts[name] = sort;
+    if (sort.by !== "id") sorts[name] = sort;
 
     // A file sort is only accepted on a file() collection, which names its file.
-    if (sort !== "file" || !loaderFileName) continue;
+    if (sort.by !== "file" || !loaderFileName) continue;
 
     const path = join(rootDir, loaderFileName);
 

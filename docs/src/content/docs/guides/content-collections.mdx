@@ -93,21 +93,23 @@ See [Localized singletons](/astronaut-cms/guides/multilingual-content/#localized
 Astro's `getCollection()` returns entries sorted by id, whatever order a file holds them in.
 Set `sort` per collection in the `collections` export of `src/cms.config.ts` to choose another order:
 
-| `sort`           | Order                                                     |
-| ---------------- | --------------------------------------------------------- |
-| `"id"` (default) | By id, as astro returns them                              |
-| `"natural"`      | By id, with numbers compared as numbers (`2` before `10`) |
-| `"file"`         | The order of the file, for `file()` collections only      |
+| `sort`                             | Order                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `{ by: "id" }` (default)           | By id, as astro returns them                                                  |
+| `{ by: "natural" }`                | By id, with numbers compared as numbers (`2` before `10`)                     |
+| `{ by: "file" }`                   | The order of the file, for `file()` collections only                          |
+| `{ by: "field", field: "number" }` | By a top-level scalar field, compared like `natural`, entries without it last |
 
 ```ts title="src/cms.config.ts"
 import { defineCollection } from "astronaut-cms/config";
 
 export const collections = {
-  authors: defineCollection({ sort: "file" }),
+  authors: defineCollection({ sort: { by: "file" } }),
 };
 ```
 
-The admin lists entries in that order, and only a `"file"` collection offers reordering.
+The admin lists entries in that order, and only a file order offers reordering.
+A field order needs every entry read to list a collection, so it suits a field editors maintain anyway, such as a catalog number.
 Read the same order in your pages with `sortEntries()`:
 
 ```astro title="src/pages/about.astro"

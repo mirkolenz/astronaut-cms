@@ -16,6 +16,7 @@ import { browseLocation, countIn, useCollectionI18n } from "@/client/lib/content
 import { LocaleTabs, TranslationStatus } from "@/client/components/locale-tabs";
 import {
   compareIds,
+  DEFAULT_SORT,
   extractFormatsFromLoader,
   type EntryFormat,
   type EntryMeta,
@@ -101,7 +102,7 @@ function GlobCollectionPage({ collection, entries }: { collection: string; entri
   const locales = i18n?.locales ?? [];
   const { activeLocale, subDir, browseDir } = browseLocation(i18n, dir);
 
-  const sort = collectionInfo?.sort ?? "id";
+  const sort = collectionInfo?.sort ?? DEFAULT_SORT;
   const { folders, files } = useMemo(
     () => listDirectory(entries, browseDir, (entry) => entry.id, compareIds(sort)),
     [entries, browseDir, sort],

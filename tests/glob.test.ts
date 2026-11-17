@@ -21,7 +21,7 @@ const posts = (
   loaderPattern,
   loaderBase,
   loaderFileName: null,
-  sort: "id",
+  sort: { by: "id" },
   singleton: null,
 });
 

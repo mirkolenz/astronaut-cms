@@ -417,7 +417,7 @@ export abstract class StorageBase implements StorageBackend, MediaBackend {
    * other order is the site's, so a rewrite would change nothing it renders.
    */
   async reorderEntries(collection: string, ids: string[], expectedVersion?: string): Promise<void> {
-    if (this.schemas[collection]?.sort !== "file") {
+    if (this.schemas[collection]?.sort.by !== "file") {
       throw new Error(`Collection is not sorted by file order: ${collection}`);
     }
 

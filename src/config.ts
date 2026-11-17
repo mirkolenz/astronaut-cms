@@ -91,8 +91,8 @@ export type { CollectionSort };
 export interface CollectionOptions {
   /**
    * How entries are ordered, both in the admin and for the site through
-   * `sortEntries` from `astronaut-cms/content` (default: "id", astro's own
-   * order). "file" keeps the order of a `file()` collection's file, which
+   * `sortEntries` from `astronaut-cms/content` (default: `{ by: "id" }`, astro's own
+   * order). `{ by: "file" }` keeps the order of a `file()` collection's file, which
    * editors can then change.
    */
   sort?: CollectionSort;

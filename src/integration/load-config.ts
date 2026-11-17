@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { extname, relative, resolve } from "pathe";
 import { createRunnableDevEnvironment, resolveConfig, type Alias } from "vite";
 import { zodToFieldSchema } from "@/shared/zod-to-field";
+import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { repoImageMarker } from "@/shared/cms-markers";
 import {
   processUserConfig,
@@ -15,6 +16,7 @@ import type { LoaderMarker } from "@/internal/loader-stubs";
 import type { SchemaContext } from "astro/content/config";
 import {
   DATA_FORMATS,
+  DEFAULT_SORT,
   findSingleton,
   type AssertNever,
   type CollectionManifest,
@@ -184,7 +186,7 @@ async function loadCollections(
       schema: rawSchema == null ? null : zodToFieldSchema(rawSchema, i18n),
       ...source,
       loaderFileName: rootRelative(rootDir, loader?.__cmsFileName),
-      sort: "id",
+      sort: DEFAULT_SORT,
       singleton: findSingleton(source, i18n),
     } satisfies CollectionManifestEntry;
   }
@@ -192,10 +194,22 @@ async function loadCollections(
   return manifest;
 }
 
+// The field types holding one value a field sort can compare.
+const SORTABLE_TYPES = new Set<FieldSchema["type"] | undefined>([
+  "string",
+  "number",
+  "boolean",
+  "date",
+  "enum",
+  "literal",
+  "reference",
+]);
+
 /**
  * The content config's collections with the options `cms.config` gives them.
- * An option naming no collection, or a file order for entries that are separate
- * files, is a mistake the site would otherwise never notice.
+ * An option naming no collection, a file order for entries that are separate
+ * files, or a field order by no comparable field, is a mistake the site would
+ * otherwise never notice.
  */
 function withOptions(
   manifest: CollectionManifest,
@@ -212,9 +226,18 @@ function withOptions(
       );
     }
 
-    if (sort === "file" && collection.loaderType !== "file") {
+    if (sort?.by === "file" && collection.loaderType !== "file") {
       throw new Error(
-        `cms.config collections: "${name}" cannot sort by "file", which needs a file() collection. The entries of a glob() collection are separate files.`,
+        `cms.config collections: "${name}" cannot sort by file, which needs a file() collection. The entries of a glob() collection are separate files.`,
+      );
+    }
+
+    if (
+      sort?.by === "field" &&
+      !SORTABLE_TYPES.has(objectShape(collection.schema)?.[sort.field]?.type)
+    ) {
+      throw new Error(
+        `cms.config collections: "${name}" cannot sort by "${sort.field}", which needs a top-level field of type ${[...SORTABLE_TYPES].join(", ")}.`,
       );
     }
 

@@ -35,31 +35,67 @@ export type LoaderType = "glob" | "file";
  * - `natural`: by id, with digit runs compared as numbers (`2` before `10`).
  * - `file`: in the order the file of a `file()` collection holds them, which the
  *   admin then lets editors change.
+ * - `field`: by the value of a top-level `field`, compared like `natural`,
+ *   then by id, with entries lacking a value last.
  */
-export type CollectionSort = "id" | "natural" | "file";
+export type CollectionSort = { by: "id" | "natural" | "file" } | { by: "field"; field: string };
+
+/** Astro's own order, which a collection keeps unless `cms.config` names another. */
+export const DEFAULT_SORT: CollectionSort = { by: "id" };
 
 const naturalCollator = new Intl.Collator(undefined, { numeric: true });
 
-/**
- * Compares two entry ids under `sort`. File order is no order of ids, so it
- * compares them as astro does, for whatever the file does not place.
- */
+const compareAsAstro = (a: string, b: string): number => a.localeCompare(b);
+
+/** Compares two entry ids or folder names under `sort`, as astro does unless it is natural. */
 export function compareIds(sort: CollectionSort): (a: string, b: string) => number {
-  return sort === "natural"
-    ? (a, b) => naturalCollator.compare(a, b)
-    : (a, b) => a.localeCompare(b);
+  return sort.by === "natural" ? naturalCollator.compare : compareAsAstro;
 }
 
-/** Entries by id under `sort`, or as given for file order, which the listing already is. */
-export function sortByIds<E extends { id: string }>(
+type SortKey = number | string | undefined;
+
+/** A value as a sort compares it: a date by its time, a boolean as text, anything not scalar as missing. */
+function sortKey(value: unknown): SortKey {
+  if (value instanceof Date) return value.getTime();
+
+  if (typeof value === "number" || typeof value === "string") return value;
+
+  return typeof value === "boolean" ? String(value) : undefined;
+}
+
+function compareKeys(a: SortKey, b: SortKey): number {
+  if (a === undefined || b === undefined) return Number(a === undefined) - Number(b === undefined);
+
+  return typeof a === "number" && typeof b === "number"
+    ? a - b
+    : naturalCollator.compare(String(a), String(b));
+}
+
+/**
+ * Entries in `sort` order. A field order compares what `value` reads off each
+ * entry, a file order the position in `fileOrder`, each with entries lacking
+ * one last and ties by id as astro orders them.
+ */
+export function orderEntries<E extends { id: string }>(
   entries: readonly E[],
   sort: CollectionSort,
+  value: (entry: E, field: string) => unknown,
+  fileOrder: readonly string[] = [],
 ): E[] {
-  if (sort === "file") return [...entries];
+  if (sort.by === "id" || sort.by === "natural") {
+    const compare = compareIds(sort);
 
-  const compare = compareIds(sort);
+    return entries.toSorted((a, b) => compare(a.id, b.id));
+  }
 
-  return entries.toSorted((a, b) => compare(a.id, b.id));
+  const rank = new Map(fileOrder.map((id, index) => [id, index]));
+  const key = (entry: E): SortKey =>
+    sort.by === "field" ? sortKey(value(entry, sort.field)) : rank.get(entry.id);
+
+  return entries
+    .map((entry) => ({ entry, key: key(entry) }))
+    .sort((a, b) => compareKeys(a.key, b.key) || compareAsAstro(a.entry.id, b.entry.id))
+    .map(({ entry }) => entry);
 }
 
 /**

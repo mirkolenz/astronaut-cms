@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Trash2 } from "lucide-react";
 import { CollapsibleContent } from "@/client/components/ui/collapsible";
@@ -26,13 +26,7 @@ import {
 } from "@/client/stores/form-store";
 import { objectShape, type FieldSchema } from "@/shared/field-schema";
 import { schemaDefaults } from "@/shared/collection-schema";
-import {
-  asEntryFormat,
-  sortByIds,
-  type EntryContent,
-  type EntryFormat,
-  type EntryMeta,
-} from "@/shared/types";
+import { asEntryFormat, type EntryContent, type EntryFormat, type EntryMeta } from "@/shared/types";
 import { ConfirmDialog } from "@/client/components/confirm-dialog";
 import {
   UnsavedChangesDialog,
@@ -76,9 +70,8 @@ export function FileCollectionEditor({
   // Every entry of a file collection lives in the same file, so a relative asset
   // reference in any of them resolves against that one path.
   const contentFilePath = meta?.loaderFileName ?? undefined;
-  // Only file order is the editors' to change: any other is derived from the ids.
-  const sort = meta?.sort ?? "id";
-  const isOrderable = sort === "file";
+  // Only file order is the editors' to change: any other is derived from the ids or a field.
+  const isOrderable = meta?.sort.by === "file";
 
   const deleteMutation = useDeleteEntry(collection);
   const reorderMutation = useReorderFileEntries(collection);
@@ -98,8 +91,6 @@ export function FileCollectionEditor({
   // Keyed by the collection, so the entries and their history start over with each.
   useLayoutEffect(() => () => resetForms(), []);
 
-  const sortedEntries = useMemo(() => sortByIds(entries, sort), [entries, sort]);
-
   const toggleEntry = (id: string) => {
     setExpandedEntries((prev) => {
       const next = new Set(prev);
@@ -113,7 +104,7 @@ export function FileCollectionEditor({
 
   const handleMove = (from: number, to: number) => {
     const ids = arrayMove(
-      sortedEntries.map((e) => e.id),
+      entries.map((e) => e.id),
       from,
       to,
     );
@@ -153,7 +144,7 @@ export function FileCollectionEditor({
         <div className="min-h-0 min-w-0 flex-1 overflow-auto">
           <PageHeader
             title={collectionLabel(collection)}
-            description={`${collectionDescription(collection)} · ${t(($) => $.collection.entries, { count: sortedEntries.length })}`}
+            description={`${collectionDescription(collection)} · ${t(($) => $.collection.entries, { count: entries.length })}`}
             actions={
               <>
                 <HistoryControls />
@@ -164,7 +155,7 @@ export function FileCollectionEditor({
             }
           />
 
-          {sortedEntries.length === 0 && !draft && (
+          {entries.length === 0 && !draft && (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -176,7 +167,7 @@ export function FileCollectionEditor({
           )}
 
           <SortableList
-            items={sortedEntries}
+            items={entries}
             getKey={(entry) => entry.id}
             onMove={isOrderable ? handleMove : undefined}
             disabled={reorderMutation.isPending}

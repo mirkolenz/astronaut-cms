@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getLocalizedEntry, localizeEntries, pickLocale, sortEntries } from "@/content";
 
 const ids = (collection: string, ...list: string[]) =>
-  sortEntries(list.map((id) => ({ id, collection }))).map((entry) => entry.id);
+  sortEntries(list.map((id) => ({ id, collection, data: {} }))).map((entry) => entry.id);
 
 // Astro's content store returns a collection sorted by id, so the order a
 // collection declares is restored here, the same one the admin shows.
@@ -17,6 +17,14 @@ describe("sortEntries", () => {
 
   it("restores file order, with entries the file lacks last", () => {
     expect(ids("events", "a", "new", "b", "c")).toEqual(["b", "c", "a", "new"]);
+  });
+
+  it("compares a field's values naturally, with entries lacking one last", () => {
+    const wines = Object.entries({ b: "10a", c: undefined, a: "10", d: "9" }).map(
+      ([id, number]) => ({ id, collection: "wines", data: { number } }),
+    );
+
+    expect(sortEntries(wines).map((entry) => entry.id)).toEqual(["d", "a", "b", "c"]);
   });
 });
 
