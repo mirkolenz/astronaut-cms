@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import { defineConfig } from "vite";
+import { defineConfig, perEnvironmentPlugin } from "vite";
 import { dts } from "rolldown-plugin-dts";
 import pkg from "./package.json" with { type: "json" };
 import { thirdPartyLicenses } from "./vite.licenses.ts";
@@ -38,6 +38,12 @@ export default defineConfig({
       semicolons: true,
       quoteStyle: "double",
     }),
+    // One declaration file beside each library entry. Not in `rolldownOptions.plugins`,
+    // which the worker builds share, and whose `buildStart` would reset the plugin's state.
+    {
+      ...perEnvironmentPlugin("dts", ({ config }) => !!config.build.lib && dts()),
+      apply: "build",
+    },
   ],
   // Self-contained, since each is loaded on its own from a blob (see `extractInWorker`).
   worker: {
@@ -67,14 +73,12 @@ export default defineConfig({
           formats: ["es"],
         },
         rolldownOptions: {
-          // One declaration file beside each entry.
           plugins: [
             dependencyPolicy({
               self: pkg.name,
               external: Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }),
               strict: true,
             }),
-            dts(),
           ],
           // Node's builtins have no import side effects, so a helper import that tree
           // shaking empties leaves no bare `import "node:module"` the admin bundle reaches.
@@ -121,8 +125,6 @@ export default defineConfig({
             // React is the site's, and the editor's declarations use the mdast types
             // the server's already depend on.
             dependencyPolicy({ self: pkg.name, external: ["react", "react-dom", "@types/mdast"] }),
-            // Only what a site imports is declared, not every module the admin reaches.
-            dts({ entry: ["src/client/editor.ts", "src/client/bootstrap.ts"] }),
           ],
           output: {
             // Vite keeps a library's whitespace, which a bundle nobody reads only pays for.
